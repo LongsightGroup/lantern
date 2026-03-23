@@ -30,6 +30,26 @@ export function formatDateTime(value: string | null): string {
   }).format(new Date(value));
 }
 
+const BRAND_MARK = `<svg viewBox="0 0 32 32" width="22" height="22" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M16 3L8 10v10l8 9 8-9V10L16 3z" fill="url(#sb-g)" opacity="0.9"/><circle cx="16" cy="15" r="3.5" fill="white" opacity="0.85"/><defs><linearGradient id="sb-g" x1="8" y1="3" x2="24" y2="29"><stop stop-color="#f59e0b"/><stop offset="1" stop-color="#4f46e5"/></linearGradient></defs></svg>`;
+
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: string;
+  active?: boolean;
+}
+
+function defaultNav(activePath?: string): NavItem[] {
+  return [
+    {
+      label: "Packages",
+      href: "/admin/packages",
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>`,
+      active: activePath?.startsWith("/admin/packages") ?? false,
+    },
+  ];
+}
+
 export function renderAdminLayout(input: {
   title: string;
   eyebrow: string;
@@ -38,8 +58,10 @@ export function renderAdminLayout(input: {
   body: string;
   breadcrumbs?: AdminBreadcrumb[];
   notice?: AdminNotice | null;
+  activePath?: string;
 }): string {
   const breadcrumbs = input.breadcrumbs ?? [];
+  const nav = defaultNav(input.activePath ?? "/admin/packages");
 
   return `<!doctype html>
 <html lang="en">
@@ -49,309 +71,382 @@ export function renderAdminLayout(input: {
     <title>${escapeHtml(input.title)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,600;700&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
         color-scheme: light;
-        --bg: oklch(0.965 0.012 95);
-        --bg-strong: oklch(0.923 0.024 92);
-        --surface: color-mix(in oklab, oklch(0.99 0.01 90) 88%, oklch(0.88 0.03 226));
-        --surface-strong: color-mix(in oklab, oklch(0.94 0.018 90) 80%, oklch(0.78 0.03 224));
-        --ink: oklch(0.285 0.034 242);
-        --muted: oklch(0.5 0.028 230);
-        --line: oklch(0.82 0.02 218);
-        --accent: oklch(0.49 0.11 240);
-        --accent-soft: oklch(0.9 0.03 240);
-        --success: oklch(0.58 0.11 155);
-        --success-soft: oklch(0.92 0.04 155);
-        --warning: oklch(0.73 0.11 82);
-        --warning-soft: oklch(0.95 0.04 82);
-        --danger: oklch(0.59 0.11 28);
-        --danger-soft: oklch(0.94 0.04 28);
-        --shadow: 0 30px 80px color-mix(in oklab, var(--ink) 12%, transparent);
-        --radius-lg: 28px;
-        --radius-md: 18px;
-        --radius-sm: 12px;
+        --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --bg: #f7f8fa;
+        --surface: #ffffff;
+        --ink: #0a2540;
+        --secondary: #425466;
+        --muted: #6b7c93;
+        --faint: #8898a9;
+        --line: #e3e8ee;
+        --line-light: #f0f3f7;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --accent-soft: #eef2ff;
+        --accent-muted: #a5b4fc;
+        --brand-warm: #f59e0b;
+        --success: #0ea371;
+        --success-soft: #eaf9f4;
+        --warning: #d97706;
+        --warning-soft: #fef9ec;
+        --danger: #df1b41;
+        --danger-soft: #fdf0f3;
+        --sidebar-width: 240px;
+        --radius: 8px;
+        --radius-sm: 6px;
       }
 
       * {
         box-sizing: border-box;
       }
 
-      html {
-        background:
-          radial-gradient(circle at top left, color-mix(in oklab, var(--accent) 12%, transparent), transparent 40%),
-          linear-gradient(180deg, var(--bg), var(--bg-strong));
+      html, body {
+        margin: 0;
+        height: 100%;
       }
 
       body {
-        margin: 0;
-        min-height: 100vh;
         color: var(--ink);
-        font: 16px/1.55 "Public Sans", "Segoe UI", sans-serif;
-        background:
-          linear-gradient(90deg, color-mix(in oklab, var(--accent) 6%, transparent) 0 1px, transparent 1px 100%),
-          linear-gradient(180deg, color-mix(in oklab, var(--accent) 4%, transparent) 0 1px, transparent 1px 100%),
-          linear-gradient(180deg, transparent, color-mix(in oklab, var(--accent) 2%, transparent)),
-          linear-gradient(180deg, var(--bg), var(--bg-strong));
-        background-size: 72px 72px, 72px 72px, auto, auto;
+        font: 14px/1.55 var(--font);
+        background: var(--bg);
+        -webkit-font-smoothing: antialiased;
       }
 
       a {
         color: inherit;
       }
 
-      .shell {
-        width: min(1180px, calc(100vw - 32px));
-        margin: 0 auto;
-        padding: 28px 0 60px;
-      }
+      /* ─── Sidebar ─── */
 
-      .masthead {
-        display: grid;
-        gap: 18px;
-        padding: clamp(26px, 5vw, 42px);
-        border: 1px solid color-mix(in oklab, var(--line) 92%, var(--accent) 8%);
-        border-radius: var(--radius-lg);
-        background:
-          linear-gradient(135deg, color-mix(in oklab, var(--surface) 88%, white), color-mix(in oklab, var(--surface-strong) 40%, white)),
-          var(--surface);
-        box-shadow: var(--shadow);
-      }
-
-      .topline {
+      .app {
         display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 16px;
-        align-items: start;
+        min-height: 100vh;
       }
 
-      .brand {
-        display: inline-flex;
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: var(--sidebar-width);
+        display: flex;
+        flex-direction: column;
+        padding: 0;
+        background: var(--ink);
+        color: rgba(255, 255, 255, 0.7);
+        z-index: 10;
+        overflow-y: auto;
+      }
+
+      .sidebar-brand {
+        display: flex;
         align-items: center;
-        gap: 12px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: color-mix(in oklab, var(--accent) 70%, var(--ink));
-      }
-
-      .brand::before {
-        content: "";
-        width: 14px;
-        height: 14px;
-        border-radius: 4px;
-        background:
-          linear-gradient(135deg, color-mix(in oklab, var(--warning) 72%, white), color-mix(in oklab, var(--accent) 65%, white));
-        box-shadow: 0 0 0 5px color-mix(in oklab, var(--accent) 10%, transparent);
-      }
-
-      .nav {
-        display: flex;
-        flex-wrap: wrap;
         gap: 10px;
-      }
-
-      .nav a {
-        padding: 8px 12px;
-        border-radius: 999px;
-        color: color-mix(in oklab, var(--muted) 92%, var(--ink) 8%);
-        text-decoration: none;
-      }
-
-      .nav a:hover,
-      .nav a:focus-visible {
-        background: color-mix(in oklab, var(--accent) 10%, white);
-        color: var(--ink);
-        outline: none;
-      }
-
-      .eyebrow {
-        margin: 0;
-        font-size: 0.78rem;
+        padding: 18px 20px;
+        font-size: 15px;
         font-weight: 700;
-        letter-spacing: 0.18em;
+        letter-spacing: -0.01em;
+        color: #fff;
+        text-decoration: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .sidebar-brand svg {
+        flex-shrink: 0;
+      }
+
+      .sidebar-nav {
+        padding: 12px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+      }
+
+      .sidebar-section-label {
+        padding: 10px 10px 6px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        color: color-mix(in oklab, var(--muted) 86%, var(--ink) 14%);
+        color: rgba(255, 255, 255, 0.35);
       }
 
-      h1 {
-        margin: 0;
-        max-width: 14ch;
-        font: 700 clamp(2.45rem, 5vw, 4.8rem) / 0.96 "Newsreader", serif;
-        letter-spacing: -0.035em;
+      .sidebar-link {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.6);
+        text-decoration: none;
+        transition: background 120ms, color 120ms;
       }
 
-      .lede {
-        margin: 0;
-        max-width: 68ch;
-        color: var(--muted);
-        font-size: clamp(1rem, 1.2vw, 1.08rem);
+      .sidebar-link:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+      }
+
+      .sidebar-link.active {
+        background: rgba(255, 255, 255, 0.10);
+        color: #fff;
+      }
+
+      .sidebar-link svg {
+        opacity: 0.5;
+        flex-shrink: 0;
+      }
+
+      .sidebar-link.active svg {
+        opacity: 0.9;
+      }
+
+      .sidebar-footer {
+        padding: 14px 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.25);
+      }
+
+      /* ─── Main content ─── */
+
+      .main {
+        margin-left: var(--sidebar-width);
+        flex: 1;
+        min-height: 100vh;
+      }
+
+      .page-header {
+        padding: 28px 40px 24px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
       }
 
       .breadcrumbs {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 6px;
         padding: 0;
-        margin: 0;
+        margin: 0 0 10px;
         list-style: none;
-        color: color-mix(in oklab, var(--muted) 90%, var(--ink) 10%);
-        font-size: 0.92rem;
+        color: var(--muted);
+        font-size: 13px;
       }
 
       .breadcrumbs li + li::before {
         content: "/";
-        margin-right: 10px;
-        color: color-mix(in oklab, var(--muted) 75%, transparent);
+        margin-right: 6px;
+        color: var(--line);
       }
 
       .breadcrumbs a {
         text-decoration: none;
+        color: var(--muted);
       }
 
-      .breadcrumbs a:hover,
-      .breadcrumbs a:focus-visible {
-        text-decoration: underline;
+      .breadcrumbs a:hover {
+        color: var(--ink);
+      }
+
+      .page-eyebrow {
+        margin: 0 0 4px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+
+      .page-title {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        line-height: 1.25;
+        color: var(--ink);
+      }
+
+      .page-desc {
+        margin: 6px 0 0;
+        max-width: 600px;
+        font-size: 14px;
+        color: var(--secondary);
+        line-height: 1.55;
+      }
+
+      .page-body {
+        padding: 28px 40px 60px;
       }
 
       .content {
-        margin-top: 22px;
         display: grid;
-        gap: 22px;
+        gap: 24px;
       }
 
+      /* ─── Panels ─── */
+
       .panel {
-        border: 1px solid color-mix(in oklab, var(--line) 94%, var(--accent) 6%);
-        border-radius: var(--radius-lg);
-        background: color-mix(in oklab, var(--surface) 92%, white);
-        box-shadow: 0 18px 48px color-mix(in oklab, var(--ink) 7%, transparent);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
       }
 
       .panel-body {
-        padding: clamp(22px, 3vw, 34px);
+        padding: 24px;
       }
 
       .section-label {
-        margin: 0 0 10px;
-        font-size: 0.82rem;
-        font-weight: 700;
-        letter-spacing: 0.16em;
+        margin: 0 0 12px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
         text-transform: uppercase;
-        color: color-mix(in oklab, var(--muted) 86%, var(--ink) 14%);
+        color: var(--muted);
       }
 
+      /* ─── Flash notices ─── */
+
       .flash {
-        padding: 18px 20px;
-        border-radius: var(--radius-md);
+        padding: 14px 18px;
+        border-radius: var(--radius);
         border: 1px solid transparent;
+        font-size: 13.5px;
       }
 
       .flash h2 {
-        margin: 0 0 4px;
-        font-size: 1rem;
+        margin: 0 0 2px;
+        font-size: 14px;
+        font-weight: 600;
       }
 
       .flash p,
       .flash ul {
         margin: 0;
-        color: var(--ink);
       }
 
       .flash ul {
-        margin-top: 10px;
+        margin-top: 8px;
         padding-left: 18px;
       }
 
       .flash-success {
         background: var(--success-soft);
-        border-color: color-mix(in oklab, var(--success) 26%, white);
+        border-color: #c6f0df;
+        color: #0c6b4b;
       }
 
       .flash-note {
-        background: color-mix(in oklab, var(--accent) 10%, white);
-        border-color: color-mix(in oklab, var(--accent) 24%, white);
+        background: var(--accent-soft);
+        border-color: #c7d2fe;
+        color: #3730a3;
       }
 
       .flash-error {
         background: var(--danger-soft);
-        border-color: color-mix(in oklab, var(--danger) 24%, white);
+        border-color: #f9c4cf;
+        color: #9b1133;
       }
+
+      /* ─── Grid helpers ─── */
 
       .grid {
         display: grid;
         gap: 20px;
       }
 
-      .facts {
+      .stack {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
         gap: 14px;
       }
 
+      /* Facts grid (bordered cells via gap trick) */
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--line);
+        overflow: hidden;
+      }
+
       .fact {
-        padding: 16px 18px;
-        border-radius: var(--radius-md);
-        background: color-mix(in oklab, var(--surface-strong) 35%, white);
-        border: 1px solid color-mix(in oklab, var(--line) 88%, var(--accent) 12%);
+        padding: 14px 16px;
+        background: var(--surface);
+      }
+
+      /* Standalone fact (outside a .facts grid, e.g. in an aside) */
+      .stack > .fact {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
       }
 
       .fact-label {
         display: block;
-        margin-bottom: 6px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
+        margin-bottom: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--muted);
         text-transform: uppercase;
-        color: color-mix(in oklab, var(--muted) 86%, var(--ink) 14%);
+        letter-spacing: 0.04em;
       }
 
       .fact-value {
-        font-size: 1rem;
+        font-size: 14px;
         font-weight: 600;
+        color: var(--ink);
       }
+
+      /* ─── Status badges ─── */
 
       .status-badge {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
+        gap: 6px;
+        padding: 3px 10px 3px 8px;
         border-radius: 999px;
-        font-size: 0.83rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
         text-transform: uppercase;
       }
 
       .status-badge::before {
         content: "";
-        width: 10px;
-        height: 10px;
+        width: 7px;
+        height: 7px;
         border-radius: 999px;
         background: currentColor;
       }
 
       .status-approved {
         background: var(--success-soft);
-        color: color-mix(in oklab, var(--success) 78%, var(--ink) 22%);
+        color: var(--success);
       }
 
       .status-pending {
         background: var(--warning-soft);
-        color: color-mix(in oklab, var(--warning) 74%, var(--ink) 26%);
+        color: var(--warning);
       }
 
       .status-rejected {
         background: var(--danger-soft);
-        color: color-mix(in oklab, var(--danger) 78%, var(--ink) 22%);
+        color: var(--danger);
       }
+
+      /* ─── Buttons ─── */
 
       .button-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
+        gap: 10px;
         align-items: center;
       }
 
@@ -378,65 +473,71 @@ export function renderAdminLayout(input: {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        min-height: 46px;
-        padding: 0 18px;
-        border-radius: 999px;
-        font-weight: 700;
+        gap: 8px;
+        height: 36px;
+        padding: 0 16px;
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+        font-weight: 600;
+        transition: background 120ms, box-shadow 120ms;
       }
 
       .button,
       button.button-primary {
-        background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 84%, white), color-mix(in oklab, var(--accent) 64%, var(--ink)));
+        background: var(--accent);
         color: white;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(79, 70, 229, 0.15);
+      }
+
+      .button:hover,
+      button.button-primary:hover {
+        background: var(--accent-hover);
       }
 
       .button-secondary {
-        background: color-mix(in oklab, var(--surface-strong) 36%, white);
+        background: var(--surface);
         color: var(--ink);
-        border: 1px solid color-mix(in oklab, var(--line) 85%, var(--accent) 15%);
+        border: 1px solid var(--line);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+
+      .button-secondary:hover {
+        background: var(--bg);
       }
 
       .button-danger {
-        background: linear-gradient(135deg, color-mix(in oklab, var(--danger) 88%, white), color-mix(in oklab, var(--danger) 62%, var(--ink)));
+        background: var(--danger);
         color: white;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
+      }
+
+      .button-danger:hover {
+        background: #c5183a;
       }
 
       .button-ghost {
         background: transparent;
-        color: color-mix(in oklab, var(--muted) 82%, var(--ink) 18%);
-        border: 1px solid color-mix(in oklab, var(--line) 85%, var(--accent) 15%);
+        color: var(--secondary);
+        border: 1px solid var(--line);
       }
 
-      .button:hover,
-      .button-secondary:hover,
-      .button-danger:hover,
-      .button-ghost:hover,
-      button:hover,
-      .button:focus-visible,
-      .button-secondary:focus-visible,
-      .button-danger:focus-visible,
-      .button-ghost:focus-visible,
-      button:focus-visible {
-        transform: translateY(-1px);
-        outline: none;
+      .button-ghost:hover {
+        background: var(--bg);
+        color: var(--ink);
       }
 
-      .stack {
-        display: grid;
-        gap: 14px;
-      }
+      /* ─── Line list ─── */
 
       .line-list {
         display: grid;
-        gap: 12px;
+        gap: 0;
       }
 
       .line-item {
         display: grid;
-        gap: 6px;
+        gap: 4px;
         padding: 14px 0;
-        border-top: 1px solid color-mix(in oklab, var(--line) 88%, transparent);
+        border-top: 1px solid var(--line-light);
       }
 
       .line-item:first-child {
@@ -447,35 +548,46 @@ export function renderAdminLayout(input: {
       .line-title {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
         align-items: center;
-        font-weight: 700;
+        font-weight: 600;
+        font-size: 14px;
       }
 
       .line-copy {
         margin: 0;
-        color: var(--muted);
+        color: var(--secondary);
+        font-size: 13.5px;
       }
+
+      /* ─── Table rows ─── */
 
       .table-list {
         display: grid;
-        gap: 12px;
+        gap: 0;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
       }
 
       .table-row {
         display: grid;
-        gap: 14px;
-        padding: 18px;
-        border-radius: var(--radius-md);
-        background: color-mix(in oklab, var(--surface-strong) 32%, white);
-        border: 1px solid color-mix(in oklab, var(--line) 88%, var(--accent) 12%);
+        gap: 10px;
+        padding: 16px 18px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line-light);
+      }
+
+      .table-row:last-child {
+        border-bottom: none;
       }
 
       .table-row-top {
         display: flex;
         flex-wrap: wrap;
         justify-content: space-between;
-        gap: 14px;
+        gap: 12px;
+        align-items: center;
       }
 
       .table-row p {
@@ -485,135 +597,180 @@ export function renderAdminLayout(input: {
       .table-row-meta {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px 18px;
+        gap: 8px 16px;
         color: var(--muted);
-        font-size: 0.94rem;
+        font-size: 13px;
       }
+
+      .table-row-meta strong {
+        font-weight: 500;
+        color: var(--secondary);
+      }
+
+      /* ─── Chips ─── */
 
       .chip-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 6px;
       }
 
       .chip {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        border-radius: 999px;
-        background: color-mix(in oklab, var(--surface-strong) 36%, white);
-        border: 1px solid color-mix(in oklab, var(--line) 90%, var(--accent) 10%);
-        font-size: 0.92rem;
-        color: var(--ink);
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: var(--radius-sm);
+        background: var(--bg);
+        border: 1px solid var(--line);
+        font-size: 13px;
+        color: var(--secondary);
       }
 
       .chip-flagged {
-        background: color-mix(in oklab, var(--warning-soft) 90%, white);
-        border-color: color-mix(in oklab, var(--warning) 25%, white);
+        background: var(--warning-soft);
+        border-color: #fde6a8;
+        color: #92400e;
       }
 
+      /* ─── Callout ─── */
+
       .callout {
-        padding: 18px 20px;
-        border-radius: var(--radius-md);
-        background: color-mix(in oklab, var(--warning-soft) 86%, white);
-        border: 1px solid color-mix(in oklab, var(--warning) 24%, white);
+        padding: 14px 18px;
+        border-radius: var(--radius);
+        background: var(--warning-soft);
+        border: 1px solid #fde6a8;
+        font-size: 13.5px;
       }
 
       .callout h2,
       .callout h3 {
-        margin: 0 0 6px;
-        font-size: 1rem;
+        margin: 0 0 4px;
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #92400e;
       }
 
       .callout p {
         margin: 0;
-        color: var(--ink);
+        color: #78350f;
       }
 
       .callout ul {
-        margin: 10px 0 0;
+        margin: 8px 0 0;
         padding-left: 18px;
+        color: #78350f;
       }
+
+      /* ─── Two-column ─── */
 
       .two-column {
         display: grid;
-        gap: 22px;
-        grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.9fr);
+        gap: 24px;
+        grid-template-columns: 1fr minmax(240px, 320px);
       }
+
+      /* ─── Forms ─── */
 
       .field {
         display: grid;
-        gap: 8px;
+        gap: 6px;
       }
 
       .field label {
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: color-mix(in oklab, var(--muted) 85%, var(--ink) 15%);
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--secondary);
       }
 
       textarea,
       select {
         width: 100%;
-        border-radius: 16px;
-        border: 1px solid color-mix(in oklab, var(--line) 85%, var(--accent) 15%);
-        background: white;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--line);
+        background: var(--surface);
         color: var(--ink);
-        padding: 14px 16px;
+        padding: 10px 12px;
+        font-size: 14px;
+        transition: border-color 120ms, box-shadow 120ms;
+      }
+
+      textarea:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-soft);
       }
 
       textarea {
-        min-height: 132px;
+        min-height: 100px;
         resize: vertical;
       }
 
+      /* ─── Details / code ─── */
+
       details {
-        border-radius: var(--radius-md);
-        border: 1px solid color-mix(in oklab, var(--line) 88%, var(--accent) 12%);
-        background: color-mix(in oklab, var(--surface-strong) 22%, white);
+        border-radius: var(--radius);
+        border: 1px solid var(--line);
+        background: var(--surface);
         overflow: hidden;
       }
 
       summary {
-        padding: 16px 18px;
+        padding: 12px 16px;
         cursor: pointer;
-        font-weight: 700;
+        font-weight: 600;
+        font-size: 13.5px;
+        color: var(--secondary);
+      }
+
+      summary:hover {
+        background: var(--bg);
       }
 
       pre {
         margin: 0;
-        padding: 0 18px 18px;
+        padding: 0 16px 16px;
         overflow-x: auto;
-        font: 0.88rem/1.6 "SFMono-Regular", "Menlo", monospace;
-        color: color-mix(in oklab, var(--ink) 92%, black);
+        font: 12.5px/1.6 "SF Mono", "Fira Code", "Fira Mono", Menlo, monospace;
+        color: var(--secondary);
       }
+
+      /* ─── Empty state ─── */
 
       .empty-state {
         display: grid;
-        gap: 18px;
+        gap: 16px;
       }
 
       .empty-state h2,
       .panel h2,
       .panel h3 {
         margin: 0;
-        font-size: 1.3rem;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
       }
 
       .empty-state p,
-      .panel p {
+      .panel > p,
+      .panel-body > .stack > p:not(.section-label):not(.line-title) {
         margin: 0;
-        color: var(--muted);
+        color: var(--secondary);
+        font-size: 14px;
       }
 
+      /* ─── Misc ─── */
+
       .micro {
-        font-size: 0.92rem;
+        font-size: 13px;
       }
 
       .muted {
         color: var(--muted);
       }
+
+      /* ─── Responsive ─── */
 
       @media (max-width: 860px) {
         .two-column {
@@ -621,34 +778,39 @@ export function renderAdminLayout(input: {
         }
       }
 
-      @media (max-width: 640px) {
-        .shell {
-          width: min(100vw - 20px, 100%);
-          padding-top: 16px;
+      @media (max-width: 768px) {
+        .sidebar {
+          display: none;
         }
 
-        .masthead,
-        .panel-body {
-          padding: 20px;
+        .main {
+          margin-left: 0;
         }
 
-        h1 {
-          max-width: none;
+        .page-header,
+        .page-body {
+          padding-left: 20px;
+          padding-right: 20px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="shell">
-      <header class="masthead">
-        <div class="topline">
-          <div class="brand">Lantern Control Pane</div>
-          <nav class="nav" aria-label="Primary">
-            <a href="/">Home</a>
-            <a href="/admin/packages">Packages</a>
-          </nav>
-        </div>
-        ${
+    <div class="app">
+      <aside class="sidebar">
+        <a href="/" class="sidebar-brand">
+          ${BRAND_MARK}
+          Lantern
+        </a>
+        <nav class="sidebar-nav">
+          <span class="sidebar-section-label">Manage</span>
+          ${nav.map((item) => `<a class="sidebar-link ${item.active ? "active" : ""}" href="${escapeHtml(item.href)}">${item.icon} ${escapeHtml(item.label)}</a>`).join("")}
+        </nav>
+        <div class="sidebar-footer">Control Pane</div>
+      </aside>
+      <div class="main">
+        <header class="page-header">
+          ${
     breadcrumbs.length > 0
       ? `<ol class="breadcrumbs">${
         breadcrumbs.map((breadcrumb) =>
@@ -661,16 +823,17 @@ export function renderAdminLayout(input: {
       }</ol>`
       : ""
   }
-        <div class="grid">
-          <p class="eyebrow">${escapeHtml(input.eyebrow)}</p>
-          <h1>${escapeHtml(input.heading)}</h1>
-          <p class="lede">${escapeHtml(input.intro)}</p>
-        </div>
-      </header>
-      <main class="content">
-        ${input.notice ? renderNotice(input.notice) : ""}
-        ${input.body}
-      </main>
+          <p class="page-eyebrow">${escapeHtml(input.eyebrow)}</p>
+          <h1 class="page-title">${escapeHtml(input.heading)}</h1>
+          <p class="page-desc">${escapeHtml(input.intro)}</p>
+        </header>
+        <main class="page-body">
+          <div class="content">
+            ${input.notice ? renderNotice(input.notice) : ""}
+            ${input.body}
+          </div>
+        </main>
+      </div>
     </div>
   </body>
 </html>`;

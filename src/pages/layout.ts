@@ -16,77 +16,113 @@ export function renderLayout(title: string, body: string): string {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${safeTitle}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
         color-scheme: light;
-        --bg: #f6f8fb;
+        --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --ink: #0a2540;
+        --secondary: #425466;
+        --muted: #6b7c93;
+        --accent: #4f46e5;
+        --accent-hover: #4338ca;
+        --brand-warm: #f59e0b;
+        --line: #e3e8ee;
         --surface: #ffffff;
-        --text: #18354a;
-        --muted: #5f7484;
-        --accent: #1d7ed6;
-        --border: #d9e2ea;
       }
 
       * {
         box-sizing: border-box;
+        margin: 0;
       }
 
       body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font: 16px/1.55 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        color: var(--ink);
+        font: 16px/1.6 var(--font);
+        -webkit-font-smoothing: antialiased;
       }
 
-      main {
-        max-width: 840px;
-        margin: 64px auto;
-        padding: 32px;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 18px;
-        box-shadow: 0 18px 40px rgba(24, 53, 74, 0.08);
+      .hero {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 40px 24px;
+        background:
+          radial-gradient(ellipse 60% 50% at 50% 35%, rgba(245, 158, 11, 0.07) 0%, transparent 60%),
+          radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79, 70, 229, 0.10) 0%, transparent 60%),
+          linear-gradient(180deg, #0a2540 0%, #0d3155 50%, #122b44 100%);
+        color: #fff;
       }
 
-      h1 {
-        margin: 0 0 12px;
-        font-size: 2rem;
-        line-height: 1.1;
+      .hero-mark {
+        margin-bottom: 28px;
       }
 
-      p {
-        margin: 0;
-        color: var(--muted);
+      .hero h1 {
+        font-size: clamp(3rem, 8vw, 5.5rem);
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1;
+        margin-bottom: 12px;
       }
 
-      .section {
-        margin-top: 28px;
-        padding-top: 20px;
-        border-top: 1px solid var(--border);
+      .hero-sub {
+        font-size: clamp(1.1rem, 2vw, 1.35rem);
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: -0.01em;
+        margin-bottom: 20px;
       }
 
-      .tag {
-        display: inline-block;
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: rgba(29, 126, 214, 0.1);
-        color: var(--accent);
-        font-size: 0.875rem;
+      .hero-desc {
+        max-width: 44ch;
+        font-size: clamp(0.95rem, 1.2vw, 1.05rem);
+        line-height: 1.65;
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      .hero-cta {
+        margin-top: 36px;
+        display: flex;
+        gap: 12px;
+      }
+
+      .hero-cta a {
+        display: inline-flex;
+        align-items: center;
+        height: 44px;
+        padding: 0 24px;
+        border-radius: 8px;
+        font-size: 15px;
         font-weight: 600;
+        text-decoration: none;
+        transition: background 120ms;
       }
 
-      ul {
-        margin: 14px 0 0;
-        padding-left: 18px;
-        color: var(--text);
+      .hero-cta .cta-primary {
+        background: var(--accent);
+        color: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(79, 70, 229, 0.3);
       }
 
-      li + li {
-        margin-top: 8px;
+      .hero-cta .cta-primary:hover {
+        background: var(--accent-hover);
       }
 
-      strong {
-        color: var(--text);
+      .hero-cta .cta-secondary {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+      }
+
+      .hero-cta .cta-secondary:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
       }
     </style>
   </head>
