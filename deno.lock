@@ -268,7 +268,8 @@
       "jsr:@db/postgres@0.19.5",
       "jsr:@hono/hono@^4.10.1",
       "jsr:@std/assert@^1.0.15",
-      "jsr:@std/semver@1.0.8"
+      "jsr:@std/semver@1.0.8",
+      "npm:ajv@8.18.0"
     ]
   }
 }
