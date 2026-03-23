@@ -1,8 +1,4 @@
-import {
-  assert,
-  assertEquals,
-  assertStringIncludes,
-} from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { validateManifest } from "./manifest.ts";
 
 type ManifestFixture = {
@@ -125,7 +121,9 @@ Deno.test("validateManifest accepts the demo manifest and returns typed review d
   assertEquals(result.ok, true);
 
   if (!result.ok) {
-    throw new Error(`Expected demo package to validate: ${JSON.stringify(result.issues)}`);
+    throw new Error(
+      `Expected demo package to validate: ${JSON.stringify(result.issues)}`,
+    );
   }
 
   assertEquals(result.issues, []);

@@ -1,8 +1,4 @@
-import {
-  assert,
-  assertEquals,
-  assertRejects,
-} from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { importDemoPackage } from "./intake.ts";
 
 Deno.test("importDemoPackage snapshots the demo package into Lantern-managed storage", async () => {
@@ -27,7 +23,9 @@ Deno.test("importDemoPackage snapshots the demo package into Lantern-managed sto
       `${result.artifact.snapshotRoot}/dist/index.html`,
     );
     assert(
-      !result.artifact.snapshotRoot.startsWith("examples/apps/chapter-4-asteroids"),
+      !result.artifact.snapshotRoot.startsWith(
+        "examples/apps/chapter-4-asteroids",
+      ),
     );
     assert(
       result.artifact.digest.startsWith("sha256:"),
@@ -36,7 +34,9 @@ Deno.test("importDemoPackage snapshots the demo package into Lantern-managed sto
     const sourceManifest = await Deno.readTextFile(
       "examples/apps/chapter-4-asteroids/manifest.json",
     );
-    const snapshotManifest = await Deno.readTextFile(result.artifact.manifestPath);
+    const snapshotManifest = await Deno.readTextFile(
+      result.artifact.manifestPath,
+    );
     const sourceEntrypoint = await Deno.readTextFile(
       "examples/apps/chapter-4-asteroids/dist/index.html",
     );
