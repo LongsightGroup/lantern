@@ -1,0 +1,36 @@
+{
+  "schema_version": "1",
+  "app_id": "chapter-4-asteroids",
+  "version": "0.1.0",
+  "title": "Chapter 4 Asteroids",
+  "description": "Shoot the correct vocabulary target.",
+  "owner": {
+    "type": "user",
+    "id": "instructor_123"
+  },
+  "entrypoint": "/dist/index.html",
+  "roles": ["learner", "instructor"],
+  "install_scope": "course",
+  "capabilities": [
+    "read_launch_context",
+    "read_activity_content",
+    "submit_attempt_event",
+    "finalize_attempt",
+    "read_local_state",
+    "write_local_state"
+  ],
+  "grading": {
+    "mode": "declarative",
+    "rubric_file": "/scoring/rubric.json",
+    "max_score": 100
+  },
+  "browser": {
+    "fullscreen": false,
+    "clipboard_write": false
+  },
+  "content_files": ["/content/activity.json"],
+  "preview": {
+    "fixtures_file": "/preview/fixtures.json",
+    "tests_file": "/preview/tests.json"
+  }
+}

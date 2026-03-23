@@ -1,0 +1,398 @@
+# App Package Spec
+
+This is the concrete v1 contract for apps that run inside the gateway.
+
+Companion artifacts:
+
+- manifest schema: [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json)
+- SDK contract: [sdk/app-sdk.ts](sdk/app-sdk.ts)
+- sample package: [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
+
+The goal is simple:
+
+- make app generation easy
+- make review possible
+- make unsafe shortcuts impossible by default
+
+This spec is intentionally narrow. It is for Tier 0 apps only.
+
+## v1 Scope
+
+This spec supports:
+
+- learner-facing course activities
+- games
+- quizzes
+- simulations
+- tutors
+- practice tools
+
+This spec does not support:
+
+- arbitrary backend code
+- direct LMS API access
+- direct database access
+- arbitrary outbound HTTP
+- direct grade writes
+
+## Package Layout
+
+```text
+app/
+  manifest.json
+  dist/
+    index.html
+    assets/*
+  content/
+    activity.json
+  scoring/
+    rubric.json
+  preview/
+    fixtures.json
+    tests.json
+```
+
+Rules:
+
+- `manifest.json` is required
+- `dist/index.html` is required
+- everything else is optional, but strongly encouraged
+- the package is immutable once signed
+
+## Manifest
+
+The manifest is the review contract.
+
+### Required fields
+
+- `schema_version`
+- `app_id`
+- `version`
+- `title`
+- `owner`
+- `entrypoint`
+- `capabilities`
+- `roles`
+- `grading`
+
+### Optional fields
+
+- `description`
+- `icon`
+- `install_scope`
+- `browser`
+- `content_files`
+- `preview`
+
+### Example
+
+```json
+{
+  "schema_version": "1",
+  "app_id": "chapter-4-asteroids",
+  "version": "0.1.0",
+  "title": "Chapter 4 Asteroids",
+  "description": "Shoot the correct vocabulary target.",
+  "owner": {
+    "type": "user",
+    "id": "instructor_123"
+  },
+  "entrypoint": "/dist/index.html",
+  "roles": ["learner", "instructor"],
+  "install_scope": "course",
+  "capabilities": [
+    "read_launch_context",
+    "read_activity_content",
+    "submit_attempt_event",
+    "finalize_attempt",
+    "read_local_state",
+    "write_local_state"
+  ],
+  "grading": {
+    "mode": "declarative",
+    "rubric_file": "/scoring/rubric.json",
+    "max_score": 100
+  },
+  "browser": {
+    "fullscreen": false,
+    "clipboard_write": false
+  },
+  "content_files": ["/content/activity.json"],
+  "preview": {
+    "fixtures_file": "/preview/fixtures.json",
+    "tests_file": "/preview/tests.json"
+  }
+}
+```
+
+## Field Semantics
+
+### `schema_version`
+
+String. Starts at `"1"`.
+
+### `app_id`
+
+Stable logical id for the app across versions.
+
+### `version`
+
+Immutable artifact version. Semver is fine.
+
+### `owner`
+
+Must identify who is responsible for the app.
+
+v1 shape:
+
+```json
+{
+  "type": "user",
+  "id": "user_123"
+}
+```
+
+### `entrypoint`
+
+Path to the HTML entry file inside the package.
+
+### `roles`
+
+Allowed values in v1:
+
+- `learner`
+- `instructor`
+
+### `install_scope`
+
+Allowed values in v1:
+
+- `course`
+- `assignment`
+
+Default: `course`
+
+### `capabilities`
+
+Allowed values in v1:
+
+- `read_launch_context`
+- `read_activity_content`
+- `submit_attempt_event`
+- `finalize_attempt`
+- `read_local_state`
+- `write_local_state`
+
+Nothing else is valid in v1.
+
+### `grading.mode`
+
+Allowed values in v1:
+
+- `declarative`
+- `manual`
+- `completion`
+
+`declarative` means the gateway computes the score from a rubric or rule set.
+
+### `browser`
+
+This is not a permission grant. It is a request for review.
+
+Allowed fields in v1:
+
+- `fullscreen`
+- `clipboard_write`
+
+Default is false for both.
+
+## Bootstrap Payload
+
+At launch, the gateway gives the app a short-lived bootstrap payload.
+
+The app does not get LMS tokens or general session power.
+
+### Shape
+
+```json
+{
+  "launch": {
+    "user_role": "learner",
+    "course_id": "course_42",
+    "assignment_id": "assignment_9",
+    "activity_id": "activity_123"
+  },
+  "app": {
+    "app_id": "chapter-4-asteroids",
+    "version": "0.1.0",
+    "capabilities": [
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "finalize_attempt"
+    ]
+  },
+  "session": {
+    "attempt_id": "attempt_abc",
+    "token": "short-lived-token"
+  }
+}
+```
+
+Rules:
+
+- token must be short-lived
+- token must be scoped to this app version and launch
+- token must be sent in auth headers for later calls
+
+## SDK Contract
+
+The SDK should be tiny.
+
+## Read APIs
+
+```ts
+type LaunchContext = {
+  userRole: 'learner' | 'instructor';
+  courseId: string;
+  assignmentId?: string;
+  activityId: string;
+};
+
+declare function getLaunchContext(): Promise<LaunchContext>;
+declare function getActivityContent<T = unknown>(): Promise<T>;
+declare function readLocalState<T = unknown>(): Promise<T | null>;
+```
+
+## Write APIs
+
+```ts
+type AttemptEvent =
+  | {
+      type: 'answer';
+      questionId: string;
+      answer: string | string[];
+      timestamp: string;
+    }
+  | {
+      type: 'progress';
+      checkpoint: string;
+      value: number;
+      timestamp: string;
+    }
+  | {
+      type: 'complete';
+      timestamp: string;
+    };
+
+declare function emitAttemptEvent(event: AttemptEvent): Promise<void>;
+declare function finalizeAttempt(input?: {
+  completionState?: 'completed' | 'abandoned';
+}): Promise<{ accepted: true }>;
+declare function writeLocalState<T = unknown>(value: T): Promise<void>;
+```
+
+## Explicitly Forbidden SDK Surface
+
+The SDK must not expose:
+
+- `getCanvasAccessToken()`
+- `writeGrade()`
+- `runSql()`
+- `fetch(url)`
+- `assumeRole()`
+- `readFullRoster()`
+
+If we add those, we have broken the trust boundary.
+
+## Scoring Contract
+
+v1 scoring is gateway-owned.
+
+The app may:
+
+- emit answer events
+- emit progress events
+- mark completion
+
+The gateway may:
+
+- score declaratively
+- compute completion credit
+- hold for instructor review
+- write the final grade to Canvas
+
+The app may not:
+
+- compute an authoritative LMS grade
+- send a grade to Canvas directly
+
+## Local State Contract
+
+Local state is for app continuity, not institutional records.
+
+Good uses:
+
+- current level
+- checkpoint progress
+- unsent answers
+- display preferences
+
+Bad uses:
+
+- final grades
+- broad roster caches
+- secrets
+- anything that bypasses gateway audit
+
+## Preview Contract
+
+Every app must run in preview without Canvas.
+
+Preview mode must provide:
+
+- fake launch context
+- fake course and assignment ids
+- fake learner and instructor roles
+- fake attempt ids
+- visible capability log
+- fake scoring response
+
+This is how authors build fast without weakening the runtime model.
+
+## Review Contract
+
+Before an app version can publish, the platform should have:
+
+- manifest validation passed
+- bundle present
+- preview runnable
+- accessibility checks passed or flagged
+- security checks passed or flagged
+- artifact signed
+- reviewer recorded
+
+## Install Contract
+
+Courses do not install an app id. They install an app version.
+
+That gives us:
+
+- reproducibility
+- review history
+- rollback
+- auditable deployment
+
+## v1 Philosophy
+
+This spec is intentionally strict.
+
+If someone says:
+
+- “I just need a little backend”
+- “I just need the raw Canvas token”
+- “I just need to call one arbitrary URL”
+
+the answer in v1 should be no.
+
+That discipline is the whole point.

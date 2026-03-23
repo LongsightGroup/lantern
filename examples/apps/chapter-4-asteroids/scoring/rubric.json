@@ -1,0 +1,16 @@
+{
+  "mode": "per-answer",
+  "max_score": 100,
+  "rules": [
+    {
+      "question_id": "q1",
+      "correct_answer": "resistance to a change in motion",
+      "points": 50
+    },
+    {
+      "question_id": "q2",
+      "correct_answer": "speed with direction",
+      "points": 50
+    }
+  ]
+}

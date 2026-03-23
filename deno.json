@@ -1,0 +1,21 @@
+{
+  "tasks": {
+    "dev": "deno run --watch --allow-env --allow-net main.ts",
+    "start": "deno run --allow-env --allow-net main.ts",
+    "fmt": "deno run -A npm:oxfmt@0.32.0 --write .",
+    "fmt:check": "deno run -A npm:oxfmt@0.32.0 --check .",
+    "lint": "deno run -A npm:oxlint@1.14.0",
+    "check": "deno check main.ts src/**/*.ts sdk/**/*.ts",
+    "test": "deno test",
+    "validate": "deno task fmt:check && deno task lint && deno task check && deno task test"
+  },
+  "imports": {
+    "@hono/hono": "jsr:@hono/hono@^4.10.1",
+    "@std/assert": "jsr:@std/assert@^1.0.15"
+  },
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  }
+}

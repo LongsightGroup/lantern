@@ -1,0 +1,22 @@
+[
+  {
+    "name": "renders title",
+    "assert": {
+      "selector": "[data-test='app-title']",
+      "text": "Chapter 4 Asteroids"
+    }
+  },
+  {
+    "name": "shows first question prompt",
+    "assert": {
+      "selector": "[data-test='question-prompt']",
+      "contains": "inertia"
+    }
+  },
+  {
+    "name": "complete button exists",
+    "assert": {
+      "selector": "[data-test='complete-button']"
+    }
+  }
+]
