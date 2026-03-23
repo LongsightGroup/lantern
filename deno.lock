@@ -10,6 +10,7 @@
     "jsr:@std/fmt@^1.0.6": "1.0.9",
     "jsr:@std/internal@^1.0.12": "1.0.12",
     "jsr:@std/path@^1.0.8": "1.1.4",
+    "jsr:@std/semver@1.0.8": "1.0.8",
     "npm:ajv@8.18.0": "8.18.0",
     "npm:oxfmt@0.32.0": "0.32.0",
     "npm:oxlint@1.14.0": "1.14.0"
@@ -54,6 +55,9 @@
       "dependencies": [
         "jsr:@std/internal"
       ]
+    },
+    "@std/semver@1.0.8": {
+      "integrity": "dc830e8b8b6a380c895d53fbfd1258dc253704ca57bbe1629ac65fd7830179b7"
     }
   },
   "npm": {
@@ -263,7 +267,8 @@
     "dependencies": [
       "jsr:@db/postgres@0.19.5",
       "jsr:@hono/hono@^4.10.1",
-      "jsr:@std/assert@^1.0.15"
+      "jsr:@std/assert@^1.0.15",
+      "jsr:@std/semver@1.0.8"
     ]
   }
 }

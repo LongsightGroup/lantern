@@ -41,7 +41,9 @@ async function buildImportedPackageVersion(
 
   if (!validation.ok) {
     throw new Error(
-      `Expected demo manifest to validate in repository tests: ${JSON.stringify(validation.issues)}`,
+      `Expected demo manifest to validate in repository tests: ${
+        JSON.stringify(validation.issues)
+      }`,
     );
   }
 
@@ -222,7 +224,10 @@ Deno.test("repository pins exact approved versions and preserves the existing de
     );
 
     assert(persistedDeployment);
-    assertEquals(persistedDeployment?.enabledPackageVersionId, approvedRecord.id);
+    assertEquals(
+      persistedDeployment?.enabledPackageVersionId,
+      approvedRecord.id,
+    );
     assertEquals(persistedDeployment?.enabledPackageVersion, "0.1.0");
   });
 });
