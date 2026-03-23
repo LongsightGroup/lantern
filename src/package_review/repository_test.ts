@@ -1,0 +1,228 @@
+import { assert, assertEquals, assertRejects } from "@std/assert";
+import type { Pool } from "@db/postgres";
+import { runMigrations } from "../db/migrate.ts";
+import { createDatabasePool } from "../db/pool.ts";
+import { resetPackageReviewTables } from "../test_helpers/postgres.ts";
+import { type ImportedPackageVersion } from "./intake.ts";
+import { validateManifest } from "./manifest.ts";
+import { createPackageReviewRepository } from "./repository.ts";
+
+const DEMO_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
+
+async function withRepositoryTestDatabase(
+  run: (context: {
+    pool: Pool;
+    repository: ReturnType<typeof createPackageReviewRepository>;
+  }) => Promise<void>,
+): Promise<void> {
+  const pool = createDatabasePool(1);
+
+  try {
+    await runMigrations(pool);
+    await resetPackageReviewTables(pool);
+    await run({
+      pool,
+      repository: createPackageReviewRepository(pool),
+    });
+  } finally {
+    await pool.end();
+  }
+}
+
+async function buildImportedPackageVersion(
+  overrides: {
+    appId?: string;
+    version?: string;
+    title?: string;
+    snapshotRoot?: string;
+  } = {},
+): Promise<ImportedPackageVersion> {
+  const validation = await validateManifest({ sourceRoot: DEMO_SOURCE_ROOT });
+
+  if (!validation.ok) {
+    throw new Error(
+      `Expected demo manifest to validate in repository tests: ${JSON.stringify(validation.issues)}`,
+    );
+  }
+
+  const appId = overrides.appId ?? validation.reviewData.appId;
+  const version = overrides.version ?? validation.reviewData.version;
+  const title = overrides.title ?? validation.reviewData.title;
+  const snapshotRoot = overrides.snapshotRoot ??
+    `var/packages/${appId}/${version}`;
+
+  return {
+    reviewData: {
+      ...validation.reviewData,
+      appId,
+      version,
+      title,
+      manifestJson: {
+        ...validation.reviewData.manifestJson,
+        app_id: appId,
+        version,
+        title,
+      },
+    },
+    artifact: {
+      snapshotRoot,
+      manifestPath: `${snapshotRoot}/manifest.json`,
+      entrypointPath: `${snapshotRoot}${validation.reviewData.entrypoint}`,
+      digest: `sha256:${appId}-${version.replaceAll(".", "-")}`,
+    },
+  };
+}
+
+Deno.test("repository rejects duplicate app versions and returns semver-sorted history", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const version010 = await buildImportedPackageVersion();
+    const version020 = await buildImportedPackageVersion({
+      version: "0.2.0",
+    });
+    const version0100 = await buildImportedPackageVersion({
+      version: "0.10.0",
+    });
+
+    const firstRecord = await repository.registerPackageVersion(version010);
+    await repository.registerPackageVersion(version020);
+    await repository.registerPackageVersion(version0100);
+
+    await assertRejects(
+      () => repository.registerPackageVersion(version010),
+      Error,
+      "Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.",
+    );
+
+    const detail = await repository.getPackageVersionByAppVersion(
+      "chapter-4-asteroids",
+      "0.10.0",
+    );
+    const history = await repository.listPackageVersionsByApp(
+      "chapter-4-asteroids",
+    );
+
+    assert(detail);
+    assertEquals(firstRecord.approvalStatus, "pending");
+    assertEquals(detail?.version, "0.10.0");
+    assertEquals(
+      history.map((record: { version: string }) => record.version),
+      ["0.10.0", "0.2.0", "0.1.0"],
+    );
+  });
+});
+
+Deno.test("repository records one-way approval and rejection decisions with optional notes", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvalCandidate = await repository.registerPackageVersion(
+      await buildImportedPackageVersion(),
+    );
+    const rejectionCandidate = await repository.registerPackageVersion(
+      await buildImportedPackageVersion({
+        version: "0.2.0",
+      }),
+    );
+
+    const approved = await repository.approvePackageVersion({
+      id: approvalCandidate.id,
+      reviewNotes: "Ready for the pilot deployment.",
+    });
+    const rejected = await repository.rejectPackageVersion({
+      id: rejectionCandidate.id,
+      reviewNotes: null,
+    });
+
+    assertEquals(approved.approvalStatus, "approved");
+    assertEquals(approved.reviewNotes, "Ready for the pilot deployment.");
+    assert(approved.reviewedAt !== null);
+    assertEquals(rejected.approvalStatus, "rejected");
+    assertEquals(rejected.reviewNotes, null);
+    assert(rejected.reviewedAt !== null);
+
+    await assertRejects(
+      () =>
+        repository.rejectPackageVersion({
+          id: approvalCandidate.id,
+          reviewNotes: "Trying to reverse an approval.",
+        }),
+      Error,
+      "Package version chapter-4-asteroids@0.1.0 has already been reviewed and cannot change state.",
+    );
+    await assertRejects(
+      () =>
+        repository.approvePackageVersion({
+          id: rejectionCandidate.id,
+          reviewNotes: "Trying to reverse a rejection.",
+        }),
+      Error,
+      "Package version chapter-4-asteroids@0.2.0 has already been reviewed and cannot change state.",
+    );
+  });
+});
+
+Deno.test("repository pins exact approved versions and preserves the existing deployment on rejected updates", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for the first pilot.",
+    });
+    const pendingRecord = await repository.registerPackageVersion(
+      await buildImportedPackageVersion({
+        version: "0.2.0",
+      }),
+    );
+    const otherAppRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion({
+          appId: "algebra-helper",
+          version: "1.0.0",
+          title: "Algebra Helper",
+          snapshotRoot: "var/packages/algebra-helper/1.0.0",
+        }),
+      )).id,
+      reviewNotes: "Approved for a different app.",
+    });
+
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "demo-course",
+      label: "Demo Course",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+
+    assertEquals(deployment.enabledPackageVersionId, approvedRecord.id);
+    assertEquals(deployment.enabledPackageVersion, "0.1.0");
+
+    await assertRejects(
+      () =>
+        repository.pinDeploymentVersion({
+          slug: "demo-course",
+          label: "Demo Course",
+          appId: "chapter-4-asteroids",
+          packageVersionId: pendingRecord.id,
+        }),
+      Error,
+      "Only approved package versions can be enabled.",
+    );
+    await assertRejects(
+      () =>
+        repository.pinDeploymentVersion({
+          slug: "demo-course",
+          label: "Demo Course",
+          appId: "chapter-4-asteroids",
+          packageVersionId: otherAppRecord.id,
+        }),
+      Error,
+      "Package version algebra-helper@1.0.0 does not belong to deployment app chapter-4-asteroids.",
+    );
+
+    const persistedDeployment = await repository.getDeploymentBySlug(
+      "demo-course",
+    );
+
+    assert(persistedDeployment);
+    assertEquals(persistedDeployment?.enabledPackageVersionId, approvedRecord.id);
+    assertEquals(persistedDeployment?.enabledPackageVersion, "0.1.0");
+  });
+});
