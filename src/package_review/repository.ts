@@ -3,6 +3,8 @@ import { compare, parse } from "@std/semver";
 import type { ImportedPackageVersion } from "./intake.ts";
 import type {
   ApprovalStatus,
+  AttemptRecord,
+  AuditEventRecord,
   DeploymentRecord,
   PackageVersionRecord,
   ValidationIssue,
@@ -126,12 +128,51 @@ interface RuntimeSessionRow {
   snapshotRoot: string;
   entrypointPath: string;
   contentPath: string;
+  agsScope: string[];
+  agsLineitemsUrl: string | null;
+  agsLineitemUrl: string | null;
+  nrpsContextMembershipsUrl: string | null;
+  nrpsServiceVersions: string[];
   launchUserRole: RuntimeSessionRecord["launch"]["userRole"];
   launchCourseId: string;
   launchAssignmentId: string | null;
   launchActivityId: string;
   createdAt: Date | string;
   expiresAt: Date | string;
+}
+
+interface AttemptRow {
+  id: number;
+  attemptId: string;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  appId: string;
+  packageVersionId: number;
+  packageVersion: string;
+  userId: string;
+  userRole: AttemptRecord["userRole"];
+  contextId: string;
+  resourceLinkId: string;
+  activityId: string;
+  status: AttemptRecord["status"];
+  completionState: AttemptRecord["completionState"];
+  startedAt: Date | string;
+  finalizedAt: Date | string | null;
+}
+
+interface AuditEventRow {
+  id: number;
+  eventType: string;
+  actorType: AuditEventRecord["actorType"];
+  actorId: string | null;
+  deploymentRecordId: number | null;
+  packageVersionId: number | null;
+  attemptId: string | null;
+  lineItemBindingId: number | null;
+  status: AuditEventRecord["status"];
+  summary: string;
+  detail: Record<string, unknown>;
+  occurredAt: Date | string;
 }
 
 export interface PackageReviewRepository {
@@ -169,6 +210,11 @@ export interface PackageReviewRepository {
   getRuntimeSessionById(
     sessionId: string,
   ): Promise<RuntimeSessionRecord | null>;
+  createAttempt(record: AttemptRecord): Promise<AttemptRecord>;
+  getAttemptById(attemptId: string): Promise<AttemptRecord | null>;
+  recordAuditEvent(record: AuditEventRecord): Promise<AuditEventRecord>;
+  listAuditEventsByAttemptId(attemptId: string): Promise<AuditEventRecord[]>;
+  listAuditEventsByEventType(eventType: string): Promise<AuditEventRecord[]>;
   saveDeploymentBinding(input: {
     slug: string;
     label: string;
@@ -549,6 +595,7 @@ export function createPackageReviewRepository(
               INSERT INTO runtime_sessions (
                 session_id,
                 session_token,
+                attempt_id,
                 deployment_record_id,
                 deployment_slug,
                 app_id,
@@ -558,6 +605,11 @@ export function createPackageReviewRepository(
                 snapshot_root,
                 entrypoint_path,
                 content_path,
+                ags_scope,
+                ags_lineitems_url,
+                ags_lineitem_url,
+                nrps_context_memberships_url,
+                nrps_service_versions,
                 launch_user_role,
                 launch_course_id,
                 launch_assignment_id,
@@ -566,11 +618,13 @@ export function createPackageReviewRepository(
                 expires_at
               ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
-                $9, $10, $11, $12, $13, $14, $15, $16, $17
+                $9, $10, $11, $12, $13, $14, $15, $16,
+                $17, $18, $19, $20, $21, $22, $23
               )
               RETURNING
                 session_id,
                 session_token,
+                attempt_id,
                 deployment_record_id,
                 deployment_slug,
                 app_id,
@@ -580,6 +634,11 @@ export function createPackageReviewRepository(
                 snapshot_root,
                 entrypoint_path,
                 content_path,
+                ags_scope,
+                ags_lineitems_url,
+                ags_lineitem_url,
+                nrps_context_memberships_url,
+                nrps_service_versions,
                 launch_user_role,
                 launch_course_id,
                 launch_assignment_id,
@@ -590,6 +649,7 @@ export function createPackageReviewRepository(
             args: [
               record.sessionId,
               record.sessionToken,
+              record.attemptId,
               record.deploymentRecordId,
               record.deploymentSlug,
               record.appId,
@@ -599,6 +659,11 @@ export function createPackageReviewRepository(
               record.snapshotRoot,
               record.entrypointPath,
               record.contentPath,
+              record.services.ags?.scope ?? [],
+              record.services.ags?.lineitemsUrl ?? null,
+              record.services.ags?.lineitemUrl ?? null,
+              record.services.nrps?.contextMembershipsUrl ?? null,
+              record.services.nrps?.serviceVersions ?? [],
               record.launch.userRole,
               record.launch.courseId,
               record.launch.assignmentId ?? null,
@@ -629,6 +694,7 @@ export function createPackageReviewRepository(
             SELECT
               session_id,
               session_token,
+              attempt_id,
               deployment_record_id,
               deployment_slug,
               app_id,
@@ -638,6 +704,11 @@ export function createPackageReviewRepository(
               snapshot_root,
               entrypoint_path,
               content_path,
+              ags_scope,
+              ags_lineitems_url,
+              ags_lineitem_url,
+              nrps_context_memberships_url,
+              nrps_service_versions,
               launch_user_role,
               launch_course_id,
               launch_assignment_id,
@@ -652,6 +723,225 @@ export function createPackageReviewRepository(
         });
 
         return mapOptionalRuntimeSession(result.rows[0]);
+      });
+    },
+
+    async createAttempt(record) {
+      return await withClient(pool, async (client) => {
+        try {
+          const result = await client.queryObject<AttemptRow>({
+            text: `
+              INSERT INTO attempts (
+                attempt_id,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                package_version_id,
+                package_version,
+                user_id,
+                user_role,
+                context_id,
+                resource_link_id,
+                activity_id,
+                status,
+                completion_state,
+                started_at,
+                finalized_at
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9, $10, $11, $12, $13, $14, $15
+              )
+              RETURNING
+                id,
+                attempt_id,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                package_version_id,
+                package_version,
+                user_id,
+                user_role,
+                context_id,
+                resource_link_id,
+                activity_id,
+                status,
+                completion_state,
+                started_at,
+                finalized_at
+            `,
+            args: [
+              record.attemptId,
+              record.deploymentRecordId,
+              record.deploymentSlug,
+              record.appId,
+              record.packageVersionId,
+              record.packageVersion,
+              record.userId,
+              record.userRole,
+              record.contextId,
+              record.resourceLinkId,
+              record.activityId,
+              record.status,
+              record.completionState,
+              record.startedAt,
+              record.finalizedAt,
+            ],
+            camelCase: true,
+          });
+
+          return mapAttemptRow(result.rows[0]);
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            throw new Error(
+              `Attempt ${record.attemptId} already exists and cannot be replaced.`,
+            );
+          }
+
+          throw error;
+        }
+      });
+    },
+
+    async getAttemptById(attemptId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<AttemptRow>({
+          text: `
+            SELECT
+              id,
+              attempt_id,
+              deployment_record_id,
+              deployment_slug,
+              app_id,
+              package_version_id,
+              package_version,
+              user_id,
+              user_role,
+              context_id,
+              resource_link_id,
+              activity_id,
+              status,
+              completion_state,
+              started_at,
+              finalized_at
+            FROM attempts
+            WHERE attempt_id = $1
+          `,
+          args: [attemptId],
+          camelCase: true,
+        });
+
+        return mapOptionalAttempt(result.rows[0]);
+      });
+    },
+
+    async recordAuditEvent(record) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<AuditEventRow>({
+          text: `
+            INSERT INTO audit_events (
+              event_type,
+              actor_type,
+              actor_id,
+              deployment_record_id,
+              package_version_id,
+              attempt_id,
+              line_item_binding_id,
+              status,
+              summary,
+              detail,
+              occurred_at
+            ) VALUES (
+              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11
+            )
+            RETURNING
+              id,
+              event_type,
+              actor_type,
+              actor_id,
+              deployment_record_id,
+              package_version_id,
+              attempt_id,
+              line_item_binding_id,
+              status,
+              summary,
+              detail,
+              occurred_at
+          `,
+          args: [
+            record.eventType,
+            record.actorType,
+            record.actorId,
+            record.deploymentRecordId,
+            record.packageVersionId,
+            record.attemptId,
+            record.lineItemBindingId,
+            record.status,
+            record.summary,
+            JSON.stringify(record.detail),
+            record.occurredAt,
+          ],
+          camelCase: true,
+        });
+
+        return mapAuditEventRow(result.rows[0]);
+      });
+    },
+
+    async listAuditEventsByAttemptId(attemptId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<AuditEventRow>({
+          text: `
+            SELECT
+              id,
+              event_type,
+              actor_type,
+              actor_id,
+              deployment_record_id,
+              package_version_id,
+              attempt_id,
+              line_item_binding_id,
+              status,
+              summary,
+              detail,
+              occurred_at
+            FROM audit_events
+            WHERE attempt_id = $1
+            ORDER BY occurred_at ASC, id ASC
+          `,
+          args: [attemptId],
+          camelCase: true,
+        });
+
+        return result.rows.map(mapAuditEventRow);
+      });
+    },
+
+    async listAuditEventsByEventType(eventType) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<AuditEventRow>({
+          text: `
+            SELECT
+              id,
+              event_type,
+              actor_type,
+              actor_id,
+              deployment_record_id,
+              package_version_id,
+              attempt_id,
+              line_item_binding_id,
+              status,
+              summary,
+              detail,
+              occurred_at
+            FROM audit_events
+            WHERE event_type = $1
+            ORDER BY occurred_at ASC, id ASC
+          `,
+          args: [eventType],
+          camelCase: true,
+        });
+
+        return result.rows.map(mapAuditEventRow);
       });
     },
 
@@ -1173,10 +1463,7 @@ function mapRuntimeSessionRow(
     snapshotRoot: row.snapshotRoot,
     entrypointPath: row.entrypointPath,
     contentPath: row.contentPath,
-    services: {
-      ags: null,
-      nrps: null,
-    },
+    services: mapLaunchServices(row),
     launch: {
       userRole: row.launchUserRole,
       courseId: row.launchCourseId,
@@ -1187,6 +1474,85 @@ function mapRuntimeSessionRow(
     },
     createdAt: normalizeTimestamp(row.createdAt),
     expiresAt: normalizeTimestamp(row.expiresAt),
+  };
+}
+
+function mapOptionalAttempt(row: AttemptRow | undefined): AttemptRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapAttemptRow(row);
+}
+
+function mapAttemptRow(row: AttemptRow | undefined): AttemptRecord {
+  if (!row) {
+    throw new Error("Expected an attempt row.");
+  }
+
+  return {
+    id: row.id,
+    attemptId: row.attemptId,
+    deploymentRecordId: row.deploymentRecordId,
+    deploymentSlug: row.deploymentSlug,
+    appId: row.appId,
+    packageVersionId: row.packageVersionId,
+    packageVersion: row.packageVersion,
+    userId: row.userId,
+    userRole: row.userRole,
+    contextId: row.contextId,
+    resourceLinkId: row.resourceLinkId,
+    activityId: row.activityId,
+    status: row.status,
+    completionState: row.completionState,
+    startedAt: normalizeTimestamp(row.startedAt),
+    finalizedAt: normalizeOptionalTimestamp(row.finalizedAt),
+  };
+}
+
+function mapAuditEventRow(row: AuditEventRow | undefined): AuditEventRecord {
+  if (!row) {
+    throw new Error("Expected an audit event row.");
+  }
+
+  return {
+    id: row.id,
+    eventType: row.eventType,
+    actorType: row.actorType,
+    actorId: row.actorId,
+    deploymentRecordId: row.deploymentRecordId,
+    packageVersionId: row.packageVersionId,
+    attemptId: row.attemptId,
+    lineItemBindingId: row.lineItemBindingId,
+    status: row.status,
+    summary: row.summary,
+    detail: row.detail,
+    occurredAt: normalizeTimestamp(row.occurredAt),
+  };
+}
+
+function mapLaunchServices(
+  row: RuntimeSessionRow,
+): RuntimeSessionRecord["services"] {
+  const hasAgs = row.agsScope.length > 0 ||
+    row.agsLineitemsUrl !== null ||
+    row.agsLineitemUrl !== null;
+  const hasNrps = row.nrpsContextMembershipsUrl !== null;
+
+  return {
+    ags: hasAgs
+      ? {
+        scope: row.agsScope,
+        lineitemsUrl: row.agsLineitemsUrl,
+        lineitemUrl: row.agsLineitemUrl,
+      }
+      : null,
+    nrps: hasNrps
+      ? {
+        contextMembershipsUrl: row.nrpsContextMembershipsUrl!,
+        serviceVersions: row.nrpsServiceVersions,
+      }
+      : null,
   };
 }
 

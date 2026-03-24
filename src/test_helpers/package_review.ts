@@ -209,7 +209,7 @@ export function buildAuditEventRecord(
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
     packageVersionId: overrides.packageVersionId ?? 1,
     attemptId: overrides.attemptId ?? "attempt-123",
-    lineItemBindingId: overrides.lineItemBindingId ?? 1,
+    lineItemBindingId: overrides.lineItemBindingId ?? null,
     status: overrides.status ?? "accepted",
     summary: overrides.summary ?? "Accepted attempt submission.",
     detail: overrides.detail ?? {
@@ -223,12 +223,16 @@ export function createInMemoryPackageReviewRepository(
   options: {
     packageVersions?: PackageVersionRecord[];
     deployments?: DeploymentRecord[];
+    attempts?: AttemptRecord[];
+    auditEvents?: AuditEventRecord[];
     loginStates?: LoginStateRecord[];
     runtimeSessions?: RuntimeSessionRecord[];
   } = {},
 ): PackageReviewRepository {
   const packageVersions = [...(options.packageVersions ?? [])];
   const deployments = [...(options.deployments ?? [])];
+  const attempts = [...(options.attempts ?? [])];
+  const auditEvents = [...(options.auditEvents ?? [])];
   const loginStates = [...(options.loginStates ?? [])];
   const runtimeSessions = [...(options.runtimeSessions ?? [])];
 
@@ -408,6 +412,56 @@ export function createInMemoryPackageReviewRepository(
         candidate.sessionId === sessionId
       );
       return Promise.resolve(record ? cloneRuntimeSession(record) : null);
+    },
+
+    createAttempt(record) {
+      const existing = attempts.find((candidate) =>
+        candidate.attemptId === record.attemptId
+      );
+
+      if (existing) {
+        throw new Error(
+          `Attempt ${record.attemptId} already exists and cannot be replaced.`,
+        );
+      }
+
+      attempts.push(structuredClone(record));
+
+      return Promise.resolve(structuredClone(record));
+    },
+
+    getAttemptById(attemptId) {
+      const record = attempts.find((candidate) =>
+        candidate.attemptId === attemptId
+      );
+      return Promise.resolve(record ? structuredClone(record) : null);
+    },
+
+    recordAuditEvent(record) {
+      const nextRecord = structuredClone({
+        ...record,
+        id: record.id === 0 ? nextId(auditEvents) : record.id,
+      });
+
+      auditEvents.push(nextRecord);
+
+      return Promise.resolve(structuredClone(nextRecord));
+    },
+
+    listAuditEventsByAttemptId(attemptId) {
+      return Promise.resolve(
+        auditEvents
+          .filter((candidate) => candidate.attemptId === attemptId)
+          .map((record) => structuredClone(record)),
+      );
+    },
+
+    listAuditEventsByEventType(eventType) {
+      return Promise.resolve(
+        auditEvents
+          .filter((candidate) => candidate.eventType === eventType)
+          .map((record) => structuredClone(record)),
+      );
     },
 
     saveDeploymentBinding(input) {

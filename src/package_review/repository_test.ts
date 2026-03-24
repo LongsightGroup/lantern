@@ -2,6 +2,7 @@ import { assert, assertEquals, assertRejects } from "@std/assert";
 import type { Pool } from "@db/postgres";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
+  buildLaunchServiceClaims,
   buildLoginStateRecord,
   buildRuntimeSessionRecord,
 } from "../test_helpers/lti.ts";
@@ -11,6 +12,10 @@ import { resetPackageReviewTables } from "../test_helpers/postgres.ts";
 import { type ImportedPackageVersion } from "./intake.ts";
 import { validateManifest } from "./manifest.ts";
 import { createPackageReviewRepository } from "./repository.ts";
+import {
+  buildAttemptRecord,
+  buildAuditEventRecord,
+} from "../test_helpers/package_review.ts";
 
 const DEMO_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
 
@@ -316,13 +321,23 @@ Deno.test("repository persists one-time login state records and runtime sessions
       state: loginState.state,
       usedAt: "2026-03-23T22:46:00Z",
     });
+    const attempt = await repository.createAttempt(
+      buildAttemptRecord({
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+      }),
+    );
     const runtimeSession = buildRuntimeSessionRecord({
+      attemptId: attempt.attemptId,
       deploymentRecordId: deployment.id,
       deploymentSlug: deployment.slug,
       packageVersionId: approvedRecord.id,
       packageVersion: approvedRecord.version,
       snapshotRoot: approvedRecord.artifact.snapshotRoot,
       entrypointPath: approvedRecord.artifact.entrypointPath,
+      services: buildLaunchServiceClaims(),
     });
     const savedRuntimeSession = await repository.createRuntimeSession(
       runtimeSession,
@@ -334,9 +349,124 @@ Deno.test("repository persists one-time login state records and runtime sessions
     assertEquals(savedLoginState.state, loginState.state);
     assertEquals(consumedLoginState.usedAt, "2026-03-23T22:46:00.000Z");
     assertEquals(savedRuntimeSession.sessionId, runtimeSession.sessionId);
+    assertEquals(savedRuntimeSession.attemptId, runtimeSession.attemptId);
+    assertEquals(
+      savedRuntimeSession.services.ags?.lineitemsUrl,
+      runtimeSession.services.ags?.lineitemsUrl,
+    );
     assertEquals(
       fetchedRuntimeSession?.packageVersionId,
       approvedRecord.id,
+    );
+    assertEquals(
+      fetchedRuntimeSession?.services.nrps?.contextMembershipsUrl,
+      runtimeSession.services.nrps?.contextMembershipsUrl,
+    );
+  });
+});
+
+Deno.test("repository creates durable attempts that stay distinct from runtime sessions", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for durable launch tracking.",
+    });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+    const attempt = await repository.createAttempt(
+      buildAttemptRecord({
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+      }),
+    );
+    const runtimeSession = await repository.createRuntimeSession(
+      buildRuntimeSessionRecord({
+        attemptId: attempt.attemptId,
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+        snapshotRoot: approvedRecord.artifact.snapshotRoot,
+        entrypointPath: approvedRecord.artifact.entrypointPath,
+      }),
+    );
+    const fetchedAttempt = await repository.getAttemptById(attempt.attemptId);
+
+    assertEquals(fetchedAttempt?.attemptId, attempt.attemptId);
+    assertEquals(fetchedAttempt?.status, "in_progress");
+    assertEquals(runtimeSession.attemptId, attempt.attemptId);
+    assertEquals(runtimeSession.sessionId === attempt.attemptId, false);
+  });
+});
+
+Deno.test("repository records append-only audit events in order and resetPackageReviewTables clears phase 3 rows", async () => {
+  await withRepositoryTestDatabase(async ({ pool, repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for audit trail tests.",
+    });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+    const attempt = await repository.createAttempt(
+      buildAttemptRecord({
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+      }),
+    );
+
+    await repository.recordAuditEvent(
+      buildAuditEventRecord({
+        eventType: "launch.accepted",
+        summary: "Accepted the governed launch.",
+        deploymentRecordId: deployment.id,
+        packageVersionId: approvedRecord.id,
+        attemptId: attempt.attemptId,
+      }),
+    );
+    await repository.recordAuditEvent(
+      buildAuditEventRecord({
+        id: 2,
+        eventType: "attempt.submitted",
+        summary: "Accepted the attempt submission.",
+        deploymentRecordId: deployment.id,
+        packageVersionId: approvedRecord.id,
+        attemptId: attempt.attemptId,
+        occurredAt: "2026-03-24T02:31:00Z",
+      }),
+    );
+
+    const history = await repository.listAuditEventsByAttemptId(
+      attempt.attemptId,
+    );
+
+    assertEquals(history.map((event) => event.eventType), [
+      "launch.accepted",
+      "attempt.submitted",
+    ]);
+    assertEquals(history[0]?.summary, "Accepted the governed launch.");
+
+    await resetPackageReviewTables(pool);
+
+    assertEquals(await repository.getAttemptById(attempt.attemptId), null);
+    assertEquals(
+      await repository.listAuditEventsByAttemptId(attempt.attemptId),
+      [],
     );
   });
 });

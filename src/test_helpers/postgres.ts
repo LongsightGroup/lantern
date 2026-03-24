@@ -134,7 +134,14 @@ const CREATE_CANVAS_LINE_ITEM_BINDINGS_TABLE_SQL = `
     label text NOT NULL,
     score_maximum integer NOT NULL,
     created_at timestamptz NOT NULL,
-    updated_at timestamptz NOT NULL
+    updated_at timestamptz NOT NULL,
+    UNIQUE (
+      deployment_record_id,
+      package_version_id,
+      context_id,
+      resource_link_id,
+      activity_id
+    )
   )
 `;
 
@@ -175,6 +182,23 @@ const CREATE_AUDIT_EVENTS_TABLE_SQL = `
   )
 `;
 
+const ADD_RUNTIME_SESSION_ATTEMPT_FK_SQL = `
+  DO $$
+  BEGIN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conname = 'runtime_sessions_attempt_id_fkey'
+    ) THEN
+      ALTER TABLE runtime_sessions
+        ADD CONSTRAINT runtime_sessions_attempt_id_fkey
+        FOREIGN KEY (attempt_id)
+        REFERENCES attempts (attempt_id)
+        ON DELETE SET NULL;
+    END IF;
+  END $$;
+`;
+
 export function requireTestDatabaseUrl(): string {
   const databaseUrl = Deno.env.get("DATABASE_URL");
 
@@ -206,6 +230,7 @@ export async function bootstrapPackageReviewSchema(
     await client.queryArray(CREATE_CANVAS_LINE_ITEM_BINDINGS_TABLE_SQL);
     await client.queryArray(CREATE_GRADE_PUBLICATIONS_TABLE_SQL);
     await client.queryArray(CREATE_AUDIT_EVENTS_TABLE_SQL);
+    await client.queryArray(ADD_RUNTIME_SESSION_ATTEMPT_FK_SQL);
   } finally {
     client.release();
   }
