@@ -34,7 +34,11 @@ import {
   createPackageReviewRepository,
   type PackageReviewRepository,
 } from "./package_review/repository.ts";
-import { createOpsRepository, type OpsRepository } from "./ops/repository.ts";
+import {
+  createOpsRepository,
+  type OpsRepository,
+  type RecordBrokerVerificationRunInput,
+} from "./ops/repository.ts";
 import { retryFailedGradePublication } from "./ops/service.ts";
 import type {
   DeploymentRecord,
@@ -404,24 +408,7 @@ export function createApp(
 
   app.get("/admin/packages", async (context) => {
     try {
-      const repository = resolvedServices.getRepository();
-      const versions = await repository.listPackageVersions();
-
-      if (versions.length === 0) {
-        return context.html(renderPackageIndexPage({ versions }));
-      }
-
-      const [deployments, latestBrokerVerification] = await Promise.all([
-        resolvedServices.getOpsRepository().listControlPlaneDeployments(),
-        resolvedServices.getOpsRepository().getLatestBrokerVerification(),
-      ]);
-
-      return context.html(
-        renderControlPlanePage({
-          deployments,
-          latestBrokerVerification,
-        }),
-      );
+      return await renderPackagesPage(context, resolvedServices);
     } catch (error) {
       return context.html(
         renderPackageIndexPage({
@@ -429,6 +416,29 @@ export function createApp(
           notice: createErrorNotice("Package inventory unavailable", error),
         }),
         statusForError(error),
+      );
+    }
+  });
+
+  app.post("/admin/packages/verification", async (context) => {
+    try {
+      const verificationRun = parseBrokerVerificationRunForm(
+        await context.req.formData(),
+      );
+
+      await resolvedServices.getOpsRepository().recordBrokerVerificationRun(
+        verificationRun,
+      );
+
+      return context.redirect("/admin/packages", 303);
+    } catch (error) {
+      return await renderPackagesPage(
+        context,
+        resolvedServices,
+        {
+          notice: createErrorNotice("Verification update blocked", error),
+          status: statusForVerificationError(error),
+        },
       );
     }
   });
@@ -1030,8 +1040,10 @@ function isOpsRepository(
         .listControlPlaneDeployments ===
       "function" &&
     typeof (repository as Partial<OpsRepository>)
-        .getLatestBrokerVerification ===
+        .getLatestBrokerVerificationStatus ===
       "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .recordBrokerVerificationRun === "function" &&
     typeof (repository as Partial<OpsRepository>)
         .getRetryableGradePublicationLookup === "function";
 }
@@ -1107,6 +1119,41 @@ async function renderInventoryError(
       notice: createErrorNotice(title, error),
     }),
     statusForError(error),
+  );
+}
+
+async function renderPackagesPage(
+  context: Context,
+  services: AppServices,
+  input: {
+    notice?: AdminNotice | null;
+    status?: 200 | 400 | 500;
+  } = {},
+) {
+  const versions = await services.getRepository().listPackageVersions();
+
+  if (versions.length === 0) {
+    return context.html(
+      renderPackageIndexPage({
+        versions,
+        notice: input.notice ?? null,
+      }),
+      input.status ?? 200,
+    );
+  }
+
+  const [deployments, latestBrokerVerification] = await Promise.all([
+    services.getOpsRepository().listControlPlaneDeployments(),
+    services.getOpsRepository().getLatestBrokerVerificationStatus(),
+  ]);
+
+  return context.html(
+    renderControlPlanePage({
+      deployments,
+      latestBrokerVerification,
+      notice: input.notice ?? null,
+    }),
+    input.status ?? 200,
   );
 }
 
@@ -1275,6 +1322,25 @@ function statusForError(error: unknown): 409 | 500 {
   return 500;
 }
 
+function statusForVerificationError(error: unknown): 400 | 500 {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (
+    error.message.includes("required") ||
+    error.message.includes("Only ") ||
+    error.message.includes("Internal ") ||
+    error.message.includes("Official ") ||
+    error.message.includes("Choose ") ||
+    error.message.includes("Verification ")
+  ) {
+    return 400;
+  }
+
+  return 500;
+}
+
 function statusForRuntimeError(error: unknown): 404 | 409 | 500 {
   if (!(error instanceof Error)) {
     return 500;
@@ -1376,6 +1442,131 @@ function requireTrimmedFormValue(
   }
 
   return trimmed;
+}
+
+function parseBrokerVerificationRunForm(
+  formData: FormData,
+): RecordBrokerVerificationRunInput {
+  const source = parseBrokerVerificationSource(
+    requireTrimmedFormValue(
+      formData.get("source"),
+      "Broker verification source is required.",
+    ),
+  );
+  const status = parseBrokerVerificationStatus(
+    requireTrimmedFormValue(
+      formData.get("status"),
+      "Broker verification status is required.",
+    ),
+  );
+  const certificationState = parseBrokerCertificationState(
+    normalizeOptionalString(formData.get("certificationState")),
+  );
+
+  if (source !== "1edtech" && certificationState !== null) {
+    throw new Error(
+      "Internal verification runs cannot carry an official certification state.",
+    );
+  }
+
+  if (source !== "1edtech" && status === "notCertified") {
+    throw new Error(
+      "Only official 1EdTech verification runs can use the notCertified status.",
+    );
+  }
+
+  return {
+    source,
+    scope: "canvasLti13LaunchAgsNrps",
+    status,
+    certificationState,
+    summary: requireTrimmedFormValue(
+      formData.get("summary"),
+      "Broker verification summary is required.",
+    ),
+    detailUrl: parseOptionalAbsoluteUrl(
+      normalizeOptionalString(formData.get("detailUrl")),
+      "Verification detail URL must be an absolute URL.",
+    ),
+    checkedAt: parseVerificationCheckedAt(
+      requireTrimmedFormValue(
+        formData.get("checkedAt"),
+        "Checked-at timestamp is required.",
+      ),
+    ),
+  };
+}
+
+function parseBrokerVerificationSource(
+  value: string,
+): RecordBrokerVerificationRunInput["source"] {
+  switch (value) {
+    case "manual":
+    case "ci":
+    case "1edtech":
+      return value;
+    default:
+      throw new Error("Choose one supported broker verification source.");
+  }
+}
+
+function parseBrokerVerificationStatus(
+  value: string,
+): RecordBrokerVerificationRunInput["status"] {
+  switch (value) {
+    case "passed":
+    case "failed":
+    case "pending":
+    case "notCertified":
+      return value;
+    default:
+      throw new Error("Choose one supported broker verification status.");
+  }
+}
+
+function parseBrokerCertificationState(
+  value: string | null,
+): RecordBrokerVerificationRunInput["certificationState"] {
+  switch (value) {
+    case null:
+      return null;
+    case "ltiAdvantageCertified":
+    case "ltiAdvantageComplete":
+      return value;
+    default:
+      throw new Error("Choose one supported official certification state.");
+  }
+}
+
+function parseOptionalAbsoluteUrl(
+  value: string | null,
+  message: string,
+): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      throw new Error(message);
+    }
+
+    return url.toString();
+  } catch {
+    throw new Error(message);
+  }
+}
+
+function parseVerificationCheckedAt(value: string): string {
+  const timestamp = new Date(value);
+
+  if (Number.isNaN(timestamp.valueOf())) {
+    throw new Error("Checked-at timestamp must be a valid ISO-8601 value.");
+  }
+
+  return timestamp.toISOString();
 }
 
 function getCanvasConfigUrlNoticeSafe(): {

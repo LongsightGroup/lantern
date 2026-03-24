@@ -7,6 +7,8 @@ import type {
 import type { ImportedPackageVersion } from "../package_review/intake.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
+  BrokerVerificationRunStatus,
+  BrokerVerificationSource,
   BrokerVerificationStatus,
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDeploymentHealth,
@@ -519,6 +521,18 @@ export interface InMemoryOpsRepository {
     deploymentRecordId: number,
   ): Promise<ControlPlaneDiagnosticItem[]>;
   getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
+  getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
+  recordBrokerVerificationRun(input: {
+    source: BrokerVerificationSource;
+    scope: BrokerVerificationStatus["supportedPath"];
+    status: BrokerVerificationRunStatus | "notCertified";
+    certificationState:
+      | Exclude<OfficialBrokerCertificationStatus["state"], "notCertified">
+      | null;
+    summary: string;
+    detailUrl: string | null;
+    checkedAt: string;
+  }): Promise<void>;
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
@@ -1119,16 +1133,50 @@ export function createInMemoryPackageReviewRepository(
     },
 
     getLatestBrokerVerification() {
-      const record = [...brokerVerifications].sort((left, right) => {
-        const leftCheckedAt = left.internal?.checkedAt ??
-          left.official.checkedAt ?? "";
-        const rightCheckedAt = right.internal?.checkedAt ??
-          right.official.checkedAt ?? "";
-
-        return rightCheckedAt.localeCompare(leftCheckedAt);
-      })[0];
+      const record = getLatestBrokerVerificationRecord(brokerVerifications);
 
       return Promise.resolve(record ? structuredClone(record) : null);
+    },
+
+    getLatestBrokerVerificationStatus() {
+      const record = getLatestBrokerVerificationRecord(brokerVerifications);
+
+      return Promise.resolve(record ? structuredClone(record) : null);
+    },
+
+    recordBrokerVerificationRun(input) {
+      const latestRecord = getLatestBrokerVerificationRecord(
+        brokerVerifications,
+      );
+      const nextRecord: BrokerVerificationStatus = input.source === "1edtech"
+        ? {
+          supportedPath: input.scope,
+          internal: latestRecord?.internal ?? null,
+          official: {
+            state: input.certificationState ?? "notCertified",
+            checkedAt: input.checkedAt,
+            directoryUrl: input.detailUrl,
+          },
+        }
+        : {
+          supportedPath: input.scope,
+          internal: {
+            source: input.source,
+            status: input.status as BrokerVerificationRunStatus,
+            checkedAt: input.checkedAt,
+            summary: input.summary,
+            evidenceUrl: input.detailUrl,
+          },
+          official: latestRecord?.official ?? {
+            state: "notCertified",
+            checkedAt: null,
+            directoryUrl: null,
+          },
+        };
+
+      brokerVerifications.push(structuredClone(nextRecord));
+
+      return Promise.resolve();
     },
 
     getRetryableGradePublicationLookup(attemptId) {
@@ -1196,6 +1244,19 @@ export function createInMemoryPackageReviewRepository(
       );
     },
   };
+}
+
+function getLatestBrokerVerificationRecord(
+  brokerVerifications: BrokerVerificationStatus[],
+): BrokerVerificationStatus | null {
+  return [...brokerVerifications].sort((left, right) => {
+    const leftCheckedAt = left.internal?.checkedAt ??
+      left.official.checkedAt ?? "";
+    const rightCheckedAt = right.internal?.checkedAt ??
+      right.official.checkedAt ?? "";
+
+    return rightCheckedAt.localeCompare(leftCheckedAt);
+  })[0] ?? null;
 }
 
 function reviewPackageVersion(
