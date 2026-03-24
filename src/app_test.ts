@@ -143,13 +143,16 @@ Deno.test("POST /admin/packages/verification records a broker verification run a
   formData.set("detailUrl", "https://example.test/verification/manual-pass");
   formData.set("checkedAt", "2026-03-24T12:50:00Z");
 
-  const response = await app.request("http://localhost/admin/packages/verification", {
-    method: "POST",
-    headers: {
-      Origin: "http://localhost",
+  const response = await app.request(
+    "http://localhost/admin/packages/verification",
+    {
+      method: "POST",
+      headers: {
+        Origin: "http://localhost",
+      },
+      body: formData,
     },
-    body: formData,
-  });
+  );
 
   assertEquals(response.status, 303);
   assertEquals(response.headers.get("location"), "/admin/packages");
@@ -195,13 +198,16 @@ Deno.test("POST /admin/packages/verification rejects internal verification rows 
   formData.set("summary", "Manual verification passed.");
   formData.set("checkedAt", "2026-03-24T12:50:00Z");
 
-  const response = await app.request("http://localhost/admin/packages/verification", {
-    method: "POST",
-    headers: {
-      Origin: "http://localhost",
+  const response = await app.request(
+    "http://localhost/admin/packages/verification",
+    {
+      method: "POST",
+      headers: {
+        Origin: "http://localhost",
+      },
+      body: formData,
     },
-    body: formData,
-  });
+  );
 
   assertEquals(response.status, 400);
   const body = await response.text();
