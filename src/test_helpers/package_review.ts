@@ -35,6 +35,7 @@ import type {
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
+  ReviewedPlacementRecord,
 } from "../package_review/types.ts";
 
 const DEFAULT_IMPORTED_AT = "2026-03-23T17:30:00Z";
@@ -268,6 +269,29 @@ export function buildDeepLinkingResourceSelection(
     activityId: overrides.activityId ?? "/content/activity.json",
     contentPath: overrides.contentPath ?? "/content/activity.json",
     contentTitle: overrides.contentTitle ?? "Activity",
+  };
+}
+
+export function buildReviewedPlacementRecord(
+  overrides: Partial<ReviewedPlacementRecord> = {},
+): ReviewedPlacementRecord {
+  return {
+    placementId: overrides.placementId ?? "placement-123",
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    deploymentSlug: overrides.deploymentSlug ?? "chapter-4-asteroids-pilot",
+    appId: overrides.appId ?? "chapter-4-asteroids",
+    contextId: overrides.contextId ?? "course-42",
+    contextTitle: overrides.contextTitle ?? "Physics 101",
+    packageVersionId: overrides.packageVersionId ?? 1,
+    packageVersion: overrides.packageVersion ?? "0.1.0",
+    packageTitle: overrides.packageTitle ?? "Chapter 4 Asteroids",
+    activityId: overrides.activityId ?? "/content/activity.json",
+    contentPath: overrides.contentPath ?? "/content/activity.json",
+    contentTitle: overrides.contentTitle ?? "Activity",
+    createdByUserId: overrides.createdByUserId ?? "canvas-user-123",
+    resourceLinkId: overrides.resourceLinkId ?? null,
+    createdAt: overrides.createdAt ?? DEFAULT_PHASE4_AT,
+    boundAt: overrides.boundAt ?? null,
   };
 }
 
@@ -604,6 +628,7 @@ export function createInMemoryPackageReviewRepository(
     runtimeSessions?: RuntimeSessionRecord[];
     deepLinkingSessions?: DeepLinkingSessionRecord[];
     deepLinkingResourceOptions?: DeepLinkingResourceOption[];
+    reviewedPlacements?: ReviewedPlacementRecord[];
     controlPlaneDeployments?: ControlPlaneDeploymentInventoryRow[];
     controlPlaneDeploymentDetails?: ControlPlaneDeploymentDetailSnapshot[];
     controlPlaneDiagnostics?: ControlPlaneDiagnosticItem[];
@@ -627,6 +652,7 @@ export function createInMemoryPackageReviewRepository(
   const deepLinkingResourceOptions = [
     ...(options.deepLinkingResourceOptions ?? []),
   ];
+  const reviewedPlacements = [...(options.reviewedPlacements ?? [])];
   const controlPlaneDeployments = [...(options.controlPlaneDeployments ?? [])];
   const controlPlaneDeploymentDetails = [
     ...(options.controlPlaneDeploymentDetails ?? []),
@@ -897,6 +923,85 @@ export function createInMemoryPackageReviewRepository(
           .filter((candidate) => candidate.appId === appId)
           .map(cloneDeepLinkingResourceOption),
       );
+    },
+
+    createReviewedPlacement(record) {
+      const existing = reviewedPlacements.find((candidate) =>
+        candidate.placementId === record.placementId
+      );
+
+      if (existing) {
+        throw new Error(
+          `Reviewed placement ${record.placementId} already exists and cannot be replaced.`,
+        );
+      }
+
+      reviewedPlacements.push(cloneReviewedPlacement(record));
+
+      return Promise.resolve(cloneReviewedPlacement(record));
+    },
+
+    getReviewedPlacementById(placementId) {
+      const record = reviewedPlacements.find((candidate) =>
+        candidate.placementId === placementId
+      );
+
+      return Promise.resolve(record ? cloneReviewedPlacement(record) : null);
+    },
+
+    bindReviewedPlacementResourceLink(input) {
+      const index = reviewedPlacements.findIndex((candidate) =>
+        candidate.placementId === input.placementId
+      );
+
+      if (index < 0) {
+        throw new Error(
+          `Reviewed placement ${input.placementId} was not found.`,
+        );
+      }
+
+      const existing = reviewedPlacements[index];
+
+      if (!existing) {
+        throw new Error(
+          `Reviewed placement ${input.placementId} was not found.`,
+        );
+      }
+
+      if (
+        existing.resourceLinkId !== null &&
+        existing.resourceLinkId !== input.resourceLinkId
+      ) {
+        throw new Error(
+          `Reviewed placement ${input.placementId} is already bound to Canvas resource link ${existing.resourceLinkId}.`,
+        );
+      }
+
+      const conflictingPlacement = reviewedPlacements.find((candidate) =>
+        candidate.placementId !== input.placementId &&
+        candidate.deploymentRecordId === existing.deploymentRecordId &&
+        candidate.resourceLinkId === input.resourceLinkId
+      );
+
+      if (conflictingPlacement) {
+        throw new Error(
+          `Canvas resource link ${input.resourceLinkId} is already bound to another reviewed placement in deployment ${existing.deploymentSlug}.`,
+        );
+      }
+
+      if (existing.resourceLinkId === input.resourceLinkId) {
+        return Promise.resolve(cloneReviewedPlacement(existing));
+      }
+
+      const nextRecord: ReviewedPlacementRecord = {
+        ...existing,
+        resourceLinkId: input.resourceLinkId,
+        boundAt: input.boundAt,
+      };
+
+      reviewedPlacements.splice(index, 1, nextRecord);
+
+      return Promise.resolve(cloneReviewedPlacement(nextRecord));
     },
 
     createAttempt(record) {
@@ -1480,6 +1585,12 @@ function cloneDeepLinkingSession(
 function cloneDeepLinkingResourceOption(
   record: DeepLinkingResourceOption,
 ): DeepLinkingResourceOption {
+  return structuredClone(record);
+}
+
+function cloneReviewedPlacement(
+  record: ReviewedPlacementRecord,
+): ReviewedPlacementRecord {
   return structuredClone(record);
 }
 

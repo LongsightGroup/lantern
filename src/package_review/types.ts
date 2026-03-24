@@ -186,3 +186,22 @@ export interface DeepLinkingResourceSelection {
   contentPath: string;
   contentTitle: string | null;
 }
+
+export interface ReviewedPlacementRecord {
+  placementId: string;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  appId: string;
+  contextId: string | null;
+  contextTitle: string | null;
+  packageVersionId: number;
+  packageVersion: string;
+  packageTitle: string;
+  activityId: string;
+  contentPath: string;
+  contentTitle: string | null;
+  createdByUserId: string | null;
+  resourceLinkId: string | null;
+  createdAt: string;
+  boundAt: string | null;
+}

@@ -11,6 +11,7 @@ import type {
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
+  ReviewedPlacementRecord,
   ValidationIssue,
 } from "./types.ts";
 import type {
@@ -120,6 +121,27 @@ const DEEP_LINKING_SESSION_SELECT = `
     created_at,
     expires_at
   FROM deep_linking_sessions
+`;
+
+const REVIEWED_PLACEMENT_SELECT = `
+  SELECT
+    placement_id,
+    deployment_record_id,
+    deployment_slug,
+    app_id,
+    context_id,
+    context_title,
+    package_version_id,
+    package_version,
+    package_title,
+    activity_id,
+    content_path,
+    content_title,
+    created_by_user_id,
+    resource_link_id,
+    created_at,
+    bound_at
+  FROM reviewed_placements
 `;
 
 const LINE_ITEM_BINDING_SELECT = `
@@ -267,6 +289,25 @@ interface DeepLinkingSessionRow {
   expiresAt: Date | string;
 }
 
+interface ReviewedPlacementRow {
+  placementId: string;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  appId: string;
+  contextId: string | null;
+  contextTitle: string | null;
+  packageVersionId: number;
+  packageVersion: string;
+  packageTitle: string;
+  activityId: string;
+  contentPath: string;
+  contentTitle: string | null;
+  createdByUserId: string | null;
+  resourceLinkId: string | null;
+  createdAt: Date | string;
+  boundAt: Date | string | null;
+}
+
 interface AttemptRow {
   id: number;
   attemptId: string;
@@ -387,6 +428,17 @@ export interface PackageReviewRepository {
   listDeepLinkingResourceOptions(
     appId: string,
   ): Promise<DeepLinkingResourceOption[]>;
+  createReviewedPlacement(
+    record: ReviewedPlacementRecord,
+  ): Promise<ReviewedPlacementRecord>;
+  getReviewedPlacementById(
+    placementId: string,
+  ): Promise<ReviewedPlacementRecord | null>;
+  bindReviewedPlacementResourceLink(input: {
+    placementId: string;
+    resourceLinkId: string;
+    boundAt: string;
+  }): Promise<ReviewedPlacementRecord>;
   createRuntimeSession(
     record: RuntimeSessionRecord,
   ): Promise<RuntimeSessionRecord>;
@@ -1091,6 +1143,185 @@ export function createPackageReviewRepository(
 
         return buildDeepLinkingResourceOptions(
           sortPackageVersions(result.rows.map(mapPackageVersionRow)),
+        );
+      });
+    },
+
+    async createReviewedPlacement(record) {
+      return await withClient(pool, async (client) => {
+        try {
+          const result = await client.queryObject<ReviewedPlacementRow>({
+            text: `
+              INSERT INTO reviewed_placements (
+                placement_id,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                context_id,
+                context_title,
+                package_version_id,
+                package_version,
+                package_title,
+                activity_id,
+                content_path,
+                content_title,
+                created_by_user_id,
+                resource_link_id,
+                created_at,
+                bound_at
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9, $10, $11, $12, $13, $14, $15, $16
+              )
+              RETURNING
+                placement_id,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                context_id,
+                context_title,
+                package_version_id,
+                package_version,
+                package_title,
+                activity_id,
+                content_path,
+                content_title,
+                created_by_user_id,
+                resource_link_id,
+                created_at,
+                bound_at
+            `,
+            args: [
+              record.placementId,
+              record.deploymentRecordId,
+              record.deploymentSlug,
+              record.appId,
+              record.contextId,
+              record.contextTitle,
+              record.packageVersionId,
+              record.packageVersion,
+              record.packageTitle,
+              record.activityId,
+              record.contentPath,
+              record.contentTitle,
+              record.createdByUserId,
+              record.resourceLinkId,
+              record.createdAt,
+              record.boundAt,
+            ],
+            camelCase: true,
+          });
+
+          return mapReviewedPlacementRow(result.rows[0]);
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            throw new Error(
+              `Reviewed placement ${record.placementId} already exists and cannot be replaced.`,
+            );
+          }
+
+          throw error;
+        }
+      });
+    },
+
+    async getReviewedPlacementById(placementId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<ReviewedPlacementRow>({
+          text: `${REVIEWED_PLACEMENT_SELECT} WHERE placement_id = $1`,
+          args: [placementId],
+          camelCase: true,
+        });
+
+        return mapOptionalReviewedPlacement(result.rows[0]);
+      });
+    },
+
+    async bindReviewedPlacementResourceLink(input) {
+      return await withClient(pool, async (client) => {
+        return await withTransaction(
+          client,
+          "bind_reviewed_placement_resource_link",
+          async (transaction) => {
+            const existingResult = await transaction.queryObject<
+              ReviewedPlacementRow
+            >({
+              text: `
+                ${REVIEWED_PLACEMENT_SELECT}
+                WHERE placement_id = $1
+                FOR UPDATE
+              `,
+              args: [input.placementId],
+              camelCase: true,
+            });
+            const existing = existingResult.rows[0];
+
+            if (!existing) {
+              throw new Error(
+                `Reviewed placement ${input.placementId} was not found.`,
+              );
+            }
+
+            if (
+              existing.resourceLinkId !== null &&
+              existing.resourceLinkId !== input.resourceLinkId
+            ) {
+              throw new Error(
+                `Reviewed placement ${input.placementId} is already bound to Canvas resource link ${existing.resourceLinkId}.`,
+              );
+            }
+
+            if (existing.resourceLinkId === input.resourceLinkId) {
+              return mapReviewedPlacementRow(existing);
+            }
+
+            try {
+              const updated = await transaction.queryObject<
+                ReviewedPlacementRow
+              >({
+                text: `
+                  UPDATE reviewed_placements
+                  SET
+                    resource_link_id = $2,
+                    bound_at = $3
+                  WHERE placement_id = $1
+                  RETURNING
+                    placement_id,
+                    deployment_record_id,
+                    deployment_slug,
+                    app_id,
+                    context_id,
+                    context_title,
+                    package_version_id,
+                    package_version,
+                    package_title,
+                    activity_id,
+                    content_path,
+                    content_title,
+                    created_by_user_id,
+                    resource_link_id,
+                    created_at,
+                    bound_at
+                `,
+                args: [
+                  input.placementId,
+                  input.resourceLinkId,
+                  input.boundAt,
+                ],
+                camelCase: true,
+              });
+
+              return mapReviewedPlacementRow(updated.rows[0]);
+            } catch (error) {
+              if (isUniqueViolation(error)) {
+                throw new Error(
+                  `Canvas resource link ${input.resourceLinkId} is already bound to another reviewed placement in deployment ${existing.deploymentSlug}.`,
+                );
+              }
+
+              throw error;
+            }
+          },
         );
       });
     },
@@ -2441,6 +2672,43 @@ function mapDeepLinkingSessionRow(
     selection: mapDeepLinkingSessionSelection(row),
     createdAt: normalizeTimestamp(row.createdAt),
     expiresAt: normalizeTimestamp(row.expiresAt),
+  };
+}
+
+function mapOptionalReviewedPlacement(
+  row: ReviewedPlacementRow | undefined,
+): ReviewedPlacementRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapReviewedPlacementRow(row);
+}
+
+function mapReviewedPlacementRow(
+  row: ReviewedPlacementRow | undefined,
+): ReviewedPlacementRecord {
+  if (!row) {
+    throw new Error("Expected a reviewed placement row.");
+  }
+
+  return {
+    placementId: row.placementId,
+    deploymentRecordId: row.deploymentRecordId,
+    deploymentSlug: row.deploymentSlug,
+    appId: row.appId,
+    contextId: row.contextId,
+    contextTitle: row.contextTitle,
+    packageVersionId: row.packageVersionId,
+    packageVersion: row.packageVersion,
+    packageTitle: row.packageTitle,
+    activityId: row.activityId,
+    contentPath: row.contentPath,
+    contentTitle: row.contentTitle,
+    createdByUserId: row.createdByUserId,
+    resourceLinkId: row.resourceLinkId,
+    createdAt: normalizeTimestamp(row.createdAt),
+    boundAt: row.boundAt === null ? null : normalizeTimestamp(row.boundAt),
   };
 }
 

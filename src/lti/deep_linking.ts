@@ -3,6 +3,7 @@ import type { UserRole } from "../../sdk/app-sdk.ts";
 import type {
   DeepLinkingResourceOption,
   DeepLinkingResourceSelection,
+  ReviewedPlacementRecord,
 } from "../package_review/types.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import {
@@ -309,6 +310,55 @@ export async function saveDeepLinkingSessionSelection(input: {
 
   return {
     session,
+    selection,
+  };
+}
+
+export async function createReviewedPlacementFromDeepLinkingSession(input: {
+  repository: PackageReviewRepository;
+  session: DeepLinkingSessionRecord;
+  now?: () => Date;
+  createPlacementId?: () => string;
+}): Promise<{
+  placement: ReviewedPlacementRecord;
+  selection: DeepLinkingResourceSelection;
+}> {
+  const now = input.now ?? (() => new Date());
+  const createPlacementId = input.createPlacementId ?? defaultOpaqueToken;
+  const resources = await listDeepLinkingResources({
+    repository: input.repository,
+    session: input.session,
+  });
+  const selection = resolveDeepLinkingSelection({
+    session: input.session,
+    resources,
+  });
+
+  if (selection === null) {
+    throw new Error(
+      `Deep Linking session ${input.session.sessionId} does not have a valid reviewed selection.`,
+    );
+  }
+
+  return {
+    placement: await input.repository.createReviewedPlacement({
+      placementId: createPlacementId(),
+      deploymentRecordId: input.session.deploymentRecordId,
+      deploymentSlug: input.session.deploymentSlug,
+      appId: input.session.appId,
+      contextId: input.session.contextId,
+      contextTitle: input.session.contextTitle,
+      packageVersionId: selection.packageVersionId,
+      packageVersion: selection.packageVersion,
+      packageTitle: selection.packageTitle,
+      activityId: selection.activityId,
+      contentPath: selection.contentPath,
+      contentTitle: selection.contentTitle,
+      createdByUserId: input.session.userId,
+      resourceLinkId: null,
+      createdAt: now().toISOString(),
+      boundAt: null,
+    }),
     selection,
   };
 }

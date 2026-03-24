@@ -117,6 +117,28 @@ const CREATE_DEEP_LINKING_SESSIONS_TABLE_SQL = `
   )
 `;
 
+const CREATE_REVIEWED_PLACEMENTS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS reviewed_placements (
+    placement_id text PRIMARY KEY,
+    deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
+    deployment_slug text NOT NULL,
+    app_id text NOT NULL,
+    context_id text,
+    context_title text,
+    package_version_id bigint NOT NULL REFERENCES package_versions (id),
+    package_version text NOT NULL,
+    package_title text NOT NULL,
+    activity_id text NOT NULL,
+    content_path text NOT NULL,
+    content_title text,
+    created_by_user_id text,
+    resource_link_id text,
+    created_at timestamptz NOT NULL,
+    bound_at timestamptz,
+    UNIQUE (deployment_record_id, resource_link_id)
+  )
+`;
+
 const CREATE_ATTEMPTS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS attempts (
     id bigserial PRIMARY KEY,
@@ -329,6 +351,7 @@ export async function bootstrapPackageReviewSchema(
     await client.queryArray(CREATE_LTI_LOGIN_STATES_TABLE_SQL);
     await client.queryArray(CREATE_RUNTIME_SESSIONS_TABLE_SQL);
     await client.queryArray(CREATE_DEEP_LINKING_SESSIONS_TABLE_SQL);
+    await client.queryArray(CREATE_REVIEWED_PLACEMENTS_TABLE_SQL);
     await client.queryArray(CREATE_ATTEMPTS_TABLE_SQL);
     await client.queryArray(CREATE_ATTEMPT_EVENTS_TABLE_SQL);
     await client.queryArray(CREATE_CANVAS_LINE_ITEM_BINDINGS_TABLE_SQL);
@@ -358,7 +381,7 @@ export async function resetPackageReviewTables(pool: Pool): Promise<void> {
   try {
     await client.queryArray("BEGIN");
     await client.queryArray(
-      "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
+      "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
     );
     await client.queryArray("COMMIT");
   } catch (error) {
