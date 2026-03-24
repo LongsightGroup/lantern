@@ -16,7 +16,7 @@ import {
   buildRuntimeSessionRecord,
 } from "../test_helpers/lti.ts";
 
-Deno.test.ignore(
+Deno.test(
   "ops service derives separate health dimensions instead of one opaque control-plane badge",
   async () => {
     const modulePath = `./${"service.ts"}`;
@@ -40,7 +40,7 @@ Deno.test.ignore(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "ops service formats launch, NRPS, and AGS diagnostics into operator-readable summaries without leaking secrets",
   async () => {
     const modulePath = `./${"service.ts"}`;
@@ -69,7 +69,7 @@ Deno.test.ignore(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "ops service retries failed grade publication against the attempt-scoped runtime session instead of the latest deployment session",
   async () => {
     const modulePath = `./${"service.ts"}`;

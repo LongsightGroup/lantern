@@ -541,7 +541,7 @@ async function insertAuditEvent(
   });
 }
 
-Deno.test.ignore(
+Deno.test(
   "ops repository lists deployment-centric inventory rows with owner, version, usage metrics, and current health inputs",
   async () => {
     await withPackageReviewTestDatabase(async (pool) => {
@@ -564,7 +564,7 @@ Deno.test.ignore(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "ops repository returns deployment detail snapshots with the latest launch, NRPS read, AGS publish, and diagnostics feed",
   async () => {
     await withPackageReviewTestDatabase(async (pool) => {
@@ -592,7 +592,7 @@ Deno.test.ignore(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "ops repository returns the latest broker verification row without conflating internal proof with official certification state",
   async () => {
     await withPackageReviewTestDatabase(async (pool) => {
@@ -617,7 +617,7 @@ Deno.test.ignore(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "ops repository resolves retry lookups by attempt-scoped runtime session rather than the latest session for the deployment",
   async () => {
     await withPackageReviewTestDatabase(async (pool) => {
