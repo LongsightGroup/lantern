@@ -10,10 +10,7 @@ import {
   type DeploymentNrpsVerificationSummary,
   renderDeploymentDetailPage,
 } from "./admin/deployment_detail.ts";
-import {
-  type AdminNotice,
-  escapeHtml,
-} from "./admin/layout.ts";
+import { type AdminNotice, escapeHtml } from "./admin/layout.ts";
 import {
   buildCanvasConfigDocument,
   buildCanvasConfigUrl,
@@ -26,8 +23,8 @@ import {
   requestCanvasServiceAccessToken,
 } from "./lti/services.ts";
 import {
-  type DeepLinkingSessionRecord,
   type DeepLinkingResponseSubmission,
+  type DeepLinkingSessionRecord,
   LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE,
 } from "./lti/types.ts";
 import { type CanvasLoginRequest, createLoginRedirect } from "./lti/login.ts";
@@ -417,10 +414,12 @@ export function createApp(
         );
       }
 
-      const { placement } = await createReviewedPlacementFromDeepLinkingSession({
-        repository,
-        session,
-      });
+      const { placement } = await createReviewedPlacementFromDeepLinkingSession(
+        {
+          repository,
+          session,
+        },
+      );
       const submission = await buildDeepLinkingResponseSubmission({
         session,
         deployment,
@@ -1701,7 +1700,9 @@ function renderDeepLinkingSubmitStatusPage(input: {
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: ${surfaceClass === "success" ? "var(--success)" : "var(--error)"};
+        color: ${
+    surfaceClass === "success" ? "var(--success)" : "var(--error)"
+  };
       }
 
       h1 {
@@ -1789,48 +1790,47 @@ function renderDeepLinkingSubmitStatusPage(input: {
         </section>
         <div class="layout">
           ${
-    session === null
-      ? ""
-      : `<section class="summary-card">
+    session === null ? "" : `<section class="summary-card">
           <p class="summary-label">Session</p>
           <p class="summary-item"><strong>Course context</strong>${
-        escapeHtml(session.contextTitle ?? "Canvas context")
-      }</p>
+      escapeHtml(session.contextTitle ?? "Canvas context")
+    }</p>
           <p class="summary-item"><strong>Bound app</strong>${
-        escapeHtml(session.appId)
-      }</p>
+      escapeHtml(session.appId)
+    }</p>
           <p class="summary-item"><strong>Deployment</strong>${
-        escapeHtml(session.deploymentSlug)
-      }</p>
+      escapeHtml(session.deploymentSlug)
+    }</p>
         </section>`
   }
           ${
-    selection === null
-      ? ""
-      : `<section class="summary-card">
+    selection === null ? "" : `<section class="summary-card">
           <p class="summary-label">Saved reviewed selection</p>
           <p class="summary-item"><strong>${
-        escapeHtml(selection.contentTitle ?? `${selection.packageVersion} reviewed activity`)
-      }</strong>${
-        escapeHtml(selection.packageVersion)
-      }</p>
-          <p class="summary-item resource-path">${escapeHtml(selection.contentPath)}</p>
+      escapeHtml(
+        selection.contentTitle ??
+          `${selection.packageVersion} reviewed activity`,
+      )
+    }</strong>${escapeHtml(selection.packageVersion)}</p>
+          <p class="summary-item resource-path">${
+      escapeHtml(selection.contentPath)
+    }</p>
         </section>`
   }
           ${
-    submission === null
-      ? ""
-      : `<section class="summary-card">
+    submission === null ? "" : `<section class="summary-card">
           <p class="summary-label">Canvas return</p>
           <p class="summary-item"><strong>Signed Deep Linking response</strong>Lantern is posting the reviewed placement back to Canvas now.</p>
           <form id="canvas-return-form" method="post" action="${
-        escapeHtml(submission.returnUrl)
-      }">
+      escapeHtml(submission.returnUrl)
+    }">
             ${
-        Object.entries(submission.formFields).map(([name, value]) =>
-          `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`
-        ).join("")
-      }
+      Object.entries(submission.formFields).map(([name, value]) =>
+        `<input type="hidden" name="${escapeHtml(name)}" value="${
+          escapeHtml(value)
+        }">`
+      ).join("")
+    }
             <button type="submit" class="button-primary">Return to Canvas</button>
           </form>
           <p class="helper-copy">If Canvas does not resume automatically, use the button above.</p>
@@ -1839,9 +1839,7 @@ function renderDeepLinkingSubmitStatusPage(input: {
         </div>
       </div>
       ${
-    submission === null
-      ? ""
-      : `<script>
+    submission === null ? "" : `<script>
         window.addEventListener("load", () => {
           document.getElementById("canvas-return-form")?.submit();
         }, { once: true });

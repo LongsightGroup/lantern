@@ -7,8 +7,8 @@ import { getPublicJwkSet } from "./lti/tool_key.ts";
 import {
   CANVAS_LTI_SCOPES,
   LANTERN_PLACEMENT_CUSTOM_KEY,
-  LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
   LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+  LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
 } from "./lti/types.ts";
 import {
   buildAttemptEventRecord,
@@ -1943,13 +1943,15 @@ function extractHiddenInputValue(html: string, name: string): string {
 }
 
 async function verifyDeepLinkingResponseJwt(jwt: string) {
-  const keySet = createLocalJWKSet(await getPublicJwkSet({
-    get(name: string) {
-      return name === "LTI_TOOL_PRIVATE_JWK"
-        ? getTestToolPrivateJwkEnvValue()
-        : undefined;
-    },
-  }));
+  const keySet = createLocalJWKSet(
+    await getPublicJwkSet({
+      get(name: string) {
+        return name === "LTI_TOOL_PRIVATE_JWK"
+          ? getTestToolPrivateJwkEnvValue()
+          : undefined;
+      },
+    }),
+  );
   const binding = buildDeploymentBinding();
 
   return await jwtVerify(jwt, keySet, {
