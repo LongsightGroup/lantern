@@ -9,7 +9,9 @@ export const LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE =
   "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly";
 export const LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE = "LtiResourceLinkRequest";
 export const LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE = "LtiDeepLinkingRequest";
+export const LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE = "LtiDeepLinkingResponse";
 export const LTI_ASSIGNMENT_SELECTION_PLACEMENT = "assignment_selection";
+export const LANTERN_PLACEMENT_CUSTOM_KEY = "lantern_placement_id";
 export const CANVAS_LTI_SCOPES = [
   LTI_AGS_SCORE_SCOPE,
   LTI_AGS_LINEITEM_SCOPE,
@@ -163,4 +165,28 @@ export interface DeepLinkingSessionRecord {
   selection: DeepLinkingSessionSelection | null;
   createdAt: string;
   expiresAt: string;
+}
+
+export interface DeepLinkingResponseLineItem {
+  scoreMaximum: number;
+  label: string;
+  resourceId: string;
+  tag: string;
+}
+
+export interface DeepLinkingResponseContentItem {
+  type: "ltiResourceLink";
+  title: string;
+  text: string;
+  url: string;
+  custom: Record<string, string>;
+  lineItem?: DeepLinkingResponseLineItem;
+}
+
+export interface DeepLinkingResponseSubmission {
+  returnUrl: string;
+  jwt: string;
+  formFields: {
+    JWT: string;
+  };
 }
