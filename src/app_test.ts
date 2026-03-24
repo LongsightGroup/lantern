@@ -1,9 +1,13 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import { createLocalJWKSet, jwtVerify } from "jose";
 import { createApp } from "./app.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
 import { buildDeepLinkingSelectionValue } from "./lti/deep_linking.ts";
+import { getPublicJwkSet } from "./lti/tool_key.ts";
 import {
   CANVAS_LTI_SCOPES,
+  LANTERN_PLACEMENT_CUSTOM_KEY,
+  LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
   LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
 } from "./lti/types.ts";
 import {
@@ -320,9 +324,29 @@ Deno.test(
 );
 
 Deno.test(
-  "POST /lti/deep-linking/sessions/:id/submit renders Lantern-owned ready state for one saved reviewed selection",
+  "POST /lti/deep-linking/sessions/:id/submit creates one reviewed placement and returns an auto-post Canvas form",
   async () => {
     const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 2,
+          version: "0.2.0",
+          installScope: "assignment",
+          grading: {
+            mode: "declarative",
+            rubricFile: "/scoring/rubric.json",
+            maxScore: 25,
+          },
+        }),
+      ],
+      deployments: [
+        buildDeploymentRecord({
+          id: 1,
+          enabledPackageVersionId: 2,
+          enabledPackageVersion: "0.2.0",
+          binding: buildDeploymentBinding(),
+        }),
+      ],
       deepLinkingSessions: [
         buildDeepLinkingSessionRecord({
           sessionId: "deep-linking-session-submit",
@@ -351,24 +375,51 @@ Deno.test(
 
     formData.set("token", "deep-linking-token-submit");
 
-    const response = await createApp({
-      getRepository: () => repository,
-    }).request(
-      "http://localhost/lti/deep-linking/sessions/deep-linking-session-submit/submit",
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
+    await withCanvasReturnEnv(async () => {
+      const response = await createApp({
+        getRepository: () => repository,
+      }).request(
+        "http://localhost/lti/deep-linking/sessions/deep-linking-session-submit/submit",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
 
-    assertEquals(response.status, 200);
+      assertEquals(response.status, 200);
 
-    const body = await response.text();
+      const body = await response.text();
+      const responseJwt = extractHiddenInputValue(body, "JWT");
+      const verified = await verifyDeepLinkingResponseJwt(responseJwt);
+      const contentItems = verified.payload[
+        "https://purl.imsglobal.org/spec/lti-dl/claim/content_items"
+      ] as Array<Record<string, unknown>>;
+      const contentItem = contentItems[0] ?? {};
+      const placementId = (contentItem.custom as Record<string, unknown>)[
+        LANTERN_PLACEMENT_CUSTOM_KEY
+      ] as string;
+      const savedPlacement = await repository.getReviewedPlacementById(
+        placementId,
+      );
 
-    assertStringIncludes(body, "<!doctype html>");
-    assertStringIncludes(body, "Ready to return to Canvas");
-    assertStringIncludes(body, "Bonus Activity");
-    assertStringIncludes(body, "/content/bonus.json");
+      assertStringIncludes(body, "<!doctype html>");
+      assertStringIncludes(
+        body,
+        'action="https://canvas.example/courses/42/deep_link_return"',
+      );
+      assertStringIncludes(body, 'id="canvas-return-form"');
+      assertStringIncludes(body, "Returning to Canvas");
+      assertEquals(
+        verified.payload[
+          "https://purl.imsglobal.org/spec/lti/claim/message_type"
+        ],
+        LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
+      );
+      assertEquals(contentItem.type, "ltiResourceLink");
+      assertEquals(savedPlacement?.packageVersionId, 2);
+      assertEquals(savedPlacement?.contentPath, "/content/bonus.json");
+      assertEquals(savedPlacement?.resourceLinkId, null);
+    });
   },
 );
 
@@ -448,6 +499,85 @@ Deno.test(
       body,
       "Reopen the assignment picker from Canvas and try again.",
     );
+  },
+);
+
+Deno.test(
+  "POST /lti/deep-linking/sessions/:id/submit keeps placement-creation failures on a Lantern-owned error surface",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 2,
+          version: "0.2.0",
+          installScope: "assignment",
+        }),
+      ],
+      deployments: [
+        buildDeploymentRecord({
+          id: 1,
+          enabledPackageVersionId: 2,
+          enabledPackageVersion: "0.2.0",
+          binding: buildDeploymentBinding(),
+        }),
+      ],
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          sessionId: "deep-linking-session-submit-failure",
+          sessionToken: "deep-linking-token-submit-failure",
+          selection: {
+            packageVersionId: 2,
+            packageVersion: "0.2.0",
+            activityId: "/content/bonus.json",
+            contentPath: "/content/bonus.json",
+          },
+          expiresAt: "2026-03-25T16:20:00Z",
+        }),
+      ],
+      deepLinkingResourceOptions: [
+        buildDeepLinkingResourceOption({
+          packageVersionId: 2,
+          packageVersion: "0.2.0",
+          contentPath: "/content/bonus.json",
+          activityId: "/content/bonus.json",
+          contentTitle: "Bonus Activity",
+        }),
+      ],
+    });
+    const formData = new FormData();
+
+    formData.set("token", "deep-linking-token-submit-failure");
+
+    await withCanvasReturnEnv(async () => {
+      const response = await createApp({
+        getRepository: () => ({
+          ...repository,
+          createReviewedPlacement() {
+            return Promise.reject(
+              new Error("Lantern could not create the reviewed placement."),
+            );
+          },
+        }),
+      }).request(
+        "http://localhost/lti/deep-linking/sessions/deep-linking-session-submit-failure/submit",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      assertEquals(response.status, 500);
+
+      const body = await response.text();
+
+      assertStringIncludes(body, "<!doctype html>");
+      assertStringIncludes(body, "Canvas return failed");
+      assertStringIncludes(
+        body,
+        "Lantern could not create the reviewed placement.",
+      );
+      assertEquals(body.includes('id="canvas-return-form"'), false);
+    });
   },
 );
 
@@ -1784,6 +1914,49 @@ function restoreEnv(name: string, value: string | undefined): void {
   }
 
   Deno.env.set(name, value);
+}
+
+async function withCanvasReturnEnv(run: () => Promise<void>): Promise<void> {
+  const previousAppOrigin = Deno.env.get("APP_ORIGIN");
+  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+
+  Deno.env.set("APP_ORIGIN", "https://lantern.example");
+  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+  try {
+    await run();
+  } finally {
+    restoreEnv("APP_ORIGIN", previousAppOrigin);
+    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+  }
+}
+
+function extractHiddenInputValue(html: string, name: string): string {
+  const pattern = new RegExp(`name="${name}" value="([^"]+)"`);
+  const match = html.match(pattern);
+
+  if (!match?.[1]) {
+    throw new Error(`Hidden input ${name} was not found.`);
+  }
+
+  return match[1];
+}
+
+async function verifyDeepLinkingResponseJwt(jwt: string) {
+  const keySet = createLocalJWKSet(await getPublicJwkSet({
+    get(name: string) {
+      return name === "LTI_TOOL_PRIVATE_JWK"
+        ? getTestToolPrivateJwkEnvValue()
+        : undefined;
+    },
+  }));
+  const binding = buildDeploymentBinding();
+
+  return await jwtVerify(jwt, keySet, {
+    issuer: binding.clientId,
+    audience: binding.issuer,
+    currentDate: new Date("2026-03-24T18:31:00Z"),
+  });
 }
 
 async function withFetchStub<T>(
