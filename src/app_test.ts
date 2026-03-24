@@ -14,6 +14,7 @@ import {
   buildControlPlaneDeploymentInventoryRow,
   buildControlPlaneDiagnosticItem,
   buildDeepLinkingResourceOption,
+  buildDeepLinkingResourceSelection,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
   buildDeploymentRecord,
@@ -247,7 +248,10 @@ Deno.test(
     assertStringIncludes(body, "Chapter 4 Asteroids");
     assertStringIncludes(body, "0.2.0");
     assertStringIncludes(body, "/content/bonus.json");
-    assertStringIncludes(body, "Canvas return continues in Phase 6.");
+    assertStringIncludes(
+      body,
+      "Save one reviewed selection before returning to Canvas.",
+    );
     assertEquals(body.includes("Other App"), false);
   },
 );
@@ -308,6 +312,142 @@ Deno.test(
     assertStringIncludes(body, "Selection saved");
     assertStringIncludes(body, "Bonus Activity");
     assertStringIncludes(body, "/content/bonus.json");
+    assertStringIncludes(
+      body,
+      "Ready to return to Canvas from this saved reviewed selection.",
+    );
+  },
+);
+
+Deno.test(
+  "POST /lti/deep-linking/sessions/:id/submit renders Lantern-owned ready state for one saved reviewed selection",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          sessionId: "deep-linking-session-submit",
+          sessionToken: "deep-linking-token-submit",
+          selection: {
+            packageVersionId: 2,
+            packageVersion: "0.2.0",
+            activityId: "/content/bonus.json",
+            contentPath: "/content/bonus.json",
+          },
+          expiresAt: "2026-03-25T16:20:00Z",
+        }),
+      ],
+      deepLinkingResourceOptions: [
+        buildDeepLinkingResourceOption(),
+        buildDeepLinkingResourceOption({
+          packageVersionId: 2,
+          packageVersion: "0.2.0",
+          contentPath: "/content/bonus.json",
+          activityId: "/content/bonus.json",
+          contentTitle: "Bonus Activity",
+        }),
+      ],
+    });
+    const formData = new FormData();
+
+    formData.set("token", "deep-linking-token-submit");
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "http://localhost/lti/deep-linking/sessions/deep-linking-session-submit/submit",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    assertEquals(response.status, 200);
+
+    const body = await response.text();
+
+    assertStringIncludes(body, "<!doctype html>");
+    assertStringIncludes(body, "Ready to return to Canvas");
+    assertStringIncludes(body, "Bonus Activity");
+    assertStringIncludes(body, "/content/bonus.json");
+  },
+);
+
+Deno.test(
+  "POST /lti/deep-linking/sessions/:id/submit keeps missing reviewed selections on Lantern HTML",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          sessionId: "deep-linking-session-submit-blocked",
+          sessionToken: "deep-linking-token-submit-blocked",
+          selection: null,
+          expiresAt: "2026-03-25T16:20:00Z",
+        }),
+      ],
+      deepLinkingResourceOptions: [buildDeepLinkingResourceOption()],
+    });
+    const formData = new FormData();
+
+    formData.set("token", "deep-linking-token-submit-blocked");
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "http://localhost/lti/deep-linking/sessions/deep-linking-session-submit-blocked/submit",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    assertEquals(response.status, 409);
+
+    const body = await response.text();
+
+    assertStringIncludes(body, "<!doctype html>");
+    assertStringIncludes(body, "Return blocked");
+    assertStringIncludes(
+      body,
+      "Save one reviewed selection before returning to Canvas.",
+    );
+  },
+);
+
+Deno.test(
+  "POST /lti/deep-linking/sessions/:id/submit blocks missing session tokens with Lantern-owned HTML",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          sessionId: "deep-linking-session-submit-auth",
+          sessionToken: "deep-linking-token-submit-auth",
+          selection: buildDeepLinkingResourceSelection(),
+          expiresAt: "2026-03-25T16:20:00Z",
+        }),
+      ],
+      deepLinkingResourceOptions: [buildDeepLinkingResourceOption()],
+    });
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "http://localhost/lti/deep-linking/sessions/deep-linking-session-submit-auth/submit",
+      {
+        method: "POST",
+        body: new FormData(),
+      },
+    );
+
+    assertEquals(response.status, 409);
+
+    const body = await response.text();
+
+    assertStringIncludes(body, "<!doctype html>");
+    assertStringIncludes(body, "Session verification failed");
+    assertStringIncludes(
+      body,
+      "Reopen the assignment picker from Canvas and try again.",
+    );
   },
 );
 
