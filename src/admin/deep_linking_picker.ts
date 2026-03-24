@@ -23,10 +23,21 @@ export function renderDeepLinkingPickerPage(input: {
     deploymentSlug: "deployment",
     expiresAt: null,
   };
-  const action = input.sessionId
+  const saveAction = input.sessionId
     ? `/lti/deep-linking/sessions/${encodeURIComponent(input.sessionId)}`
     : "#";
-  const canSubmit = input.resources.length > 0;
+  const submitAction = input.sessionId
+    ? `/lti/deep-linking/sessions/${encodeURIComponent(input.sessionId)}/submit`
+    : "#";
+  const canSave = input.resources.length > 0;
+  const canReturn = input.selection !== null &&
+    input.sessionId !== undefined &&
+    input.token !== undefined;
+  const returnStateCopy = input.selection === null
+    ? "Save one reviewed selection before returning to Canvas."
+    : input.sessionId === undefined || input.token === undefined
+    ? "Return to Canvas is unavailable until Lantern can verify this session."
+    : "Ready to return to Canvas from this saved reviewed selection.";
 
   return `<!doctype html>
 <html lang="en">
@@ -352,7 +363,7 @@ export function renderDeepLinkingPickerPage(input: {
             <h1>Select one reviewed resource for assignment placement.</h1>
             <p class="hero-copy">
               Lantern keeps the reviewed package version and content path explicit here.
-              Nothing is returned to Canvas yet. Phase 6 will use this saved selection for the signed Deep Linking response.
+              Save one reviewed selection first, then return that saved choice to Canvas from a separate verified action.
             </p>
           </div>
           <div class="facts">
@@ -407,7 +418,7 @@ export function renderDeepLinkingPickerPage(input: {
           </section>
           <section class="resource-panel">
             <p class="section-label">Reviewed resources</p>
-            <form method="post" action="${escapeHtml(action)}">
+            <form method="post" action="${escapeHtml(saveAction)}">
               ${
     input.token === undefined
       ? ""
@@ -428,9 +439,21 @@ export function renderDeepLinkingPickerPage(input: {
   }
               <div class="actions">
                 <button type="submit" class="button-primary" ${
-    canSubmit ? "" : "disabled"
+    canSave ? "" : "disabled"
   }>Save reviewed selection</button>
-                <span class="phase-note">Canvas return continues in Phase 6.</span>
+              </div>
+            </form>
+            <form method="post" action="${escapeHtml(submitAction)}">
+              ${
+    input.token === undefined
+      ? ""
+      : `<input type="hidden" name="token" value="${escapeHtml(input.token)}">`
+  }
+              <div class="actions">
+                <button type="submit" class="button-primary" ${
+    canReturn ? "" : "disabled"
+  }>Return to Canvas</button>
+                <span class="phase-note">${escapeHtml(returnStateCopy)}</span>
               </div>
             </form>
           </section>
