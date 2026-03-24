@@ -13,6 +13,8 @@ import {
   parseCanvasEnvironment,
   resolveCanvasIssuer,
 } from "./lti/config.ts";
+import { createLoginRedirect, type CanvasLoginRequest } from "./lti/login.ts";
+import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
 import { renderPackageIndexPage } from "./admin/package_index.ts";
@@ -73,6 +75,45 @@ export function createApp(
         { error: error instanceof Error ? error.message : "JWKS unavailable." },
         statusForError(error),
       );
+    }
+  });
+
+  app.get("/lti/login", async (context) => {
+    return await handleLoginInitiation(context, resolvedServices);
+  });
+
+  app.post("/lti/login", async (context) => {
+    return await handleLoginInitiation(context, resolvedServices);
+  });
+
+  app.post("/lti/launch", async (context) => {
+    try {
+      const repository = resolvedServices.getRepository();
+      const formData = await context.req.formData();
+      const launch = await validateLaunchRequest({
+        repository,
+        state: requireTrimmedFormValue(
+          formData.get("state"),
+          "Launch state is required.",
+        ),
+        idToken: requireTrimmedFormValue(
+          formData.get("id_token"),
+          "Launch id_token is required.",
+        ),
+      });
+      const runtimeSession = await createRuntimeSession({
+        repository,
+        launch,
+      });
+
+      return context.redirect(
+        `/runtime/sessions/${runtimeSession.sessionId}?token=${
+          encodeURIComponent(runtimeSession.sessionToken)
+        }`,
+        303,
+      );
+    } catch (error) {
+      return context.text(errorMessage(error), statusForError(error));
     }
   });
 
@@ -500,10 +541,25 @@ async function renderDeploymentError(
   }
 }
 
+async function handleLoginInitiation(
+  context: Context,
+  services: AppServices,
+) {
+  try {
+    const loginRequest = await readCanvasLoginRequest(context);
+    const result = await createLoginRedirect({
+      repository: services.getRepository(),
+      loginRequest,
+    });
+
+    return context.redirect(result.location, 302);
+  } catch (error) {
+    return context.text(errorMessage(error), statusForError(error));
+  }
+}
+
 function createErrorNotice(title: string, error: unknown): AdminNotice {
-  const message = error instanceof Error
-    ? error.message
-    : "Lantern hit an unexpected error.";
+  const message = errorMessage(error);
   const items = message.includes("; ") ? message.split("; ") : [];
 
   return {
@@ -529,7 +585,11 @@ function statusForError(error: unknown): 409 | 500 {
     error.message.includes("not found") ||
     error.message.includes("required") ||
     error.message.includes("belongs to another deployment") ||
-    error.message.includes("Choose one supported Canvas environment")
+    error.message.includes("Choose one supported Canvas environment") ||
+    error.message.includes("Canvas deployment") ||
+    error.message.includes("Canvas issuer") ||
+    error.message.includes("Login state") ||
+    error.message.includes("Launch ")
   ) {
     return 409;
   }
@@ -583,6 +643,64 @@ function getCanvasConfigUrlNoticeSafe(): {
   }
 }
 
+async function readCanvasLoginRequest(context: Context): Promise<CanvasLoginRequest> {
+  if (context.req.method === "GET") {
+    const url = new URL(context.req.url);
+
+    return {
+      iss: requireTrimmedString(
+        url.searchParams.get("iss"),
+        "Canvas issuer is required.",
+      ),
+      loginHint: requireTrimmedString(
+        url.searchParams.get("login_hint"),
+        "Canvas login_hint is required.",
+      ),
+      targetLinkUri: requireTrimmedString(
+        url.searchParams.get("target_link_uri"),
+        "Canvas target_link_uri is required.",
+      ),
+      clientId: requireTrimmedString(
+        url.searchParams.get("client_id"),
+        "Canvas client_id is required.",
+      ),
+      deploymentId: resolveLoginDeploymentId({
+        primary: url.searchParams.get("deployment_id"),
+        secondary: url.searchParams.get("lti_deployment_id"),
+      }),
+      ltiMessageHint: normalizeNullableString(
+        url.searchParams.get("lti_message_hint"),
+      ),
+    };
+  }
+
+  const formData = await context.req.formData();
+
+  return {
+    iss: requireTrimmedFormValue(
+      formData.get("iss"),
+      "Canvas issuer is required.",
+    ),
+    loginHint: requireTrimmedFormValue(
+      formData.get("login_hint"),
+      "Canvas login_hint is required.",
+    ),
+    targetLinkUri: requireTrimmedFormValue(
+      formData.get("target_link_uri"),
+      "Canvas target_link_uri is required.",
+    ),
+    clientId: requireTrimmedFormValue(
+      formData.get("client_id"),
+      "Canvas client_id is required.",
+    ),
+    deploymentId: resolveLoginDeploymentId({
+      primary: formValueAsString(formData.get("deployment_id")),
+      secondary: formValueAsString(formData.get("lti_deployment_id")),
+    }),
+    ltiMessageHint: normalizeOptionalString(formData.get("lti_message_hint")),
+  };
+}
+
 function combineNotices(
   primary: AdminNotice | null,
   secondary: AdminNotice,
@@ -601,6 +719,62 @@ function combineNotices(
       ...(primary.items ?? []),
     ],
   };
+}
+
+function resolveLoginDeploymentId(input: {
+  primary: string | null;
+  secondary: string | null;
+}): string {
+  const primary = normalizeNullableString(input.primary);
+  const secondary = normalizeNullableString(input.secondary);
+
+  if (primary !== null && secondary !== null && primary !== secondary) {
+    throw new Error(
+      "Canvas deployment_id and lti_deployment_id did not match.",
+    );
+  }
+
+  return requireTrimmedString(
+    primary ?? secondary,
+    "Canvas deployment_id is required.",
+  );
+}
+
+function requireTrimmedString(
+  value: string | null,
+  message: string,
+): string {
+  if (value === null) {
+    throw new Error(message);
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed === "") {
+    throw new Error(message);
+  }
+
+  return trimmed;
+}
+
+function normalizeNullableString(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed === "" ? null : trimmed;
+}
+
+function formValueAsString(value: FormDataEntryValue | null): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message
+    : "Lantern hit an unexpected error.";
 }
 
 function packageDetailPath(appId: string, version: string): string {

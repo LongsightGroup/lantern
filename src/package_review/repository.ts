@@ -7,7 +7,12 @@ import type {
   PackageVersionRecord,
   ValidationIssue,
 } from "./types.ts";
-import type { CanvasEnvironment, DeploymentBinding } from "../lti/types.ts";
+import type {
+  CanvasEnvironment,
+  DeploymentBinding,
+  LoginStateRecord,
+  RuntimeSessionRecord,
+} from "../lti/types.ts";
 
 const PACKAGE_VERSION_SELECT = `
   SELECT
@@ -93,6 +98,41 @@ interface DeploymentRow {
   updatedAt: Date | string;
 }
 
+interface LoginStateRow {
+  state: string;
+  canvasEnvironment: CanvasEnvironment;
+  issuer: string;
+  clientId: string;
+  deploymentId: string;
+  nonce: string;
+  loginHint: string;
+  targetLinkUri: string;
+  ltiMessageHint: string | null;
+  createdAt: Date | string;
+  expiresAt: Date | string;
+  usedAt: Date | string | null;
+}
+
+interface RuntimeSessionRow {
+  sessionId: string;
+  sessionToken: string;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  appId: string;
+  packageVersionId: number;
+  packageVersion: string;
+  capabilities: RuntimeSessionRecord["capabilities"];
+  snapshotRoot: string;
+  entrypointPath: string;
+  contentPath: string;
+  launchUserRole: RuntimeSessionRecord["launch"]["userRole"];
+  launchCourseId: string;
+  launchAssignmentId: string | null;
+  launchActivityId: string;
+  createdAt: Date | string;
+  expiresAt: Date | string;
+}
+
 export interface PackageReviewRepository {
   registerPackageVersion(
     input: ImportedPackageVersion,
@@ -116,6 +156,18 @@ export interface PackageReviewRepository {
   getDeploymentByBinding(
     binding: Pick<DeploymentBinding, "issuer" | "clientId" | "deploymentId">,
   ): Promise<DeploymentRecord | null>;
+  createLoginState(record: LoginStateRecord): Promise<LoginStateRecord>;
+  getLoginStateByState(state: string): Promise<LoginStateRecord | null>;
+  consumeLoginState(input: {
+    state: string;
+    usedAt: string;
+  }): Promise<LoginStateRecord>;
+  createRuntimeSession(
+    record: RuntimeSessionRecord,
+  ): Promise<RuntimeSessionRecord>;
+  getRuntimeSessionById(
+    sessionId: string,
+  ): Promise<RuntimeSessionRecord | null>;
   saveDeploymentBinding(input: {
     slug: string;
     label: string;
@@ -315,6 +367,286 @@ export function createPackageReviewRepository(
         });
 
         return mapOptionalDeployment(result.rows[0]);
+      });
+    },
+
+    async createLoginState(record) {
+      return await withClient(pool, async (client) => {
+        try {
+          const result = await client.queryObject<LoginStateRow>({
+            text: `
+              INSERT INTO lti_login_states (
+                state,
+                canvas_environment,
+                issuer,
+                client_id,
+                deployment_id,
+                nonce,
+                login_hint,
+                target_link_uri,
+                lti_message_hint,
+                created_at,
+                expires_at,
+                used_at
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+              )
+              RETURNING
+                state,
+                canvas_environment,
+                issuer,
+                client_id,
+                deployment_id,
+                nonce,
+                login_hint,
+                target_link_uri,
+                lti_message_hint,
+                created_at,
+                expires_at,
+                used_at
+            `,
+            args: [
+              record.state,
+              record.canvasEnvironment,
+              record.issuer,
+              record.clientId,
+              record.deploymentId,
+              record.nonce,
+              record.loginHint,
+              record.targetLinkUri,
+              record.ltiMessageHint,
+              record.createdAt,
+              record.expiresAt,
+              record.usedAt,
+            ],
+            camelCase: true,
+          });
+
+          return mapLoginStateRow(result.rows[0]);
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            throw new Error(
+              `Login state ${record.state} already exists and cannot be reused.`,
+            );
+          }
+
+          throw error;
+        }
+      });
+    },
+
+    async getLoginStateByState(state) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<LoginStateRow>({
+          text: `
+            SELECT
+              state,
+              canvas_environment,
+              issuer,
+              client_id,
+              deployment_id,
+              nonce,
+              login_hint,
+              target_link_uri,
+              lti_message_hint,
+              created_at,
+              expires_at,
+              used_at
+            FROM lti_login_states
+            WHERE state = $1
+          `,
+          args: [state],
+          camelCase: true,
+        });
+
+        return mapOptionalLoginState(result.rows[0]);
+      });
+    },
+
+    async consumeLoginState(input) {
+      return await withClient(pool, async (client) => {
+        return await withTransaction(
+          client,
+          "consume_login_state",
+          async (transaction) => {
+            const updated = await transaction.queryObject<LoginStateRow>({
+              text: `
+                UPDATE lti_login_states
+                SET used_at = $2
+                WHERE state = $1
+                  AND used_at IS NULL
+                RETURNING
+                  state,
+                  canvas_environment,
+                  issuer,
+                  client_id,
+                  deployment_id,
+                  nonce,
+                  login_hint,
+                  target_link_uri,
+                  lti_message_hint,
+                  created_at,
+                  expires_at,
+                  used_at
+              `,
+              args: [input.state, input.usedAt],
+              camelCase: true,
+            });
+
+            const consumed = updated.rows[0];
+
+            if (consumed) {
+              return mapLoginStateRow(consumed);
+            }
+
+            const existing = await transaction.queryObject<LoginStateRow>({
+              text: `
+                SELECT
+                  state,
+                  canvas_environment,
+                  issuer,
+                  client_id,
+                  deployment_id,
+                  nonce,
+                  login_hint,
+                  target_link_uri,
+                  lti_message_hint,
+                  created_at,
+                  expires_at,
+                  used_at
+                FROM lti_login_states
+                WHERE state = $1
+              `,
+              args: [input.state],
+              camelCase: true,
+            });
+            const row = existing.rows[0];
+
+            if (!row) {
+              throw new Error(`Login state ${input.state} was not found.`);
+            }
+
+            if (row.usedAt !== null) {
+              throw new Error(`Login state ${input.state} has already been used.`);
+            }
+
+            throw new Error(`Login state ${input.state} could not be consumed.`);
+          },
+        );
+      });
+    },
+
+    async createRuntimeSession(record) {
+      return await withClient(pool, async (client) => {
+        try {
+          const result = await client.queryObject<RuntimeSessionRow>({
+            text: `
+              INSERT INTO runtime_sessions (
+                session_id,
+                session_token,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                package_version_id,
+                package_version,
+                capabilities,
+                snapshot_root,
+                entrypoint_path,
+                content_path,
+                launch_user_role,
+                launch_course_id,
+                launch_assignment_id,
+                launch_activity_id,
+                created_at,
+                expires_at
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8,
+                $9, $10, $11, $12, $13, $14, $15, $16, $17
+              )
+              RETURNING
+                session_id,
+                session_token,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                package_version_id,
+                package_version,
+                capabilities,
+                snapshot_root,
+                entrypoint_path,
+                content_path,
+                launch_user_role,
+                launch_course_id,
+                launch_assignment_id,
+                launch_activity_id,
+                created_at,
+                expires_at
+            `,
+            args: [
+              record.sessionId,
+              record.sessionToken,
+              record.deploymentRecordId,
+              record.deploymentSlug,
+              record.appId,
+              record.packageVersionId,
+              record.packageVersion,
+              record.capabilities,
+              record.snapshotRoot,
+              record.entrypointPath,
+              record.contentPath,
+              record.launch.userRole,
+              record.launch.courseId,
+              record.launch.assignmentId ?? null,
+              record.launch.activityId,
+              record.createdAt,
+              record.expiresAt,
+            ],
+            camelCase: true,
+          });
+
+          return mapRuntimeSessionRow(result.rows[0]);
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            throw new Error(
+              `Runtime session ${record.sessionId} already exists and cannot be replaced.`,
+            );
+          }
+
+          throw error;
+        }
+      });
+    },
+
+    async getRuntimeSessionById(sessionId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<RuntimeSessionRow>({
+          text: `
+            SELECT
+              session_id,
+              session_token,
+              deployment_record_id,
+              deployment_slug,
+              app_id,
+              package_version_id,
+              package_version,
+              capabilities,
+              snapshot_root,
+              entrypoint_path,
+              content_path,
+              launch_user_role,
+              launch_course_id,
+              launch_assignment_id,
+              launch_activity_id,
+              created_at,
+              expires_at
+            FROM runtime_sessions
+            WHERE session_id = $1
+          `,
+          args: [sessionId],
+          camelCase: true,
+        });
+
+        return mapOptionalRuntimeSession(result.rows[0]);
       });
     },
 
@@ -768,6 +1100,79 @@ function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | null {
     issuer: row.issuer,
     clientId: row.clientId,
     deploymentId: row.deploymentId,
+  };
+}
+
+function mapOptionalLoginState(
+  row: LoginStateRow | undefined,
+): LoginStateRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapLoginStateRow(row);
+}
+
+function mapLoginStateRow(row: LoginStateRow | undefined): LoginStateRecord {
+  if (!row) {
+    throw new Error("Expected a login state row.");
+  }
+
+  return {
+    state: row.state,
+    canvasEnvironment: row.canvasEnvironment,
+    issuer: row.issuer,
+    clientId: row.clientId,
+    deploymentId: row.deploymentId,
+    nonce: row.nonce,
+    loginHint: row.loginHint,
+    targetLinkUri: row.targetLinkUri,
+    ltiMessageHint: row.ltiMessageHint,
+    createdAt: normalizeTimestamp(row.createdAt),
+    expiresAt: normalizeTimestamp(row.expiresAt),
+    usedAt: normalizeOptionalTimestamp(row.usedAt),
+  };
+}
+
+function mapOptionalRuntimeSession(
+  row: RuntimeSessionRow | undefined,
+): RuntimeSessionRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapRuntimeSessionRow(row);
+}
+
+function mapRuntimeSessionRow(
+  row: RuntimeSessionRow | undefined,
+): RuntimeSessionRecord {
+  if (!row) {
+    throw new Error("Expected a runtime session row.");
+  }
+
+  return {
+    sessionId: row.sessionId,
+    sessionToken: row.sessionToken,
+    deploymentRecordId: row.deploymentRecordId,
+    deploymentSlug: row.deploymentSlug,
+    appId: row.appId,
+    packageVersionId: row.packageVersionId,
+    packageVersion: row.packageVersion,
+    capabilities: row.capabilities,
+    snapshotRoot: row.snapshotRoot,
+    entrypointPath: row.entrypointPath,
+    contentPath: row.contentPath,
+    launch: {
+      userRole: row.launchUserRole,
+      courseId: row.launchCourseId,
+      ...(row.launchAssignmentId === null
+        ? {}
+        : { assignmentId: row.launchAssignmentId }),
+      activityId: row.launchActivityId,
+    },
+    createdAt: normalizeTimestamp(row.createdAt),
+    expiresAt: normalizeTimestamp(row.expiresAt),
   };
 }
 

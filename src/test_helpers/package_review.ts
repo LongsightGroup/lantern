@@ -1,5 +1,9 @@
 import { compare, parse } from "@std/semver";
-import type { DeploymentBinding } from "../lti/types.ts";
+import type {
+  DeploymentBinding,
+  LoginStateRecord,
+  RuntimeSessionRecord,
+} from "../lti/types.ts";
 import type { ImportedPackageVersion } from "../package_review/intake.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
@@ -105,10 +109,14 @@ export function createInMemoryPackageReviewRepository(
   options: {
     packageVersions?: PackageVersionRecord[];
     deployments?: DeploymentRecord[];
+    loginStates?: LoginStateRecord[];
+    runtimeSessions?: RuntimeSessionRecord[];
   } = {},
 ): PackageReviewRepository {
   const packageVersions = [...(options.packageVersions ?? [])];
   const deployments = [...(options.deployments ?? [])];
+  const loginStates = [...(options.loginStates ?? [])];
+  const runtimeSessions = [...(options.runtimeSessions ?? [])];
 
   return {
     registerPackageVersion(input) {
@@ -212,6 +220,80 @@ export function createInMemoryPackageReviewRepository(
         candidate.binding?.deploymentId === binding.deploymentId
       );
       return Promise.resolve(deployment ? cloneDeployment(deployment) : null);
+    },
+
+    createLoginState(record) {
+      const existing = loginStates.find((candidate) =>
+        candidate.state === record.state
+      );
+
+      if (existing) {
+        throw new Error(
+          `Login state ${record.state} already exists and cannot be reused.`,
+        );
+      }
+
+      loginStates.push(cloneLoginState(record));
+
+      return Promise.resolve(cloneLoginState(record));
+    },
+
+    getLoginStateByState(state) {
+      const record = loginStates.find((candidate) => candidate.state === state);
+      return Promise.resolve(record ? cloneLoginState(record) : null);
+    },
+
+    consumeLoginState(input) {
+      const index = loginStates.findIndex((candidate) =>
+        candidate.state === input.state
+      );
+
+      if (index < 0) {
+        throw new Error(`Login state ${input.state} was not found.`);
+      }
+
+      const existing = loginStates[index];
+
+      if (!existing) {
+        throw new Error(`Login state ${input.state} was not found.`);
+      }
+
+      if (existing.usedAt !== null) {
+        throw new Error(`Login state ${input.state} has already been used.`);
+      }
+
+      const nextRecord: LoginStateRecord = {
+        ...existing,
+        usedAt: input.usedAt,
+      };
+
+      loginStates.splice(index, 1, nextRecord);
+
+      return Promise.resolve(cloneLoginState(nextRecord));
+    },
+
+    createRuntimeSession(record) {
+      const existing = runtimeSessions.find((candidate) =>
+        candidate.sessionId === record.sessionId ||
+        candidate.sessionToken === record.sessionToken
+      );
+
+      if (existing) {
+        throw new Error(
+          `Runtime session ${record.sessionId} already exists and cannot be replaced.`,
+        );
+      }
+
+      runtimeSessions.push(cloneRuntimeSession(record));
+
+      return Promise.resolve(cloneRuntimeSession(record));
+    },
+
+    getRuntimeSessionById(sessionId) {
+      const record = runtimeSessions.find((candidate) =>
+        candidate.sessionId === sessionId
+      );
+      return Promise.resolve(record ? cloneRuntimeSession(record) : null);
     },
 
     saveDeploymentBinding(input) {
@@ -391,6 +473,16 @@ function cloneDeployment(record: DeploymentRecord): DeploymentRecord {
 
 function cloneBinding(binding: DeploymentBinding): DeploymentBinding {
   return structuredClone(binding);
+}
+
+function cloneLoginState(record: LoginStateRecord): LoginStateRecord {
+  return structuredClone(record);
+}
+
+function cloneRuntimeSession(
+  record: RuntimeSessionRecord,
+): RuntimeSessionRecord {
+  return structuredClone(record);
 }
 
 function nextId(records: Array<{ id: number }>): number {

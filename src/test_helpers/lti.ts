@@ -21,9 +21,9 @@ export const TEST_TOOL_PRIVATE_JWK = {
 export const TEST_CANVAS_PRIVATE_JWK = {
   kty: "EC",
   crv: "P-256",
-  x: "JXShjYh1ejL3VEh8CVF9F7l0aIc07-Vcy7hkPw6hY4c",
-  y: "Wj6L6TAjQY8sEg4HyN7iFOJp3TAqK1ybLV2cM5OQnxc",
-  d: "l9qZP_3ROl8o8yA0m6cH9HScOBQ13jZ4fMvsqmoH5yQ",
+  x: "Fgb7eS3YhjqEBd7cgS6DsI6-03QFxuRwQsYgg-ouGcw",
+  y: "5Oz3PTCdqSCgyjivrUo7O-OU3Pke-c4F0wsTDHthhdk",
+  d: "sANZQwLQiOe9yhkHkeU6LugbEM_GZdNgx6dFIKEOsdk",
   kid: "canvas-test-key",
   alg: "ES256",
   use: "sig",
@@ -70,6 +70,10 @@ export interface CanvasLaunchTokenInput {
   audience?: string;
   nonce?: string;
   subject?: string;
+  messageType?: string;
+  version?: string;
+  issuedAt?: string;
+  expirationTime?: string;
   targetLinkUri?: string;
   resourceLinkId?: string;
   resourceLinkTitle?: string;
@@ -234,8 +238,9 @@ export async function signCanvasIdToken(
   const claims = {
     nonce: input.nonce ?? "nonce-123",
     "https://purl.imsglobal.org/spec/lti/claim/message_type":
-      "LtiResourceLinkRequest",
-    "https://purl.imsglobal.org/spec/lti/claim/version": "1.3.0",
+      input.messageType ?? "LtiResourceLinkRequest",
+    "https://purl.imsglobal.org/spec/lti/claim/version":
+      input.version ?? "1.3.0",
     "https://purl.imsglobal.org/spec/lti/claim/deployment_id":
       binding.deploymentId,
     "https://purl.imsglobal.org/spec/lti/claim/target_link_uri":
@@ -267,17 +272,35 @@ export async function signCanvasIdToken(
     .setIssuer(binding.issuer)
     .setAudience(input.audience ?? binding.clientId)
     .setSubject(input.subject ?? "canvas-user-123")
-    .setIssuedAt(Math.floor(Date.parse(TEST_NOW) / 1000))
-    .setExpirationTime("5m")
+    .setIssuedAt(
+      Math.floor(Date.parse(input.issuedAt ?? TEST_NOW) / 1000),
+    )
+    .setExpirationTime(input.expirationTime ?? "5m")
     .setJti("launch-jti-123")
     .sign(signingKey);
 }
 
 export function getTestCanvasJwks(): {
-  keys: [typeof TEST_CANVAS_PRIVATE_JWK];
+  keys: [{
+    kty: string;
+    crv: string;
+    x: string;
+    y: string;
+    kid: string;
+    alg: string;
+    use: string;
+  }];
 } {
   return {
-    keys: [TEST_CANVAS_PRIVATE_JWK],
+    keys: [{
+      kty: TEST_CANVAS_PRIVATE_JWK.kty,
+      crv: TEST_CANVAS_PRIVATE_JWK.crv,
+      x: TEST_CANVAS_PRIVATE_JWK.x,
+      y: TEST_CANVAS_PRIVATE_JWK.y,
+      kid: TEST_CANVAS_PRIVATE_JWK.kid,
+      alg: TEST_CANVAS_PRIVATE_JWK.alg,
+      use: TEST_CANVAS_PRIVATE_JWK.use,
+    }],
   };
 }
 

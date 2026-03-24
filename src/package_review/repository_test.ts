@@ -1,6 +1,10 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import type { Pool } from "@db/postgres";
 import { resolveCanvasIssuer } from "../lti/config.ts";
+import {
+  buildLoginStateRecord,
+  buildRuntimeSessionRecord,
+} from "../test_helpers/lti.ts";
 import { runMigrations } from "../db/migrate.ts";
 import { createDatabasePool } from "../db/pool.ts";
 import { resetPackageReviewTables } from "../test_helpers/postgres.ts";
@@ -288,6 +292,51 @@ Deno.test("repository saves one exact Canvas binding per deployment and rejects 
         }),
       Error,
       "Canvas binding 10000000000001 / deployment-123 already belongs to another deployment.",
+    );
+  });
+});
+
+Deno.test("repository persists one-time login state records and runtime sessions", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for the pilot launch.",
+    });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+    const loginState = buildLoginStateRecord();
+    const savedLoginState = await repository.createLoginState(loginState);
+    const consumedLoginState = await repository.consumeLoginState({
+      state: loginState.state,
+      usedAt: "2026-03-23T22:46:00Z",
+    });
+    const runtimeSession = buildRuntimeSessionRecord({
+      deploymentRecordId: deployment.id,
+      deploymentSlug: deployment.slug,
+      packageVersionId: approvedRecord.id,
+      packageVersion: approvedRecord.version,
+      snapshotRoot: approvedRecord.artifact.snapshotRoot,
+      entrypointPath: approvedRecord.artifact.entrypointPath,
+    });
+    const savedRuntimeSession = await repository.createRuntimeSession(
+      runtimeSession,
+    );
+    const fetchedRuntimeSession = await repository.getRuntimeSessionById(
+      runtimeSession.sessionId,
+    );
+
+    assertEquals(savedLoginState.state, loginState.state);
+    assertEquals(consumedLoginState.usedAt, "2026-03-23T22:46:00.000Z");
+    assertEquals(savedRuntimeSession.sessionId, runtimeSession.sessionId);
+    assertEquals(
+      fetchedRuntimeSession?.packageVersionId,
+      approvedRecord.id,
     );
   });
 });

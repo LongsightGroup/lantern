@@ -41,6 +41,45 @@ const CREATE_DEPLOYMENTS_TABLE_SQL = `
   )
 `;
 
+const CREATE_LTI_LOGIN_STATES_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS lti_login_states (
+    state text PRIMARY KEY,
+    canvas_environment text NOT NULL,
+    issuer text NOT NULL,
+    client_id text NOT NULL,
+    deployment_id text NOT NULL,
+    nonce text NOT NULL,
+    login_hint text NOT NULL,
+    target_link_uri text NOT NULL,
+    lti_message_hint text,
+    created_at timestamptz NOT NULL,
+    expires_at timestamptz NOT NULL,
+    used_at timestamptz
+  )
+`;
+
+const CREATE_RUNTIME_SESSIONS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS runtime_sessions (
+    session_id text PRIMARY KEY,
+    session_token text NOT NULL UNIQUE,
+    deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
+    deployment_slug text NOT NULL,
+    app_id text NOT NULL,
+    package_version_id bigint NOT NULL REFERENCES package_versions (id),
+    package_version text NOT NULL,
+    capabilities text[] NOT NULL,
+    snapshot_root text NOT NULL,
+    entrypoint_path text NOT NULL,
+    content_path text NOT NULL,
+    launch_user_role text NOT NULL,
+    launch_course_id text NOT NULL,
+    launch_assignment_id text,
+    launch_activity_id text NOT NULL,
+    created_at timestamptz NOT NULL,
+    expires_at timestamptz NOT NULL
+  )
+`;
+
 export function requireTestDatabaseUrl(): string {
   const databaseUrl = Deno.env.get("DATABASE_URL");
 
@@ -65,6 +104,8 @@ export async function bootstrapPackageReviewSchema(
   try {
     await client.queryArray(CREATE_PACKAGE_VERSIONS_TABLE_SQL);
     await client.queryArray(CREATE_DEPLOYMENTS_TABLE_SQL);
+    await client.queryArray(CREATE_LTI_LOGIN_STATES_TABLE_SQL);
+    await client.queryArray(CREATE_RUNTIME_SESSIONS_TABLE_SQL);
   } finally {
     client.release();
   }
@@ -76,7 +117,7 @@ export async function resetPackageReviewTables(pool: Pool): Promise<void> {
   try {
     await client.queryArray("BEGIN");
     await client.queryArray(
-      "TRUNCATE TABLE deployments, package_versions RESTART IDENTITY CASCADE",
+      "TRUNCATE TABLE runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
     );
     await client.queryArray("COMMIT");
   } catch (error) {

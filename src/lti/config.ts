@@ -1,8 +1,8 @@
 import type {
   CanvasEnvironment,
-  CanvasPlatformConfig,
 } from "./types.ts";
 import { getPublicJwkSet } from "./tool_key.ts";
+import { listCanvasPlatforms, resolveCanvasPlatform } from "./canvas_platform.ts";
 
 export interface CanvasEnvironmentOption {
   id: CanvasEnvironment;
@@ -36,30 +36,6 @@ export interface CanvasConfigDocument {
 
 const APP_ORIGIN_ENV = "APP_ORIGIN";
 
-const CANVAS_PLATFORMS: Record<CanvasEnvironment, CanvasPlatformConfig> = {
-  production: {
-    environment: "production",
-    issuer: "https://canvas.instructure.com",
-    authorizationEndpoint:
-      "https://sso.canvaslms.com/api/lti/authorize_redirect",
-    jwksUrl: "https://sso.canvaslms.com/api/lti/security/jwks",
-  },
-  beta: {
-    environment: "beta",
-    issuer: "https://canvas.beta.instructure.com",
-    authorizationEndpoint:
-      "https://sso.beta.canvaslms.com/api/lti/authorize_redirect",
-    jwksUrl: "https://sso.beta.canvaslms.com/api/lti/security/jwks",
-  },
-  test: {
-    environment: "test",
-    issuer: "https://canvas.test.instructure.com",
-    authorizationEndpoint:
-      "https://sso.test.canvaslms.com/api/lti/authorize_redirect",
-    jwksUrl: "https://sso.test.canvaslms.com/api/lti/security/jwks",
-  },
-};
-
 export function requireAppOrigin(): string {
   const appOrigin = Deno.env.get(APP_ORIGIN_ENV)?.trim();
 
@@ -73,29 +49,21 @@ export function requireAppOrigin(): string {
 }
 
 export function listCanvasEnvironments(): CanvasEnvironmentOption[] {
-  return [
-    {
-      id: "production",
-      label: "Production Canvas",
-      issuer: CANVAS_PLATFORMS.production.issuer,
-    },
-    {
-      id: "beta",
-      label: "Beta Canvas",
-      issuer: CANVAS_PLATFORMS.beta.issuer,
-    },
-    {
-      id: "test",
-      label: "Test Canvas",
-      issuer: CANVAS_PLATFORMS.test.issuer,
-    },
-  ];
+  return listCanvasPlatforms().map((platform) => ({
+    id: platform.environment,
+    label: platform.environment === "production"
+      ? "Production Canvas"
+      : platform.environment === "beta"
+      ? "Beta Canvas"
+      : "Test Canvas",
+    issuer: platform.issuer,
+  }));
 }
 
 export function resolveCanvasIssuer(
   environment: CanvasEnvironment,
 ): string {
-  return CANVAS_PLATFORMS[environment].issuer;
+  return resolveCanvasPlatform(environment).issuer;
 }
 
 export function buildCanvasConfigUrl(appOrigin = requireAppOrigin()): string {
@@ -104,12 +72,6 @@ export function buildCanvasConfigUrl(appOrigin = requireAppOrigin()): string {
 
 export function buildCanvasJwksUrl(appOrigin = requireAppOrigin()): string {
   return `${appOrigin}/lti/jwks.json`;
-}
-
-export function resolveCanvasPlatform(
-  environment: CanvasEnvironment,
-): CanvasPlatformConfig {
-  return CANVAS_PLATFORMS[environment];
 }
 
 export async function buildCanvasConfigDocument(
