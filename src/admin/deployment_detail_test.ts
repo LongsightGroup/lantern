@@ -3,11 +3,13 @@ import { createApp } from "../app.ts";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
   buildControlPlaneDeploymentDetailSnapshot,
+  buildControlPlaneDiagnosticItem,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
   buildDeploymentRecord,
   buildPackageVersionRecord,
   buildPilotUsageMetrics,
+  buildRetryableGradePublicationLookup,
   createInMemoryPackageReviewRepository,
 } from "../test_helpers/package_review.ts";
 import {
@@ -148,6 +150,86 @@ Deno.test("deployment page shows status panels and pilot usage without dropping 
   assertStringIncludes(html, "Recent active users");
   assertStringIncludes(html, "Canvas binding");
   assertStringIncludes(html, "Version picker");
+});
+
+Deno.test("deployment page shows diagnostics and an explicit retry action for retryable AGS failures", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployment: buildDeploymentRecord({
+      enabledPackageVersionId: 1,
+      enabledPackageVersion: "0.1.0",
+      binding: buildDeploymentBinding(),
+    }),
+    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
+      diagnostics: [
+        buildControlPlaneDiagnosticItem({
+          id: 1,
+          kind: "launch",
+          eventType: "launch.rejected",
+          summary: "Rejected launch before runtime handoff.",
+          operatorSummary:
+            "Launch failed before Lantern could hand the learner into the governed runtime.",
+        }),
+        buildControlPlaneDiagnosticItem({
+          id: 2,
+          kind: "nrps",
+          eventType: "deployment.nrps_verified",
+          status: "failed",
+          code: "token_request_failed",
+          summary: "Canvas roster verification failed.",
+          operatorSummary:
+            "Roster verification failed for the saved deployment path.",
+        }),
+        buildControlPlaneDiagnosticItem({
+          id: 3,
+          kind: "gradePublication",
+          eventType: "grade_publish.failed",
+          status: "failed",
+          attemptId: "attempt-123",
+          code: "token_request_failed",
+          summary: "Canvas AGS score publish failed.",
+          operatorSummary:
+            "Grade publish failed and can be retried from the control plane.",
+          retryable: true,
+        }),
+      ],
+      retryableGradePublication: buildRetryableGradePublicationLookup({
+        attemptId: "attempt-123",
+      }),
+    }),
+    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, "Diagnostics");
+  assertStringIncludes(
+    html,
+    "Launch failed before Lantern could hand the learner into the governed runtime.",
+  );
+  assertStringIncludes(
+    html,
+    "Roster verification failed for the saved deployment path.",
+  );
+  assertStringIncludes(
+    html,
+    "Grade publish failed and can be retried from the control plane.",
+  );
+  assertStringIncludes(html, "retry-grade-publish");
+  assertStringIncludes(html, "Retry grade publish");
 });
 
 Deno.test("POST /admin/packages/:appId/deployment/install saves one exact Canvas binding", async () => {

@@ -66,6 +66,29 @@ Deno.test(
 );
 
 Deno.test(
+  "ops service marks only attempt-scoped AGS failures as retryable diagnostics",
+  async () => {
+    const modulePath = `./${"service.ts"}`;
+    const opsServiceModule = await import(modulePath);
+    const formatted = opsServiceModule.formatDiagnosticItem(
+      buildControlPlaneDiagnosticItem({
+        kind: "gradePublication",
+        eventType: "grade_publish.failed",
+        attemptId: "attempt-123",
+        code: "token_request_failed",
+        summary: "Canvas AGS score publish failed.",
+      }),
+      {
+        retryableAttemptId: "attempt-123",
+      },
+    );
+
+    assertEquals(formatted.retryable, true);
+    assertEquals(formatted.operatorSummary.includes("control plane"), true);
+  },
+);
+
+Deno.test(
   "ops service retries failed grade publication against the attempt-scoped runtime session and updates the existing ledger row",
   async () => {
     const modulePath = `./${"service.ts"}`;
