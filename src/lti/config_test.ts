@@ -1,7 +1,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
 
-Deno.test.ignore("GET /lti/canvas/config.json publishes one supported Canvas config document", async () => {
+Deno.test("GET /lti/canvas/config.json publishes one supported Canvas config document", async () => {
   const previousOrigin = Deno.env.get("APP_ORIGIN");
   const previousJwk = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
 
@@ -28,7 +28,7 @@ Deno.test.ignore("GET /lti/canvas/config.json publishes one supported Canvas con
   }
 });
 
-Deno.test.ignore("GET /lti/jwks.json exposes only the public Lantern tool JWK", async () => {
+Deno.test("GET /lti/jwks.json exposes only the public Lantern tool JWK", async () => {
   const previousJwk = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
 
   Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
@@ -48,7 +48,7 @@ Deno.test.ignore("GET /lti/jwks.json exposes only the public Lantern tool JWK", 
   }
 });
 
-Deno.test.ignore("config document does not advertise unsupported Phase 2 scopes or placements", async () => {
+Deno.test("config document does not advertise unsupported Phase 2 scopes or placements", async () => {
   const previousOrigin = Deno.env.get("APP_ORIGIN");
   const previousJwk = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
 

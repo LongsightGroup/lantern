@@ -1,4 +1,5 @@
 import { compare, parse } from "@std/semver";
+import type { DeploymentBinding } from "../lti/types.ts";
 import type { ImportedPackageVersion } from "../package_review/intake.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
@@ -94,6 +95,7 @@ export function buildDeploymentRecord(
     appId: "chapter-4-asteroids",
     enabledPackageVersionId: 1,
     enabledPackageVersion: "0.1.0",
+    binding: null,
     updatedAt: DEFAULT_UPDATED_AT,
     ...overrides,
   };
@@ -203,6 +205,61 @@ export function createInMemoryPackageReviewRepository(
       return Promise.resolve(deployment ? cloneDeployment(deployment) : null);
     },
 
+    getDeploymentByBinding(binding) {
+      const deployment = deployments.find((candidate) =>
+        candidate.binding?.issuer === binding.issuer &&
+        candidate.binding?.clientId === binding.clientId &&
+        candidate.binding?.deploymentId === binding.deploymentId
+      );
+      return Promise.resolve(deployment ? cloneDeployment(deployment) : null);
+    },
+
+    saveDeploymentBinding(input) {
+      const existing = deployments.find((candidate) =>
+        candidate.slug === input.slug
+      );
+      const conflicting = deployments.find((candidate) =>
+        candidate.slug !== input.slug &&
+        candidate.binding?.issuer === input.binding.issuer &&
+        candidate.binding?.clientId === input.binding.clientId &&
+        candidate.binding?.deploymentId === input.binding.deploymentId
+      );
+
+      if (conflicting) {
+        throw new Error(
+          `Canvas binding ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+        );
+      }
+
+      if (existing && existing.appId !== input.appId) {
+        throw new Error(
+          `Deployment ${input.slug} belongs to app ${existing.appId}.`,
+        );
+      }
+
+      const nextDeployment = buildDeploymentRecord({
+        id: existing?.id ?? nextId(deployments),
+        slug: input.slug,
+        label: input.label,
+        appId: input.appId,
+        enabledPackageVersionId: existing?.enabledPackageVersionId ?? null,
+        enabledPackageVersion: existing?.enabledPackageVersion ?? null,
+        binding: cloneBinding(input.binding),
+        updatedAt: DEFAULT_UPDATED_AT,
+      });
+
+      if (existing) {
+        const index = deployments.findIndex((candidate) =>
+          candidate.slug === input.slug
+        );
+        deployments.splice(index, 1, nextDeployment);
+      } else {
+        deployments.push(nextDeployment);
+      }
+
+      return Promise.resolve(cloneDeployment(nextDeployment));
+    },
+
     pinDeploymentVersion(input) {
       const packageVersion = packageVersions.find((candidate) =>
         candidate.id === input.packageVersionId
@@ -241,6 +298,7 @@ export function createInMemoryPackageReviewRepository(
         appId: input.appId,
         enabledPackageVersionId: packageVersion.id,
         enabledPackageVersion: packageVersion.version,
+        binding: existing?.binding ?? null,
         updatedAt: DEFAULT_UPDATED_AT,
       });
 
@@ -329,6 +387,10 @@ function clonePackageVersion(
 
 function cloneDeployment(record: DeploymentRecord): DeploymentRecord {
   return structuredClone(record);
+}
+
+function cloneBinding(binding: DeploymentBinding): DeploymentBinding {
+  return structuredClone(binding);
 }
 
 function nextId(records: Array<{ id: number }>): number {

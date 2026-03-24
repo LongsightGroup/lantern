@@ -1,4 +1,5 @@
 import type { Capability, UserRole } from "../../sdk/app-sdk.ts";
+import type { DeploymentBinding } from "../lti/types.ts";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type InstallScope = "course" | "assignment";
@@ -58,5 +59,6 @@ export interface DeploymentRecord {
   appId: string;
   enabledPackageVersionId: number | null;
   enabledPackageVersion: string | null;
+  binding: DeploymentBinding | null;
   updatedAt: string;
 }

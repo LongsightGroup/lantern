@@ -6,6 +6,14 @@ import {
   renderDeploymentDetailPage,
 } from "./admin/deployment_detail.ts";
 import type { AdminNotice } from "./admin/layout.ts";
+import {
+  buildCanvasConfigDocument,
+  buildCanvasConfigUrl,
+  listCanvasEnvironments,
+  parseCanvasEnvironment,
+  resolveCanvasIssuer,
+} from "./lti/config.ts";
+import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
 import { renderPackageIndexPage } from "./admin/package_index.ts";
 import {
@@ -44,6 +52,28 @@ export function createApp(
 
   app.get("/health", (context) => {
     return context.json({ ok: true });
+  });
+
+  app.get("/lti/canvas/config.json", async (context) => {
+    try {
+      return context.json(await buildCanvasConfigDocument());
+    } catch (error) {
+      return context.json(
+        { error: error instanceof Error ? error.message : "Config unavailable." },
+        statusForError(error),
+      );
+    }
+  });
+
+  app.get("/lti/jwks.json", async (context) => {
+    try {
+      return context.json(await getPublicJwkSet());
+    } catch (error) {
+      return context.json(
+        { error: error instanceof Error ? error.message : "JWKS unavailable." },
+        statusForError(error),
+      );
+    }
   });
 
   app.get("/admin/packages", async (context) => {
@@ -170,6 +200,7 @@ export function createApp(
         appTitle,
       );
       const deployment = await repository.getDeploymentBySlug(seed.slug);
+      const canvasConfigUrl = getCanvasConfigUrlNoticeSafe();
 
       return context.html(
         renderDeploymentDetailPage({
@@ -177,6 +208,9 @@ export function createApp(
           appTitle,
           history,
           deployment,
+          canvasConfigUrl: canvasConfigUrl.url,
+          supportedCanvasEnvironments: listCanvasEnvironments(),
+          notice: canvasConfigUrl.notice,
         }),
       );
     } catch (error) {
@@ -231,6 +265,69 @@ export function createApp(
         resolvedServices,
         appId,
         "Version pin blocked",
+        error,
+      );
+    }
+  });
+
+  app.post("/admin/packages/:appId/deployment/install", async (context) => {
+    const appId = context.req.param("appId");
+
+    try {
+      buildCanvasConfigUrl();
+
+      const repository = resolvedServices.getRepository();
+      const history = await repository.listPackageVersionsByApp(appId);
+
+      if (history.length === 0) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: [],
+            notice: {
+              tone: "error",
+              title: "Canvas install unavailable",
+              detail:
+                "Import the app package before you attempt to save the Canvas binding.",
+            },
+          }),
+          404,
+        );
+      }
+
+      const formData = await context.req.formData();
+      const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
+      const seed = buildDefaultDeploymentSeed(appId, appTitle);
+      const canvasEnvironment = parseCanvasEnvironment(
+        formData.get("canvasEnvironment"),
+      );
+      const clientId = requireTrimmedFormValue(
+        formData.get("clientId"),
+        "Canvas Client ID is required.",
+      );
+      const deploymentId = requireTrimmedFormValue(
+        formData.get("deploymentId"),
+        "Canvas Deployment ID is required.",
+      );
+
+      await repository.saveDeploymentBinding({
+        slug: seed.slug,
+        label: seed.label,
+        appId,
+        binding: {
+          canvasEnvironment,
+          issuer: resolveCanvasIssuer(canvasEnvironment),
+          clientId,
+          deploymentId,
+        },
+      });
+
+      return context.redirect(`/admin/packages/${appId}/deployment`, 303);
+    } catch (error) {
+      return await renderDeploymentError(
+        context,
+        resolvedServices,
+        appId,
+        "Canvas install blocked",
         error,
       );
     }
@@ -375,6 +472,7 @@ async function renderDeploymentError(
     const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
     const seed = buildDefaultDeploymentSeed(appId, appTitle);
     const deployment = await repository.getDeploymentBySlug(seed.slug);
+    const canvasConfigUrl = getCanvasConfigUrlNoticeSafe();
 
     return context.html(
       renderDeploymentDetailPage({
@@ -382,7 +480,12 @@ async function renderDeploymentError(
         appTitle,
         history,
         deployment,
-        notice: createErrorNotice(title, error),
+        canvasConfigUrl: canvasConfigUrl.url,
+        supportedCanvasEnvironments: listCanvasEnvironments(),
+        notice: combineNotices(
+          canvasConfigUrl.notice,
+          createErrorNotice(title, error),
+        ),
       }),
       statusForError(error),
     );
@@ -423,7 +526,10 @@ function statusForError(error: unknown): 409 | 500 {
     error.message.includes("cannot change state") ||
     error.message.includes("Only approved") ||
     error.message.includes("does not belong") ||
-    error.message.includes("not found")
+    error.message.includes("not found") ||
+    error.message.includes("required") ||
+    error.message.includes("belongs to another deployment") ||
+    error.message.includes("Choose one supported Canvas environment")
   ) {
     return 409;
   }
@@ -441,6 +547,60 @@ function normalizeOptionalString(
   const trimmed = value.trim();
 
   return trimmed === "" ? null : trimmed;
+}
+
+function requireTrimmedFormValue(
+  value: FormDataEntryValue | null,
+  message: string,
+): string {
+  if (typeof value !== "string") {
+    throw new Error(message);
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed === "") {
+    throw new Error(message);
+  }
+
+  return trimmed;
+}
+
+function getCanvasConfigUrlNoticeSafe(): {
+  url: string | null;
+  notice: AdminNotice | null;
+} {
+  try {
+    return {
+      url: buildCanvasConfigUrl(),
+      notice: null,
+    };
+  } catch (error) {
+    return {
+      url: null,
+      notice: createErrorNotice("Canvas config unavailable", error),
+    };
+  }
+}
+
+function combineNotices(
+  primary: AdminNotice | null,
+  secondary: AdminNotice,
+): AdminNotice {
+  if (primary === null) {
+    return secondary;
+  }
+
+  return {
+    tone: secondary.tone,
+    title: secondary.title,
+    detail: secondary.detail,
+    items: [
+      ...(secondary.items ?? []),
+      primary.detail,
+      ...(primary.items ?? []),
+    ],
+  };
 }
 
 function packageDetailPath(appId: string, version: string): string {

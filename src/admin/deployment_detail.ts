@@ -3,6 +3,7 @@ import {
   approvalStatusLabel,
   describeDeploymentPin,
 } from "../package_review/summary.ts";
+import type { CanvasEnvironmentOption } from "../lti/config.ts";
 import type {
   DeploymentRecord,
   PackageVersionRecord,
@@ -32,6 +33,8 @@ export function renderDeploymentDetailPage(input: {
   appTitle: string;
   history: PackageVersionRecord[];
   deployment: DeploymentRecord | null;
+  canvasConfigUrl?: string | null;
+  supportedCanvasEnvironments?: CanvasEnvironmentOption[];
   notice?: AdminNotice | null;
 }): string {
   const seed = buildDefaultDeploymentSeed(input.appId, input.appTitle);
@@ -45,15 +48,26 @@ export function renderDeploymentDetailPage(input: {
     appId: input.appId,
     enabledPackageVersionId: null,
     enabledPackageVersion: null,
+    binding: null,
     updatedAt: input.history[0]?.importedAt ?? new Date().toISOString(),
   };
+  const canvasConfigUrl = input.canvasConfigUrl ?? null;
+  const supportedCanvasEnvironments = input.supportedCanvasEnvironments ?? [];
+  const launchReady = activeDeployment.enabledPackageVersionId !== null &&
+    activeDeployment.binding !== null &&
+    canvasConfigUrl !== null;
+  const installStatusHeading = activeDeployment.binding === null
+    ? "Canvas binding not saved yet"
+    : launchReady
+    ? "Launch-ready configuration saved"
+    : "Canvas binding saved, finish release setup";
 
   return renderAdminLayout({
     title: `${input.appTitle} Deployment`,
-    eyebrow: "Deployment Pinning",
+    eyebrow: "Canvas Deployment",
     heading: activeDeployment.label,
     intro:
-      "Choose one approved version and keep the pin explicit. Lantern never resolves deployment state through a floating latest release.",
+      "Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path. Lantern keeps both the release choice and the Canvas binding explicit.",
     breadcrumbs: [
       { label: "Packages", href: "/admin/packages" },
       {
@@ -96,6 +110,135 @@ export function renderDeploymentDetailPage(input: {
           </div>
         </div>
         <section class="stack">
+          <p class="section-label">Canvas status</p>
+          <h2>${escapeHtml(installStatusHeading)}</h2>
+          <div class="facts">
+            <div class="fact">
+              <span class="fact-label">Launch readiness</span>
+              <span class="fact-value">${launchReady ? "Ready for Canvas launch" : "Needs configuration"}</span>
+            </div>
+            <div class="fact">
+              <span class="fact-label">Canvas environment</span>
+              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.canvasEnvironment))}</span>
+            </div>
+            <div class="fact">
+              <span class="fact-label">Canvas issuer</span>
+              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.issuer))}</span>
+            </div>
+            <div class="fact">
+              <span class="fact-label">Canvas Client ID</span>
+              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.clientId))}</span>
+            </div>
+            <div class="fact">
+              <span class="fact-label">Canvas Deployment ID</span>
+              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.deploymentId))}</span>
+            </div>
+          </div>
+          <p class="micro muted">A deployment is launch-ready only after Lantern has both an exact approved version pin and an exact Canvas binding.</p>
+        </section>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-body two-column">
+        <div class="stack">
+          <p class="section-label">Canvas install</p>
+          <h2>One supported setup path</h2>
+          <div class="step-list">
+            <article class="step-card">
+              <p class="section-label">Step 1</p>
+              <h3>Copy Lantern's config URL into Canvas</h3>
+              <p>Use the hosted Lantern config document when you create the developer key or external tool in Canvas. Lantern publishes one supported pilot configuration.</p>
+              <div class="fact">
+                <span class="fact-label">Config URL</span>
+                <code class="inline-code">${escapeHtml(canvasConfigUrl ?? "APP_ORIGIN is required before Lantern can publish the config URL.")}</code>
+              </div>
+            </article>
+            <article class="step-card">
+              <p class="section-label">Step 2</p>
+              <h3>Deploy the tool in Canvas</h3>
+              <p>Finish the Canvas-side setup through the single supported placement, then note the exact Client ID and Deployment ID that Canvas assigns.</p>
+            </article>
+            <article class="step-card">
+              <p class="section-label">Step 3</p>
+              <h3>Save the exact Canvas binding in Lantern</h3>
+              <p>Return here and record the exact environment, Client ID, and Deployment ID. Lantern binds launches only through those saved identifiers.</p>
+            </article>
+          </div>
+          ${
+      canvasConfigUrl === null
+        ? `<div class="callout">
+              <h3>Config URL unavailable</h3>
+              <p>Set <code class="inline-code">APP_ORIGIN</code> before you attempt the Canvas install flow. Lantern will not guess public launch URLs from the local request.</p>
+            </div>`
+        : ""
+    }
+        </div>
+        <section class="stack">
+          <p class="section-label">Canvas binding</p>
+          <form method="post" action="/admin/packages/${
+      escapeHtml(input.appId)
+    }/deployment/install" class="stack">
+            <div class="field">
+              <label for="canvas-environment">Canvas environment</label>
+              <select id="canvas-environment" name="canvasEnvironment" ${
+      canvasConfigUrl === null ? "disabled" : ""
+    }>
+                ${
+      supportedCanvasEnvironments.map((environment) =>
+        `<option value="${escapeHtml(environment.id)}" ${
+          activeDeployment.binding?.canvasEnvironment === environment.id
+            ? "selected"
+            : ""
+        }>${escapeHtml(environment.label)}</option>`
+      ).join("")
+    }
+              </select>
+              <p class="field-hint">Pick the hosted Canvas environment this deployment will use. Lantern stores the matching issuer value behind the scenes.</p>
+            </div>
+            <div class="field">
+              <label for="client-id">Canvas Client ID</label>
+              <input
+                id="client-id"
+                name="clientId"
+                type="text"
+                value="${
+      escapeHtml(activeDeployment.binding?.clientId ?? "")
+    }"
+                placeholder="10000000000001"
+                ${
+      canvasConfigUrl === null ? "disabled" : ""
+    }
+              />
+              <p class="field-hint">Paste the exact Client ID Canvas assigned when you created the tool.</p>
+            </div>
+            <div class="field">
+              <label for="deployment-id">Canvas Deployment ID</label>
+              <input
+                id="deployment-id"
+                name="deploymentId"
+                type="text"
+                value="${
+      escapeHtml(activeDeployment.binding?.deploymentId ?? "")
+    }"
+                placeholder="deployment-123"
+                ${
+      canvasConfigUrl === null ? "disabled" : ""
+    }
+              />
+              <p class="field-hint">Paste the exact Deployment ID for this Canvas placement. Lantern does not infer deployments from course or client data alone.</p>
+            </div>
+            <div class="button-row">
+              <button type="submit" class="button-primary" ${
+      canvasConfigUrl === null ? "disabled" : ""
+    }>Save Canvas binding</button>
+              <a class="button-ghost" href="/admin/packages/${
+      escapeHtml(input.appId)
+    }/versions/${
+      escapeHtml(input.history[0]?.version ?? "")
+    }">Back to dossier</a>
+            </div>
+          </form>
+          <p class="micro muted">Lantern records the exact Canvas identifiers and keeps them visible on reload so the install path stays auditable.</p>
           <p class="section-label">Version picker</p>
           <form method="post" action="/admin/packages/${
       escapeHtml(input.appId)
@@ -173,4 +316,12 @@ function renderHistoryRow(
     escapeHtml(version.reviewNotes ?? "No review notes recorded.")
   }</p>
   </article>`;
+}
+
+function describeBindingValue(value: string | null | undefined): string {
+  if (!value) {
+    return "Not saved yet";
+  }
+
+  return value;
 }

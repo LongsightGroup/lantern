@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import type { Pool } from "@db/postgres";
+import { resolveCanvasIssuer } from "../lti/config.ts";
 import { runMigrations } from "../db/migrate.ts";
 import { createDatabasePool } from "../db/pool.ts";
 import { resetPackageReviewTables } from "../test_helpers/postgres.ts";
@@ -229,5 +230,64 @@ Deno.test("repository pins exact approved versions and preserves the existing de
       approvedRecord.id,
     );
     assertEquals(persistedDeployment?.enabledPackageVersion, "0.1.0");
+  });
+});
+
+Deno.test("repository saves one exact Canvas binding per deployment and rejects duplicate bindings", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const saved = await repository.saveDeploymentBinding({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      binding: {
+        canvasEnvironment: "production",
+        issuer: resolveCanvasIssuer("production"),
+        clientId: "10000000000001",
+        deploymentId: "deployment-123",
+      },
+    });
+
+    assert(saved.binding !== null);
+    assertEquals(saved.binding?.canvasEnvironment, "production");
+    assertEquals(saved.binding?.clientId, "10000000000001");
+    assertEquals(saved.binding?.deploymentId, "deployment-123");
+
+    const fetched = await repository.getDeploymentByBinding({
+      issuer: resolveCanvasIssuer("production"),
+      clientId: "10000000000001",
+      deploymentId: "deployment-123",
+    });
+
+    assert(fetched);
+    assertEquals(fetched?.slug, "chapter-4-asteroids-pilot");
+
+    await repository.saveDeploymentBinding({
+      slug: "second-app-pilot",
+      label: "Second App Pilot Deployment",
+      appId: "second-app",
+      binding: {
+        canvasEnvironment: "beta",
+        issuer: resolveCanvasIssuer("beta"),
+        clientId: "10000000000002",
+        deploymentId: "deployment-456",
+      },
+    });
+
+    await assertRejects(
+      () =>
+        repository.saveDeploymentBinding({
+          slug: "duplicate-binding",
+          label: "Duplicate Binding",
+          appId: "duplicate-app",
+          binding: {
+            canvasEnvironment: "production",
+            issuer: resolveCanvasIssuer("production"),
+            clientId: "10000000000001",
+            deploymentId: "deployment-123",
+          },
+        }),
+      Error,
+      "Canvas binding 10000000000001 / deployment-123 already belongs to another deployment.",
+    );
   });
 });

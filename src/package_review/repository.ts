@@ -7,6 +7,7 @@ import type {
   PackageVersionRecord,
   ValidationIssue,
 } from "./types.ts";
+import type { CanvasEnvironment, DeploymentBinding } from "../lti/types.ts";
 
 const PACKAGE_VERSION_SELECT = `
   SELECT
@@ -42,6 +43,10 @@ const DEPLOYMENT_SELECT = `
     deployments.label,
     deployments.app_id,
     deployments.enabled_package_version_id,
+    deployments.canvas_environment,
+    deployments.issuer,
+    deployments.client_id,
+    deployments.deployment_id,
     package_versions.version AS enabled_package_version,
     deployments.updated_at
   FROM deployments
@@ -81,6 +86,10 @@ interface DeploymentRow {
   appId: string;
   enabledPackageVersionId: number | null;
   enabledPackageVersion: string | null;
+  canvasEnvironment: CanvasEnvironment | null;
+  issuer: string | null;
+  clientId: string | null;
+  deploymentId: string | null;
   updatedAt: Date | string;
 }
 
@@ -104,6 +113,15 @@ export interface PackageReviewRepository {
     reviewNotes: string | null;
   }): Promise<PackageVersionRecord>;
   getDeploymentBySlug(slug: string): Promise<DeploymentRecord | null>;
+  getDeploymentByBinding(
+    binding: Pick<DeploymentBinding, "issuer" | "clientId" | "deploymentId">,
+  ): Promise<DeploymentRecord | null>;
+  saveDeploymentBinding(input: {
+    slug: string;
+    label: string;
+    appId: string;
+    binding: DeploymentBinding;
+  }): Promise<DeploymentRecord>;
   pinDeploymentVersion(input: {
     slug: string;
     label: string;
@@ -283,6 +301,137 @@ export function createPackageReviewRepository(
       });
     },
 
+    async getDeploymentByBinding(binding) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<DeploymentRow>({
+          text: `
+            ${DEPLOYMENT_SELECT}
+            WHERE deployments.issuer = $1
+              AND deployments.client_id = $2
+              AND deployments.deployment_id = $3
+          `,
+          args: [binding.issuer, binding.clientId, binding.deploymentId],
+          camelCase: true,
+        });
+
+        return mapOptionalDeployment(result.rows[0]);
+      });
+    },
+
+    async saveDeploymentBinding(input) {
+      return await withClient(pool, async (client) => {
+        return await withTransaction(
+          client,
+          "save_deployment_binding",
+          async (transaction) => {
+            const existingDeploymentResult = await transaction.queryObject<
+              DeploymentRow
+            >({
+              text: `
+                ${DEPLOYMENT_SELECT}
+                WHERE deployments.slug = $1
+                FOR UPDATE OF deployments
+              `,
+              args: [input.slug],
+              camelCase: true,
+            });
+            const existingDeployment = existingDeploymentResult.rows[0];
+
+            if (existingDeployment && existingDeployment.appId !== input.appId) {
+              throw new Error(
+                `Deployment ${input.slug} belongs to app ${existingDeployment.appId}.`,
+              );
+            }
+
+            const conflictingBindingResult = await transaction.queryObject<
+              DeploymentRow
+            >({
+              text: `
+                ${DEPLOYMENT_SELECT}
+                WHERE deployments.issuer = $1
+                  AND deployments.client_id = $2
+                  AND deployments.deployment_id = $3
+                  AND deployments.slug <> $4
+              `,
+              args: [
+                input.binding.issuer,
+                input.binding.clientId,
+                input.binding.deploymentId,
+                input.slug,
+              ],
+              camelCase: true,
+            });
+
+            if (conflictingBindingResult.rows[0]) {
+              throw new Error(
+                `Canvas binding ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+              );
+            }
+
+            try {
+              const upsertResult = await transaction.queryObject<DeploymentRow>({
+                text: `
+                  INSERT INTO deployments (
+                    slug,
+                    label,
+                    app_id,
+                    canvas_environment,
+                    issuer,
+                    client_id,
+                    deployment_id
+                  ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                  ON CONFLICT (slug) DO UPDATE SET
+                    label = EXCLUDED.label,
+                    app_id = EXCLUDED.app_id,
+                    canvas_environment = EXCLUDED.canvas_environment,
+                    issuer = EXCLUDED.issuer,
+                    client_id = EXCLUDED.client_id,
+                    deployment_id = EXCLUDED.deployment_id,
+                    updated_at = now()
+                  RETURNING
+                    deployments.id,
+                    deployments.slug,
+                    deployments.label,
+                    deployments.app_id,
+                    deployments.enabled_package_version_id,
+                    deployments.canvas_environment,
+                    deployments.issuer,
+                    deployments.client_id,
+                    deployments.deployment_id,
+                    (
+                      SELECT version
+                      FROM package_versions
+                      WHERE id = deployments.enabled_package_version_id
+                    ) AS enabled_package_version,
+                    deployments.updated_at
+                `,
+                args: [
+                  input.slug,
+                  input.label,
+                  input.appId,
+                  input.binding.canvasEnvironment,
+                  input.binding.issuer,
+                  input.binding.clientId,
+                  input.binding.deploymentId,
+                ],
+                camelCase: true,
+              });
+
+              return mapDeploymentRow(upsertResult.rows[0]);
+            } catch (error) {
+              if (isUniqueViolation(error)) {
+                throw new Error(
+                  `Canvas binding ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+                );
+              }
+
+              throw error;
+            }
+          },
+        );
+      });
+    },
+
     async pinDeploymentVersion(input) {
       return await withClient(pool, async (client) => {
         return await withTransaction(
@@ -362,6 +511,10 @@ export function createPackageReviewRepository(
                   deployments.label,
                   deployments.app_id,
                   deployments.enabled_package_version_id,
+                  deployments.canvas_environment,
+                  deployments.issuer,
+                  deployments.client_id,
+                  deployments.deployment_id,
                   (
                     SELECT version
                     FROM package_versions
@@ -595,7 +748,26 @@ function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentRecord {
     appId: row.appId,
     enabledPackageVersionId: row.enabledPackageVersionId,
     enabledPackageVersion: row.enabledPackageVersion,
+    binding: mapDeploymentBinding(row),
     updatedAt: normalizeTimestamp(row.updatedAt),
+  };
+}
+
+function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | null {
+  if (
+    row.canvasEnvironment === null ||
+    row.issuer === null ||
+    row.clientId === null ||
+    row.deploymentId === null
+  ) {
+    return null;
+  }
+
+  return {
+    canvasEnvironment: row.canvasEnvironment,
+    issuer: row.issuer,
+    clientId: row.clientId,
+    deploymentId: row.deploymentId,
   };
 }
 

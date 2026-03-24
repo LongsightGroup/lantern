@@ -452,6 +452,7 @@ export function renderAdminLayout(input: {
 
       .button,
       button,
+      input,
       select,
       textarea {
         font: inherit;
@@ -683,6 +684,7 @@ export function renderAdminLayout(input: {
         color: var(--secondary);
       }
 
+      input,
       textarea,
       select {
         width: 100%;
@@ -695,6 +697,7 @@ export function renderAdminLayout(input: {
         transition: border-color 120ms, box-shadow 120ms;
       }
 
+      input:focus,
       textarea:focus,
       select:focus {
         outline: none;
@@ -702,9 +705,41 @@ export function renderAdminLayout(input: {
         box-shadow: 0 0 0 3px var(--accent-soft);
       }
 
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--muted);
+      }
+
       textarea {
         min-height: 100px;
         resize: vertical;
+      }
+
+      .field-hint {
+        margin: 0;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+
+      .step-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .step-card {
+        display: grid;
+        gap: 10px;
+        padding: 16px 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .inline-code {
+        display: inline-block;
+        overflow-wrap: anywhere;
+        font: 12.5px/1.6 "SF Mono", "Fira Code", "Fira Mono", Menlo, monospace;
+        color: var(--secondary);
       }
 
       /* ─── Details / code ─── */
