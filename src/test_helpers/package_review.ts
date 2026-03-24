@@ -225,6 +225,8 @@ export function createInMemoryPackageReviewRepository(
     deployments?: DeploymentRecord[];
     attempts?: AttemptRecord[];
     attemptEvents?: AttemptEventRecord[];
+    lineItemBindings?: CanvasLineItemBindingRecord[];
+    gradePublications?: GradePublicationRecord[];
     auditEvents?: AuditEventRecord[];
     loginStates?: LoginStateRecord[];
     runtimeSessions?: RuntimeSessionRecord[];
@@ -234,6 +236,8 @@ export function createInMemoryPackageReviewRepository(
   const deployments = [...(options.deployments ?? [])];
   const attempts = [...(options.attempts ?? [])];
   const attemptEvents = [...(options.attemptEvents ?? [])];
+  const lineItemBindings = [...(options.lineItemBindings ?? [])];
+  const gradePublications = [...(options.gradePublications ?? [])];
   const auditEvents = [...(options.auditEvents ?? [])];
   const loginStates = [...(options.loginStates ?? [])];
   const runtimeSessions = [...(options.runtimeSessions ?? [])];
@@ -416,6 +420,16 @@ export function createInMemoryPackageReviewRepository(
       return Promise.resolve(record ? cloneRuntimeSession(record) : null);
     },
 
+    getLatestRuntimeSessionByDeploymentId(deploymentRecordId) {
+      const record = [...runtimeSessions].sort((left, right) =>
+        right.createdAt.localeCompare(left.createdAt)
+      ).find((candidate) =>
+        candidate.deploymentRecordId === deploymentRecordId
+      );
+
+      return Promise.resolve(record ? cloneRuntimeSession(record) : null);
+    },
+
     createAttempt(record) {
       const existing = attempts.find((candidate) =>
         candidate.attemptId === record.attemptId
@@ -505,6 +519,101 @@ export function createInMemoryPackageReviewRepository(
       });
 
       attempts.splice(index, 1, nextRecord);
+
+      return Promise.resolve(structuredClone(nextRecord));
+    },
+
+    getLineItemBinding(input) {
+      const record = lineItemBindings.find((candidate) =>
+        candidate.deploymentRecordId === input.deploymentRecordId &&
+        candidate.packageVersionId === input.packageVersionId &&
+        candidate.contextId === input.contextId &&
+        candidate.resourceLinkId === input.resourceLinkId &&
+        candidate.activityId === input.activityId
+      );
+
+      return Promise.resolve(record ? structuredClone(record) : null);
+    },
+
+    saveLineItemBinding(record) {
+      const existing = lineItemBindings.find((candidate) =>
+        candidate.deploymentRecordId === record.deploymentRecordId &&
+        candidate.packageVersionId === record.packageVersionId &&
+        candidate.contextId === record.contextId &&
+        candidate.resourceLinkId === record.resourceLinkId &&
+        candidate.activityId === record.activityId
+      );
+
+      if (existing) {
+        return Promise.resolve(structuredClone(existing));
+      }
+
+      const nextRecord = structuredClone({
+        ...record,
+        id: nextId(lineItemBindings),
+      });
+
+      lineItemBindings.push(nextRecord);
+
+      return Promise.resolve(structuredClone(nextRecord));
+    },
+
+    getGradePublicationByAttemptId(attemptId) {
+      const record = gradePublications.find((candidate) =>
+        candidate.attemptId === attemptId
+      );
+
+      return Promise.resolve(record ? structuredClone(record) : null);
+    },
+
+    createGradePublication(record) {
+      const existing = gradePublications.find((candidate) =>
+        candidate.attemptId === record.attemptId
+      );
+
+      if (existing) {
+        return Promise.resolve(structuredClone(existing));
+      }
+
+      const nextRecord = structuredClone({
+        ...record,
+        id: nextId(gradePublications),
+      });
+
+      gradePublications.push(nextRecord);
+
+      return Promise.resolve(structuredClone(nextRecord));
+    },
+
+    updateGradePublication(input) {
+      const index = gradePublications.findIndex((candidate) =>
+        candidate.attemptId === input.attemptId
+      );
+
+      if (index < 0) {
+        throw new Error(
+          `Grade publication for attempt ${input.attemptId} was not found.`,
+        );
+      }
+
+      const existing = gradePublications[index];
+
+      if (!existing) {
+        throw new Error(
+          `Grade publication for attempt ${input.attemptId} was not found.`,
+        );
+      }
+
+      const nextRecord = structuredClone({
+        ...existing,
+        status: input.status,
+        updatedAt: input.updatedAt,
+        publishedAt: input.publishedAt,
+        errorCode: input.errorCode,
+        errorDetail: input.errorDetail,
+      });
+
+      gradePublications.splice(index, 1, nextRecord);
 
       return Promise.resolve(structuredClone(nextRecord));
     },

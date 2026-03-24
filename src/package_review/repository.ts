@@ -6,7 +6,9 @@ import type {
   AttemptEventRecord,
   AttemptRecord,
   AuditEventRecord,
+  CanvasLineItemBindingRecord,
   DeploymentRecord,
+  GradePublicationRecord,
   PackageVersionRecord,
   ValidationIssue,
 } from "./types.ts";
@@ -60,6 +62,73 @@ const DEPLOYMENT_SELECT = `
   FROM deployments
   LEFT JOIN package_versions
     ON package_versions.id = deployments.enabled_package_version_id
+`;
+
+const RUNTIME_SESSION_SELECT = `
+  SELECT
+    session_id,
+    session_token,
+    attempt_id,
+    deployment_record_id,
+    deployment_slug,
+    app_id,
+    package_version_id,
+    package_version,
+    capabilities,
+    snapshot_root,
+    entrypoint_path,
+    content_path,
+    ags_scope,
+    ags_lineitems_url,
+    ags_lineitem_url,
+    nrps_context_memberships_url,
+    nrps_service_versions,
+    launch_user_role,
+    launch_course_id,
+    launch_assignment_id,
+    launch_activity_id,
+    created_at,
+    expires_at
+  FROM runtime_sessions
+`;
+
+const LINE_ITEM_BINDING_SELECT = `
+  SELECT
+    id,
+    deployment_record_id,
+    package_version_id,
+    context_id,
+    resource_link_id,
+    activity_id,
+    line_items_url,
+    line_item_url,
+    resource_id,
+    tag,
+    label,
+    score_maximum,
+    created_at,
+    updated_at
+  FROM canvas_line_item_bindings
+`;
+
+const GRADE_PUBLICATION_SELECT = `
+  SELECT
+    id,
+    attempt_id,
+    line_item_binding_id,
+    line_item_url,
+    canvas_user_id,
+    score_given,
+    score_maximum,
+    activity_progress,
+    grading_progress,
+    status,
+    created_at,
+    updated_at,
+    published_at,
+    error_code,
+    error_detail
+  FROM grade_publications
 `;
 
 interface PackageVersionRow {
@@ -170,6 +239,41 @@ interface AttemptEventRow {
   receivedAt: Date | string;
 }
 
+interface CanvasLineItemBindingRow {
+  id: number;
+  deploymentRecordId: number;
+  packageVersionId: number;
+  contextId: string;
+  resourceLinkId: string;
+  activityId: string;
+  lineItemsUrl: string;
+  lineItemUrl: string;
+  resourceId: string;
+  tag: string;
+  label: string;
+  scoreMaximum: number;
+  createdAt: Date | string;
+  updatedAt: Date | string;
+}
+
+interface GradePublicationRow {
+  id: number;
+  attemptId: string;
+  lineItemBindingId: number;
+  lineItemUrl: string;
+  canvasUserId: string;
+  scoreGiven: number | string;
+  scoreMaximum: number | string;
+  activityProgress: GradePublicationRecord["activityProgress"];
+  gradingProgress: GradePublicationRecord["gradingProgress"];
+  status: GradePublicationRecord["status"];
+  createdAt: Date | string;
+  updatedAt: Date | string;
+  publishedAt: Date | string | null;
+  errorCode: string | null;
+  errorDetail: Record<string, unknown> | null;
+}
+
 interface AuditEventRow {
   id: number;
   eventType: string;
@@ -220,6 +324,9 @@ export interface PackageReviewRepository {
   getRuntimeSessionById(
     sessionId: string,
   ): Promise<RuntimeSessionRecord | null>;
+  getLatestRuntimeSessionByDeploymentId(
+    deploymentRecordId: number,
+  ): Promise<RuntimeSessionRecord | null>;
   createAttempt(record: Omit<AttemptRecord, "id">): Promise<AttemptRecord>;
   getAttemptById(attemptId: string): Promise<AttemptRecord | null>;
   appendAttemptEvent(input: {
@@ -234,6 +341,30 @@ export interface PackageReviewRepository {
     completionState: AttemptRecord["completionState"];
     finalizedAt: string;
   }): Promise<AttemptRecord>;
+  getLineItemBinding(input: {
+    deploymentRecordId: number;
+    packageVersionId: number;
+    contextId: string;
+    resourceLinkId: string;
+    activityId: string;
+  }): Promise<CanvasLineItemBindingRecord | null>;
+  saveLineItemBinding(
+    record: Omit<CanvasLineItemBindingRecord, "id">,
+  ): Promise<CanvasLineItemBindingRecord>;
+  getGradePublicationByAttemptId(
+    attemptId: string,
+  ): Promise<GradePublicationRecord | null>;
+  createGradePublication(
+    record: Omit<GradePublicationRecord, "id">,
+  ): Promise<GradePublicationRecord>;
+  updateGradePublication(input: {
+    attemptId: string;
+    status: GradePublicationRecord["status"];
+    updatedAt: string;
+    publishedAt: string | null;
+    errorCode: string | null;
+    errorDetail: Record<string, unknown> | null;
+  }): Promise<GradePublicationRecord>;
   recordAuditEvent(
     record: Omit<AuditEventRecord, "id">,
   ): Promise<AuditEventRecord>;
@@ -714,35 +845,25 @@ export function createPackageReviewRepository(
     async getRuntimeSessionById(sessionId) {
       return await withClient(pool, async (client) => {
         const result = await client.queryObject<RuntimeSessionRow>({
-          text: `
-            SELECT
-              session_id,
-              session_token,
-              attempt_id,
-              deployment_record_id,
-              deployment_slug,
-              app_id,
-              package_version_id,
-              package_version,
-              capabilities,
-              snapshot_root,
-              entrypoint_path,
-              content_path,
-              ags_scope,
-              ags_lineitems_url,
-              ags_lineitem_url,
-              nrps_context_memberships_url,
-              nrps_service_versions,
-              launch_user_role,
-              launch_course_id,
-              launch_assignment_id,
-              launch_activity_id,
-              created_at,
-              expires_at
-            FROM runtime_sessions
-            WHERE session_id = $1
-          `,
+          text: `${RUNTIME_SESSION_SELECT} WHERE session_id = $1`,
           args: [sessionId],
+          camelCase: true,
+        });
+
+        return mapOptionalRuntimeSession(result.rows[0]);
+      });
+    },
+
+    async getLatestRuntimeSessionByDeploymentId(deploymentRecordId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<RuntimeSessionRow>({
+          text: `
+            ${RUNTIME_SESSION_SELECT}
+            WHERE deployment_record_id = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+          `,
+          args: [deploymentRecordId],
           camelCase: true,
         });
 
@@ -1031,6 +1152,302 @@ export function createPackageReviewRepository(
             return mapAttemptRow(updatedResult.rows[0]);
           },
         );
+      });
+    },
+
+    async getLineItemBinding(input) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<CanvasLineItemBindingRow>({
+          text: `
+            ${LINE_ITEM_BINDING_SELECT}
+            WHERE deployment_record_id = $1
+              AND package_version_id = $2
+              AND context_id = $3
+              AND resource_link_id = $4
+              AND activity_id = $5
+          `,
+          args: [
+            input.deploymentRecordId,
+            input.packageVersionId,
+            input.contextId,
+            input.resourceLinkId,
+            input.activityId,
+          ],
+          camelCase: true,
+        });
+
+        return mapOptionalLineItemBinding(result.rows[0]);
+      });
+    },
+
+    async saveLineItemBinding(record) {
+      return await withClient(pool, async (client) => {
+        return await withTransaction(
+          client,
+          "save_line_item_binding",
+          async (transaction) => {
+            const existingResult = await transaction.queryObject<
+              CanvasLineItemBindingRow
+            >({
+              text: `
+                ${LINE_ITEM_BINDING_SELECT}
+                WHERE deployment_record_id = $1
+                  AND package_version_id = $2
+                  AND context_id = $3
+                  AND resource_link_id = $4
+                  AND activity_id = $5
+                FOR UPDATE
+              `,
+              args: [
+                record.deploymentRecordId,
+                record.packageVersionId,
+                record.contextId,
+                record.resourceLinkId,
+                record.activityId,
+              ],
+              camelCase: true,
+            });
+
+            if (existingResult.rows[0]) {
+              return mapCanvasLineItemBindingRow(existingResult.rows[0]);
+            }
+
+            try {
+              const insertResult = await transaction.queryObject<
+                CanvasLineItemBindingRow
+              >({
+                text: `
+                  INSERT INTO canvas_line_item_bindings (
+                    deployment_record_id,
+                    package_version_id,
+                    context_id,
+                    resource_link_id,
+                    activity_id,
+                    line_items_url,
+                    line_item_url,
+                    resource_id,
+                    tag,
+                    label,
+                    score_maximum,
+                    created_at,
+                    updated_at
+                  ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
+                  )
+                  RETURNING
+                    id,
+                    deployment_record_id,
+                    package_version_id,
+                    context_id,
+                    resource_link_id,
+                    activity_id,
+                    line_items_url,
+                    line_item_url,
+                    resource_id,
+                    tag,
+                    label,
+                    score_maximum,
+                    created_at,
+                    updated_at
+                `,
+                args: [
+                  record.deploymentRecordId,
+                  record.packageVersionId,
+                  record.contextId,
+                  record.resourceLinkId,
+                  record.activityId,
+                  record.lineItemsUrl,
+                  record.lineItemUrl,
+                  record.resourceId,
+                  record.tag,
+                  record.label,
+                  record.scoreMaximum,
+                  record.createdAt,
+                  record.updatedAt,
+                ],
+                camelCase: true,
+              });
+
+              return mapCanvasLineItemBindingRow(insertResult.rows[0]);
+            } catch (error) {
+              if (!isUniqueViolation(error)) {
+                throw error;
+              }
+
+              const retryResult = await transaction.queryObject<
+                CanvasLineItemBindingRow
+              >({
+                text: `
+                  ${LINE_ITEM_BINDING_SELECT}
+                  WHERE (
+                    deployment_record_id = $1
+                    AND package_version_id = $2
+                    AND context_id = $3
+                    AND resource_link_id = $4
+                    AND activity_id = $5
+                  ) OR line_item_url = $6
+                  LIMIT 1
+                `,
+                args: [
+                  record.deploymentRecordId,
+                  record.packageVersionId,
+                  record.contextId,
+                  record.resourceLinkId,
+                  record.activityId,
+                  record.lineItemUrl,
+                ],
+                camelCase: true,
+              });
+
+              if (retryResult.rows[0]) {
+                return mapCanvasLineItemBindingRow(retryResult.rows[0]);
+              }
+
+              throw error;
+            }
+          },
+        );
+      });
+    },
+
+    async getGradePublicationByAttemptId(attemptId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<GradePublicationRow>({
+          text: `${GRADE_PUBLICATION_SELECT} WHERE attempt_id = $1`,
+          args: [attemptId],
+          camelCase: true,
+        });
+
+        return mapOptionalGradePublication(result.rows[0]);
+      });
+    },
+
+    async createGradePublication(record) {
+      return await withClient(pool, async (client) => {
+        try {
+          const result = await client.queryObject<GradePublicationRow>({
+            text: `
+              INSERT INTO grade_publications (
+                attempt_id,
+                line_item_binding_id,
+                line_item_url,
+                canvas_user_id,
+                score_given,
+                score_maximum,
+                activity_progress,
+                grading_progress,
+                status,
+                created_at,
+                updated_at,
+                published_at,
+                error_code,
+                error_detail
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::jsonb
+              )
+              RETURNING
+                id,
+                attempt_id,
+                line_item_binding_id,
+                line_item_url,
+                canvas_user_id,
+                score_given,
+                score_maximum,
+                activity_progress,
+                grading_progress,
+                status,
+                created_at,
+                updated_at,
+                published_at,
+                error_code,
+                error_detail
+            `,
+            args: [
+              record.attemptId,
+              record.lineItemBindingId,
+              record.lineItemUrl,
+              record.canvasUserId,
+              record.scoreGiven,
+              record.scoreMaximum,
+              record.activityProgress,
+              record.gradingProgress,
+              record.status,
+              record.createdAt,
+              record.updatedAt,
+              record.publishedAt,
+              record.errorCode,
+              record.errorDetail === null
+                ? null
+                : JSON.stringify(record.errorDetail),
+            ],
+            camelCase: true,
+          });
+
+          return mapGradePublicationRow(result.rows[0]);
+        } catch (error) {
+          if (!isUniqueViolation(error)) {
+            throw error;
+          }
+
+          const existingResult = await client.queryObject<GradePublicationRow>({
+            text: `${GRADE_PUBLICATION_SELECT} WHERE attempt_id = $1`,
+            args: [record.attemptId],
+            camelCase: true,
+          });
+          const existing = mapOptionalGradePublication(existingResult.rows[0]);
+
+          if (!existing) {
+            throw error;
+          }
+
+          return existing;
+        }
+      });
+    },
+
+    async updateGradePublication(input) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<GradePublicationRow>({
+          text: `
+            UPDATE grade_publications
+            SET
+              status = $2,
+              updated_at = $3,
+              published_at = $4,
+              error_code = $5,
+              error_detail = $6::jsonb
+            WHERE attempt_id = $1
+            RETURNING
+              id,
+              attempt_id,
+              line_item_binding_id,
+              line_item_url,
+              canvas_user_id,
+              score_given,
+              score_maximum,
+              activity_progress,
+              grading_progress,
+              status,
+              created_at,
+              updated_at,
+              published_at,
+              error_code,
+              error_detail
+          `,
+          args: [
+            input.attemptId,
+            input.status,
+            input.updatedAt,
+            input.publishedAt,
+            input.errorCode,
+            input.errorDetail === null
+              ? null
+              : JSON.stringify(input.errorDetail),
+          ],
+          camelCase: true,
+        });
+
+        return mapGradePublicationRow(result.rows[0]);
       });
     },
 
@@ -1727,6 +2144,77 @@ function mapAttemptEventRow(
   };
 }
 
+function mapOptionalLineItemBinding(
+  row: CanvasLineItemBindingRow | undefined,
+): CanvasLineItemBindingRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapCanvasLineItemBindingRow(row);
+}
+
+function mapCanvasLineItemBindingRow(
+  row: CanvasLineItemBindingRow | undefined,
+): CanvasLineItemBindingRecord {
+  if (!row) {
+    throw new Error("Expected a Canvas line item binding row.");
+  }
+
+  return {
+    id: row.id,
+    deploymentRecordId: row.deploymentRecordId,
+    packageVersionId: row.packageVersionId,
+    contextId: row.contextId,
+    resourceLinkId: row.resourceLinkId,
+    activityId: row.activityId,
+    lineItemsUrl: row.lineItemsUrl,
+    lineItemUrl: row.lineItemUrl,
+    resourceId: row.resourceId,
+    tag: row.tag,
+    label: row.label,
+    scoreMaximum: row.scoreMaximum,
+    createdAt: normalizeTimestamp(row.createdAt),
+    updatedAt: normalizeTimestamp(row.updatedAt),
+  };
+}
+
+function mapOptionalGradePublication(
+  row: GradePublicationRow | undefined,
+): GradePublicationRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapGradePublicationRow(row);
+}
+
+function mapGradePublicationRow(
+  row: GradePublicationRow | undefined,
+): GradePublicationRecord {
+  if (!row) {
+    throw new Error("Expected a grade publication row.");
+  }
+
+  return {
+    id: row.id,
+    attemptId: row.attemptId,
+    lineItemBindingId: row.lineItemBindingId,
+    lineItemUrl: row.lineItemUrl,
+    canvasUserId: row.canvasUserId,
+    scoreGiven: normalizeNumeric(row.scoreGiven),
+    scoreMaximum: normalizeNumeric(row.scoreMaximum),
+    activityProgress: row.activityProgress,
+    gradingProgress: row.gradingProgress,
+    status: row.status,
+    createdAt: normalizeTimestamp(row.createdAt),
+    updatedAt: normalizeTimestamp(row.updatedAt),
+    publishedAt: normalizeOptionalTimestamp(row.publishedAt),
+    errorCode: row.errorCode,
+    errorDetail: row.errorDetail,
+  };
+}
+
 function mapAuditEventRow(row: AuditEventRow | undefined): AuditEventRecord {
   if (!row) {
     throw new Error("Expected an audit event row.");
@@ -1793,6 +2281,14 @@ function normalizeOptionalTimestamp(
   }
 
   return normalizeTimestamp(value);
+}
+
+function normalizeNumeric(value: number | string): number {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  return Number(value);
 }
 
 function isUniqueViolation(error: unknown): error is PostgresError {

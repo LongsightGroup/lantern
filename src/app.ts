@@ -281,6 +281,51 @@ export function createApp(
         });
       }
 
+      if (result.gradePublishedNow && result.gradePublication !== null) {
+        await repository.recordAuditEvent({
+          eventType: "grade_publish.succeeded",
+          actorType: "system",
+          actorId: null,
+          deploymentRecordId: session.deploymentRecordId,
+          packageVersionId: session.packageVersionId,
+          attemptId: session.attemptId,
+          lineItemBindingId: result.lineItemBinding?.id ?? null,
+          status: "succeeded",
+          summary: "Published the final score to Canvas through AGS.",
+          detail: {
+            lineItemUrl: result.gradePublication.lineItemUrl,
+            scoreGiven: result.gradePublication.scoreGiven,
+            scoreMaximum: result.gradePublication.scoreMaximum,
+          },
+          occurredAt: new Date().toISOString(),
+        });
+      }
+
+      if (result.publishError !== null) {
+        await repository.recordAuditEvent({
+          eventType: "grade_publish.failed",
+          actorType: "system",
+          actorId: null,
+          deploymentRecordId: session.deploymentRecordId,
+          packageVersionId: session.packageVersionId,
+          attemptId: session.attemptId,
+          lineItemBindingId: result.lineItemBinding?.id ?? null,
+          status: "failed",
+          summary: "Canvas AGS score publish failed.",
+          detail: {
+            code: result.publishError.code,
+            message: result.publishError.message,
+            ...result.publishError.detail,
+          },
+          occurredAt: new Date().toISOString(),
+        });
+
+        return context.text(
+          result.publishError.message,
+          statusForFinalizePublishError(result.publishError.code),
+        );
+      }
+
       return context.json({
         accepted: true,
         alreadyFinalized: !result.finalizedNow,
@@ -288,6 +333,7 @@ export function createApp(
         completionState: result.attempt.completionState,
         scoreGiven: result.score.scoreGiven,
         scoreMaximum: result.score.scoreMaximum,
+        gradePublished: result.gradePublication?.status === "published",
       }, 202);
     } catch (error) {
       return context.text(errorMessage(error), statusForRuntimeError(error));
@@ -899,6 +945,18 @@ function statusForRuntimeError(error: unknown): 404 | 409 | 500 {
     error.message.includes("Unsupported attempt event") ||
     error.message.includes("does not allow") ||
     error.message.includes("Finalize ")
+  ) {
+    return 409;
+  }
+
+  return 500;
+}
+
+function statusForFinalizePublishError(code: string): 409 | 500 {
+  if (
+    code === "missing_binding" ||
+    code === "missing_ags_context" ||
+    code === "missing_ags_scope"
   ) {
     return 409;
   }

@@ -4,10 +4,22 @@ import {
   loadReviewedRubric,
   scoreAttempt,
 } from "../grading/service.ts";
-import type { RuntimeSessionRecord } from "../lti/types.ts";
+import {
+  ensureLineItem,
+  publishFinalScore,
+  requestCanvasServiceAccessToken,
+} from "../lti/services.ts";
+import {
+  LTI_AGS_LINEITEM_SCOPE,
+  LTI_AGS_SCORE_SCOPE,
+  type RuntimeSessionRecord,
+} from "../lti/types.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
   AttemptRecord,
+  CanvasLineItemBindingRecord,
+  DeploymentRecord,
+  GradePublicationRecord,
   PackageVersionRecord,
 } from "../package_review/types.ts";
 
@@ -19,6 +31,14 @@ export interface FinalizeAttemptResult {
   attempt: AttemptRecord;
   score: AttemptScoreResult;
   finalizedNow: boolean;
+  lineItemBinding: CanvasLineItemBindingRecord | null;
+  gradePublication: GradePublicationRecord | null;
+  gradePublishedNow: boolean;
+  publishError: {
+    code: string;
+    message: string;
+    detail: Record<string, unknown>;
+  } | null;
 }
 
 export async function acceptAttemptEvent(input: {
@@ -88,11 +108,20 @@ export async function finalizeRuntimeAttempt(input: {
       grading: packageVersion.grading,
       ...(rubric === undefined ? {} : { rubric }),
     });
+    const publishResult = await publishRuntimeAttemptScore({
+      repository: input.repository,
+      session: input.session,
+      attempt: finalizedAttempt,
+      packageVersion,
+      score,
+      now,
+    });
 
     return {
       attempt: finalizedAttempt,
       score,
       finalizedNow,
+      ...publishResult,
     };
   } catch (error) {
     throw toFinalizeError(error);
@@ -290,6 +319,278 @@ function completionStateToAttemptStatus(
   completionState: FinalizeAttemptInput["completionState"],
 ): AttemptRecord["status"] {
   return completionState === "completed" ? "completed" : "abandoned";
+}
+
+async function publishRuntimeAttemptScore(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+  attempt: AttemptRecord;
+  packageVersion: PackageVersionRecord;
+  score: AttemptScoreResult;
+  now: () => Date;
+}): Promise<
+  Pick<
+    FinalizeAttemptResult,
+    | "lineItemBinding"
+    | "gradePublication"
+    | "gradePublishedNow"
+    | "publishError"
+  >
+> {
+  const deployment = await requireRuntimeDeployment(
+    input.repository,
+    input.session,
+  );
+
+  if (deployment.binding === null) {
+    return {
+      lineItemBinding: null,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: "missing_binding",
+        message:
+          "Canvas deployment binding is required before score publish can continue.",
+        detail: {
+          deploymentSlug: deployment.slug,
+        },
+      },
+    };
+  }
+
+  const ags = input.session.services.ags;
+
+  if (ags === null) {
+    return {
+      lineItemBinding: null,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: "missing_ags_context",
+        message:
+          "Launch did not provide Canvas AGS service context for this attempt.",
+        detail: {
+          attemptId: input.attempt.attemptId,
+        },
+      },
+    };
+  }
+
+  const hasExistingBinding = await input.repository.getLineItemBinding({
+    deploymentRecordId: input.session.deploymentRecordId,
+    packageVersionId: input.session.packageVersionId,
+    contextId: input.attempt.contextId,
+    resourceLinkId: input.attempt.resourceLinkId,
+    activityId: input.attempt.activityId,
+  });
+  const hasScoreScope = ags.scope.includes(LTI_AGS_SCORE_SCOPE);
+  const requiresLineitemScope = hasExistingBinding === null &&
+    ags.lineitemUrl === null;
+
+  if (
+    !hasScoreScope || (requiresLineitemScope &&
+      !ags.scope.includes(LTI_AGS_LINEITEM_SCOPE))
+  ) {
+    return {
+      lineItemBinding: hasExistingBinding,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: "missing_ags_scope",
+        message:
+          "Launch did not grant the AGS scopes Lantern needs to publish the final score.",
+        detail: {
+          scopes: ags.scope,
+        },
+      },
+    };
+  }
+
+  let accessToken: string;
+
+  try {
+    const token = await requestCanvasServiceAccessToken({
+      issuer: deployment.binding.issuer,
+      clientId: deployment.binding.clientId,
+      scopes: ags.scope,
+    });
+
+    accessToken = token.accessToken;
+  } catch (error) {
+    return {
+      lineItemBinding: hasExistingBinding,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: "token_request_failed",
+        message: errorMessage(error),
+        detail: {
+          issuer: deployment.binding.issuer,
+          clientId: deployment.binding.clientId,
+        },
+      },
+    };
+  }
+
+  let lineItemBinding = hasExistingBinding;
+
+  if (lineItemBinding === null) {
+    try {
+      const ensuredLineItem = await ensureLineItem({
+        accessToken,
+        lineitemsUrl: ags.lineitemsUrl,
+        lineitemUrl: ags.lineitemUrl,
+        resourceLinkId: input.attempt.resourceLinkId,
+        resourceId: buildLineItemResourceId(input.session),
+        tag: "final-grade",
+        label: `${input.packageVersion.title} Final Grade`,
+        scoreMaximum: input.score.scoreMaximum,
+      });
+
+      lineItemBinding = await input.repository.saveLineItemBinding({
+        deploymentRecordId: input.session.deploymentRecordId,
+        packageVersionId: input.session.packageVersionId,
+        contextId: input.attempt.contextId,
+        resourceLinkId: input.attempt.resourceLinkId,
+        activityId: input.attempt.activityId,
+        lineItemsUrl: ensuredLineItem.lineItemsUrl,
+        lineItemUrl: ensuredLineItem.lineItemUrl,
+        resourceId: ensuredLineItem.resourceId,
+        tag: ensuredLineItem.tag,
+        label: ensuredLineItem.label,
+        scoreMaximum: ensuredLineItem.scoreMaximum,
+        createdAt: input.now().toISOString(),
+        updatedAt: input.now().toISOString(),
+      });
+    } catch (error) {
+      return {
+        lineItemBinding: null,
+        gradePublication: null,
+        gradePublishedNow: false,
+        publishError: {
+          code: "line_item_failed",
+          message: errorMessage(error),
+          detail: {
+            attemptId: input.attempt.attemptId,
+          },
+        },
+      };
+    }
+  }
+
+  const existingPublication = await input.repository
+    .getGradePublicationByAttemptId(
+      input.attempt.attemptId,
+    );
+
+  if (existingPublication?.status === "published") {
+    return {
+      lineItemBinding,
+      gradePublication: existingPublication,
+      gradePublishedNow: false,
+      publishError: null,
+    };
+  }
+
+  const gradePublication = existingPublication ??
+    await input.repository.createGradePublication({
+      attemptId: input.attempt.attemptId,
+      lineItemBindingId: lineItemBinding.id,
+      lineItemUrl: lineItemBinding.lineItemUrl,
+      canvasUserId: input.attempt.userId,
+      scoreGiven: input.score.scoreGiven,
+      scoreMaximum: input.score.scoreMaximum,
+      activityProgress: resolveActivityProgress(input.attempt),
+      gradingProgress: "Pending",
+      status: "pending",
+      createdAt: input.now().toISOString(),
+      updatedAt: input.now().toISOString(),
+      publishedAt: null,
+      errorCode: null,
+      errorDetail: null,
+    });
+
+  try {
+    await publishFinalScore({
+      accessToken,
+      lineItemUrl: lineItemBinding.lineItemUrl,
+      canvasUserId: input.attempt.userId,
+      scoreGiven: input.score.scoreGiven,
+      scoreMaximum: input.score.scoreMaximum,
+      activityProgress: resolveActivityProgress(input.attempt),
+      gradingProgress: "FullyGraded",
+      timestamp: input.now().toISOString(),
+    });
+
+    return {
+      lineItemBinding,
+      gradePublication: await input.repository.updateGradePublication({
+        attemptId: input.attempt.attemptId,
+        status: "published",
+        updatedAt: input.now().toISOString(),
+        publishedAt: input.now().toISOString(),
+        errorCode: null,
+        errorDetail: null,
+      }),
+      gradePublishedNow: true,
+      publishError: null,
+    };
+  } catch (error) {
+    return {
+      lineItemBinding,
+      gradePublication: await input.repository.updateGradePublication({
+        attemptId: input.attempt.attemptId,
+        status: "failed",
+        updatedAt: input.now().toISOString(),
+        publishedAt: null,
+        errorCode: "score_publish_failed",
+        errorDetail: {
+          message: errorMessage(error),
+        },
+      }),
+      gradePublishedNow: false,
+      publishError: {
+        code: "score_publish_failed",
+        message: errorMessage(error),
+        detail: {
+          lineItemUrl: lineItemBinding.lineItemUrl,
+        },
+      },
+    };
+  }
+}
+
+async function requireRuntimeDeployment(
+  repository: PackageReviewRepository,
+  session: RuntimeSessionRecord,
+): Promise<DeploymentRecord> {
+  const deployment = await repository.getDeploymentBySlug(
+    session.deploymentSlug,
+  );
+
+  if (!deployment) {
+    throw new Error(
+      `Deployment ${session.deploymentSlug} was not found for finalize.`,
+    );
+  }
+
+  if (deployment.id !== session.deploymentRecordId) {
+    throw new Error(
+      `Deployment ${deployment.slug} did not match the runtime session context.`,
+    );
+  }
+
+  return deployment;
+}
+
+function buildLineItemResourceId(session: RuntimeSessionRecord): string {
+  return `${session.appId}:${session.packageVersion}`;
+}
+
+function resolveActivityProgress(
+  attempt: AttemptRecord,
+): GradePublicationRecord["activityProgress"] {
+  return attempt.completionState === "completed" ? "Completed" : "InProgress";
 }
 
 function toFinalizeError(error: unknown): Error {

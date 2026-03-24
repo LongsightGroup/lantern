@@ -15,6 +15,8 @@ import { createPackageReviewRepository } from "./repository.ts";
 import {
   buildAttemptRecord,
   buildAuditEventRecord,
+  buildCanvasLineItemBindingRecord,
+  buildGradePublicationRecord,
 } from "../test_helpers/package_review.ts";
 
 const DEMO_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
@@ -565,5 +567,89 @@ Deno.test("repository finalizes durable attempts idempotently", async () => {
     assertEquals(secondFinalize.status, "completed");
     assertEquals(secondFinalize.completionState, "completed");
     assertEquals(secondFinalize.finalizedAt, "2026-03-24T02:35:00.000Z");
+  });
+});
+
+Deno.test("repository stores package-version line item bindings and idempotent grade publications", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for AGS publication tests.",
+    });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+    const attempt = await repository.createAttempt(
+      buildAttemptRecord({
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+      }),
+    );
+    const savedBinding = await repository.saveLineItemBinding(
+      buildCanvasLineItemBindingRecord({
+        deploymentRecordId: deployment.id,
+        packageVersionId: approvedRecord.id,
+      }),
+    );
+    const reusedBinding = await repository.saveLineItemBinding(
+      buildCanvasLineItemBindingRecord({
+        deploymentRecordId: deployment.id,
+        packageVersionId: approvedRecord.id,
+      }),
+    );
+    const createdPublication = await repository.createGradePublication(
+      buildGradePublicationRecord({
+        attemptId: attempt.attemptId,
+        lineItemBindingId: savedBinding.id,
+        createdAt: "2026-03-24T02:35:00Z",
+        updatedAt: "2026-03-24T02:35:00Z",
+        publishedAt: null,
+        status: "pending",
+        gradingProgress: "Pending",
+      }),
+    );
+    const reusedPublication = await repository.createGradePublication(
+      buildGradePublicationRecord({
+        attemptId: attempt.attemptId,
+        lineItemBindingId: savedBinding.id,
+        createdAt: "2026-03-24T02:35:00Z",
+        updatedAt: "2026-03-24T02:35:00Z",
+        publishedAt: null,
+        status: "pending",
+        gradingProgress: "Pending",
+      }),
+    );
+    const published = await repository.updateGradePublication({
+      attemptId: attempt.attemptId,
+      status: "published",
+      updatedAt: "2026-03-24T02:36:00Z",
+      publishedAt: "2026-03-24T02:36:00Z",
+      errorCode: null,
+      errorDetail: null,
+    });
+    const fetchedBinding = await repository.getLineItemBinding({
+      deploymentRecordId: deployment.id,
+      packageVersionId: approvedRecord.id,
+      contextId: attempt.contextId,
+      resourceLinkId: attempt.resourceLinkId,
+      activityId: attempt.activityId,
+    });
+    const fetchedPublication = await repository.getGradePublicationByAttemptId(
+      attempt.attemptId,
+    );
+
+    assertEquals(savedBinding.id, reusedBinding.id);
+    assertEquals(createdPublication.id, reusedPublication.id);
+    assertEquals(published.status, "published");
+    assertEquals(published.publishedAt, "2026-03-24T02:36:00.000Z");
+    assertEquals(fetchedBinding?.lineItemUrl, savedBinding.lineItemUrl);
+    assertEquals(fetchedPublication?.status, "published");
   });
 });
