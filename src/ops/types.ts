@@ -114,6 +114,7 @@ export interface ControlPlaneDiagnosticItem {
   code: string | null;
   summary: string;
   operatorSummary: string;
+  retryable: boolean;
   detail: Record<string, unknown>;
   occurredAt: string;
 }

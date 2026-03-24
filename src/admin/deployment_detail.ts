@@ -7,6 +7,7 @@ import type { CanvasEnvironmentOption } from "../lti/config.ts";
 import { summarizePilotUsage } from "../ops/service.ts";
 import type {
   ControlPlaneDeploymentDetailSnapshot,
+  ControlPlaneDiagnosticItem,
   ControlPlaneHealthDimension,
   ControlPlaneHealthStatus,
   DeploymentActivitySnapshot,
@@ -105,6 +106,7 @@ export function renderDeploymentDetailPage(input: {
     notice: input.notice ?? null,
     body: `${renderControlPlaneStatusSection(controlPlaneDetail)}
     ${renderPilotUsageSection(controlPlaneDetail)}
+    ${renderDiagnosticsSection(input.appId, controlPlaneDetail)}
     <section class="panel">
       <div class="panel-body two-column">
         <div class="stack">
@@ -517,6 +519,36 @@ function renderPilotUsageSection(
     </section>`;
 }
 
+function renderDiagnosticsSection(
+  appId: string,
+  detail: ControlPlaneDeploymentDetailSnapshot | null,
+): string {
+  const diagnostics = detail?.diagnostics ?? [];
+  const retryAttemptId = detail?.retryableGradePublication?.attemptId ?? null;
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Diagnostics</p>
+        <h2>Readable failure evidence</h2>
+        <p>Lantern keeps rejected launches, roster verification failures, and AGS publish failures as bounded operator evidence instead of raw protocol dumps.</p>
+        ${
+    diagnostics.length === 0
+      ? `<div class="callout">
+              <h3>No diagnostics recorded yet</h3>
+              <p>The deployment has not recorded a failed launch, NRPS read, or AGS publish yet.</p>
+            </div>`
+      : `<div class="table-list">
+              ${
+        diagnostics.map((item) =>
+          renderDiagnosticRow(item, appId, retryAttemptId)
+        ).join("")
+      }
+            </div>`
+  }
+      </div>
+    </section>`;
+}
+
 function renderActivityFact(
   label: string,
   value: string,
@@ -552,6 +584,50 @@ function renderDimensionRow(
         <p class="micro muted">${escapeHtml(checkedAt)}</p>
       </div>
       <p class="line-copy">${escapeHtml(summary)}</p>
+    </article>`;
+}
+
+function renderDiagnosticRow(
+  item: ControlPlaneDiagnosticItem,
+  appId: string,
+  retryAttemptId: string | null,
+): string {
+  const details = [
+    item.code === null ? null : `Code ${item.code}`,
+    item.attemptId === null ? null : `Attempt ${item.attemptId}`,
+  ].filter((value): value is string => value !== null);
+  const retryAction = item.retryable && retryAttemptId !== null
+    ? `<form method="post" action="/admin/packages/${
+      escapeHtml(appId)
+    }/deployment/retry-grade-publish" class="stack">
+            <input type="hidden" name="attemptId" value="${
+      escapeHtml(retryAttemptId)
+    }" />
+            <div class="button-row">
+              <button type="submit" class="button-secondary">Retry grade publish</button>
+            </div>
+          </form>`
+    : "";
+
+  return `<article class="table-row">
+      <div class="table-row-top">
+        <p class="line-title">
+          <span>${escapeHtml(describeDiagnosticKind(item.kind))}</span>
+          <span class="chip">${
+    escapeHtml(describeDiagnosticStatus(item))
+  }</span>
+        </p>
+        <p class="micro muted">${
+    escapeHtml(formatDateTime(item.occurredAt))
+  }</p>
+      </div>
+      <p class="line-copy">${escapeHtml(item.operatorSummary)}</p>
+      ${
+    details.length === 0
+      ? ""
+      : `<p class="micro muted">${escapeHtml(details.join(" · "))}</p>`
+  }
+      ${retryAction}
     </article>`;
 }
 
@@ -617,4 +693,29 @@ function describeDimensionStatus(
     case "unknown":
       return "Unknown";
   }
+}
+
+function describeDiagnosticKind(
+  kind: ControlPlaneDiagnosticItem["kind"],
+): string {
+  switch (kind) {
+    case "launch":
+      return "Launch";
+    case "nrps":
+      return "NRPS";
+    case "brokerVerification":
+      return "Broker verification";
+    case "gradePublication":
+      return "AGS publish";
+  }
+}
+
+function describeDiagnosticStatus(
+  item: ControlPlaneDiagnosticItem,
+): string {
+  if (item.retryable) {
+    return "Retry available";
+  }
+
+  return item.status === "failed" ? "Failed" : "Recorded";
 }

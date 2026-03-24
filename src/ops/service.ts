@@ -129,6 +129,9 @@ export function deriveDeploymentHealth(
 
 export function formatDiagnosticItem(
   item: ControlPlaneDiagnosticItem,
+  options: {
+    retryableAttemptId?: string | null;
+  } = {},
 ): ControlPlaneDiagnosticItem {
   const detail = sanitizeDetailRecord(item.detail);
 
@@ -138,6 +141,13 @@ export function formatDiagnosticItem(
       ...item,
       detail,
     }),
+    retryable: isRetryableDiagnostic(
+      {
+        ...item,
+        detail,
+      },
+      options.retryableAttemptId ?? null,
+    ),
     detail,
   };
 }
@@ -461,6 +471,10 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
       return "Launch rejected because the incoming Canvas deployment did not match the saved deployment binding.";
     }
 
+    if (item.code === "signature_validation_failed") {
+      return "Launch rejected because Lantern could not verify the signed id_token against the saved Canvas login.";
+    }
+
     return item.status === "failed"
       ? "Launch failed before Lantern could hand the learner into the governed runtime."
       : "Launch evidence was recorded for this deployment.";
@@ -478,9 +492,29 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
       : "Broker verification evidence was recorded for the supported Canvas path.";
   }
 
+  if (item.code === "token_request_failed") {
+    return "Lantern could not get a Canvas service token for this attempt from the control plane.";
+  }
+
   return item.status === "failed"
     ? "Grade publish failed and can be retried from the control plane."
     : "Grade publication evidence was recorded for this deployment.";
+}
+
+function isRetryableDiagnostic(
+  item: ControlPlaneDiagnosticItem,
+  retryableAttemptId: string | null,
+): boolean {
+  if (
+    item.kind !== "gradePublication" ||
+    item.status !== "failed" ||
+    item.attemptId === null ||
+    item.attemptId !== retryableAttemptId
+  ) {
+    return false;
+  }
+
+  return !NON_RETRYABLE_GRADE_FAILURE_CODES.has(item.code ?? "");
 }
 
 function sanitizeDetailRecord(
@@ -514,3 +548,10 @@ function sanitizeDetailValue(value: unknown): unknown {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
+
+const NON_RETRYABLE_GRADE_FAILURE_CODES = new Set([
+  "line_item_failed",
+  "missing_ags_context",
+  "missing_ags_scope",
+  "missing_binding",
+]);

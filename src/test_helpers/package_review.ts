@@ -357,6 +357,7 @@ export function buildControlPlaneDiagnosticItem(
     summary: overrides.summary ?? "Canvas rejected the score publish.",
     operatorSummary: overrides.operatorSummary ??
       "Grade publish failed and can be retried from the control plane.",
+    retryable: overrides.retryable ?? false,
     detail: overrides.detail ?? {
       httpStatus: 422,
     },

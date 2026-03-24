@@ -7,8 +7,8 @@ import {
   buildAttemptRecord,
   buildBrokerVerificationStatus,
   buildControlPlaneDeploymentDetailSnapshot,
-  buildControlPlaneDiagnosticItem,
   buildControlPlaneDeploymentInventoryRow,
+  buildControlPlaneDiagnosticItem,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
   buildDeploymentRecord,
@@ -700,7 +700,9 @@ Deno.test("POST /lti/launch rejects bad signed launches before any runtime hando
         "signature_validation_failed",
       );
       assertEquals(
-        JSON.stringify(auditEvents[0]?.detail ?? {}).includes("secret-id-token"),
+        JSON.stringify(auditEvents[0]?.detail ?? {}).includes(
+          "secret-id-token",
+        ),
         false,
       );
     },

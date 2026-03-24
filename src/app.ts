@@ -35,6 +35,7 @@ import {
   type PackageReviewRepository,
 } from "./package_review/repository.ts";
 import { createOpsRepository, type OpsRepository } from "./ops/repository.ts";
+import { retryFailedGradePublication } from "./ops/service.ts";
 import type {
   DeploymentRecord,
   PackageVersionRecord,
@@ -115,17 +116,20 @@ export function createApp(
   });
 
   app.post("/lti/launch", async (context) => {
+    const repository = resolvedServices.getRepository();
+    const formData = await context.req.formData();
+    const state = normalizeOptionalString(formData.get("state"));
+    const idToken = normalizeOptionalString(formData.get("id_token"));
+
     try {
-      const repository = resolvedServices.getRepository();
-      const formData = await context.req.formData();
       const launch = await validateLaunchRequest({
         repository,
-        state: requireTrimmedFormValue(
-          formData.get("state"),
+        state: requireTrimmedString(
+          state,
           "Launch state is required.",
         ),
-        idToken: requireTrimmedFormValue(
-          formData.get("id_token"),
+        idToken: requireTrimmedString(
+          idToken,
           "Launch id_token is required.",
         ),
       });
@@ -161,6 +165,11 @@ export function createApp(
         303,
       );
     } catch (error) {
+      await recordRejectedLaunchAudit({
+        repository,
+        state,
+        error,
+      });
       return context.text(errorMessage(error), statusForError(error));
     }
   });
@@ -664,6 +673,167 @@ export function createApp(
     },
   );
 
+  app.post(
+    "/admin/packages/:appId/deployment/retry-grade-publish",
+    async (context) => {
+      const appId = context.req.param("appId");
+      const repository = resolvedServices.getRepository();
+      const opsRepository = resolvedServices.getOpsRepository();
+      let attemptId: string | null = null;
+
+      try {
+        const detail = await loadDeploymentDetailState(repository, appId);
+
+        if (detail.deployment === null) {
+          throw new Error(
+            "Save the Canvas binding and exact deployment before retrying a grade publish.",
+          );
+        }
+
+        const formData = await context.req.formData();
+        attemptId = requireTrimmedFormValue(
+          formData.get("attemptId"),
+          "Retry attempt is required.",
+        );
+        const retryResult = await retryFailedGradePublication({
+          repository: {
+            getRetryableGradePublicationLookup: (candidateAttemptId) =>
+              opsRepository.getRetryableGradePublicationLookup(
+                candidateAttemptId,
+              ),
+            updateGradePublication: (input) =>
+              repository.updateGradePublication(input),
+          },
+          attemptId,
+        });
+
+        if (retryResult.publication.status === "published") {
+          await repository.recordAuditEvent({
+            eventType: "grade_publish.retry_succeeded",
+            actorType: "user",
+            actorId: null,
+            deploymentRecordId: detail.deployment.id,
+            packageVersionId: detail.deployment.enabledPackageVersionId,
+            attemptId: retryResult.attemptId,
+            lineItemBindingId: null,
+            status: "succeeded",
+            summary:
+              "Retried the failed Canvas AGS score publish from the control plane.",
+            detail: {
+              attemptId: retryResult.attemptId,
+              code: "retry_succeeded",
+            },
+            occurredAt: new Date().toISOString(),
+          });
+
+          return context.redirect(`/admin/packages/${appId}/deployment`, 303);
+        }
+
+        await repository.recordAuditEvent({
+          eventType: "grade_publish.retry_failed",
+          actorType: "user",
+          actorId: null,
+          deploymentRecordId: detail.deployment.id,
+          packageVersionId: detail.deployment.enabledPackageVersionId,
+          attemptId: retryResult.attemptId,
+          lineItemBindingId: null,
+          status: "failed",
+          summary: "Retrying the Canvas AGS score publish failed.",
+          detail: {
+            attemptId: retryResult.attemptId,
+            code: retryResult.publication.errorCode ?? "score_publish_failed",
+          },
+          occurredAt: new Date().toISOString(),
+        });
+
+        const controlPlaneDetail = await opsRepository
+          .getControlPlaneDeploymentDetail(
+            detail.deployment.id,
+          );
+
+        return context.html(
+          renderDeploymentDetailPage({
+            appId,
+            appTitle: detail.appTitle,
+            history: detail.history,
+            deployment: detail.deployment,
+            nrpsVerification: detail.nrpsVerification,
+            controlPlaneDetail,
+            canvasConfigUrl: detail.canvasConfigUrl.url,
+            supportedCanvasEnvironments: listCanvasEnvironments(),
+            notice: combineNotices(
+              detail.canvasConfigUrl.notice,
+              createErrorNotice(
+                "Grade publish retry failed",
+                new Error(
+                  retryResult.publication.errorCode ??
+                    "Canvas AGS score publish failed.",
+                ),
+              ),
+            ),
+          }),
+          500,
+        );
+      } catch (error) {
+        const detail = await loadDeploymentDetailStateSafe(repository, appId);
+
+        if (detail.deployment !== null) {
+          await repository.recordAuditEvent({
+            eventType: "grade_publish.retry_failed",
+            actorType: "user",
+            actorId: null,
+            deploymentRecordId: detail.deployment.id,
+            packageVersionId: detail.deployment.enabledPackageVersionId,
+            attemptId,
+            lineItemBindingId: null,
+            status: "failed",
+            summary: "Retrying the Canvas AGS score publish failed.",
+            detail: {
+              attemptId,
+              code: normalizeRetryFailureCode(error),
+              message: errorMessage(error),
+            },
+            occurredAt: new Date().toISOString(),
+          });
+        }
+
+        if (detail.history.length === 0) {
+          return context.html(
+            renderPackageIndexPage({
+              versions: [],
+              notice: createErrorNotice("Deployment page unavailable", error),
+            }),
+            statusForRetryPublishError(error),
+          );
+        }
+
+        const controlPlaneDetail = detail.deployment === null
+          ? null
+          : await opsRepository.getControlPlaneDeploymentDetail(
+            detail.deployment.id,
+          );
+
+        return context.html(
+          renderDeploymentDetailPage({
+            appId,
+            appTitle: detail.appTitle,
+            history: detail.history,
+            deployment: detail.deployment,
+            nrpsVerification: detail.nrpsVerification,
+            controlPlaneDetail,
+            canvasConfigUrl: detail.canvasConfigUrl.url,
+            supportedCanvasEnvironments: listCanvasEnvironments(),
+            notice: combineNotices(
+              detail.canvasConfigUrl.notice,
+              createErrorNotice("Grade publish retry failed", error),
+            ),
+          }),
+          statusForRetryPublishError(error),
+        );
+      }
+    },
+  );
+
   app.post("/admin/packages/:appId/deployment/pin", async (context) => {
     const appId = context.req.param("appId");
 
@@ -1160,6 +1330,25 @@ function statusForNrpsError(error: unknown): 409 | 500 {
   return 500;
 }
 
+function statusForRetryPublishError(error: unknown): 409 | 500 {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (
+    error.message.includes("required") ||
+    error.message.includes("Save the Canvas binding") ||
+    error.message.includes("could not find a failed grade publication") ||
+    error.message.includes("saved runtime session") ||
+    error.message.includes("AGS service context") ||
+    error.message.includes("saved Canvas binding")
+  ) {
+    return 409;
+  }
+
+  return 500;
+}
+
 function normalizeOptionalString(
   value: FormDataEntryValue | null,
 ): string | null {
@@ -1448,6 +1637,104 @@ function runtimeFilePathFromRequest(context: Context): string {
   }
 
   return decodeURIComponent(pathname.slice(prefix.length));
+}
+
+async function recordRejectedLaunchAudit(input: {
+  repository: PackageReviewRepository;
+  state: string | null;
+  error: unknown;
+}): Promise<void> {
+  const loginState = input.state === null
+    ? null
+    : await input.repository.getLoginStateByState(input.state).catch(() =>
+      null
+    );
+  const deployment = loginState === null
+    ? null
+    : await input.repository.getDeploymentByBinding({
+      issuer: loginState.issuer,
+      clientId: loginState.clientId,
+      deploymentId: loginState.deploymentId,
+    }).catch(() => null);
+
+  await input.repository.recordAuditEvent({
+    eventType: "launch.rejected",
+    actorType: "platform",
+    actorId: null,
+    deploymentRecordId: deployment?.id ?? null,
+    packageVersionId: deployment?.enabledPackageVersionId ?? null,
+    attemptId: null,
+    lineItemBindingId: null,
+    status: "failed",
+    summary: "Rejected the Canvas launch before runtime handoff.",
+    detail: {
+      code: normalizeLaunchRejectedCode(input.error),
+      message: errorMessage(input.error),
+      issuer: loginState?.issuer ?? null,
+      clientId: loginState?.clientId ?? null,
+      deploymentId: loginState?.deploymentId ?? null,
+      targetLinkUri: loginState?.targetLinkUri ?? null,
+      internalDeploymentSlug: deployment?.slug ?? null,
+      appId: deployment?.appId ?? null,
+    },
+    occurredAt: new Date().toISOString(),
+  });
+}
+
+function normalizeLaunchRejectedCode(error: unknown): string {
+  const message = errorMessage(error);
+
+  if (message.includes("signature or issuer validation failed")) {
+    return "signature_validation_failed";
+  }
+
+  if (message.includes("did not match the saved login state")) {
+    return "deployment_mismatch";
+  }
+
+  if (message.includes("has expired")) {
+    return "login_state_expired";
+  }
+
+  if (message.includes("has already been used")) {
+    return "login_state_used";
+  }
+
+  if (message.includes("was not found")) {
+    return "launch_context_missing";
+  }
+
+  if (message.includes("not approved")) {
+    return "package_not_approved";
+  }
+
+  return "launch_validation_failed";
+}
+
+function normalizeRetryFailureCode(error: unknown): string {
+  const message = errorMessage(error);
+
+  if (message.includes("could not find a failed grade publication")) {
+    return "retry_not_available";
+  }
+
+  if (message.includes("saved runtime session")) {
+    return "missing_runtime_session";
+  }
+
+  if (message.includes("AGS service context")) {
+    return "missing_ags_context";
+  }
+
+  if (message.includes("saved Canvas binding")) {
+    return "missing_binding";
+  }
+
+  if (message.includes("token")) {
+    return "token_request_failed";
+  }
+
+  return "retry_failed";
 }
 
 function errorMessage(error: unknown): string {

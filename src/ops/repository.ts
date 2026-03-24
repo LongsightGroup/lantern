@@ -472,8 +472,8 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           return null;
         }
 
-        const [latestLaunch, latestNrpsRead, latestGradePublish, diagnostics] =
-          await Promise.all([
+        const [latestLaunch, latestNrpsRead, latestGradePublish] = await Promise
+          .all([
             getActivitySnapshot(
               client,
               LATEST_LAUNCH_QUERY,
@@ -481,7 +481,6 @@ export function createOpsRepository(pool: Pool): OpsRepository {
             ),
             getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
             getLatestGradePublication(client, deploymentRecordId),
-            listDiagnostics(client, deploymentRecordId),
           ]);
         const retryableGradePublication =
           latestGradePublish?.status === "failed"
@@ -490,6 +489,11 @@ export function createOpsRepository(pool: Pool): OpsRepository {
               latestGradePublish.attemptId,
             )
             : null;
+        const diagnostics = await listDiagnostics(
+          client,
+          deploymentRecordId,
+          retryableGradePublication?.attemptId ?? null,
+        );
 
         return {
           inventory,
@@ -596,6 +600,7 @@ async function getLatestGradePublication(
 async function listDiagnostics(
   client: PoolClient,
   deploymentRecordId: number,
+  retryableAttemptId: string | null,
 ): Promise<ControlPlaneDiagnosticItem[]> {
   const result = await client.queryObject<DiagnosticRow>({
     text: DIAGNOSTICS_QUERY,
@@ -615,8 +620,11 @@ async function listDiagnostics(
       code: readStringDetail(row.detail, "code"),
       summary: row.summary,
       operatorSummary: row.summary,
+      retryable: false,
       detail: row.detail,
       occurredAt: normalizeTimestamp(row.occurredAt),
+    }, {
+      retryableAttemptId,
     })
   );
 }
