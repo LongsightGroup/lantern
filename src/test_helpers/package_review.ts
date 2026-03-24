@@ -1,5 +1,6 @@
 import { compare, parse } from "@std/semver";
 import type {
+  DeepLinkingSessionRecord,
   DeploymentBinding,
   LoginStateRecord,
   RuntimeSessionRecord,
@@ -29,6 +30,8 @@ import type {
   AttemptRecord,
   AuditEventRecord,
   CanvasLineItemBindingRecord,
+  DeepLinkingResourceOption,
+  DeepLinkingResourceSelection,
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
@@ -39,6 +42,7 @@ const DEFAULT_REVIEWED_AT = "2026-03-23T18:05:00Z";
 const DEFAULT_UPDATED_AT = "2026-03-23T18:15:00Z";
 const DEFAULT_PHASE3_AT = "2026-03-24T02:30:00Z";
 const DEFAULT_PHASE4_AT = "2026-03-24T12:30:00Z";
+const DEFAULT_PHASE5_AT = "2026-03-24T16:15:00Z";
 
 export function buildPackageVersionRecord(
   overrides: Partial<PackageVersionRecord> = {},
@@ -234,6 +238,37 @@ export function buildAuditEventRecord(
       route: "/runtime/sessions/runtime-session-123/attempt-events",
     },
     occurredAt: overrides.occurredAt ?? DEFAULT_PHASE3_AT,
+  };
+}
+
+export function buildDeepLinkingResourceOption(
+  overrides: Partial<DeepLinkingResourceOption> = {},
+): DeepLinkingResourceOption {
+  return {
+    packageVersionId: overrides.packageVersionId ?? 1,
+    appId: overrides.appId ?? "chapter-4-asteroids",
+    packageVersion: overrides.packageVersion ?? "0.1.0",
+    packageTitle: overrides.packageTitle ?? "Chapter 4 Asteroids",
+    ownerId: overrides.ownerId ?? "instructor_123",
+    installScope: "assignment",
+    approvalStatus: "approved",
+    reviewedAt: overrides.reviewedAt ?? DEFAULT_REVIEWED_AT,
+    activityId: overrides.activityId ?? "/content/activity.json",
+    contentPath: overrides.contentPath ?? "/content/activity.json",
+    contentTitle: overrides.contentTitle ?? "Activity",
+  };
+}
+
+export function buildDeepLinkingResourceSelection(
+  overrides: Partial<DeepLinkingResourceSelection> = {},
+): DeepLinkingResourceSelection {
+  return {
+    packageVersionId: overrides.packageVersionId ?? 1,
+    packageVersion: overrides.packageVersion ?? "0.1.0",
+    packageTitle: overrides.packageTitle ?? "Chapter 4 Asteroids",
+    activityId: overrides.activityId ?? "/content/activity.json",
+    contentPath: overrides.contentPath ?? "/content/activity.json",
+    contentTitle: overrides.contentTitle ?? "Activity",
   };
 }
 
@@ -541,6 +576,22 @@ export interface InMemoryOpsRepository {
   ): Promise<RuntimeSessionRecord | null>;
 }
 
+export interface InMemoryDeepLinkingRepository {
+  createDeepLinkingSession(
+    record: DeepLinkingSessionRecord,
+  ): Promise<DeepLinkingSessionRecord>;
+  getDeepLinkingSessionById(
+    sessionId: string,
+  ): Promise<DeepLinkingSessionRecord | null>;
+  updateDeepLinkingSessionSelection(input: {
+    sessionId: string;
+    selection: DeepLinkingSessionRecord["selection"];
+  }): Promise<DeepLinkingSessionRecord>;
+  listDeepLinkingResourceOptions(
+    appId: string,
+  ): Promise<DeepLinkingResourceOption[]>;
+}
+
 export function createInMemoryPackageReviewRepository(
   options: {
     packageVersions?: PackageVersionRecord[];
@@ -552,13 +603,15 @@ export function createInMemoryPackageReviewRepository(
     auditEvents?: AuditEventRecord[];
     loginStates?: LoginStateRecord[];
     runtimeSessions?: RuntimeSessionRecord[];
+    deepLinkingSessions?: DeepLinkingSessionRecord[];
+    deepLinkingResourceOptions?: DeepLinkingResourceOption[];
     controlPlaneDeployments?: ControlPlaneDeploymentInventoryRow[];
     controlPlaneDeploymentDetails?: ControlPlaneDeploymentDetailSnapshot[];
     controlPlaneDiagnostics?: ControlPlaneDiagnosticItem[];
     brokerVerifications?: BrokerVerificationStatus[];
     retryableGradePublications?: RetryableGradePublicationLookup[];
   } = {},
-): PackageReviewRepository & InMemoryOpsRepository {
+): PackageReviewRepository & InMemoryOpsRepository & InMemoryDeepLinkingRepository {
   const packageVersions = [...(options.packageVersions ?? [])];
   const deployments = [...(options.deployments ?? [])];
   const attempts = [...(options.attempts ?? [])];
@@ -568,6 +621,10 @@ export function createInMemoryPackageReviewRepository(
   const auditEvents = [...(options.auditEvents ?? [])];
   const loginStates = [...(options.loginStates ?? [])];
   const runtimeSessions = [...(options.runtimeSessions ?? [])];
+  const deepLinkingSessions = [...(options.deepLinkingSessions ?? [])];
+  const deepLinkingResourceOptions = [
+    ...(options.deepLinkingResourceOptions ?? []),
+  ];
   const controlPlaneDeployments = [...(options.controlPlaneDeployments ?? [])];
   const controlPlaneDeploymentDetails = [
     ...(options.controlPlaneDeploymentDetails ?? []),
@@ -772,6 +829,72 @@ export function createInMemoryPackageReviewRepository(
       ).find((candidate) => candidate.attemptId === attemptId);
 
       return Promise.resolve(record ? cloneRuntimeSession(record) : null);
+    },
+
+    createDeepLinkingSession(record) {
+      const existing = deepLinkingSessions.find((candidate) =>
+        candidate.sessionId === record.sessionId ||
+        candidate.sessionToken === record.sessionToken
+      );
+
+      if (existing) {
+        throw new Error(
+          `Deep Linking session ${record.sessionId} already exists and cannot be replaced.`,
+        );
+      }
+
+      deepLinkingSessions.push(cloneDeepLinkingSession(record));
+
+      return Promise.resolve(cloneDeepLinkingSession(record));
+    },
+
+    getDeepLinkingSessionById(sessionId) {
+      const record = deepLinkingSessions.find((candidate) =>
+        candidate.sessionId === sessionId
+      );
+
+      return Promise.resolve(
+        record ? cloneDeepLinkingSession(record) : null,
+      );
+    },
+
+    updateDeepLinkingSessionSelection(input) {
+      const index = deepLinkingSessions.findIndex((candidate) =>
+        candidate.sessionId === input.sessionId
+      );
+
+      if (index < 0) {
+        throw new Error(
+          `Deep Linking session ${input.sessionId} was not found.`,
+        );
+      }
+
+      const existing = deepLinkingSessions[index];
+
+      if (!existing) {
+        throw new Error(
+          `Deep Linking session ${input.sessionId} was not found.`,
+        );
+      }
+
+      const nextRecord: DeepLinkingSessionRecord = {
+        ...existing,
+        selection: input.selection === null ? null : structuredClone({
+          ...input.selection,
+        }),
+      };
+
+      deepLinkingSessions.splice(index, 1, nextRecord);
+
+      return Promise.resolve(cloneDeepLinkingSession(nextRecord));
+    },
+
+    listDeepLinkingResourceOptions(appId) {
+      return Promise.resolve(
+        deepLinkingResourceOptions
+          .filter((candidate) => candidate.appId === appId)
+          .map(cloneDeepLinkingResourceOption),
+      );
     },
 
     createAttempt(record) {
@@ -1343,6 +1466,18 @@ function cloneLoginState(record: LoginStateRecord): LoginStateRecord {
 function cloneRuntimeSession(
   record: RuntimeSessionRecord,
 ): RuntimeSessionRecord {
+  return structuredClone(record);
+}
+
+function cloneDeepLinkingSession(
+  record: DeepLinkingSessionRecord,
+): DeepLinkingSessionRecord {
+  return structuredClone(record);
+}
+
+function cloneDeepLinkingResourceOption(
+  record: DeepLinkingResourceOption,
+): DeepLinkingResourceOption {
   return structuredClone(record);
 }
 

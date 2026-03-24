@@ -2,17 +2,22 @@ import { importJWK, SignJWT } from "jose";
 import type {
   CanvasEnvironment,
   CanvasPlatformConfig,
+  DeepLinkingSessionRecord,
   DeploymentBinding,
   LaunchAssignmentAndGradeServices,
   LaunchNamesAndRolesService,
   LaunchServiceClaims,
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
   LoginStateRecord,
   RuntimeSessionRecord,
+  ValidatedDeepLinkingRequest,
   ValidatedLaunch,
 } from "../lti/types.ts";
 import {
   LTI_AGS_LINEITEM_SCOPE as DEFAULT_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE as DEFAULT_AGS_SCORE_SCOPE,
+  LTI_ASSIGNMENT_SELECTION_PLACEMENT as DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE as DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
 } from "../lti/types.ts";
 
 const TEST_NOW = "2026-03-23T22:45:00Z";
@@ -85,7 +90,7 @@ export interface CanvasLaunchTokenInput {
   deploymentBinding?: Partial<DeploymentBinding>;
   audience?: string;
   nonce?: string;
-  subject?: string;
+  subject?: string | null;
   messageType?: string;
   version?: string;
   issuedAt?: string;
@@ -100,6 +105,12 @@ export interface CanvasLaunchTokenInput {
   ags?: Partial<LaunchAssignmentAndGradeServices> | null;
   agsShape?: "lineitem" | "lineitems" | "both" | "none";
   nrps?: Partial<LaunchNamesAndRolesService> | null;
+  deepLinkReturnUrl?: string;
+  deepLinkData?: string | null;
+  deepLinkAcceptTypes?: string[];
+  deepLinkAcceptMultiple?: boolean;
+  deepLinkAcceptPresentationDocumentTargets?: string[];
+  deepLinkAcceptLineItem?: boolean;
 }
 
 export interface ToolClientAssertionInput {
@@ -296,6 +307,70 @@ export function buildValidatedLaunch(
   };
 }
 
+export function buildDeepLinkingSettingsClaimValue(input: {
+  acceptTypes?: string[] | undefined;
+  acceptMultiple?: boolean | undefined;
+  acceptPresentationDocumentTargets?: string[] | undefined;
+  acceptLineItem?: boolean | undefined;
+  deepLinkReturnUrl?: string | undefined;
+  data?: string | null | undefined;
+} = {}): Record<string, unknown> {
+  return {
+    accept_types: input.acceptTypes ?? ["ltiResourceLink"],
+    accept_multiple: input.acceptMultiple ?? false,
+    accept_presentation_document_targets:
+      input.acceptPresentationDocumentTargets ?? ["iframe"],
+    accept_lineitem: input.acceptLineItem ?? false,
+    deep_link_return_url: input.deepLinkReturnUrl ??
+      "https://canvas.example/courses/42/deep_link_return",
+    ...(input.data === undefined ? {} : { data: input.data }),
+  };
+}
+
+export function buildValidatedDeepLinkingRequest(
+  overrides: Partial<ValidatedDeepLinkingRequest> = {},
+): ValidatedDeepLinkingRequest {
+  const bindingOverrides: Partial<DeploymentBinding> = {};
+  if (overrides.canvasEnvironment !== undefined) {
+    bindingOverrides.canvasEnvironment = overrides.canvasEnvironment;
+  }
+  if (overrides.issuer !== undefined) {
+    bindingOverrides.issuer = overrides.issuer;
+  }
+  if (overrides.clientId !== undefined) {
+    bindingOverrides.clientId = overrides.clientId;
+  }
+  if (overrides.deploymentId !== undefined) {
+    bindingOverrides.deploymentId = overrides.deploymentId;
+  }
+  const binding = buildDeploymentBinding(bindingOverrides);
+
+  return {
+    internalDeploymentId: overrides.internalDeploymentId ?? 1,
+    internalDeploymentSlug: overrides.internalDeploymentSlug ??
+      "chapter-4-asteroids-pilot",
+    appId: overrides.appId ?? "chapter-4-asteroids",
+    userId: overrides.userId ?? "canvas-user-123",
+    userRole: overrides.userRole ?? "instructor",
+    contextId: overrides.contextId ?? "course-42",
+    contextTitle: overrides.contextTitle ?? "Physics 101",
+    targetLinkUri: overrides.targetLinkUri ??
+      "http://localhost:8000/lti/deep-linking",
+    deepLinkReturnUrl: overrides.deepLinkReturnUrl ??
+      "https://canvas.example/courses/42/deep_link_return",
+    data: overrides.data ?? "deep-linking-state-token",
+    placement: overrides.placement ?? DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
+    settings: overrides.settings ?? {
+      acceptTypes: ["ltiResourceLink"],
+      acceptMultiple: false,
+      acceptPresentationDocumentTargets: ["iframe"],
+      acceptLineItem: false,
+    },
+    issuedAt: overrides.issuedAt ?? TEST_NOW,
+    ...binding,
+  };
+}
+
 export function buildRuntimeSessionRecord(
   overrides: Partial<RuntimeSessionRecord> = {},
 ): RuntimeSessionRecord {
@@ -334,6 +409,34 @@ export function buildRuntimeSessionRecord(
   };
 }
 
+export function buildDeepLinkingSessionRecord(
+  overrides: Partial<DeepLinkingSessionRecord> = {},
+): DeepLinkingSessionRecord {
+  return {
+    sessionId: overrides.sessionId ?? "deep-linking-session-123",
+    sessionToken: overrides.sessionToken ?? "deep-linking-token-123",
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    deploymentSlug: overrides.deploymentSlug ?? "chapter-4-asteroids-pilot",
+    appId: overrides.appId ?? "chapter-4-asteroids",
+    userId: overrides.userId ?? "canvas-user-123",
+    userRole: overrides.userRole ?? "instructor",
+    contextId: overrides.contextId ?? "course-42",
+    contextTitle: overrides.contextTitle ?? "Physics 101",
+    deepLinkReturnUrl: overrides.deepLinkReturnUrl ??
+      "https://canvas.example/courses/42/deep_link_return",
+    data: overrides.data ?? "deep-linking-state-token",
+    placement: overrides.placement ?? DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
+    acceptTypes: overrides.acceptTypes ?? ["ltiResourceLink"],
+    acceptMultiple: overrides.acceptMultiple ?? false,
+    acceptPresentationDocumentTargets:
+      overrides.acceptPresentationDocumentTargets ?? ["iframe"],
+    acceptLineItem: overrides.acceptLineItem ?? false,
+    selection: overrides.selection ?? null,
+    createdAt: overrides.createdAt ?? TEST_NOW,
+    expiresAt: overrides.expiresAt ?? "2026-03-23T22:50:00Z",
+  };
+}
+
 export async function signCanvasIdToken(
   input: CanvasLaunchTokenInput = {},
 ): Promise<string> {
@@ -344,6 +447,21 @@ export async function signCanvasIdToken(
   const nrpsClaim = input.nrps === null
     ? null
     : buildNrpsLaunchClaimValue(input.nrps ?? {});
+  const deepLinkingSettings = input.messageType ===
+      DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE ||
+      input.deepLinkReturnUrl !== undefined ||
+      input.deepLinkAcceptTypes !== undefined ||
+      input.deepLinkAcceptPresentationDocumentTargets !== undefined
+    ? buildDeepLinkingSettingsClaimValue({
+      acceptTypes: input.deepLinkAcceptTypes,
+      acceptMultiple: input.deepLinkAcceptMultiple,
+      acceptPresentationDocumentTargets:
+        input.deepLinkAcceptPresentationDocumentTargets,
+      acceptLineItem: input.deepLinkAcceptLineItem,
+      deepLinkReturnUrl: input.deepLinkReturnUrl,
+      data: input.deepLinkData,
+    })
+    : null;
   const claims = {
     nonce: input.nonce ?? "nonce-123",
     "https://purl.imsglobal.org/spec/lti/claim/message_type":
@@ -376,10 +494,13 @@ export async function signCanvasIdToken(
       "https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice":
         nrpsClaim,
     }),
+    ...(deepLinkingSettings === null ? {} : {
+      "https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings":
+        deepLinkingSettings,
+    }),
   };
   const signingKey = await importJWK(TEST_CANVAS_PRIVATE_JWK, "ES256");
-
-  return await new SignJWT(claims)
+  let token = new SignJWT(claims)
     .setProtectedHeader({
       alg: "ES256",
       kid: TEST_CANVAS_PRIVATE_JWK.kid,
@@ -387,13 +508,17 @@ export async function signCanvasIdToken(
     })
     .setIssuer(binding.issuer)
     .setAudience(input.audience ?? binding.clientId)
-    .setSubject(input.subject ?? "canvas-user-123")
     .setIssuedAt(
       Math.floor(Date.parse(input.issuedAt ?? TEST_NOW) / 1000),
     )
     .setExpirationTime(input.expirationTime ?? "5m")
-    .setJti("launch-jti-123")
-    .sign(signingKey);
+    .setJti("launch-jti-123");
+
+  if (input.subject !== null) {
+    token = token.setSubject(input.subject ?? "canvas-user-123");
+  }
+
+  return await token.sign(signingKey);
 }
 
 export function getTestCanvasJwks(): {
