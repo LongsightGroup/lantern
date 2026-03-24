@@ -1,6 +1,8 @@
+import type { Pool } from "@db/postgres";
 import { csrf } from "@hono/hono/csrf";
 import { type Context, Hono } from "@hono/hono";
 import { createDatabasePool } from "./db/pool.ts";
+import { renderControlPlanePage } from "./admin/control_plane.ts";
 import {
   buildDefaultDeploymentSeed,
   type DeploymentNrpsVerificationSummary,
@@ -32,6 +34,7 @@ import {
   createPackageReviewRepository,
   type PackageReviewRepository,
 } from "./package_review/repository.ts";
+import { createOpsRepository, type OpsRepository } from "./ops/repository.ts";
 import type {
   DeploymentRecord,
   PackageVersionRecord,
@@ -51,12 +54,15 @@ import {
 
 export interface AppServices {
   getRepository: () => PackageReviewRepository;
+  getOpsRepository: () => OpsRepository;
   importDemoPackage: (
     options?: { storageRoot?: string },
   ) => Promise<ImportedPackageVersion>;
 }
 
+let defaultPool: Pool | null = null;
 let defaultRepository: PackageReviewRepository | null = null;
+let defaultOpsRepository: OpsRepository | null = null;
 
 export const app = createApp();
 
@@ -389,9 +395,24 @@ export function createApp(
 
   app.get("/admin/packages", async (context) => {
     try {
-      const versions = await resolvedServices.getRepository()
-        .listPackageVersions();
-      return context.html(renderPackageIndexPage({ versions }));
+      const repository = resolvedServices.getRepository();
+      const versions = await repository.listPackageVersions();
+
+      if (versions.length === 0) {
+        return context.html(renderPackageIndexPage({ versions }));
+      }
+
+      const [deployments, latestBrokerVerification] = await Promise.all([
+        resolvedServices.getOpsRepository().listControlPlaneDeployments(),
+        resolvedServices.getOpsRepository().getLatestBrokerVerification(),
+      ]);
+
+      return context.html(
+        renderControlPlanePage({
+          deployments,
+          latestBrokerVerification,
+        }),
+      );
     } catch (error) {
       return context.html(
         renderPackageIndexPage({
@@ -785,18 +806,57 @@ export function createApp(
 }
 
 function resolveServices(services: Partial<AppServices>): AppServices {
+  const getRepository = services.getRepository ?? getDefaultRepository;
+
   return {
-    getRepository: services.getRepository ?? getDefaultRepository,
+    getRepository,
+    getOpsRepository: services.getOpsRepository ??
+      (() => {
+        const repository = getRepository();
+
+        return isOpsRepository(repository)
+          ? repository
+          : getDefaultOpsRepository();
+      }),
     importDemoPackage: services.importDemoPackage ?? importDemoPackage,
   };
 }
 
 function getDefaultRepository(): PackageReviewRepository {
   if (defaultRepository === null) {
-    defaultRepository = createPackageReviewRepository(createDatabasePool());
+    defaultRepository = createPackageReviewRepository(getDefaultPool());
   }
 
   return defaultRepository;
+}
+
+function getDefaultOpsRepository(): OpsRepository {
+  if (defaultOpsRepository === null) {
+    defaultOpsRepository = createOpsRepository(getDefaultPool());
+  }
+
+  return defaultOpsRepository;
+}
+
+function getDefaultPool(): Pool {
+  if (defaultPool === null) {
+    defaultPool = createDatabasePool();
+  }
+
+  return defaultPool;
+}
+
+function isOpsRepository(
+  repository: PackageReviewRepository,
+): repository is PackageReviewRepository & OpsRepository {
+  return typeof (repository as Partial<OpsRepository>)
+        .listControlPlaneDeployments ===
+      "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .getLatestBrokerVerification ===
+      "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .getRetryableGradePublicationLookup === "function";
 }
 
 async function handleReviewDecision(

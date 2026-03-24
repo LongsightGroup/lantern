@@ -357,7 +357,7 @@ interface InventoryQueryRow {
   recentActiveUsers: number | string;
   usageLastLaunchAt: Date | string | null;
   measuredAt: Date | string;
-  brokerSupportedPath: string | null;
+  brokerSupportedPath: BrokerVerificationStatus["supportedPath"] | null;
   brokerSource: BrokerVerificationSource | null;
   brokerStatus: BrokerVerificationRunStatus | null;
   brokerSummary: string | null;
