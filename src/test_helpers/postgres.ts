@@ -37,6 +37,10 @@ const CREATE_DEPLOYMENTS_TABLE_SQL = `
     label text NOT NULL,
     app_id text NOT NULL,
     enabled_package_version_id bigint REFERENCES package_versions (id),
+    canvas_environment text,
+    issuer text,
+    client_id text,
+    deployment_id text,
     updated_at timestamptz NOT NULL DEFAULT now()
   )
 `;
