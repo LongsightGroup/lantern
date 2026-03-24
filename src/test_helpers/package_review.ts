@@ -42,7 +42,6 @@ const DEFAULT_REVIEWED_AT = "2026-03-23T18:05:00Z";
 const DEFAULT_UPDATED_AT = "2026-03-23T18:15:00Z";
 const DEFAULT_PHASE3_AT = "2026-03-24T02:30:00Z";
 const DEFAULT_PHASE4_AT = "2026-03-24T12:30:00Z";
-const DEFAULT_PHASE5_AT = "2026-03-24T16:15:00Z";
 
 export function buildPackageVersionRecord(
   overrides: Partial<PackageVersionRecord> = {},
@@ -611,7 +610,10 @@ export function createInMemoryPackageReviewRepository(
     brokerVerifications?: BrokerVerificationStatus[];
     retryableGradePublications?: RetryableGradePublicationLookup[];
   } = {},
-): PackageReviewRepository & InMemoryOpsRepository & InMemoryDeepLinkingRepository {
+):
+  & PackageReviewRepository
+  & InMemoryOpsRepository
+  & InMemoryDeepLinkingRepository {
   const packageVersions = [...(options.packageVersions ?? [])];
   const deployments = [...(options.deployments ?? [])];
   const attempts = [...(options.attempts ?? [])];

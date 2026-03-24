@@ -7,7 +7,6 @@ import type {
   LaunchAssignmentAndGradeServices,
   LaunchNamesAndRolesService,
   LaunchServiceClaims,
-  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
   LoginStateRecord,
   RuntimeSessionRecord,
   ValidatedDeepLinkingRequest,
@@ -17,7 +16,8 @@ import {
   LTI_AGS_LINEITEM_SCOPE as DEFAULT_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE as DEFAULT_AGS_SCORE_SCOPE,
   LTI_ASSIGNMENT_SELECTION_PLACEMENT as DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
-  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE as DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE
+    as DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
 } from "../lti/types.ts";
 
 const TEST_NOW = "2026-03-23T22:45:00Z";
@@ -448,7 +448,7 @@ export async function signCanvasIdToken(
     ? null
     : buildNrpsLaunchClaimValue(input.nrps ?? {});
   const deepLinkingSettings = input.messageType ===
-      DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE ||
+        DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE ||
       input.deepLinkReturnUrl !== undefined ||
       input.deepLinkAcceptTypes !== undefined ||
       input.deepLinkAcceptPresentationDocumentTargets !== undefined
