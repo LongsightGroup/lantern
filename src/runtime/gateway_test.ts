@@ -380,6 +380,104 @@ Deno.test(
 );
 
 Deno.test(
+  "runtime gateway keeps the AGS line-item resource id aligned with the reviewed activity",
+  async () => {
+    const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          artifact: {
+            snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+            manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+            entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+            digest: "sha256:example-snapshot",
+          },
+        }),
+      ],
+      deployments: [
+        buildDeploymentRecord({
+          binding: buildDeploymentBinding(),
+        }),
+      ],
+      attempts: [
+        buildAttemptRecord({
+          activityId: "/content/bonus.json",
+        }),
+      ],
+      attemptEvents: [
+        buildAttemptEventRecord({
+          id: 1,
+          sequence: 1,
+          event: {
+            type: "answer",
+            questionId: "q1",
+            answer: "resistance to a change in motion",
+            timestamp: "2026-03-24T02:30:00Z",
+          },
+        }),
+      ],
+    });
+    const session = buildRuntimeSessionRecord({
+      contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/bonus.json`,
+      launch: {
+        userRole: "learner",
+        courseId: "course-42",
+        assignmentId: "assignment-9",
+        activityId: "/content/bonus.json",
+      },
+      expiresAt: "2026-03-25T02:45:00Z",
+    });
+
+    Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+    try {
+      await withFetchStub((input, init) => {
+        const url = String(input);
+
+        if (url === "https://sso.canvaslms.com/login/oauth2/token") {
+          return new Response(
+            JSON.stringify({
+              access_token: "canvas-access-token",
+              token_type: "bearer",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        assertEquals(
+          url,
+          "https://canvas.example/api/lti/courses/42/line_items/9/scores",
+        );
+        assertEquals(init?.method, "POST");
+
+        return new Response(null, { status: 202 });
+      }, async () => {
+        const result = await finalizeRuntimeAttempt({
+          repository,
+          session,
+          payload: {
+            completionState: "completed",
+          },
+          now: () => new Date("2026-03-24T02:35:00Z"),
+        });
+
+        assertEquals(
+          result.lineItemBinding?.resourceId,
+          "lantern:chapter-4-asteroids:0.1.0:/content/bonus.json",
+        );
+      });
+    } finally {
+      restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+    }
+  },
+);
+
+Deno.test(
   "runtime gateway fails clearly for manual grading finalize requests and leaves the attempt open",
   async () => {
     const repository = createInMemoryPackageReviewRepository({
