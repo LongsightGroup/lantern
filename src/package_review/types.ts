@@ -57,6 +57,24 @@ export interface PackageVersionRecord {
   importedAt: string;
 }
 
+export interface ReviewedResource {
+  packageVersionId: number;
+  appId: string;
+  packageVersion: string;
+  packageTitle: string;
+  packageDescription: string | null;
+  reviewedAt: string;
+  contentPath: string;
+}
+
+export interface ReviewedResourceSelection {
+  packageVersionId: number;
+  appId: string;
+  packageVersion: string;
+  packageTitle: string;
+  contentPath: string;
+}
+
 export interface DeploymentRecord {
   id: number;
   slug: string;

@@ -7,6 +7,9 @@ export const LTI_AGS_LINEITEM_SCOPE =
   "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem";
 export const LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE =
   "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly";
+export const LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE = "LtiResourceLinkRequest";
+export const LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE = "LtiDeepLinkingRequest";
+export const LTI_ASSIGNMENT_SELECTION_PLACEMENT = "assignment_selection";
 export const CANVAS_LTI_SCOPES = [
   LTI_AGS_SCORE_SCOPE,
   LTI_AGS_LINEITEM_SCOPE,
@@ -94,6 +97,59 @@ export interface RuntimeSessionRecord {
     assignmentId?: string;
     activityId: string;
   };
+  createdAt: string;
+  expiresAt: string;
+}
+
+export type LtiMessageType =
+  | typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE
+  | typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
+
+export type LtiPlacement = typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
+
+export interface DeepLinkingSettings {
+  acceptTypes: string[];
+  acceptPresentationDocumentTargets: string[];
+  acceptMultiple: boolean;
+  acceptLineitem: boolean;
+}
+
+export interface ValidatedDeepLinkingRequest extends DeploymentBinding {
+  internalDeploymentId: number;
+  internalDeploymentSlug: string;
+  appId: string;
+  userId: string | null;
+  userRole: UserRole;
+  contextId: string | null;
+  contextTitle: string | null;
+  targetLinkUri: string;
+  deepLinkReturnUrl: string;
+  data: string | null;
+  placement: LtiPlacement;
+  settings: DeepLinkingSettings;
+  issuedAt: string;
+}
+
+export interface DeepLinkingSessionRecord {
+  sessionId: string;
+  sessionToken: string;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  appId: string;
+  userId: string | null;
+  userRole: UserRole;
+  contextId: string | null;
+  contextTitle: string | null;
+  deepLinkReturnUrl: string;
+  data: string | null;
+  placement: LtiPlacement;
+  acceptTypes: string[];
+  acceptPresentationDocumentTargets: string[];
+  acceptMultiple: boolean;
+  acceptLineitem: boolean;
+  selectedPackageVersionId: number | null;
+  selectedPackageVersion: string | null;
+  selectedContentPath: string | null;
   createdAt: string;
   expiresAt: string;
 }
