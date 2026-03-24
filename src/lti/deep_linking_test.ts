@@ -2,6 +2,7 @@ import { assertEquals, assertExists } from "@std/assert";
 import {
   buildDeepLinkingSelectionValue,
   createDeepLinkingSession,
+  createReviewedPlacementFromDeepLinkingSession,
   requireAuthorizedDeepLinkingSession,
   resolveDeepLinkingSelection,
   saveDeepLinkingSessionSelection,
@@ -313,6 +314,64 @@ Deno.test(
     assertEquals(saved.session.selection?.contentPath, "/content/bonus.json");
     assertEquals(saved.selection.packageTitle, "Chapter 4 Asteroids");
     assertEquals(selection?.contentTitle, "Bonus Activity");
+  },
+);
+
+Deno.test(
+  "deep linking helpers create one durable reviewed placement from the saved reviewed selection",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          sessionId: "deep-linking-session-placement",
+          selection: {
+            packageVersionId: 2,
+            packageVersion: "0.2.0",
+            activityId: "/content/bonus.json",
+            contentPath: "/content/bonus.json",
+          },
+        }),
+      ],
+      deepLinkingResourceOptions: [
+        buildDeepLinkingResourceOption({
+          packageVersionId: 2,
+          packageVersion: "0.2.0",
+          activityId: "/content/bonus.json",
+          contentPath: "/content/bonus.json",
+          contentTitle: "Bonus Activity",
+        }),
+      ],
+    });
+    const session = await repository.getDeepLinkingSessionById(
+      "deep-linking-session-placement",
+    );
+
+    assertExists(session);
+
+    const created = await createReviewedPlacementFromDeepLinkingSession({
+      repository,
+      session,
+      now: () => new Date("2026-03-24T17:00:00Z"),
+      createPlacementId: () => "placement-123",
+    });
+    const saved = await repository.getReviewedPlacementById("placement-123");
+
+    assertEquals(created.selection.contentTitle, "Bonus Activity");
+    assertEquals(created.placement.placementId, "placement-123");
+    assertEquals(
+      created.placement.deploymentRecordId,
+      session.deploymentRecordId,
+    );
+    assertEquals(created.placement.contextId, "course-42");
+    assertEquals(created.placement.packageVersionId, 2);
+    assertEquals(created.placement.packageVersion, "0.2.0");
+    assertEquals(created.placement.packageTitle, "Chapter 4 Asteroids");
+    assertEquals(created.placement.activityId, "/content/bonus.json");
+    assertEquals(created.placement.contentPath, "/content/bonus.json");
+    assertEquals(created.placement.contentTitle, "Bonus Activity");
+    assertEquals(created.placement.resourceLinkId, null);
+    assertEquals(saved?.packageVersionId, 2);
+    assertEquals(saved?.contentPath, "/content/bonus.json");
   },
 );
 
