@@ -9,6 +9,7 @@ import type {
   RuntimeSessionRecord,
   ValidatedLaunch,
 } from "./types.ts";
+import { LANTERN_PLACEMENT_CUSTOM_KEY } from "./types.ts";
 import { resolveCanvasPlatform } from "./canvas_platform.ts";
 
 const CLAIM_MESSAGE_TYPE =
@@ -21,6 +22,7 @@ const CLAIM_TARGET_LINK_URI =
 const CLAIM_RESOURCE_LINK =
   "https://purl.imsglobal.org/spec/lti/claim/resource_link";
 const CLAIM_CONTEXT = "https://purl.imsglobal.org/spec/lti/claim/context";
+const CLAIM_CUSTOM = "https://purl.imsglobal.org/spec/lti/claim/custom";
 const CLAIM_ROLES = "https://purl.imsglobal.org/spec/lti/claim/roles";
 const CLAIM_LAUNCH_PRESENTATION =
   "https://purl.imsglobal.org/spec/lti/claim/launch_presentation";
@@ -139,28 +141,6 @@ export async function validateLaunchRequest(input: {
     );
   }
 
-  if (deployment.enabledPackageVersionId === null) {
-    throw new Error(
-      `Deployment ${deployment.slug} does not have an approved pinned package version.`,
-    );
-  }
-
-  const packageVersion = await input.repository.getPackageVersionById(
-    deployment.enabledPackageVersionId,
-  );
-
-  if (!packageVersion) {
-    throw new Error(
-      `Pinned package version id ${deployment.enabledPackageVersionId} was not found.`,
-    );
-  }
-
-  if (packageVersion.approvalStatus !== "approved") {
-    throw new Error(
-      `Pinned package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
-    );
-  }
-
   const resourceLink = requireRecordClaim(
     payload[CLAIM_RESOURCE_LINK],
     "Launch resource_link claim is required.",
@@ -177,6 +157,14 @@ export async function validateLaunchRequest(input: {
     context.id,
     "Launch context.id is required for the governed runtime.",
   );
+  const resolvedLaunch = await resolveLaunchTarget({
+    repository: input.repository,
+    deployment,
+    resourceLinkId,
+    contextId,
+    customClaim: payload[CLAIM_CUSTOM],
+    now,
+  });
   const consumedState = await input.repository.consumeLoginState({
     state,
     usedAt: now().toISOString(),
@@ -189,9 +177,10 @@ export async function validateLaunchRequest(input: {
   return {
     internalDeploymentId: deployment.id,
     internalDeploymentSlug: deployment.slug,
-    appId: packageVersion.appId,
-    packageVersionId: packageVersion.id,
-    packageVersion: packageVersion.version,
+    appId: resolvedLaunch.packageVersion.appId,
+    packageVersionId: resolvedLaunch.packageVersion.id,
+    packageVersion: resolvedLaunch.packageVersion.version,
+    contentPath: resolvedLaunch.contentPath,
     attemptId: `attempt-${createOpaqueToken()}`,
     userId,
     userRole: resolveUserRole(payload[CLAIM_ROLES]),
@@ -201,7 +190,7 @@ export async function validateLaunchRequest(input: {
     contextTitle: optionalStringClaim(context.title),
     targetLinkUri,
     returnUrl: optionalStringClaim(launchPresentation?.return_url),
-    activityId: resourceLinkId,
+    activityId: resolvedLaunch.activityId,
     services: parseLaunchServiceClaims(payload),
     issuedAt: now().toISOString(),
     canvasEnvironment: consumedState.canvasEnvironment,
@@ -225,13 +214,13 @@ export async function createRuntimeSession(input: {
 
   if (!packageVersion) {
     throw new Error(
-      `Pinned package version id ${input.launch.packageVersionId} was not found.`,
+      `Launch package version id ${input.launch.packageVersionId} was not found.`,
     );
   }
 
   if (packageVersion.approvalStatus !== "approved") {
     throw new Error(
-      `Pinned package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+      `Launch package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
     );
   }
 
@@ -295,18 +284,165 @@ async function defaultLoadJwks(url: string): Promise<JSONWebKeySet> {
   return await response.json();
 }
 
-function resolveContentPath(packageVersion: PackageVersionRecord): string {
+async function resolveLaunchTarget(input: {
+  repository: PackageReviewRepository;
+  deployment: {
+    id: number;
+    slug: string;
+    appId: string;
+    enabledPackageVersionId: number | null;
+  };
+  resourceLinkId: string;
+  contextId: string;
+  customClaim: unknown;
+  now: () => Date;
+}): Promise<{
+  packageVersion: PackageVersionRecord;
+  activityId: string;
+  contentPath: string;
+}> {
+  const placementId = readReviewedPlacementId(input.customClaim);
+
+  if (placementId === null) {
+    return await resolvePinnedLaunchTarget(input);
+  }
+
+  const placement = await input.repository.getReviewedPlacementById(placementId);
+
+  if (!placement) {
+    throw new Error(`Reviewed placement ${placementId} was not found.`);
+  }
+
+  if (
+    placement.deploymentRecordId !== input.deployment.id ||
+    placement.deploymentSlug !== input.deployment.slug ||
+    placement.appId !== input.deployment.appId
+  ) {
+    throw new Error(
+      `Reviewed placement ${placementId} does not belong to deployment ${input.deployment.slug}.`,
+    );
+  }
+
+  if (placement.contextId !== input.contextId) {
+    throw new Error(
+      `Reviewed placement ${placementId} does not match Canvas context ${input.contextId}.`,
+    );
+  }
+
+  const boundPlacement = await input.repository.bindReviewedPlacementResourceLink(
+    {
+      placementId,
+      resourceLinkId: input.resourceLinkId,
+      boundAt: input.now().toISOString(),
+    },
+  );
+  const packageVersion = await requireApprovedLaunchPackageVersion({
+    repository: input.repository,
+    packageVersionId: boundPlacement.packageVersionId,
+  });
+
+  if (packageVersion.appId !== boundPlacement.appId) {
+    throw new Error(
+      `Reviewed placement ${placementId} resolved to the wrong app package ${packageVersion.appId}.`,
+    );
+  }
+
+  return {
+    packageVersion,
+    activityId: boundPlacement.activityId,
+    contentPath: boundPlacement.contentPath,
+  };
+}
+
+async function resolvePinnedLaunchTarget(input: {
+  repository: PackageReviewRepository;
+  deployment: {
+    slug: string;
+    enabledPackageVersionId: number | null;
+  };
+  resourceLinkId: string;
+}): Promise<{
+  packageVersion: PackageVersionRecord;
+  activityId: string;
+  contentPath: string;
+}> {
+  if (input.deployment.enabledPackageVersionId === null) {
+    throw new Error(
+      `Deployment ${input.deployment.slug} does not have an approved pinned package version.`,
+    );
+  }
+
+  const packageVersion = await requireApprovedLaunchPackageVersion({
+    repository: input.repository,
+    packageVersionId: input.deployment.enabledPackageVersionId,
+  });
+
+  return {
+    packageVersion,
+    activityId: input.resourceLinkId,
+    contentPath: resolveCanonicalContentPath(packageVersion),
+  };
+}
+
+async function requireApprovedLaunchPackageVersion(input: {
+  repository: PackageReviewRepository;
+  packageVersionId: number;
+}): Promise<PackageVersionRecord> {
+  const packageVersion = await input.repository.getPackageVersionById(
+    input.packageVersionId,
+  );
+
+  if (!packageVersion) {
+    throw new Error(
+      `Launch package version id ${input.packageVersionId} was not found.`,
+    );
+  }
+
+  if (packageVersion.approvalStatus !== "approved") {
+    throw new Error(
+      `Launch package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+    );
+  }
+
+  return packageVersion;
+}
+
+function readReviewedPlacementId(customClaim: unknown): string | null {
+  const custom = customClaim === undefined
+    ? null
+    : requireRecordClaim(
+      customClaim,
+      "Launch custom claim must be an object when provided.",
+    );
+
+  if (!custom || custom[LANTERN_PLACEMENT_CUSTOM_KEY] === undefined) {
+    return null;
+  }
+
+  return requireStringClaim(
+    custom[LANTERN_PLACEMENT_CUSTOM_KEY],
+    `Launch custom.${LANTERN_PLACEMENT_CUSTOM_KEY} is required when provided.`,
+  );
+}
+
+function resolveCanonicalContentPath(
+  packageVersion: PackageVersionRecord,
+): string {
   const contentFiles = readStringArray(
     packageVersion.manifestJson.content_files,
   );
   const firstContentFile = contentFiles[0];
 
   if (!firstContentFile) {
-    return `${packageVersion.artifact.snapshotRoot}/content/activity.json`;
+    return "/content/activity.json";
   }
 
+  return trimLeadingSlash(firstContentFile);
+}
+
+function resolveContentPath(packageVersion: PackageVersionRecord): string {
   return `${packageVersion.artifact.snapshotRoot}${
-    trimLeadingSlash(firstContentFile)
+    resolveCanonicalContentPath(packageVersion)
   }`;
 }
 

@@ -291,6 +291,7 @@ export function buildValidatedLaunch(
     appId: overrides.appId ?? "chapter-4-asteroids",
     packageVersionId: overrides.packageVersionId ?? 1,
     packageVersion: overrides.packageVersion ?? "0.1.0",
+    contentPath: overrides.contentPath ?? "/content/activity.json",
     attemptId: overrides.attemptId ?? "attempt-123",
     userId: overrides.userId ?? "canvas-user-123",
     userRole: overrides.userRole ?? "learner",

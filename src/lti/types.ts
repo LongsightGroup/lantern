@@ -65,6 +65,7 @@ export interface ValidatedLaunch extends DeploymentBinding {
   appId: string;
   packageVersionId: number;
   packageVersion: string;
+  contentPath: string;
   attemptId: string;
   userId: string;
   userRole: UserRole;
