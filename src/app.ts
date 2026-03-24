@@ -1,8 +1,10 @@
 import type { Pool } from "@db/postgres";
 import { csrf } from "@hono/hono/csrf";
 import { type Context, Hono } from "@hono/hono";
+import type { JSONWebKeySet } from "jose";
 import { createDatabasePool } from "./db/pool.ts";
 import { renderControlPlanePage } from "./admin/control_plane.ts";
+import { renderDeepLinkingPickerPage } from "./admin/deep_linking_picker.ts";
 import {
   buildDefaultDeploymentSeed,
   type DeploymentNrpsVerificationSummary,
@@ -20,8 +22,19 @@ import {
   readContextMemberships,
   requestCanvasServiceAccessToken,
 } from "./lti/services.ts";
-import { LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE } from "./lti/types.ts";
+import {
+  type DeepLinkingSessionRecord,
+  LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE,
+} from "./lti/types.ts";
 import { type CanvasLoginRequest, createLoginRedirect } from "./lti/login.ts";
+import {
+  createDeepLinkingSession,
+  listDeepLinkingResources,
+  requireAuthorizedDeepLinkingSession,
+  resolveDeepLinkingSelection,
+  saveDeepLinkingSessionSelection,
+  validateDeepLinkingRequest,
+} from "./lti/deep_linking.ts";
 import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
@@ -60,6 +73,7 @@ import {
 export interface AppServices {
   getRepository: () => PackageReviewRepository;
   getOpsRepository: () => OpsRepository;
+  loadCanvasJwks: (url: string) => Promise<JSONWebKeySet>;
   importDemoPackage: (
     options?: { storageRoot?: string },
   ) => Promise<ImportedPackageVersion>;
@@ -136,6 +150,7 @@ export function createApp(
           idToken,
           "Launch id_token is required.",
         ),
+        loadJwks: resolvedServices.loadCanvasJwks,
       });
       const runtimeSession = await createRuntimeSession({
         repository,
@@ -175,6 +190,130 @@ export function createApp(
         error,
       });
       return context.text(errorMessage(error), statusForError(error));
+    }
+  });
+
+  app.post("/lti/deep-linking", async (context) => {
+    const repository = resolvedServices.getRepository();
+    const formData = await context.req.formData();
+    const state = normalizeOptionalString(formData.get("state"));
+    const idToken = normalizeOptionalString(formData.get("id_token"));
+
+    try {
+      const request = await validateDeepLinkingRequest({
+        repository,
+        state: requireTrimmedString(
+          state,
+          "Deep Linking state is required.",
+        ),
+        idToken: requireTrimmedString(
+          idToken,
+          "Deep Linking id_token is required.",
+        ),
+        loadJwks: resolvedServices.loadCanvasJwks,
+      });
+      const session = await createDeepLinkingSession({
+        repository,
+        request,
+      });
+
+      return context.redirect(
+        `/lti/deep-linking/sessions/${session.sessionId}?token=${
+          encodeURIComponent(session.sessionToken)
+        }`,
+        303,
+      );
+    } catch (error) {
+      return context.text(
+        errorMessage(error),
+        statusForDeepLinkingError(error),
+      );
+    }
+  });
+
+  app.get("/lti/deep-linking/sessions/:sessionId", async (context) => {
+    try {
+      const repository = resolvedServices.getRepository();
+      const url = new URL(context.req.url);
+      const session = await requireAuthorizedDeepLinkingSession({
+        repository,
+        sessionId: context.req.param("sessionId"),
+        token: requireTrimmedString(
+          url.searchParams.get("token"),
+          "Deep Linking session token is required.",
+        ),
+      });
+
+      return await renderDeepLinkingPickerResponse({
+        context,
+        repository,
+        session,
+        token: session.sessionToken,
+        notice: null,
+      });
+    } catch (error) {
+      return context.text(
+        errorMessage(error),
+        statusForDeepLinkingSessionError(error),
+      );
+    }
+  });
+
+  app.post("/lti/deep-linking/sessions/:sessionId", async (context) => {
+    const repository = resolvedServices.getRepository();
+    const formData = await context.req.formData();
+
+    try {
+      const session = await requireAuthorizedDeepLinkingSession({
+        repository,
+        sessionId: context.req.param("sessionId"),
+        token: requireTrimmedFormValue(
+          formData.get("token"),
+          "Deep Linking session token is required.",
+        ),
+      });
+
+      try {
+        const saved = await saveDeepLinkingSessionSelection({
+          repository,
+          session,
+          selectionValue: requireTrimmedFormValue(
+            formData.get("selection"),
+            "Choose one reviewed resource before continuing.",
+          ),
+        });
+
+        return await renderDeepLinkingPickerResponse({
+          context,
+          repository,
+          session: saved.session,
+          token: session.sessionToken,
+          notice: {
+            tone: "success",
+            title: "Selection saved",
+            detail:
+              "Lantern saved the reviewed version and content path. Phase 6 will return this selection to Canvas.",
+          },
+        });
+      } catch (error) {
+        return await renderDeepLinkingPickerResponse({
+          context,
+          repository,
+          session,
+          token: session.sessionToken,
+          notice: {
+            tone: "error",
+            title: "Selection blocked",
+            detail: errorMessage(error),
+          },
+          status: 400,
+        });
+      }
+    } catch (error) {
+      return context.text(
+        errorMessage(error),
+        statusForDeepLinkingSessionError(error),
+      );
     }
   });
 
@@ -1005,6 +1144,7 @@ function resolveServices(services: Partial<AppServices>): AppServices {
           ? repository
           : getDefaultOpsRepository();
       }),
+    loadCanvasJwks: services.loadCanvasJwks ?? defaultLoadCanvasJwks,
     importDemoPackage: services.importDemoPackage ?? importDemoPackage,
   };
 }
@@ -1023,6 +1163,16 @@ function getDefaultOpsRepository(): OpsRepository {
   }
 
   return defaultOpsRepository;
+}
+
+async function defaultLoadCanvasJwks(url: string): Promise<JSONWebKeySet> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Canvas JWKS fetch failed for ${url}.`);
+  }
+
+  return await response.json();
 }
 
 function getDefaultPool(): Pool {
@@ -1283,6 +1433,36 @@ async function requireRuntimeSession(
   return session;
 }
 
+async function renderDeepLinkingPickerResponse(input: {
+  context: Context;
+  repository: PackageReviewRepository;
+  session: DeepLinkingSessionRecord;
+  token: string;
+  notice: AdminNotice | null;
+  status?: 200 | 400;
+}) {
+  const resources = await listDeepLinkingResources({
+    repository: input.repository,
+    session: input.session,
+  });
+  const selection = resolveDeepLinkingSelection({
+    session: input.session,
+    resources,
+  });
+
+  return input.context.html(
+    renderDeepLinkingPickerPage({
+      sessionId: input.session.sessionId,
+      token: input.token,
+      session: input.session,
+      resources,
+      selection,
+      notice: input.notice,
+    }),
+    input.status ?? 200,
+  );
+}
+
 function createErrorNotice(title: string, error: unknown): AdminNotice {
   const message = errorMessage(error);
   const items = message.includes("; ") ? message.split("; ") : [];
@@ -1315,6 +1495,45 @@ function statusForError(error: unknown): 409 | 500 {
     error.message.includes("Canvas issuer") ||
     error.message.includes("Login state") ||
     error.message.includes("Launch ")
+  ) {
+    return 409;
+  }
+
+  return 500;
+}
+
+function statusForDeepLinkingError(error: unknown): 400 | 500 {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (
+    error.message.includes("required") ||
+    error.message.includes("Unsupported") ||
+    error.message.includes("Canvas deployment") ||
+    error.message.includes("Canvas issuer") ||
+    error.message.includes("Login state") ||
+    error.message.includes("Deep Linking")
+  ) {
+    return 400;
+  }
+
+  return 500;
+}
+
+function statusForDeepLinkingSessionError(error: unknown): 404 | 409 | 500 {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (error.message.includes("was not found")) {
+    return 404;
+  }
+
+  if (
+    error.message.includes("Deep Linking session") ||
+    error.message.includes("Choose one reviewed resource") ||
+    error.message.includes("selection")
   ) {
     return 409;
   }

@@ -80,6 +80,36 @@ Deno.test("login state records carry the expected target_link_uri and expiry win
     createOpaqueToken: () => crypto.randomUUID(),
   });
 
-  assertEquals(result.loginState.targetLinkUri, "http://localhost:8000/lti/launch");
+  assertEquals(
+    result.loginState.targetLinkUri,
+    "http://localhost:8000/lti/launch",
+  );
   assertEquals(result.loginState.expiresAt > result.loginState.createdAt, true);
+});
+
+Deno.test("login state records preserve the dedicated deep-linking target_link_uri", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [
+      buildDeploymentRecord({
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+  });
+  const result = await createLoginRedirect({
+    repository,
+    loginRequest: buildCanvasLoginRequest({
+      targetLinkUri: "http://localhost:8000/lti/deep-linking",
+    }),
+    now: () => new Date("2026-03-23T22:45:00Z"),
+    createOpaqueToken: () => crypto.randomUUID(),
+  });
+
+  assertEquals(
+    result.loginState.targetLinkUri,
+    "http://localhost:8000/lti/deep-linking",
+  );
+  assertEquals(
+    new URL(result.location).searchParams.get("redirect_uri"),
+    "http://localhost:8000/lti/deep-linking",
+  );
 });

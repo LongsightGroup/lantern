@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import { renderDeepLinkingPickerPage } from "./deep_linking_picker.ts";
 import {
   buildDeepLinkingResourceOption,
   buildDeepLinkingResourceSelection,
@@ -16,15 +17,17 @@ Deno.test(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "deep linking picker renders reviewed resources and an explicit selection summary",
-  async () => {
-    const modulePath = `./${"deep_linking_picker.ts"}`;
-    const pickerModule = await import(modulePath);
-    const html = pickerModule.renderDeepLinkingPickerPage?.({
+  () => {
+    const html = renderDeepLinkingPickerPage({
+      sessionId: "deep-linking-session-123",
+      token: "deep-linking-token-123",
       session: {
+        appId: "chapter-4-asteroids",
         deploymentSlug: "chapter-4-asteroids-pilot",
         contextTitle: "Physics 101",
+        expiresAt: "2026-03-24T16:30:00Z",
       },
       resources: [
         buildDeepLinkingResourceOption(),
@@ -50,5 +53,7 @@ Deno.test.ignore(
     assertStringIncludes(html, "0.2.0");
     assertStringIncludes(html, "/content/bonus.json");
     assertStringIncludes(html, "Bonus Activity");
+    assertStringIncludes(html, "Canvas return continues in Phase 6.");
+    assertStringIncludes(html, "deep-linking-token-123");
   },
 );

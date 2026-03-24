@@ -83,7 +83,7 @@ Deno.test("config document advertises exactly the Phase 3 AGS and NRPS scopes", 
   }
 });
 
-Deno.test.ignore(
+Deno.test(
   "config document advertises assignment-selection Deep Linking on a dedicated route",
   async () => {
     const previousOrigin = Deno.env.get("APP_ORIGIN");
@@ -96,11 +96,7 @@ Deno.test.ignore(
       const { buildCanvasConfigDocument } = await import("./config.ts");
       const document = await buildCanvasConfigDocument();
       const placements = document.extensions.flatMap((extension) =>
-        extension.settings.placements as Array<{
-          placement: string;
-          message_type: string;
-          target_link_uri: string;
-        }>
+        extension.settings.placements
       );
       const assignmentSelection = placements.find((placement) =>
         placement.placement === "assignment_selection"
@@ -113,6 +109,12 @@ Deno.test.ignore(
       assertEquals(
         assignmentSelection?.target_link_uri,
         "http://localhost:8000/lti/deep-linking",
+      );
+      assertEquals(
+        document.redirect_uris.includes(
+          "http://localhost:8000/lti/deep-linking",
+        ),
+        true,
       );
     } finally {
       restoreEnv("APP_ORIGIN", previousOrigin);

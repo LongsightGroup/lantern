@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
+import { buildDeepLinkingSelectionValue } from "./lti/deep_linking.ts";
 import {
   CANVAS_LTI_SCOPES,
   LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
@@ -62,7 +63,7 @@ Deno.test("GET /health responds with ok", async () => {
   assertEquals(await response.json(), { ok: true });
 });
 
-Deno.test.ignore(
+Deno.test(
   "POST /lti/deep-linking accepts assignment-selection launches and redirects to a Lantern-owned picker session",
   async () => {
     const repository = createInMemoryPackageReviewRepository({
@@ -87,10 +88,10 @@ Deno.test.ignore(
           state: "state-deep-linking",
           nonce: "nonce-deep-linking",
           targetLinkUri: "http://localhost:8000/lti/deep-linking",
+          createdAt: "2026-03-24T16:10:00Z",
+          expiresAt: "2026-03-25T16:20:00Z",
         }),
       ],
-      deepLinkingSessions: [buildDeepLinkingSessionRecord()],
-      deepLinkingResourceOptions: [buildDeepLinkingResourceOption()],
     });
     const formData = new FormData();
     const idToken = await signCanvasIdToken({
@@ -107,20 +108,38 @@ Deno.test.ignore(
 
     const response = await createApp({
       getRepository: () => repository,
+      loadCanvasJwks: () => Promise.resolve(getTestCanvasJwks()),
     }).request("http://localhost/lti/deep-linking", {
       method: "POST",
       body: formData,
     });
+    const location = response.headers.get("location") ?? "";
+    const sessionLocation = new URL(`http://localhost${location}`);
+    const sessionId = sessionLocation.pathname.split("/").at(-1) ?? "";
+    const savedSession = await repository.getDeepLinkingSessionById(sessionId);
+    const runtimeSession = await repository
+      .getLatestRuntimeSessionByDeploymentId(
+        7,
+      );
 
     assertEquals(response.status, 303);
     assertStringIncludes(
-      response.headers.get("location") ?? "",
+      location,
       "/lti/deep-linking/sessions/",
     );
+    assertEquals(
+      savedSession?.deepLinkReturnUrl.includes("deep_link_return"),
+      true,
+    );
+    assertEquals(
+      savedSession?.sessionToken,
+      sessionLocation.searchParams.get("token"),
+    );
+    assertEquals(runtimeSession, null);
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "POST /lti/deep-linking rejects unsupported Deep Linking payloads before any picker handoff",
   async () => {
     const repository = createInMemoryPackageReviewRepository({
@@ -145,6 +164,8 @@ Deno.test.ignore(
           state: "state-deep-linking-error",
           nonce: "nonce-deep-linking-error",
           targetLinkUri: "http://localhost:8000/lti/deep-linking",
+          createdAt: "2026-03-24T16:10:00Z",
+          expiresAt: "2026-03-25T16:20:00Z",
         }),
       ],
     });
@@ -163,13 +184,156 @@ Deno.test.ignore(
 
     const response = await createApp({
       getRepository: () => repository,
+      loadCanvasJwks: () => Promise.resolve(getTestCanvasJwks()),
     }).request("http://localhost/lti/deep-linking", {
       method: "POST",
       body: formData,
     });
+    const savedState = await repository.getLoginStateByState(
+      "state-deep-linking-error",
+    );
+    const runtimeSession = await repository
+      .getLatestRuntimeSessionByDeploymentId(
+        7,
+      );
 
     assertEquals(response.status, 400);
     assertStringIncludes(await response.text(), "Unsupported");
+    assertEquals(savedState?.usedAt, null);
+    assertEquals(runtimeSession, null);
+  },
+);
+
+Deno.test(
+  "GET /lti/deep-linking/sessions/:id renders only approved assignment resources for the bound app",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          sessionId: "deep-linking-session-picker",
+          sessionToken: "deep-linking-token-picker",
+          appId: "chapter-4-asteroids",
+          expiresAt: "2026-03-25T16:20:00Z",
+        }),
+      ],
+      deepLinkingResourceOptions: [
+        buildDeepLinkingResourceOption(),
+        buildDeepLinkingResourceOption({
+          packageVersionId: 2,
+          packageVersion: "0.2.0",
+          contentPath: "/content/bonus.json",
+          activityId: "/content/bonus.json",
+          contentTitle: "Bonus Activity",
+        }),
+        buildDeepLinkingResourceOption({
+          appId: "other-app",
+          packageTitle: "Other App",
+          contentPath: "/content/ignore.json",
+          activityId: "/content/ignore.json",
+        }),
+      ],
+    });
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "http://localhost/lti/deep-linking/sessions/deep-linking-session-picker?token=deep-linking-token-picker",
+    );
+
+    assertEquals(response.status, 200);
+
+    const body = await response.text();
+
+    assertStringIncludes(body, "Chapter 4 Asteroids");
+    assertStringIncludes(body, "0.2.0");
+    assertStringIncludes(body, "/content/bonus.json");
+    assertStringIncludes(body, "Canvas return continues in Phase 6.");
+    assertEquals(body.includes("Other App"), false);
+  },
+);
+
+Deno.test(
+  "POST /lti/deep-linking/sessions/:id stores one explicit reviewed selection and re-renders the summary",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          sessionId: "deep-linking-session-picker",
+          sessionToken: "deep-linking-token-picker",
+          appId: "chapter-4-asteroids",
+          expiresAt: "2026-03-25T16:20:00Z",
+        }),
+      ],
+      deepLinkingResourceOptions: [
+        buildDeepLinkingResourceOption(),
+        buildDeepLinkingResourceOption({
+          packageVersionId: 2,
+          packageVersion: "0.2.0",
+          contentPath: "/content/bonus.json",
+          activityId: "/content/bonus.json",
+          contentTitle: "Bonus Activity",
+        }),
+      ],
+    });
+    const formData = new FormData();
+
+    formData.set("token", "deep-linking-token-picker");
+    formData.set(
+      "selection",
+      buildDeepLinkingSelectionValue({
+        packageVersionId: 2,
+        contentPath: "/content/bonus.json",
+      }),
+    );
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "http://localhost/lti/deep-linking/sessions/deep-linking-session-picker",
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+    const savedSession = await repository.getDeepLinkingSessionById(
+      "deep-linking-session-picker",
+    );
+
+    assertEquals(response.status, 200);
+    assertEquals(savedSession?.selection?.packageVersionId, 2);
+    assertEquals(savedSession?.selection?.contentPath, "/content/bonus.json");
+
+    const body = await response.text();
+
+    assertStringIncludes(body, "Selection saved");
+    assertStringIncludes(body, "Bonus Activity");
+    assertStringIncludes(body, "/content/bonus.json");
+  },
+);
+
+Deno.test(
+  "GET /lti/deep-linking/sessions/:id fails clearly when the session token is missing",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      deepLinkingSessions: [
+        buildDeepLinkingSessionRecord({
+          expiresAt: "2026-03-25T16:20:00Z",
+        }),
+      ],
+      deepLinkingResourceOptions: [buildDeepLinkingResourceOption()],
+    });
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "http://localhost/lti/deep-linking/sessions/deep-linking-session-123",
+    );
+
+    assertEquals(response.status, 409);
+    assertStringIncludes(
+      await response.text(),
+      "Deep Linking session token is required.",
+    );
   },
 );
 

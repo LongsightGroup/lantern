@@ -1,5 +1,10 @@
 import type { CanvasEnvironment } from "./types.ts";
-import { CANVAS_LTI_SCOPES } from "./types.ts";
+import {
+  CANVAS_LTI_SCOPES,
+  LTI_ASSIGNMENT_SELECTION_PLACEMENT,
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+  LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
+} from "./types.ts";
 import { getPublicJwkSet } from "./tool_key.ts";
 import {
   listCanvasPlatforms,
@@ -27,17 +32,26 @@ export interface CanvasConfigDocument {
     privacy_level: "public";
     settings: {
       text: string;
-      placements: Array<{
-        placement: "course_navigation";
-        message_type: "LtiResourceLinkRequest";
-        target_link_uri: string;
-        text: string;
-      }>;
+      placements: CanvasConfigPlacement[];
     };
   }>;
 }
 
 const APP_ORIGIN_ENV = "APP_ORIGIN";
+
+export type CanvasConfigPlacement =
+  | {
+    placement: "course_navigation";
+    message_type: typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE;
+    target_link_uri: string;
+    text: string;
+  }
+  | {
+    placement: typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
+    message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
+    target_link_uri: string;
+    text: string;
+  };
 
 export function requireAppOrigin(): string {
   const appOrigin = Deno.env.get(APP_ORIGIN_ENV)?.trim();
@@ -77,11 +91,22 @@ export function buildCanvasJwksUrl(appOrigin = requireAppOrigin()): string {
   return `${appOrigin}/lti/jwks.json`;
 }
 
+export function buildCanvasLaunchUrl(appOrigin = requireAppOrigin()): string {
+  return `${appOrigin}/lti/launch`;
+}
+
+export function buildCanvasDeepLinkingUrl(
+  appOrigin = requireAppOrigin(),
+): string {
+  return `${appOrigin}/lti/deep-linking`;
+}
+
 export async function buildCanvasConfigDocument(
   appOrigin = requireAppOrigin(),
 ): Promise<CanvasConfigDocument> {
   const origin = new URL(appOrigin);
-  const launchUrl = `${appOrigin}/lti/launch`;
+  const launchUrl = buildCanvasLaunchUrl(appOrigin);
+  const deepLinkingUrl = buildCanvasDeepLinkingUrl(appOrigin);
 
   await getPublicJwkSet();
 
@@ -92,7 +117,7 @@ export async function buildCanvasConfigDocument(
     oidc_initiation_url: `${appOrigin}/lti/login`,
     target_link_uri: launchUrl,
     public_jwk_url: buildCanvasJwksUrl(appOrigin),
-    redirect_uris: [launchUrl],
+    redirect_uris: [launchUrl, deepLinkingUrl],
     scopes: [...CANVAS_LTI_SCOPES],
     extensions: [
       {
@@ -105,9 +130,15 @@ export async function buildCanvasConfigDocument(
           placements: [
             {
               placement: "course_navigation",
-              message_type: "LtiResourceLinkRequest",
+              message_type: LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
               target_link_uri: launchUrl,
               text: "Lantern Demo",
+            },
+            {
+              placement: LTI_ASSIGNMENT_SELECTION_PLACEMENT,
+              message_type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+              target_link_uri: deepLinkingUrl,
+              text: "Select Lantern activity",
             },
           ],
         },

@@ -7,6 +7,7 @@ import type {
   AttemptRecord,
   AuditEventRecord,
   CanvasLineItemBindingRecord,
+  DeepLinkingResourceOption,
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
@@ -14,6 +15,8 @@ import type {
 } from "./types.ts";
 import type {
   CanvasEnvironment,
+  DeepLinkingSessionRecord,
+  DeepLinkingSessionSelection,
   DeploymentBinding,
   LoginStateRecord,
   RuntimeSessionRecord,
@@ -90,6 +93,33 @@ const RUNTIME_SESSION_SELECT = `
     created_at,
     expires_at
   FROM runtime_sessions
+`;
+
+const DEEP_LINKING_SESSION_SELECT = `
+  SELECT
+    session_id,
+    session_token,
+    deployment_record_id,
+    deployment_slug,
+    app_id,
+    user_id,
+    user_role,
+    context_id,
+    context_title,
+    deep_link_return_url,
+    data,
+    placement,
+    accept_types,
+    accept_multiple,
+    accept_presentation_document_targets,
+    accept_line_item,
+    selected_package_version_id,
+    selected_package_version,
+    selected_activity_id,
+    selected_content_path,
+    created_at,
+    expires_at
+  FROM deep_linking_sessions
 `;
 
 const LINE_ITEM_BINDING_SELECT = `
@@ -211,6 +241,32 @@ interface RuntimeSessionRow {
   expiresAt: Date | string;
 }
 
+interface DeepLinkingSessionRow {
+  sessionId: string;
+  sessionToken: string;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  appId: string;
+  userId: string | null;
+  userRole: DeepLinkingSessionRecord["userRole"];
+  contextId: string | null;
+  contextTitle: string | null;
+  deepLinkReturnUrl: string;
+  data: string | null;
+  placement: DeepLinkingSessionRecord["placement"];
+  acceptTypes: DeepLinkingSessionRecord["acceptTypes"];
+  acceptMultiple: boolean;
+  acceptPresentationDocumentTargets:
+    DeepLinkingSessionRecord["acceptPresentationDocumentTargets"];
+  acceptLineItem: boolean;
+  selectedPackageVersionId: number | null;
+  selectedPackageVersion: string | null;
+  selectedActivityId: string | null;
+  selectedContentPath: string | null;
+  createdAt: Date | string;
+  expiresAt: Date | string;
+}
+
 interface AttemptRow {
   id: number;
   attemptId: string;
@@ -318,6 +374,19 @@ export interface PackageReviewRepository {
     state: string;
     usedAt: string;
   }): Promise<LoginStateRecord>;
+  createDeepLinkingSession(
+    record: DeepLinkingSessionRecord,
+  ): Promise<DeepLinkingSessionRecord>;
+  getDeepLinkingSessionById(
+    sessionId: string,
+  ): Promise<DeepLinkingSessionRecord | null>;
+  updateDeepLinkingSessionSelection(input: {
+    sessionId: string;
+    selection: DeepLinkingSessionRecord["selection"];
+  }): Promise<DeepLinkingSessionRecord>;
+  listDeepLinkingResourceOptions(
+    appId: string,
+  ): Promise<DeepLinkingResourceOption[]>;
   createRuntimeSession(
     record: RuntimeSessionRecord,
   ): Promise<RuntimeSessionRecord>;
@@ -839,6 +908,190 @@ export function createPackageReviewRepository(
 
           throw error;
         }
+      });
+    },
+
+    async createDeepLinkingSession(record) {
+      return await withClient(pool, async (client) => {
+        try {
+          const result = await client.queryObject<DeepLinkingSessionRow>({
+            text: `
+              INSERT INTO deep_linking_sessions (
+                session_id,
+                session_token,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                user_id,
+                user_role,
+                context_id,
+                context_title,
+                deep_link_return_url,
+                data,
+                placement,
+                accept_types,
+                accept_multiple,
+                accept_presentation_document_targets,
+                accept_line_item,
+                selected_package_version_id,
+                selected_package_version,
+                selected_activity_id,
+                selected_content_path,
+                created_at,
+                expires_at
+              ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+                $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+              )
+              RETURNING
+                session_id,
+                session_token,
+                deployment_record_id,
+                deployment_slug,
+                app_id,
+                user_id,
+                user_role,
+                context_id,
+                context_title,
+                deep_link_return_url,
+                data,
+                placement,
+                accept_types,
+                accept_multiple,
+                accept_presentation_document_targets,
+                accept_line_item,
+                selected_package_version_id,
+                selected_package_version,
+                selected_activity_id,
+                selected_content_path,
+                created_at,
+                expires_at
+            `,
+            args: [
+              record.sessionId,
+              record.sessionToken,
+              record.deploymentRecordId,
+              record.deploymentSlug,
+              record.appId,
+              record.userId,
+              record.userRole,
+              record.contextId,
+              record.contextTitle,
+              record.deepLinkReturnUrl,
+              record.data,
+              record.placement,
+              record.acceptTypes,
+              record.acceptMultiple,
+              record.acceptPresentationDocumentTargets,
+              record.acceptLineItem,
+              record.selection?.packageVersionId ?? null,
+              record.selection?.packageVersion ?? null,
+              record.selection?.activityId ?? null,
+              record.selection?.contentPath ?? null,
+              record.createdAt,
+              record.expiresAt,
+            ],
+            camelCase: true,
+          });
+
+          return mapDeepLinkingSessionRow(result.rows[0]);
+        } catch (error) {
+          if (isUniqueViolation(error)) {
+            throw new Error(
+              `Deep Linking session ${record.sessionId} already exists and cannot be replaced.`,
+            );
+          }
+
+          throw error;
+        }
+      });
+    },
+
+    async getDeepLinkingSessionById(sessionId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<DeepLinkingSessionRow>({
+          text: `${DEEP_LINKING_SESSION_SELECT} WHERE session_id = $1`,
+          args: [sessionId],
+          camelCase: true,
+        });
+
+        return mapOptionalDeepLinkingSession(result.rows[0]);
+      });
+    },
+
+    async updateDeepLinkingSessionSelection(input) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<DeepLinkingSessionRow>({
+          text: `
+            UPDATE deep_linking_sessions
+            SET
+              selected_package_version_id = $2,
+              selected_package_version = $3,
+              selected_activity_id = $4,
+              selected_content_path = $5
+            WHERE session_id = $1
+            RETURNING
+              session_id,
+              session_token,
+              deployment_record_id,
+              deployment_slug,
+              app_id,
+              user_id,
+              user_role,
+              context_id,
+              context_title,
+              deep_link_return_url,
+              data,
+              placement,
+              accept_types,
+              accept_multiple,
+              accept_presentation_document_targets,
+              accept_line_item,
+              selected_package_version_id,
+              selected_package_version,
+              selected_activity_id,
+              selected_content_path,
+              created_at,
+              expires_at
+          `,
+          args: [
+            input.sessionId,
+            input.selection?.packageVersionId ?? null,
+            input.selection?.packageVersion ?? null,
+            input.selection?.activityId ?? null,
+            input.selection?.contentPath ?? null,
+          ],
+          camelCase: true,
+        });
+        const updated = result.rows[0];
+
+        if (!updated) {
+          throw new Error(
+            `Deep Linking session ${input.sessionId} was not found.`,
+          );
+        }
+
+        return mapDeepLinkingSessionRow(updated);
+      });
+    },
+
+    async listDeepLinkingResourceOptions(appId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<PackageVersionRow>({
+          text: `
+            ${PACKAGE_VERSION_SELECT}
+            WHERE app_id = $1
+              AND install_scope = 'assignment'
+              AND approval_status = 'approved'
+              AND reviewed_at IS NOT NULL
+          `,
+          args: [appId],
+          camelCase: true,
+        });
+
+        return buildDeepLinkingResourceOptions(
+          sortPackageVersions(result.rows.map(mapPackageVersionRow)),
+        );
       });
     },
 
@@ -1923,6 +2176,63 @@ function sortPackageVersions(
   });
 }
 
+function buildDeepLinkingResourceOptions(
+  versions: PackageVersionRecord[],
+): DeepLinkingResourceOption[] {
+  return versions.flatMap((version) => {
+    if (
+      version.installScope !== "assignment" ||
+      version.approvalStatus !== "approved" ||
+      version.reviewedAt === null
+    ) {
+      return [];
+    }
+
+    return readCanonicalContentFiles(version.manifestJson).map((
+      contentPath,
+    ) => ({
+      packageVersionId: version.id,
+      appId: version.appId,
+      packageVersion: version.version,
+      packageTitle: version.title,
+      ownerId: version.owner.id,
+      installScope: "assignment",
+      approvalStatus: "approved",
+      reviewedAt: version.reviewedAt,
+      activityId: contentPath,
+      contentPath,
+      contentTitle: null,
+    }));
+  });
+}
+
+function readCanonicalContentFiles(
+  manifestJson: Record<string, unknown>,
+): string[] {
+  const contentFiles = readStringArray(manifestJson.content_files);
+
+  if (contentFiles.length === 0) {
+    return ["/content/activity.json"];
+  }
+
+  return contentFiles.map(normalizeContentPath);
+}
+
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item !== "");
+}
+
+function normalizeContentPath(value: string): string {
+  return value.startsWith("/") ? value : `/${value}`;
+}
+
 function mapOptionalPackageVersion(
   row: PackageVersionRow | undefined,
 ): PackageVersionRecord | null {
@@ -2060,6 +2370,16 @@ function mapOptionalRuntimeSession(
   return mapRuntimeSessionRow(row);
 }
 
+function mapOptionalDeepLinkingSession(
+  row: DeepLinkingSessionRow | undefined,
+): DeepLinkingSessionRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapDeepLinkingSessionRow(row);
+}
+
 function mapRuntimeSessionRow(
   row: RuntimeSessionRow | undefined,
 ): RuntimeSessionRecord {
@@ -2091,6 +2411,61 @@ function mapRuntimeSessionRow(
     },
     createdAt: normalizeTimestamp(row.createdAt),
     expiresAt: normalizeTimestamp(row.expiresAt),
+  };
+}
+
+function mapDeepLinkingSessionRow(
+  row: DeepLinkingSessionRow | undefined,
+): DeepLinkingSessionRecord {
+  if (!row) {
+    throw new Error("Expected a deep linking session row.");
+  }
+
+  return {
+    sessionId: row.sessionId,
+    sessionToken: row.sessionToken,
+    deploymentRecordId: row.deploymentRecordId,
+    deploymentSlug: row.deploymentSlug,
+    appId: row.appId,
+    userId: row.userId,
+    userRole: row.userRole,
+    contextId: row.contextId,
+    contextTitle: row.contextTitle,
+    deepLinkReturnUrl: row.deepLinkReturnUrl,
+    data: row.data,
+    placement: row.placement,
+    acceptTypes: row.acceptTypes,
+    acceptMultiple: row.acceptMultiple,
+    acceptPresentationDocumentTargets: row.acceptPresentationDocumentTargets,
+    acceptLineItem: row.acceptLineItem,
+    selection: mapDeepLinkingSessionSelection(row),
+    createdAt: normalizeTimestamp(row.createdAt),
+    expiresAt: normalizeTimestamp(row.expiresAt),
+  };
+}
+
+function mapDeepLinkingSessionSelection(
+  row: DeepLinkingSessionRow,
+): DeepLinkingSessionSelection | null {
+  if (row.selectedPackageVersionId === null) {
+    return null;
+  }
+
+  if (
+    row.selectedPackageVersion === null ||
+    row.selectedActivityId === null ||
+    row.selectedContentPath === null
+  ) {
+    throw new Error(
+      `Deep Linking session ${row.sessionId} has an incomplete selection.`,
+    );
+  }
+
+  return {
+    packageVersionId: row.selectedPackageVersionId,
+    packageVersion: row.selectedPackageVersion,
+    activityId: row.selectedActivityId,
+    contentPath: row.selectedContentPath,
   };
 }
 
