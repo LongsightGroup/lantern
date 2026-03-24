@@ -470,15 +470,14 @@ async function seedOpsRepositoryFixtures(pool: Pool): Promise<void> {
       text: `
         INSERT INTO broker_verification_runs (
           deployment_record_id,
-          supported_path,
+          scope,
           source,
           status,
           summary,
-          evidence_url,
-          official_certification_state,
-          directory_url,
+          detail_url,
+          certification_state,
           checked_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       `,
       args: [
         1,
@@ -487,7 +486,6 @@ async function seedOpsRepositoryFixtures(pool: Pool): Promise<void> {
         "passed",
         "Canvas launch, AGS publish, and NRPS verification passed.",
         "https://example.test/internal-proof",
-        "notCertified",
         null,
         "2026-03-24T12:50:00Z",
       ],
@@ -649,7 +647,7 @@ Deno.test(
         verification.official.directoryUrl,
         "https://example.test/verification/1edtech-directory",
       );
-      assertEquals(verification.official.checkedAt, "2026-03-24T13:00:00Z");
+      assertEquals(verification.official.checkedAt, "2026-03-24T13:00:00.000Z");
     });
   },
 );
@@ -670,7 +668,8 @@ Deno.test(
         scope: "canvasLti13LaunchAgsNrps",
         status: "notCertified",
         certificationState: null,
-        summary: "1EdTech does not list Lantern in the certification directory.",
+        summary:
+          "1EdTech does not list Lantern in the certification directory.",
         detailUrl: "https://example.test/verification/1edtech-directory",
         checkedAt: "2026-03-24T12:40:00Z",
       });
@@ -688,9 +687,12 @@ Deno.test(
 
       assertEquals(verification.internal?.source, "manual");
       assertEquals(verification.internal?.status, "passed");
-      assertEquals(verification.internal?.checkedAt, "2026-03-24T12:55:00Z");
+      assertEquals(
+        verification.internal?.checkedAt,
+        "2026-03-24T12:55:00.000Z",
+      );
       assertEquals(verification.official.state, "notCertified");
-      assertEquals(verification.official.checkedAt, "2026-03-24T12:40:00Z");
+      assertEquals(verification.official.checkedAt, "2026-03-24T12:40:00.000Z");
       assertEquals(
         verification.official.directoryUrl,
         "https://example.test/verification/1edtech-directory",

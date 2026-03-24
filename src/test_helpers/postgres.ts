@@ -190,15 +190,52 @@ const CREATE_BROKER_VERIFICATION_RUNS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS broker_verification_runs (
     id bigserial PRIMARY KEY,
     deployment_record_id bigint REFERENCES deployments (id) ON DELETE SET NULL,
-    supported_path text NOT NULL,
+    scope text NOT NULL,
     source text NOT NULL,
     status text NOT NULL,
     summary text NOT NULL,
-    evidence_url text,
-    official_certification_state text NOT NULL,
-    directory_url text,
+    detail_url text,
+    certification_state text,
     checked_at timestamptz NOT NULL
   )
+`;
+
+const NORMALIZE_BROKER_VERIFICATION_RUNS_TABLE_SQL = `
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'broker_verification_runs'
+        AND column_name = 'supported_path'
+    ) THEN
+      ALTER TABLE broker_verification_runs
+        RENAME COLUMN supported_path TO scope;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'broker_verification_runs'
+        AND column_name = 'evidence_url'
+    ) THEN
+      ALTER TABLE broker_verification_runs
+        RENAME COLUMN evidence_url TO detail_url;
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_name = 'broker_verification_runs'
+        AND column_name = 'official_certification_state'
+    ) THEN
+      ALTER TABLE broker_verification_runs
+        RENAME COLUMN official_certification_state TO certification_state;
+    END IF;
+  END $$;
+
+  ALTER TABLE broker_verification_runs
+    ALTER COLUMN certification_state DROP NOT NULL;
 `;
 
 const CREATE_RUNTIME_SESSIONS_ATTEMPT_LOOKUP_INDEX_SQL = `
@@ -217,8 +254,8 @@ const CREATE_GRADE_PUBLICATIONS_STATUS_UPDATED_AT_INDEX_SQL = `
 `;
 
 const CREATE_BROKER_VERIFICATION_RUNS_PATH_CHECKED_AT_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS broker_verification_runs_path_checked_at_idx
-    ON broker_verification_runs (supported_path, checked_at DESC)
+  CREATE INDEX IF NOT EXISTS broker_verification_runs_scope_source_checked_at_idx
+    ON broker_verification_runs (scope, source, checked_at DESC)
 `;
 
 const ADD_RUNTIME_SESSION_ATTEMPT_FK_SQL = `
@@ -270,6 +307,7 @@ export async function bootstrapPackageReviewSchema(
     await client.queryArray(CREATE_GRADE_PUBLICATIONS_TABLE_SQL);
     await client.queryArray(CREATE_AUDIT_EVENTS_TABLE_SQL);
     await client.queryArray(CREATE_BROKER_VERIFICATION_RUNS_TABLE_SQL);
+    await client.queryArray(NORMALIZE_BROKER_VERIFICATION_RUNS_TABLE_SQL);
     await client.queryArray(ADD_RUNTIME_SESSION_ATTEMPT_FK_SQL);
     await client.queryArray(CREATE_RUNTIME_SESSIONS_ATTEMPT_LOOKUP_INDEX_SQL);
     await client.queryArray(

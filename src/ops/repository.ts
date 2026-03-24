@@ -22,6 +22,8 @@ import type {
   RetryRuntimeSessionLookup,
 } from "./types.ts";
 
+const SUPPORTED_BROKER_SCOPE = "canvasLti13LaunchAgsNrps";
+
 const INVENTORY_BASE_QUERY = `
   SELECT
     deployments.id AS deployment_id,
@@ -52,15 +54,7 @@ const INVENTORY_BASE_QUERY = `
     COALESCE(grade_usage.grade_publishes_failed, 0)::integer AS grade_publishes_failed,
     COALESCE(attempt_usage.recent_active_users, 0)::integer AS recent_active_users,
     COALESCE(launch_usage.last_launch_at, latest_launch.last_launch_at) AS usage_last_launch_at,
-    CURRENT_TIMESTAMP AS measured_at,
-    broker.supported_path AS broker_supported_path,
-    broker.source AS broker_source,
-    broker.status AS broker_status,
-    broker.summary AS broker_summary,
-    broker.evidence_url AS broker_evidence_url,
-    broker.official_certification_state AS broker_official_certification_state,
-    broker.directory_url AS broker_directory_url,
-    broker.checked_at AS broker_checked_at
+    CURRENT_TIMESTAMP AS measured_at
   FROM deployments
   LEFT JOIN package_versions AS enabled_package
     ON enabled_package.id = deployments.enabled_package_version_id
@@ -143,21 +137,6 @@ const INVENTORY_BASE_QUERY = `
       ON grade_publications.attempt_id = attempts.attempt_id
     WHERE attempts.deployment_record_id = deployments.id
   ) AS grade_usage ON TRUE
-  LEFT JOIN LATERAL (
-    SELECT
-      broker_verification_runs.supported_path,
-      broker_verification_runs.source,
-      broker_verification_runs.status,
-      broker_verification_runs.summary,
-      broker_verification_runs.evidence_url,
-      broker_verification_runs.official_certification_state,
-      broker_verification_runs.directory_url,
-      broker_verification_runs.checked_at
-    FROM broker_verification_runs
-    WHERE broker_verification_runs.deployment_record_id = deployments.id
-    ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
-    LIMIT 1
-  ) AS broker ON TRUE
 `;
 
 const INVENTORY_ORDER_BY = `
@@ -238,19 +217,47 @@ const DIAGNOSTICS_QUERY = `
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
 `;
 
-const LATEST_BROKER_VERIFICATION_QUERY = `
+const LATEST_INTERNAL_BROKER_VERIFICATION_QUERY = `
   SELECT
-    broker_verification_runs.supported_path,
+    broker_verification_runs.scope,
     broker_verification_runs.source,
     broker_verification_runs.status,
     broker_verification_runs.summary,
-    broker_verification_runs.evidence_url,
-    broker_verification_runs.official_certification_state,
-    broker_verification_runs.directory_url,
+    broker_verification_runs.detail_url,
     broker_verification_runs.checked_at
   FROM broker_verification_runs
+  WHERE broker_verification_runs.scope = $1
+    AND broker_verification_runs.source IN ('manual', 'ci')
   ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
   LIMIT 1
+`;
+
+const LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY = `
+  SELECT
+    broker_verification_runs.scope,
+    broker_verification_runs.status,
+    broker_verification_runs.certification_state,
+    broker_verification_runs.summary,
+    broker_verification_runs.detail_url,
+    broker_verification_runs.checked_at
+  FROM broker_verification_runs
+  WHERE broker_verification_runs.scope = $1
+    AND broker_verification_runs.source = '1edtech'
+  ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
+  LIMIT 1
+`;
+
+const INSERT_BROKER_VERIFICATION_RUN_QUERY = `
+  INSERT INTO broker_verification_runs (
+    deployment_record_id,
+    scope,
+    source,
+    status,
+    summary,
+    detail_url,
+    certification_state,
+    checked_at
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `;
 
 const RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY = `
@@ -348,14 +355,6 @@ interface InventoryQueryRow {
   recentActiveUsers: number | string;
   usageLastLaunchAt: Date | string | null;
   measuredAt: Date | string;
-  brokerSupportedPath: BrokerVerificationStatus["supportedPath"] | null;
-  brokerSource: BrokerVerificationSource | null;
-  brokerStatus: BrokerVerificationRunStatus | null;
-  brokerSummary: string | null;
-  brokerEvidenceUrl: string | null;
-  brokerOfficialCertificationState: OfficialCertificationState | null;
-  brokerDirectoryUrl: string | null;
-  brokerCheckedAt: Date | string | null;
 }
 
 interface ActivitySnapshotRow {
@@ -394,14 +393,39 @@ interface DiagnosticRow {
   occurredAt: Date | string;
 }
 
-interface BrokerVerificationRow {
-  supportedPath: BrokerVerificationStatus["supportedPath"];
+type PersistedBrokerVerificationRunStatus =
+  | BrokerVerificationRunStatus
+  | "notCertified";
+
+export interface RecordBrokerVerificationRunInput {
+  source: BrokerVerificationSource;
+  scope: BrokerVerificationStatus["supportedPath"];
+  status: PersistedBrokerVerificationRunStatus;
+  certificationState:
+    | Exclude<OfficialCertificationState, "notCertified">
+    | null;
+  summary: string;
+  detailUrl: string | null;
+  checkedAt: string;
+}
+
+interface InternalBrokerVerificationRow {
+  scope: BrokerVerificationStatus["supportedPath"];
   source: BrokerVerificationSource;
   status: BrokerVerificationRunStatus;
   summary: string;
-  evidenceUrl: string | null;
-  officialCertificationState: OfficialCertificationState;
-  directoryUrl: string | null;
+  detailUrl: string | null;
+  checkedAt: Date | string;
+}
+
+interface OfficialBrokerVerificationRow {
+  scope: BrokerVerificationStatus["supportedPath"];
+  status: PersistedBrokerVerificationRunStatus;
+  certificationState:
+    | Exclude<OfficialCertificationState, "notCertified">
+    | null;
+  summary: string;
+  detailUrl: string | null;
   checkedAt: Date | string;
 }
 
@@ -446,6 +470,10 @@ export interface OpsRepository {
     deploymentRecordId: number,
   ): Promise<ControlPlaneDeploymentDetailSnapshot | null>;
   getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
+  getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
+  recordBrokerVerificationRun(
+    input: RecordBrokerVerificationRunInput,
+  ): Promise<void>;
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
@@ -455,18 +483,31 @@ export function createOpsRepository(pool: Pool): OpsRepository {
   return {
     async listControlPlaneDeployments() {
       return await withClient(pool, async (client) => {
-        const result = await client.queryObject<InventoryQueryRow>({
-          text: `${INVENTORY_BASE_QUERY}\n${INVENTORY_ORDER_BY}`,
-          camelCase: true,
-        });
+        const [result, brokerVerification] = await Promise.all([
+          client.queryObject<InventoryQueryRow>({
+            text: `${INVENTORY_BASE_QUERY}\n${INVENTORY_ORDER_BY}`,
+            camelCase: true,
+          }),
+          getLatestBrokerVerificationStatusForClient(client),
+        ]);
 
-        return result.rows.map((row) => mapInventoryRow(row));
+        return result.rows.map((row) =>
+          mapInventoryRow(row, brokerVerification)
+        );
       });
     },
 
     async getControlPlaneDeploymentDetail(deploymentRecordId) {
       return await withClient(pool, async (client) => {
-        const inventory = await getInventoryRow(client, deploymentRecordId);
+        const brokerVerification =
+          await getLatestBrokerVerificationStatusForClient(
+            client,
+          );
+        const inventory = await getInventoryRow(
+          client,
+          deploymentRecordId,
+          brokerVerification,
+        );
 
         if (inventory === null) {
           return null;
@@ -509,9 +550,22 @@ export function createOpsRepository(pool: Pool): OpsRepository {
     },
 
     async getLatestBrokerVerification() {
+      return await this.getLatestBrokerVerificationStatus();
+    },
+
+    async getLatestBrokerVerificationStatus() {
       return await withClient(
         pool,
-        async (client) => await getLatestBrokerVerificationForClient(client),
+        async (client) =>
+          await getLatestBrokerVerificationStatusForClient(client),
+      );
+    },
+
+    async recordBrokerVerificationRun(input) {
+      return await withClient(
+        pool,
+        async (client) =>
+          await recordBrokerVerificationRunForClient(client, input),
       );
     },
 
@@ -528,6 +582,7 @@ export function createOpsRepository(pool: Pool): OpsRepository {
 async function getInventoryRow(
   client: PoolClient,
   deploymentRecordId: number,
+  brokerVerification: BrokerVerificationStatus | null,
 ): Promise<ControlPlaneDeploymentInventoryRow | null> {
   const result = await client.queryObject<InventoryQueryRow>({
     text: `${INVENTORY_BASE_QUERY}
@@ -537,7 +592,9 @@ async function getInventoryRow(
     camelCase: true,
   });
 
-  return result.rows[0] ? mapInventoryRow(result.rows[0]) : null;
+  return result.rows[0]
+    ? mapInventoryRow(result.rows[0], brokerVerification)
+    : null;
 }
 
 async function getActivitySnapshot(
@@ -629,16 +686,46 @@ async function listDiagnostics(
   );
 }
 
-async function getLatestBrokerVerificationForClient(
+async function getLatestBrokerVerificationStatusForClient(
   client: PoolClient,
 ): Promise<BrokerVerificationStatus | null> {
-  const result = await client.queryObject<BrokerVerificationRow>({
-    text: LATEST_BROKER_VERIFICATION_QUERY,
-    camelCase: true,
-  });
-  const row = result.rows[0];
+  const [internalResult, officialResult] = await Promise.all([
+    client.queryObject<InternalBrokerVerificationRow>({
+      text: LATEST_INTERNAL_BROKER_VERIFICATION_QUERY,
+      args: [SUPPORTED_BROKER_SCOPE],
+      camelCase: true,
+    }),
+    client.queryObject<OfficialBrokerVerificationRow>({
+      text: LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
+      args: [SUPPORTED_BROKER_SCOPE],
+      camelCase: true,
+    }),
+  ]);
 
-  return row ? mapBrokerVerificationRow(row) : null;
+  return mapBrokerVerificationStatusRows(
+    internalResult.rows[0] ?? null,
+    officialResult.rows[0] ?? null,
+  );
+}
+
+async function recordBrokerVerificationRunForClient(
+  client: PoolClient,
+  input: RecordBrokerVerificationRunInput,
+): Promise<void> {
+  assertBrokerVerificationRunInput(input);
+  await client.queryArray({
+    text: INSERT_BROKER_VERIFICATION_RUN_QUERY,
+    args: [
+      null,
+      input.scope,
+      input.source,
+      input.status,
+      input.summary,
+      input.detailUrl,
+      input.certificationState,
+      input.checkedAt,
+    ],
+  });
 }
 
 async function getRetryableGradePublicationLookupForClient(
@@ -657,6 +744,7 @@ async function getRetryableGradePublicationLookupForClient(
 
 function mapInventoryRow(
   row: InventoryQueryRow,
+  brokerVerification: BrokerVerificationStatus | null,
 ): ControlPlaneDeploymentInventoryRow {
   const binding = mapDeploymentBinding({
     canvasEnvironment: row.bindingCanvasEnvironment,
@@ -664,7 +752,6 @@ function mapInventoryRow(
     clientId: row.bindingClientId,
     deploymentId: row.bindingDeploymentId,
   });
-  const brokerVerification = mapBrokerVerificationFromInventoryRow(row);
 
   return {
     deploymentId: row.deploymentId,
@@ -715,57 +802,69 @@ function mapInventoryRow(
   };
 }
 
-function mapBrokerVerificationRow(
-  row: BrokerVerificationRow,
-): BrokerVerificationStatus {
-  const checkedAt = normalizeTimestamp(row.checkedAt);
-
-  return {
-    supportedPath: row.supportedPath,
-    internal: {
-      source: row.source,
-      status: row.status,
-      checkedAt,
-      summary: row.summary,
-      evidenceUrl: row.evidenceUrl,
-    },
-    official: {
-      state: row.officialCertificationState,
-      checkedAt,
-      directoryUrl: row.directoryUrl,
-    },
-  };
-}
-
-function mapBrokerVerificationFromInventoryRow(
-  row: InventoryQueryRow,
+function mapBrokerVerificationStatusRows(
+  internalRow: InternalBrokerVerificationRow | null,
+  officialRow: OfficialBrokerVerificationRow | null,
 ): BrokerVerificationStatus | null {
-  if (
-    row.brokerSupportedPath === null ||
-    row.brokerSource === null ||
-    row.brokerStatus === null ||
-    row.brokerSummary === null ||
-    row.brokerOfficialCertificationState === null ||
-    row.brokerCheckedAt === null
-  ) {
+  const supportedPath = internalRow?.scope ?? officialRow?.scope ?? null;
+
+  if (supportedPath === null) {
     return null;
   }
 
   return {
-    supportedPath: row.brokerSupportedPath,
-    internal: {
-      source: row.brokerSource,
-      status: row.brokerStatus,
-      checkedAt: normalizeTimestamp(row.brokerCheckedAt),
-      summary: row.brokerSummary,
-      evidenceUrl: row.brokerEvidenceUrl,
+    supportedPath,
+    internal: internalRow === null ? null : {
+      source: internalRow.source,
+      status: internalRow.status,
+      checkedAt: normalizeTimestamp(internalRow.checkedAt),
+      summary: internalRow.summary,
+      evidenceUrl: internalRow.detailUrl,
     },
-    official: {
-      state: row.brokerOfficialCertificationState,
-      checkedAt: normalizeTimestamp(row.brokerCheckedAt),
-      directoryUrl: row.brokerDirectoryUrl,
-    },
+    official: officialRow === null
+      ? {
+        state: "notCertified",
+        checkedAt: null,
+        directoryUrl: null,
+      }
+      : {
+        state: officialRow.certificationState ?? "notCertified",
+        checkedAt: normalizeTimestamp(officialRow.checkedAt),
+        directoryUrl: officialRow.detailUrl,
+      },
   };
+}
+
+function assertBrokerVerificationRunInput(
+  input: RecordBrokerVerificationRunInput,
+): void {
+  if (input.source === "1edtech") {
+    if (input.status === "notCertified" && input.certificationState !== null) {
+      throw new Error(
+        "Official not-certified verification runs cannot carry a certification state.",
+      );
+    }
+
+    if (input.status === "passed" && input.certificationState === null) {
+      throw new Error(
+        "Official passed verification runs require an explicit certification state.",
+      );
+    }
+
+    return;
+  }
+
+  if (input.status === "notCertified") {
+    throw new Error(
+      "Only official 1EdTech verification runs can use the notCertified status.",
+    );
+  }
+
+  if (input.certificationState !== null) {
+    throw new Error(
+      "Internal verification runs cannot carry an official certification state.",
+    );
+  }
 }
 
 function mapRetryLookupRow(
