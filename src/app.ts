@@ -27,18 +27,21 @@ import {
 } from "./lti/services.ts";
 import {
   type DeepLinkingSessionRecord,
+  type DeepLinkingResponseSubmission,
   LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE,
 } from "./lti/types.ts";
 import { type CanvasLoginRequest, createLoginRedirect } from "./lti/login.ts";
 import {
   authorizeDeepLinkingSession,
   createDeepLinkingSession,
+  createReviewedPlacementFromDeepLinkingSession,
   listDeepLinkingResources,
   requireAuthorizedDeepLinkingSession,
   resolveDeepLinkingSelection,
   saveDeepLinkingSessionSelection,
   validateDeepLinkingRequest,
 } from "./lti/deep_linking.ts";
+import { buildDeepLinkingResponseSubmission } from "./lti/deep_linking_response.ts";
 import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
@@ -371,44 +374,88 @@ export function createApp(
     }
 
     try {
-      const resources = await listDeepLinkingResources({
-        repository,
-        session,
-      });
       const selection = resolveDeepLinkingSelection({
         session,
-        resources,
+        resources: await listDeepLinkingResources({
+          repository,
+          session,
+        }),
       });
 
       if (selection === null) {
+        return await renderDeepLinkingPickerResponse({
+          context,
+          repository,
+          session,
+          token,
+          notice: {
+            tone: "error",
+            title: "Return blocked",
+            detail: "Save one reviewed selection before returning to Canvas.",
+          },
+          status: 409,
+        });
+      }
+
+      const deployment = await repository.getDeploymentBySlug(
+        session.deploymentSlug,
+      );
+
+      if (deployment === null || deployment.id !== session.deploymentRecordId) {
         throw new Error(
-          "Save one reviewed selection before returning to Canvas.",
+          `Canvas deployment ${session.deploymentSlug} could not be loaded for this Deep Linking session.`,
         );
       }
+
+      const packageVersion = await repository.getPackageVersionById(
+        selection.packageVersionId,
+      );
+
+      if (packageVersion === null) {
+        throw new Error(
+          `Reviewed package version ${selection.packageVersionId} could not be loaded for the Canvas return.`,
+        );
+      }
+
+      const { placement } = await createReviewedPlacementFromDeepLinkingSession({
+        repository,
+        session,
+      });
+      const submission = await buildDeepLinkingResponseSubmission({
+        session,
+        deployment,
+        placement,
+        packageVersion,
+      });
 
       return context.html(
         renderDeepLinkingSubmitStatusPage({
           tone: "success",
-          title: "Ready to return to Canvas",
+          title: "Returning to Canvas",
           detail:
-            "Lantern verified the saved reviewed selection and kept the return path inside Lantern's server-rendered flow.",
+            "Lantern created the reviewed placement and is posting the signed Deep Linking response back to Canvas.",
           session,
           selection,
+          submission,
         }),
       );
     } catch (error) {
-      return await renderDeepLinkingPickerResponse({
-        context,
-        repository,
-        session,
-        token,
-        notice: {
+      return context.html(
+        renderDeepLinkingSubmitStatusPage({
           tone: "error",
-          title: "Return blocked",
-          detail: errorMessage(error),
-        },
-        status: 409,
-      });
+          title: "Canvas return failed",
+          detail: deepLinkingReturnErrorMessage(error),
+          session,
+          selection: resolveDeepLinkingSelection({
+            session,
+            resources: await listDeepLinkingResources({
+              repository,
+              session,
+            }),
+          }),
+        }),
+        500,
+      );
     }
   });
 
@@ -1567,10 +1614,12 @@ function renderDeepLinkingSubmitStatusPage(input: {
     "appId" | "contextTitle" | "deploymentSlug"
   >;
   selection?: DeepLinkingResourceSelection | null;
+  submission?: DeepLinkingResponseSubmission;
 }): string {
   const surfaceClass = input.tone === "success" ? "success" : "error";
   const session = input.session ?? null;
   const selection = input.selection ?? null;
+  const submission = input.submission ?? null;
 
   return `<!doctype html>
 <html lang="en">
@@ -1691,14 +1740,32 @@ function renderDeepLinkingSubmitStatusPage(input: {
         margin-bottom: 4px;
       }
 
+      .button-primary {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font: inherit;
+        font-weight: 600;
+        color: white;
+        background: var(--success);
+        cursor: pointer;
+      }
+
+      .helper-copy {
+        margin-top: 12px;
+      }
+
       .resource-path {
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       }
 
       @media (max-width: 720px) {
-        body {
-          padding: 12px;
-        }
+      body {
+        padding: 12px;
+      }
 
         .shell {
           padding: 12px;
@@ -1743,18 +1810,59 @@ function renderDeepLinkingSubmitStatusPage(input: {
       : `<section class="summary-card">
           <p class="summary-label">Saved reviewed selection</p>
           <p class="summary-item"><strong>${
-        escapeHtml(`${selection.packageVersion} reviewed activity`)
+        escapeHtml(selection.contentTitle ?? `${selection.packageVersion} reviewed activity`)
       }</strong>${
-        escapeHtml(selection.contentTitle ?? selection.contentPath)
+        escapeHtml(selection.packageVersion)
       }</p>
           <p class="summary-item resource-path">${escapeHtml(selection.contentPath)}</p>
         </section>`
   }
+          ${
+    submission === null
+      ? ""
+      : `<section class="summary-card">
+          <p class="summary-label">Canvas return</p>
+          <p class="summary-item"><strong>Signed Deep Linking response</strong>Lantern is posting the reviewed placement back to Canvas now.</p>
+          <form id="canvas-return-form" method="post" action="${
+        escapeHtml(submission.returnUrl)
+      }">
+            ${
+        Object.entries(submission.formFields).map(([name, value]) =>
+          `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`
+        ).join("")
+      }
+            <button type="submit" class="button-primary">Return to Canvas</button>
+          </form>
+          <p class="helper-copy">If Canvas does not resume automatically, use the button above.</p>
+        </section>`
+  }
         </div>
       </div>
+      ${
+    submission === null
+      ? ""
+      : `<script>
+        window.addEventListener("load", () => {
+          document.getElementById("canvas-return-form")?.submit();
+        }, { once: true });
+      </script>`
+  }
     </main>
   </body>
 </html>`;
+}
+
+function deepLinkingReturnErrorMessage(error: unknown): string {
+  const message = errorMessage(error);
+
+  if (
+    message.includes("APP_ORIGIN") ||
+    message.includes("LTI_TOOL_PRIVATE_JWK")
+  ) {
+    return "Lantern could not prepare the signed Canvas return. Contact an operator and try again.";
+  }
+
+  return message;
 }
 
 function createErrorNotice(title: string, error: unknown): AdminNotice {
