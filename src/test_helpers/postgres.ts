@@ -182,6 +182,41 @@ const CREATE_AUDIT_EVENTS_TABLE_SQL = `
   )
 `;
 
+const CREATE_BROKER_VERIFICATION_RUNS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS broker_verification_runs (
+    id bigserial PRIMARY KEY,
+    deployment_record_id bigint REFERENCES deployments (id) ON DELETE SET NULL,
+    supported_path text NOT NULL,
+    source text NOT NULL,
+    status text NOT NULL,
+    summary text NOT NULL,
+    evidence_url text,
+    official_certification_state text NOT NULL,
+    directory_url text,
+    checked_at timestamptz NOT NULL
+  )
+`;
+
+const CREATE_RUNTIME_SESSIONS_ATTEMPT_LOOKUP_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS runtime_sessions_attempt_lookup_idx
+    ON runtime_sessions (attempt_id, created_at DESC)
+`;
+
+const CREATE_AUDIT_EVENTS_DEPLOYMENT_OCCURRED_AT_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS audit_events_deployment_occurred_at_idx
+    ON audit_events (deployment_record_id, occurred_at DESC)
+`;
+
+const CREATE_GRADE_PUBLICATIONS_STATUS_UPDATED_AT_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS grade_publications_status_updated_at_idx
+    ON grade_publications (status, updated_at DESC)
+`;
+
+const CREATE_BROKER_VERIFICATION_RUNS_PATH_CHECKED_AT_INDEX_SQL = `
+  CREATE INDEX IF NOT EXISTS broker_verification_runs_path_checked_at_idx
+    ON broker_verification_runs (supported_path, checked_at DESC)
+`;
+
 const ADD_RUNTIME_SESSION_ATTEMPT_FK_SQL = `
   DO $$
   BEGIN
@@ -230,7 +265,18 @@ export async function bootstrapPackageReviewSchema(
     await client.queryArray(CREATE_CANVAS_LINE_ITEM_BINDINGS_TABLE_SQL);
     await client.queryArray(CREATE_GRADE_PUBLICATIONS_TABLE_SQL);
     await client.queryArray(CREATE_AUDIT_EVENTS_TABLE_SQL);
+    await client.queryArray(CREATE_BROKER_VERIFICATION_RUNS_TABLE_SQL);
     await client.queryArray(ADD_RUNTIME_SESSION_ATTEMPT_FK_SQL);
+    await client.queryArray(CREATE_RUNTIME_SESSIONS_ATTEMPT_LOOKUP_INDEX_SQL);
+    await client.queryArray(
+      CREATE_AUDIT_EVENTS_DEPLOYMENT_OCCURRED_AT_INDEX_SQL,
+    );
+    await client.queryArray(
+      CREATE_GRADE_PUBLICATIONS_STATUS_UPDATED_AT_INDEX_SQL,
+    );
+    await client.queryArray(
+      CREATE_BROKER_VERIFICATION_RUNS_PATH_CHECKED_AT_INDEX_SQL,
+    );
   } finally {
     client.release();
   }
@@ -242,7 +288,7 @@ export async function resetPackageReviewTables(pool: Pool): Promise<void> {
   try {
     await client.queryArray("BEGIN");
     await client.queryArray(
-      "TRUNCATE TABLE audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
+      "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
     );
     await client.queryArray("COMMIT");
   } catch (error) {
