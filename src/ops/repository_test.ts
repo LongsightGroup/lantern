@@ -64,7 +64,7 @@ async function seedOpsRepositoryFixtures(pool: Pool): Promise<void> {
   });
   const nrpsAuditEvent = buildAuditEventRecord({
     id: 2,
-    eventType: "nrps.verification.succeeded",
+    eventType: "deployment.nrps_verified",
     status: "succeeded",
     summary: "Verified roster access for the deployment.",
     occurredAt: "2026-03-24T12:33:00Z",

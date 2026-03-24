@@ -92,20 +92,15 @@ const INVENTORY_BASE_QUERY = `
     SELECT
       audit_events.occurred_at AS last_nrps_read_at,
       CASE
-        WHEN audit_events.event_type = 'nrps.verification.failed'
-          OR audit_events.status = 'failed'
+        WHEN audit_events.status = 'failed'
           THEN 'failed'
-        WHEN audit_events.event_type = 'nrps.verification.succeeded'
-          OR audit_events.status = 'succeeded'
+        WHEN audit_events.status = 'succeeded'
           THEN 'succeeded'
         ELSE 'pending'
       END AS last_nrps_read_status
     FROM audit_events
     WHERE audit_events.deployment_record_id = deployments.id
-      AND (
-        audit_events.event_type = 'deployment.nrps_verified'
-        OR audit_events.event_type LIKE 'nrps.verification.%'
-      )
+      AND audit_events.event_type = 'deployment.nrps_verified'
     ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
     LIMIT 1
   ) AS latest_nrps ON TRUE
@@ -194,10 +189,7 @@ const LATEST_NRPS_QUERY = `
     audit_events.occurred_at
   FROM audit_events
   WHERE audit_events.deployment_record_id = $1
-    AND (
-      audit_events.event_type = 'deployment.nrps_verified'
-      OR audit_events.event_type LIKE 'nrps.verification.%'
-    )
+    AND audit_events.event_type = 'deployment.nrps_verified'
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
   LIMIT 1
 `;
@@ -240,7 +232,6 @@ const DIAGNOSTICS_QUERY = `
     AND (
       audit_events.event_type LIKE 'launch.%'
       OR audit_events.event_type = 'deployment.nrps_verified'
-      OR audit_events.event_type LIKE 'nrps.verification.%'
       OR audit_events.event_type LIKE 'grade_publish.%'
       OR audit_events.event_type LIKE 'broker_verification.%'
     )
@@ -912,8 +903,7 @@ function mapDiagnosticKind(
   }
 
   if (
-    eventType === "deployment.nrps_verified" ||
-    eventType.startsWith("nrps.verification.")
+    eventType === "deployment.nrps_verified"
   ) {
     return "nrps";
   }
