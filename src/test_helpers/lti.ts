@@ -1,21 +1,37 @@
-import { SignJWT, importJWK } from "jose";
+import { importJWK, SignJWT } from "jose";
 import type {
   CanvasEnvironment,
   CanvasPlatformConfig,
   DeploymentBinding,
+  LaunchAssignmentAndGradeServices,
+  LaunchNamesAndRolesService,
+  LaunchServiceClaims,
   LoginStateRecord,
   RuntimeSessionRecord,
   ValidatedLaunch,
+} from "../lti/types.ts";
+import {
+  LTI_AGS_LINEITEM_SCOPE as DEFAULT_AGS_LINEITEM_SCOPE,
+  LTI_AGS_SCORE_SCOPE as DEFAULT_AGS_SCORE_SCOPE,
 } from "../lti/types.ts";
 
 const TEST_NOW = "2026-03-23T22:45:00Z";
 
 export const TEST_TOOL_PRIVATE_JWK = {
-  kty: "EC",
-  x: "4Cv5G2CYFD126Jr4ZRqnlbzPe9ZbX9J50-2Fy2ZObUk",
-  y: "LYRIH1zr5ET6NcshC-9WgL7Ls68zEHYGEWDTYE_I6gk",
-  crv: "P-256",
-  d: "gwbcZMXfemRV5nb6FZI58qaVuIJmYzsLaw6433YEhYY",
+  kty: "RSA",
+  alg: "RS256",
+  n: "uqAz51P9MxAXrvGI_6QMTdFQhpUqjLtialtYuIvFkJaB98npMnFuBMfMpXH0vTEWlyTWNencpsco4t0X4PBVEk7n3kol3JvRSGqNSotQ0lx4omi9qeCNljAWiSc6FyEn-FfWOxwKwQZxhbgBclBxsVQqrHAtcADA2pUzG9HzZaPmNLHyZ7zzr3D8PNIEM2qmqhUp9cm1UTZu8iJg6B7X-Jcazpa5N_nbkYIwAjyE6iep4IP4HoRIxOSoewdmxyEhtii7a-wz6bGVICht0cOegTe1mmZIo7xQHvz0I4v0y2xkhfCBCOEI8HeGWiGU95_KazbNdC_qZyIsGDqLndTigw",
+  e: "AQAB",
+  d: "G38vJo5BaBye4K_Ft6S8C1sjujCQLFwPjAwZbldprHwAejnNmhkMVLf7dwTrQlTRN0O-LANg91GwvHxG4GWIo0Hs99uE6JQsqbbJSopsRhJJ0-QKzdTAB7jeGScmb_H6qaSHc_4Vt4rzfvg1flpL5gy4nN-KUk5KG-qPtTGh4v-aqkfzkxVnEBb-VfB_o5nafMimKp1TMXSPcL-4NjjwFioP8YcQDYxwKJGHHm7_CqSfCu5AMx7UByVxsVFNTsaua0lFUQDaVR13eHFFOdUZiAUe97Ua_JYec6Gxe4-3g1bCmGbGm9U_35fGM5kt4NXWND0ULgJfI8alAUDjxblQQQ",
+  p: "2WhfV1qBXbQwL5tW6GaD-nKaZYfGoOOgyKQKjtV7UIBWXECOiciIHxUMoSQrmtbtNLg64K58FLBZ11loOyoso1351MfsQB6FzZfF_zkHlfcNKuWLphwTizTv61TC4_r-5lsoQ5CI34UzzSZaY50AjHg2n6_ahUbTqsYyCmG9Rzc",
+  q: "28EDIGEyaKjMnMdD0NJgQSTxrMzwQujRpioPGWRD6y3ADVwA7p-u4XhiekuOwRjbmyJrJ_HcUna0J0ZydFwo9KRVfIhDhcUGioEnUatWWaMEZDBl6RzyEutR1H4oNx9fjJykNcP13O-fMgHzsZ5k8Oc_lZy1wyJGNnQGQChxzRU",
+  dp:
+    "r3QWDY9S--ZhROpeduvU8xfuFqY-3LUXmxUYGDGddVg9WfIXloappDv-l0Vzk2CEypkrmwv1w1SXDL5w6d6da7J53wkBVrXLUiJ8ff7uak6Y59ecng_mjd_JB-i95_M2J33FvtE0RP9g0N108RNR0AtsOe9XsVt5k0akN9CtSn0",
+  dq:
+    "2KD7kQbf53ZHRmHUw10vz-g4aa0ZSAw054Xcnp5Nqd_OzByfOpyli9Td10r2rfnwOo0Cbz0ogQ5NZ841c-mJ4ijBsOKvFYZ1fUH2Xbb2h6SA5rcjL1r-c5IQd9XplPVTfszHv8yuaR66o1RzQ-wt-6Eq-DSkpXj7GCDmLIbyMEU",
+  qi:
+    "X9i7s0LnslcujfZlwBXIbpEU6lz7P11_DPID3j24OhzSTXCadpL7tLLOGG3LuHKx4-izFsVVcrCJ4xnYAG7rwvOVrGm-DTyPrA7AmopnZJ9xxJC2NmDbQc-xVykeSdgUGRl7YkitHdfsmUn6Biy738ihxbGYaZMDd3fRW9hssio",
+  use: "sig",
 } as const;
 
 export const TEST_CANVAS_PRIVATE_JWK = {
@@ -81,6 +97,18 @@ export interface CanvasLaunchTokenInput {
   contextTitle?: string;
   roles?: string[];
   returnUrl?: string;
+  ags?: Partial<LaunchAssignmentAndGradeServices> | null;
+  agsShape?: "lineitem" | "lineitems" | "both" | "none";
+  nrps?: Partial<LaunchNamesAndRolesService> | null;
+}
+
+export interface ToolClientAssertionInput {
+  issuer?: string;
+  subject?: string;
+  audience?: string;
+  issuedAt?: string;
+  expirationTime?: string;
+  jwtId?: string;
 }
 
 export function buildDeploymentBinding(
@@ -155,6 +183,77 @@ export function buildLoginStateRecord(
   };
 }
 
+export function buildAgsLaunchService(
+  overrides: Partial<LaunchAssignmentAndGradeServices> = {},
+  shape: CanvasLaunchTokenInput["agsShape"] = "both",
+): LaunchAssignmentAndGradeServices {
+  return {
+    scope: overrides.scope ?? [
+      DEFAULT_AGS_SCORE_SCOPE,
+      DEFAULT_AGS_LINEITEM_SCOPE,
+    ],
+    lineitemsUrl: shape === "lineitem" || shape === "none"
+      ? null
+      : overrides.lineitemsUrl ??
+        "https://canvas.example/api/lti/courses/42/line_items",
+    lineitemUrl: shape === "lineitems" || shape === "none"
+      ? null
+      : overrides.lineitemUrl ??
+        "https://canvas.example/api/lti/courses/42/line_items/9",
+  };
+}
+
+export function buildNrpsLaunchService(
+  overrides: Partial<LaunchNamesAndRolesService> = {},
+): LaunchNamesAndRolesService {
+  return {
+    contextMembershipsUrl: overrides.contextMembershipsUrl ??
+      "https://canvas.example/api/lti/courses/42/names_and_roles",
+    serviceVersions: overrides.serviceVersions ?? ["2.0"],
+  };
+}
+
+export function buildLaunchServiceClaims(
+  overrides: Partial<LaunchServiceClaims> & {
+    agsShape?: CanvasLaunchTokenInput["agsShape"];
+  } = {},
+): LaunchServiceClaims {
+  return {
+    ags: overrides.ags === null
+      ? null
+      : buildAgsLaunchService(overrides.ags ?? {}, overrides.agsShape),
+    nrps: overrides.nrps === null
+      ? null
+      : buildNrpsLaunchService(overrides.nrps ?? {}),
+  };
+}
+
+export function buildAgsLaunchClaimValue(
+  overrides: Partial<LaunchAssignmentAndGradeServices> = {},
+  shape: CanvasLaunchTokenInput["agsShape"] = "both",
+): Record<string, unknown> {
+  const service = buildAgsLaunchService(overrides, shape);
+
+  return {
+    scope: service.scope,
+    ...(service.lineitemsUrl === null
+      ? {}
+      : { lineitems: service.lineitemsUrl }),
+    ...(service.lineitemUrl === null ? {} : { lineitem: service.lineitemUrl }),
+  };
+}
+
+export function buildNrpsLaunchClaimValue(
+  overrides: Partial<LaunchNamesAndRolesService> = {},
+): Record<string, unknown> {
+  const service = buildNrpsLaunchService(overrides);
+
+  return {
+    context_memberships_url: service.contextMembershipsUrl,
+    service_versions: service.serviceVersions,
+  };
+}
+
 export function buildValidatedLaunch(
   overrides: Partial<ValidatedLaunch> = {},
 ): ValidatedLaunch {
@@ -180,6 +279,7 @@ export function buildValidatedLaunch(
     appId: overrides.appId ?? "chapter-4-asteroids",
     packageVersionId: overrides.packageVersionId ?? 1,
     packageVersion: overrides.packageVersion ?? "0.1.0",
+    attemptId: overrides.attemptId ?? "attempt-123",
     userId: overrides.userId ?? "canvas-user-123",
     userRole: overrides.userRole ?? "learner",
     resourceLinkId: overrides.resourceLinkId ?? "resource-link-123",
@@ -190,6 +290,7 @@ export function buildValidatedLaunch(
       "http://localhost:8000/lti/launch",
     returnUrl: overrides.returnUrl ?? "https://canvas.example/return",
     activityId: overrides.activityId ?? "activity-123",
+    services: overrides.services ?? buildLaunchServiceClaims(),
     issuedAt: overrides.issuedAt ?? TEST_NOW,
     ...binding,
   };
@@ -201,6 +302,7 @@ export function buildRuntimeSessionRecord(
   return {
     sessionId: overrides.sessionId ?? "runtime-session-123",
     sessionToken: overrides.sessionToken ?? "runtime-token-123",
+    attemptId: overrides.attemptId ?? "attempt-123",
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
     deploymentSlug: overrides.deploymentSlug ?? "chapter-4-asteroids-pilot",
     appId: overrides.appId ?? "chapter-4-asteroids",
@@ -220,6 +322,7 @@ export function buildRuntimeSessionRecord(
       "var/packages/chapter-4-asteroids/0.1.0/dist/index.html",
     contentPath: overrides.contentPath ??
       "var/packages/chapter-4-asteroids/0.1.0/content/activity.json",
+    services: overrides.services ?? buildLaunchServiceClaims(),
     launch: overrides.launch ?? {
       userRole: "learner",
       courseId: "course-42",
@@ -235,12 +338,18 @@ export async function signCanvasIdToken(
   input: CanvasLaunchTokenInput = {},
 ): Promise<string> {
   const binding = buildDeploymentBinding(input.deploymentBinding ?? {});
+  const agsClaim = input.ags === null
+    ? null
+    : buildAgsLaunchClaimValue(input.ags ?? {}, input.agsShape);
+  const nrpsClaim = input.nrps === null
+    ? null
+    : buildNrpsLaunchClaimValue(input.nrps ?? {});
   const claims = {
     nonce: input.nonce ?? "nonce-123",
     "https://purl.imsglobal.org/spec/lti/claim/message_type":
       input.messageType ?? "LtiResourceLinkRequest",
-    "https://purl.imsglobal.org/spec/lti/claim/version":
-      input.version ?? "1.3.0",
+    "https://purl.imsglobal.org/spec/lti/claim/version": input.version ??
+      "1.3.0",
     "https://purl.imsglobal.org/spec/lti/claim/deployment_id":
       binding.deploymentId,
     "https://purl.imsglobal.org/spec/lti/claim/target_link_uri":
@@ -260,6 +369,13 @@ export async function signCanvasIdToken(
     "https://purl.imsglobal.org/spec/lti/claim/roles": input.roles ?? [
       "http://purl.imsglobal.org/vocab/lis/v2/membership#Learner",
     ],
+    ...(agsClaim === null ? {} : {
+      "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint": agsClaim,
+    }),
+    ...(nrpsClaim === null ? {} : {
+      "https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice":
+        nrpsClaim,
+    }),
   };
   const signingKey = await importJWK(TEST_CANVAS_PRIVATE_JWK, "ES256");
 
@@ -306,4 +422,46 @@ export function getTestCanvasJwks(): {
 
 export function getTestToolPrivateJwkEnvValue(): string {
   return JSON.stringify(TEST_TOOL_PRIVATE_JWK);
+}
+
+export function buildToolClientAssertionClaims(
+  input: ToolClientAssertionInput = {},
+): {
+  iss: string;
+  sub: string;
+  aud: string;
+  jti: string;
+} {
+  const issuer = input.issuer ?? "10000000000001";
+  const subject = input.subject ?? issuer;
+
+  return {
+    iss: issuer,
+    sub: subject,
+    aud: input.audience ??
+      "https://canvas.example/login/oauth2/token",
+    jti: input.jwtId ?? "tool-client-assertion-123",
+  };
+}
+
+export async function signToolClientAssertion(
+  input: ToolClientAssertionInput = {},
+): Promise<string> {
+  const claims = buildToolClientAssertionClaims(input);
+  const signingKey = await importJWK(TEST_TOOL_PRIVATE_JWK, "RS256");
+
+  return await new SignJWT({})
+    .setProtectedHeader({
+      alg: "RS256",
+      typ: "JWT",
+    })
+    .setIssuer(claims.iss)
+    .setSubject(claims.sub)
+    .setAudience(claims.aud)
+    .setJti(claims.jti)
+    .setIssuedAt(
+      Math.floor(Date.parse(input.issuedAt ?? TEST_NOW) / 1000),
+    )
+    .setExpirationTime(input.expirationTime ?? "5m")
+    .sign(signingKey);
 }

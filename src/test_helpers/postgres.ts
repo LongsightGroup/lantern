@@ -62,6 +62,7 @@ const CREATE_RUNTIME_SESSIONS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS runtime_sessions (
     session_id text PRIMARY KEY,
     session_token text NOT NULL UNIQUE,
+    attempt_id text,
     deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
     deployment_slug text NOT NULL,
     app_id text NOT NULL,
@@ -71,12 +72,106 @@ const CREATE_RUNTIME_SESSIONS_TABLE_SQL = `
     snapshot_root text NOT NULL,
     entrypoint_path text NOT NULL,
     content_path text NOT NULL,
+    ags_scope text[] NOT NULL DEFAULT '{}'::text[],
+    ags_lineitems_url text,
+    ags_lineitem_url text,
+    nrps_context_memberships_url text,
+    nrps_service_versions text[] NOT NULL DEFAULT '{}'::text[],
     launch_user_role text NOT NULL,
     launch_course_id text NOT NULL,
     launch_assignment_id text,
     launch_activity_id text NOT NULL,
     created_at timestamptz NOT NULL,
     expires_at timestamptz NOT NULL
+  )
+`;
+
+const CREATE_ATTEMPTS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS attempts (
+    id bigserial PRIMARY KEY,
+    attempt_id text NOT NULL UNIQUE,
+    deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
+    deployment_slug text NOT NULL,
+    app_id text NOT NULL,
+    package_version_id bigint NOT NULL REFERENCES package_versions (id),
+    package_version text NOT NULL,
+    user_id text NOT NULL,
+    user_role text NOT NULL,
+    context_id text NOT NULL,
+    resource_link_id text NOT NULL,
+    activity_id text NOT NULL,
+    status text NOT NULL,
+    completion_state text,
+    started_at timestamptz NOT NULL,
+    finalized_at timestamptz
+  )
+`;
+
+const CREATE_ATTEMPT_EVENTS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS attempt_events (
+    id bigserial PRIMARY KEY,
+    attempt_id text NOT NULL REFERENCES attempts (attempt_id) ON DELETE CASCADE,
+    sequence integer NOT NULL,
+    event_type text NOT NULL,
+    event jsonb NOT NULL,
+    received_at timestamptz NOT NULL,
+    UNIQUE (attempt_id, sequence)
+  )
+`;
+
+const CREATE_CANVAS_LINE_ITEM_BINDINGS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS canvas_line_item_bindings (
+    id bigserial PRIMARY KEY,
+    deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
+    package_version_id bigint NOT NULL REFERENCES package_versions (id),
+    context_id text NOT NULL,
+    resource_link_id text NOT NULL,
+    activity_id text NOT NULL,
+    line_items_url text NOT NULL,
+    line_item_url text NOT NULL UNIQUE,
+    resource_id text NOT NULL,
+    tag text NOT NULL,
+    label text NOT NULL,
+    score_maximum integer NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL
+  )
+`;
+
+const CREATE_GRADE_PUBLICATIONS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS grade_publications (
+    id bigserial PRIMARY KEY,
+    attempt_id text NOT NULL REFERENCES attempts (attempt_id) ON DELETE CASCADE,
+    line_item_binding_id bigint NOT NULL REFERENCES canvas_line_item_bindings (id) ON DELETE CASCADE,
+    line_item_url text NOT NULL,
+    canvas_user_id text NOT NULL,
+    score_given numeric NOT NULL,
+    score_maximum numeric NOT NULL,
+    activity_progress text NOT NULL,
+    grading_progress text NOT NULL,
+    status text NOT NULL,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    published_at timestamptz,
+    error_code text,
+    error_detail jsonb
+  )
+`;
+
+const CREATE_AUDIT_EVENTS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS audit_events (
+    id bigserial PRIMARY KEY,
+    event_type text NOT NULL,
+    actor_type text NOT NULL,
+    actor_id text,
+    deployment_record_id bigint REFERENCES deployments (id) ON DELETE SET NULL,
+    package_version_id bigint REFERENCES package_versions (id) ON DELETE SET NULL,
+    attempt_id text REFERENCES attempts (attempt_id) ON DELETE SET NULL,
+    line_item_binding_id bigint REFERENCES canvas_line_item_bindings (id) ON DELETE SET NULL,
+    status text NOT NULL,
+    summary text NOT NULL,
+    detail jsonb NOT NULL,
+    occurred_at timestamptz NOT NULL
   )
 `;
 
@@ -106,6 +201,11 @@ export async function bootstrapPackageReviewSchema(
     await client.queryArray(CREATE_DEPLOYMENTS_TABLE_SQL);
     await client.queryArray(CREATE_LTI_LOGIN_STATES_TABLE_SQL);
     await client.queryArray(CREATE_RUNTIME_SESSIONS_TABLE_SQL);
+    await client.queryArray(CREATE_ATTEMPTS_TABLE_SQL);
+    await client.queryArray(CREATE_ATTEMPT_EVENTS_TABLE_SQL);
+    await client.queryArray(CREATE_CANVAS_LINE_ITEM_BINDINGS_TABLE_SQL);
+    await client.queryArray(CREATE_GRADE_PUBLICATIONS_TABLE_SQL);
+    await client.queryArray(CREATE_AUDIT_EVENTS_TABLE_SQL);
   } finally {
     client.release();
   }
@@ -117,7 +217,7 @@ export async function resetPackageReviewTables(pool: Pool): Promise<void> {
   try {
     await client.queryArray("BEGIN");
     await client.queryArray(
-      "TRUNCATE TABLE runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
+      "TRUNCATE TABLE audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
     );
     await client.queryArray("COMMIT");
   } catch (error) {

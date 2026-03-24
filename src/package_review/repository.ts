@@ -116,6 +116,7 @@ interface LoginStateRow {
 interface RuntimeSessionRow {
   sessionId: string;
   sessionToken: string;
+  attemptId?: string | null;
   deploymentRecordId: number;
   deploymentSlug: string;
   appId: string;
@@ -527,10 +528,14 @@ export function createPackageReviewRepository(
             }
 
             if (row.usedAt !== null) {
-              throw new Error(`Login state ${input.state} has already been used.`);
+              throw new Error(
+                `Login state ${input.state} has already been used.`,
+              );
             }
 
-            throw new Error(`Login state ${input.state} could not be consumed.`);
+            throw new Error(
+              `Login state ${input.state} could not be consumed.`,
+            );
           },
         );
       });
@@ -669,7 +674,9 @@ export function createPackageReviewRepository(
             });
             const existingDeployment = existingDeploymentResult.rows[0];
 
-            if (existingDeployment && existingDeployment.appId !== input.appId) {
+            if (
+              existingDeployment && existingDeployment.appId !== input.appId
+            ) {
               throw new Error(
                 `Deployment ${input.slug} belongs to app ${existingDeployment.appId}.`,
               );
@@ -701,8 +708,9 @@ export function createPackageReviewRepository(
             }
 
             try {
-              const upsertResult = await transaction.queryObject<DeploymentRow>({
-                text: `
+              const upsertResult = await transaction.queryObject<DeploymentRow>(
+                {
+                  text: `
                   INSERT INTO deployments (
                     slug,
                     label,
@@ -737,17 +745,18 @@ export function createPackageReviewRepository(
                     ) AS enabled_package_version,
                     deployments.updated_at
                 `,
-                args: [
-                  input.slug,
-                  input.label,
-                  input.appId,
-                  input.binding.canvasEnvironment,
-                  input.binding.issuer,
-                  input.binding.clientId,
-                  input.binding.deploymentId,
-                ],
-                camelCase: true,
-              });
+                  args: [
+                    input.slug,
+                    input.label,
+                    input.appId,
+                    input.binding.canvasEnvironment,
+                    input.binding.issuer,
+                    input.binding.clientId,
+                    input.binding.deploymentId,
+                  ],
+                  camelCase: true,
+                },
+              );
 
               return mapDeploymentRow(upsertResult.rows[0]);
             } catch (error) {
@@ -1154,6 +1163,7 @@ function mapRuntimeSessionRow(
   return {
     sessionId: row.sessionId,
     sessionToken: row.sessionToken,
+    attemptId: row.attemptId ?? row.sessionId,
     deploymentRecordId: row.deploymentRecordId,
     deploymentSlug: row.deploymentSlug,
     appId: row.appId,
@@ -1163,6 +1173,10 @@ function mapRuntimeSessionRow(
     snapshotRoot: row.snapshotRoot,
     entrypointPath: row.entrypointPath,
     contentPath: row.contentPath,
+    services: {
+      ags: null,
+      nrps: null,
+    },
     launch: {
       userRole: row.launchUserRole,
       courseId: row.launchCourseId,

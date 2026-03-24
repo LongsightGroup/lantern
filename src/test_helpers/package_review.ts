@@ -8,13 +8,19 @@ import type { ImportedPackageVersion } from "../package_review/intake.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
   ApprovalStatus,
+  AttemptEventRecord,
+  AttemptRecord,
+  AuditEventRecord,
+  CanvasLineItemBindingRecord,
   DeploymentRecord,
+  GradePublicationRecord,
   PackageVersionRecord,
 } from "../package_review/types.ts";
 
 const DEFAULT_IMPORTED_AT = "2026-03-23T17:30:00Z";
 const DEFAULT_REVIEWED_AT = "2026-03-23T18:05:00Z";
 const DEFAULT_UPDATED_AT = "2026-03-23T18:15:00Z";
+const DEFAULT_PHASE3_AT = "2026-03-24T02:30:00Z";
 
 export function buildPackageVersionRecord(
   overrides: Partial<PackageVersionRecord> = {},
@@ -102,6 +108,114 @@ export function buildDeploymentRecord(
     binding: null,
     updatedAt: DEFAULT_UPDATED_AT,
     ...overrides,
+  };
+}
+
+export function buildAttemptRecord(
+  overrides: Partial<AttemptRecord> = {},
+): AttemptRecord {
+  return {
+    id: overrides.id ?? 1,
+    attemptId: overrides.attemptId ?? "attempt-123",
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    deploymentSlug: overrides.deploymentSlug ?? "chapter-4-asteroids-pilot",
+    appId: overrides.appId ?? "chapter-4-asteroids",
+    packageVersionId: overrides.packageVersionId ?? 1,
+    packageVersion: overrides.packageVersion ?? "0.1.0",
+    userId: overrides.userId ?? "canvas-user-123",
+    userRole: overrides.userRole ?? "learner",
+    contextId: overrides.contextId ?? "course-42",
+    resourceLinkId: overrides.resourceLinkId ?? "resource-link-123",
+    activityId: overrides.activityId ?? "activity-123",
+    status: overrides.status ?? "in_progress",
+    completionState: overrides.completionState ?? null,
+    startedAt: overrides.startedAt ?? DEFAULT_PHASE3_AT,
+    finalizedAt: overrides.finalizedAt ?? null,
+  };
+}
+
+export function buildAttemptEventRecord(
+  overrides: Partial<AttemptEventRecord> = {},
+): AttemptEventRecord {
+  return {
+    id: overrides.id ?? 1,
+    attemptId: overrides.attemptId ?? "attempt-123",
+    sequence: overrides.sequence ?? 1,
+    eventType: overrides.eventType ?? "answer",
+    event: overrides.event ?? {
+      type: "answer",
+      questionId: "q1",
+      answer: "asteroid",
+      timestamp: DEFAULT_PHASE3_AT,
+    },
+    receivedAt: overrides.receivedAt ?? DEFAULT_PHASE3_AT,
+  };
+}
+
+export function buildCanvasLineItemBindingRecord(
+  overrides: Partial<CanvasLineItemBindingRecord> = {},
+): CanvasLineItemBindingRecord {
+  return {
+    id: overrides.id ?? 1,
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    packageVersionId: overrides.packageVersionId ?? 1,
+    contextId: overrides.contextId ?? "course-42",
+    resourceLinkId: overrides.resourceLinkId ?? "resource-link-123",
+    activityId: overrides.activityId ?? "activity-123",
+    lineItemsUrl: overrides.lineItemsUrl ??
+      "https://canvas.example/api/lti/courses/42/line_items",
+    lineItemUrl: overrides.lineItemUrl ??
+      "https://canvas.example/api/lti/courses/42/line_items/9",
+    resourceId: overrides.resourceId ?? "chapter-4-asteroids:0.1.0",
+    tag: overrides.tag ?? "final-grade",
+    label: overrides.label ?? "Chapter 4 Asteroids Final Grade",
+    scoreMaximum: overrides.scoreMaximum ?? 100,
+    createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
+    updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
+  };
+}
+
+export function buildGradePublicationRecord(
+  overrides: Partial<GradePublicationRecord> = {},
+): GradePublicationRecord {
+  return {
+    id: overrides.id ?? 1,
+    attemptId: overrides.attemptId ?? "attempt-123",
+    lineItemBindingId: overrides.lineItemBindingId ?? 1,
+    lineItemUrl: overrides.lineItemUrl ??
+      "https://canvas.example/api/lti/courses/42/line_items/9",
+    canvasUserId: overrides.canvasUserId ?? "canvas-user-123",
+    scoreGiven: overrides.scoreGiven ?? 85,
+    scoreMaximum: overrides.scoreMaximum ?? 100,
+    activityProgress: overrides.activityProgress ?? "Completed",
+    gradingProgress: overrides.gradingProgress ?? "FullyGraded",
+    status: overrides.status ?? "published",
+    createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
+    updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
+    publishedAt: overrides.publishedAt ?? DEFAULT_PHASE3_AT,
+    errorCode: overrides.errorCode ?? null,
+    errorDetail: overrides.errorDetail ?? null,
+  };
+}
+
+export function buildAuditEventRecord(
+  overrides: Partial<AuditEventRecord> = {},
+): AuditEventRecord {
+  return {
+    id: overrides.id ?? 1,
+    eventType: overrides.eventType ?? "attempt.submitted",
+    actorType: overrides.actorType ?? "system",
+    actorId: overrides.actorId ?? null,
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    packageVersionId: overrides.packageVersionId ?? 1,
+    attemptId: overrides.attemptId ?? "attempt-123",
+    lineItemBindingId: overrides.lineItemBindingId ?? 1,
+    status: overrides.status ?? "accepted",
+    summary: overrides.summary ?? "Accepted attempt submission.",
+    detail: overrides.detail ?? {
+      route: "/runtime/sessions/runtime-session-123/attempt-events",
+    },
+    occurredAt: overrides.occurredAt ?? DEFAULT_PHASE3_AT,
   };
 }
 
