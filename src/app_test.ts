@@ -5,12 +5,16 @@ import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
   buildAttemptEventRecord,
   buildAttemptRecord,
+  buildControlPlaneDeploymentDetailSnapshot,
+  buildDeploymentActivitySnapshot,
   buildBrokerVerificationStatus,
   buildControlPlaneDeploymentInventoryRow,
   buildDeploymentRecord,
+  buildDeploymentGradePublicationSnapshot,
   buildImportedPackageVersion,
   buildOfficialBrokerCertificationStatus,
   buildPackageVersionRecord,
+  buildPilotUsageMetrics,
   createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
 import {
@@ -376,6 +380,36 @@ Deno.test("GET /admin/packages/:appId/deployment renders the Canvas install sequ
               binding: buildDeploymentBinding(),
             }),
           ],
+          controlPlaneDeploymentDetails: [
+            buildControlPlaneDeploymentDetailSnapshot({
+              inventory: buildControlPlaneDeploymentInventoryRow({
+                deploymentId: 3,
+                enabledPackageVersionId: 5,
+                enabledPackageVersion: "0.1.0",
+                binding: buildDeploymentBinding(),
+              }),
+              latestLaunch: buildDeploymentActivitySnapshot({
+                occurredAt: "2026-03-24T12:30:00Z",
+                summary:
+                  "Latest launch reached the governed runtime handoff.",
+              }),
+              latestNrpsRead: buildDeploymentActivitySnapshot({
+                occurredAt: "2026-03-24T12:33:00Z",
+                summary: "Latest roster verification succeeded.",
+              }),
+              latestGradePublish: buildDeploymentGradePublicationSnapshot({
+                updatedAt: "2026-03-24T12:35:00Z",
+                status: "failed",
+              }),
+              pilotUsage: buildPilotUsageMetrics({
+                totalLaunches: 6,
+                attemptsCompleted: 5,
+                gradePublishesSucceeded: 4,
+                gradePublishesFailed: 1,
+                recentActiveUsers: 3,
+              }),
+            }),
+          ],
         }),
     }).request(
       "http://localhost/admin/packages/chapter-4-asteroids/deployment",
@@ -388,6 +422,13 @@ Deno.test("GET /admin/packages/:appId/deployment renders the Canvas install sequ
     assertStringIncludes(body, "Config URL");
     assertStringIncludes(body, "Canvas Client ID");
     assertStringIncludes(body, "Launch-ready configuration saved");
+    assertStringIncludes(body, "Current status");
+    assertStringIncludes(body, "Last launch");
+    assertStringIncludes(body, "Last AGS write");
+    assertStringIncludes(body, "Last NRPS read");
+    assertStringIncludes(body, "Pilot usage");
+    assertStringIncludes(body, "Grade publishes");
+    assertStringIncludes(body, "Version picker");
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
   }

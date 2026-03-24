@@ -2,8 +2,12 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "../app.ts";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
+  buildControlPlaneDeploymentDetailSnapshot,
   buildDeploymentRecord,
+  buildDeploymentActivitySnapshot,
+  buildDeploymentGradePublicationSnapshot,
   buildPackageVersionRecord,
+  buildPilotUsageMetrics,
   createInMemoryPackageReviewRepository,
 } from "../test_helpers/package_review.ts";
 import {
@@ -84,6 +88,66 @@ Deno.test("deployment page shows the latest roster verification summary and acti
   assertStringIncludes(html, "Verify roster access");
   assertStringIncludes(html, "course-42");
   assertStringIncludes(html, "2");
+});
+
+Deno.test("deployment page shows status panels and pilot usage without dropping the binding and version controls", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployment: buildDeploymentRecord({
+      enabledPackageVersionId: 1,
+      enabledPackageVersion: "0.1.0",
+      binding: buildDeploymentBinding(),
+    }),
+    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
+      latestLaunch: buildDeploymentActivitySnapshot({
+        occurredAt: "2026-03-24T12:30:00Z",
+        summary: "Latest launch reached the governed runtime handoff.",
+      }),
+      latestNrpsRead: buildDeploymentActivitySnapshot({
+        occurredAt: "2026-03-24T12:33:00Z",
+        summary: "Latest roster verification succeeded.",
+      }),
+      latestGradePublish: buildDeploymentGradePublicationSnapshot({
+        updatedAt: "2026-03-24T12:35:00Z",
+        status: "failed",
+      }),
+      pilotUsage: buildPilotUsageMetrics({
+        totalLaunches: 6,
+        attemptsCompleted: 5,
+        gradePublishesSucceeded: 4,
+        gradePublishesFailed: 1,
+        recentActiveUsers: 3,
+      }),
+    }),
+    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, "Current status");
+  assertStringIncludes(html, "Last launch");
+  assertStringIncludes(html, "Last AGS write");
+  assertStringIncludes(html, "Last NRPS read");
+  assertStringIncludes(html, "Pilot usage");
+  assertStringIncludes(html, "Launches recorded");
+  assertStringIncludes(html, "Attempts completed");
+  assertStringIncludes(html, "Grade publishes");
+  assertStringIncludes(html, "Recent active users");
+  assertStringIncludes(html, "Canvas binding");
+  assertStringIncludes(html, "Version picker");
 });
 
 Deno.test("POST /admin/packages/:appId/deployment/install saves one exact Canvas binding", async () => {
