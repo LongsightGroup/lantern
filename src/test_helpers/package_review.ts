@@ -425,9 +425,14 @@ export function createInMemoryPackageReviewRepository(
         );
       }
 
-      attempts.push(structuredClone(record));
+      const nextRecord = structuredClone({
+        ...record,
+        id: nextId(attempts),
+      });
 
-      return Promise.resolve(structuredClone(record));
+      attempts.push(nextRecord);
+
+      return Promise.resolve(structuredClone(nextRecord));
     },
 
     getAttemptById(attemptId) {
@@ -440,7 +445,7 @@ export function createInMemoryPackageReviewRepository(
     recordAuditEvent(record) {
       const nextRecord = structuredClone({
         ...record,
-        id: record.id === 0 ? nextId(auditEvents) : record.id,
+        id: nextId(auditEvents),
       });
 
       auditEvents.push(nextRecord);

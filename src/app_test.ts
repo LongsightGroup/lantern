@@ -154,6 +154,11 @@ Deno.test("POST /admin/packages/:id/approve records notes and keeps status visib
   const saved = await repository.getPackageVersionById(7);
   assertEquals(saved?.approvalStatus, "approved");
   assertEquals(saved?.reviewNotes, "Ready for the pilot deployment.");
+  const auditEvents = await repository.listAuditEventsByEventType(
+    "package.approved",
+  );
+  assertEquals(auditEvents.length, 1);
+  assertEquals(auditEvents[0]?.packageVersionId, 7);
 
   const detailResponse = await app.request(
     "http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0",
@@ -252,6 +257,11 @@ Deno.test("POST /admin/packages/:appId/deployment/pin stores the exact approved 
   );
   assertEquals(deployment?.enabledPackageVersionId, 5);
   assertEquals(deployment?.enabledPackageVersion, "0.1.0");
+  const auditEvents = await repository.listAuditEventsByEventType(
+    "deployment.version_pinned",
+  );
+  assertEquals(auditEvents.length, 1);
+  assertEquals(auditEvents[0]?.deploymentRecordId, 3);
 });
 
 Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas binding and redirects back to deployment detail", async () => {
@@ -313,6 +323,11 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas bindi
     );
     assertEquals(deployment?.binding?.clientId, "10000000000001");
     assertEquals(deployment?.binding?.deploymentId, "deployment-123");
+    const auditEvents = await repository.listAuditEventsByEventType(
+      "deployment.binding_saved",
+    );
+    assertEquals(auditEvents.length, 1);
+    assertEquals(auditEvents[0]?.deploymentRecordId, 3);
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
   }
@@ -519,19 +534,31 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
 
       const saved = await repository.getRuntimeSessionById(sessionId);
 
-      assertEquals(saved?.packageVersionId, 5);
-      assertEquals(typeof saved?.attemptId, "string");
-      assertEquals(saved?.launch.userRole, "learner");
+      if (!saved) {
+        throw new Error("Expected saved runtime session.");
+      }
+
+      const attempt = await repository.getAttemptById(saved.attemptId);
+      const auditEvents = await repository.listAuditEventsByEventType(
+        "launch.accepted",
+      );
+
+      assertEquals(saved.packageVersionId, 5);
+      assertEquals(typeof saved.attemptId, "string");
+      assertEquals(saved.launch.userRole, "learner");
       assertEquals(
-        saved?.services.ags?.scope,
+        saved.services.ags?.scope,
         [...CANVAS_LTI_SCOPES].slice(0, 2),
       );
       assertEquals(
-        saved?.services.nrps?.contextMembershipsUrl?.includes(
+        saved.services.nrps?.contextMembershipsUrl?.includes(
           "names_and_roles",
         ),
         true,
       );
+      assertEquals(attempt?.attemptId, saved.attemptId);
+      assertEquals(auditEvents.length, 1);
+      assertEquals(auditEvents[0]?.attemptId, saved.attemptId);
     },
   );
 });

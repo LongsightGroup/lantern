@@ -210,9 +210,11 @@ export interface PackageReviewRepository {
   getRuntimeSessionById(
     sessionId: string,
   ): Promise<RuntimeSessionRecord | null>;
-  createAttempt(record: AttemptRecord): Promise<AttemptRecord>;
+  createAttempt(record: Omit<AttemptRecord, "id">): Promise<AttemptRecord>;
   getAttemptById(attemptId: string): Promise<AttemptRecord | null>;
-  recordAuditEvent(record: AuditEventRecord): Promise<AuditEventRecord>;
+  recordAuditEvent(
+    record: Omit<AuditEventRecord, "id">,
+  ): Promise<AuditEventRecord>;
   listAuditEventsByAttemptId(attemptId: string): Promise<AuditEventRecord[]>;
   listAuditEventsByEventType(eventType: string): Promise<AuditEventRecord[]>;
   saveDeploymentBinding(input: {

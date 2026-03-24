@@ -171,9 +171,14 @@ Deno.test("createRuntimeSession keeps the pinned approved version instead of res
     },
   });
   const saved = await repository.getRuntimeSessionById("runtime-session-123");
+  const attempt = await repository.getAttemptById("attempt-123");
 
   assertEquals(session.packageVersionId, 1);
   assertEquals(session.packageVersion, "0.1.0");
+  assertEquals(session.attemptId, "attempt-123");
   assertEquals(saved?.packageVersionId, 1);
   assertEquals(saved?.sessionToken, "runtime-token-123");
+  assertEquals(saved?.attemptId, "attempt-123");
+  assertEquals(attempt?.attemptId, "attempt-123");
+  assertEquals(attempt?.status, "in_progress");
 });

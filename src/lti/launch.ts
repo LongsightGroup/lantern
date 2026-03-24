@@ -236,11 +236,31 @@ export async function createRuntimeSession(input: {
   }
 
   const createdAt = now();
+  const attempt = await input.repository.createAttempt({
+    attemptId: input.launch.attemptId,
+    deploymentRecordId: input.launch.internalDeploymentId,
+    deploymentSlug: input.launch.internalDeploymentSlug,
+    appId: packageVersion.appId,
+    packageVersionId: packageVersion.id,
+    packageVersion: packageVersion.version,
+    userId: input.launch.userId,
+    userRole: input.launch.userRole,
+    contextId: requireTrimmedValue(
+      input.launch.contextId ?? "",
+      "Launch context.id is required for the governed runtime.",
+    ),
+    resourceLinkId: input.launch.resourceLinkId,
+    activityId: input.launch.activityId,
+    status: "in_progress",
+    completionState: null,
+    startedAt: createdAt.toISOString(),
+    finalizedAt: null,
+  });
 
   return await input.repository.createRuntimeSession({
     sessionId: createOpaqueToken(),
     sessionToken: createOpaqueToken(),
-    attemptId: input.launch.attemptId,
+    attemptId: attempt.attemptId,
     deploymentRecordId: input.launch.internalDeploymentId,
     deploymentSlug: input.launch.internalDeploymentSlug,
     appId: packageVersion.appId,

@@ -114,6 +114,26 @@ export function createApp(
         repository,
         launch,
       });
+      await repository.recordAuditEvent({
+        eventType: "launch.accepted",
+        actorType: "platform",
+        actorId: launch.userId,
+        deploymentRecordId: launch.internalDeploymentId,
+        packageVersionId: launch.packageVersionId,
+        attemptId: runtimeSession.attemptId,
+        lineItemBindingId: null,
+        status: "accepted",
+        summary: "Accepted the governed Canvas launch.",
+        detail: {
+          internalDeploymentSlug: launch.internalDeploymentSlug,
+          issuer: launch.issuer,
+          clientId: launch.clientId,
+          deploymentId: launch.deploymentId,
+          resourceLinkId: launch.resourceLinkId,
+          contextId: launch.contextId,
+        },
+        occurredAt: new Date().toISOString(),
+      });
 
       return context.redirect(
         `/runtime/sessions/${runtimeSession.sessionId}?token=${
@@ -384,11 +404,28 @@ export function createApp(
       const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
       const seed = buildDefaultDeploymentSeed(appId, appTitle);
 
-      await repository.pinDeploymentVersion({
+      const deployment = await repository.pinDeploymentVersion({
         slug: seed.slug,
         label: seed.label,
         appId,
         packageVersionId: selectedId,
+      });
+      await repository.recordAuditEvent({
+        eventType: "deployment.version_pinned",
+        actorType: "user",
+        actorId: null,
+        deploymentRecordId: deployment.id,
+        packageVersionId: deployment.enabledPackageVersionId,
+        attemptId: null,
+        lineItemBindingId: null,
+        status: "succeeded",
+        summary: "Pinned an exact reviewed package version for deployment.",
+        detail: {
+          deploymentSlug: deployment.slug,
+          packageVersionId: deployment.enabledPackageVersionId,
+          packageVersion: deployment.enabledPackageVersion,
+        },
+        occurredAt: new Date().toISOString(),
       });
 
       return context.redirect(`/admin/packages/${appId}/deployment`, 303);
@@ -442,7 +479,7 @@ export function createApp(
         "Canvas Deployment ID is required.",
       );
 
-      await repository.saveDeploymentBinding({
+      const deployment = await repository.saveDeploymentBinding({
         slug: seed.slug,
         label: seed.label,
         appId,
@@ -452,6 +489,25 @@ export function createApp(
           clientId,
           deploymentId,
         },
+      });
+      await repository.recordAuditEvent({
+        eventType: "deployment.binding_saved",
+        actorType: "user",
+        actorId: null,
+        deploymentRecordId: deployment.id,
+        packageVersionId: deployment.enabledPackageVersionId,
+        attemptId: null,
+        lineItemBindingId: null,
+        status: "succeeded",
+        summary: "Saved the Canvas deployment binding.",
+        detail: {
+          deploymentSlug: deployment.slug,
+          canvasEnvironment,
+          issuer: resolveCanvasIssuer(canvasEnvironment),
+          clientId,
+          deploymentId,
+        },
+        occurredAt: new Date().toISOString(),
       });
 
       return context.redirect(`/admin/packages/${appId}/deployment`, 303);
@@ -498,6 +554,27 @@ async function handleReviewDecision(
     const packageVersion = decision === "approve"
       ? await repository.approvePackageVersion({ id, reviewNotes })
       : await repository.rejectPackageVersion({ id, reviewNotes });
+    await repository.recordAuditEvent({
+      eventType: decision === "approve"
+        ? "package.approved"
+        : "package.rejected",
+      actorType: "user",
+      actorId: null,
+      deploymentRecordId: null,
+      packageVersionId: packageVersion.id,
+      attemptId: null,
+      lineItemBindingId: null,
+      status: "succeeded",
+      summary: decision === "approve"
+        ? "Approved the reviewed package version."
+        : "Rejected the reviewed package version.",
+      detail: {
+        appId: packageVersion.appId,
+        version: packageVersion.version,
+        reviewNotes,
+      },
+      occurredAt: new Date().toISOString(),
+    });
 
     return context.redirect(
       packageDetailPath(packageVersion.appId, packageVersion.version),
