@@ -305,6 +305,32 @@ The SDK must not expose:
 
 If we add those, we have broken the trust boundary.
 
+## Runtime Backend Note
+
+This spec defines the app-facing capability contract, not one required hosting
+vendor or transport.
+
+Lantern may realize this contract through different runtime backends as long as
+the app sees the same narrow SDK surface and the same trust boundary.
+
+For example, a managed Lantern deployment may choose a capability-based sandbox
+such as Cloudflare Dynamic Workers to:
+
+- block arbitrary outbound Internet access
+- inject only explicit typed bindings that match Lantern capabilities
+- keep LMS credentials and other privileged secrets outside the app sandbox
+
+That does not change the public package contract.
+
+Rules:
+
+- app packages must not depend on Cloudflare-specific APIs, bindings, or worker
+  internals
+- self-hosted Lantern deployments must be able to honor the same contract
+  through a different backend
+- Dynamic Workers or any similar sandbox may tighten the implementation, but
+  they do not add new app capabilities by themselves
+
 ## Scoring Contract
 
 v1 scoring is gateway-owned.
