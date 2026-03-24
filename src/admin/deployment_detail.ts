@@ -15,6 +15,13 @@ import {
   renderAdminLayout,
 } from "./layout.ts";
 
+export interface DeploymentNrpsVerificationSummary {
+  status: "succeeded" | "failed";
+  checkedAt: string;
+  contextId: string | null;
+  memberCount: number | null;
+}
+
 export function buildDefaultDeploymentSeed(
   appId: string,
   appTitle: string,
@@ -33,6 +40,7 @@ export function renderDeploymentDetailPage(input: {
   appTitle: string;
   history: PackageVersionRecord[];
   deployment: DeploymentRecord | null;
+  nrpsVerification?: DeploymentNrpsVerificationSummary | null;
   canvasConfigUrl?: string | null;
   supportedCanvasEnvironments?: CanvasEnvironmentOption[];
   notice?: AdminNotice | null;
@@ -52,10 +60,16 @@ export function renderDeploymentDetailPage(input: {
     updatedAt: input.history[0]?.importedAt ?? new Date().toISOString(),
   };
   const canvasConfigUrl = input.canvasConfigUrl ?? null;
+  const nrpsVerification = input.nrpsVerification ?? null;
   const supportedCanvasEnvironments = input.supportedCanvasEnvironments ?? [];
   const launchReady = activeDeployment.enabledPackageVersionId !== null &&
     activeDeployment.binding !== null &&
     canvasConfigUrl !== null;
+  const rosterVerificationHeading = nrpsVerification === null
+    ? "Roster access not verified yet"
+    : nrpsVerification.status === "succeeded"
+    ? "Latest roster read succeeded"
+    : "Latest roster read failed";
   const installStatusHeading = activeDeployment.binding === null
     ? "Canvas binding not saved yet"
     : launchReady
@@ -115,23 +129,35 @@ export function renderDeploymentDetailPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">Launch readiness</span>
-              <span class="fact-value">${launchReady ? "Ready for Canvas launch" : "Needs configuration"}</span>
+              <span class="fact-value">${
+      launchReady ? "Ready for Canvas launch" : "Needs configuration"
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Canvas environment</span>
-              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.canvasEnvironment))}</span>
+              <span class="fact-value">${
+      escapeHtml(
+        describeBindingValue(activeDeployment.binding?.canvasEnvironment),
+      )
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Canvas issuer</span>
-              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.issuer))}</span>
+              <span class="fact-value">${
+      escapeHtml(describeBindingValue(activeDeployment.binding?.issuer))
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Canvas Client ID</span>
-              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.clientId))}</span>
+              <span class="fact-value">${
+      escapeHtml(describeBindingValue(activeDeployment.binding?.clientId))
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Canvas Deployment ID</span>
-              <span class="fact-value">${escapeHtml(describeBindingValue(activeDeployment.binding?.deploymentId))}</span>
+              <span class="fact-value">${
+      escapeHtml(describeBindingValue(activeDeployment.binding?.deploymentId))
+    }</span>
             </div>
           </div>
           <p class="micro muted">A deployment is launch-ready only after Lantern has both an exact approved version pin and an exact Canvas binding.</p>
@@ -150,7 +176,12 @@ export function renderDeploymentDetailPage(input: {
               <p>Use the hosted Lantern config document when you create the developer key or external tool in Canvas. Lantern publishes one supported pilot configuration.</p>
               <div class="fact">
                 <span class="fact-label">Config URL</span>
-                <code class="inline-code">${escapeHtml(canvasConfigUrl ?? "APP_ORIGIN is required before Lantern can publish the config URL.")}</code>
+                <code class="inline-code">${
+      escapeHtml(
+        canvasConfigUrl ??
+          "APP_ORIGIN is required before Lantern can publish the config URL.",
+      )
+    }</code>
               </div>
             </article>
             <article class="step-card">
@@ -201,13 +232,9 @@ export function renderDeploymentDetailPage(input: {
                 id="client-id"
                 name="clientId"
                 type="text"
-                value="${
-      escapeHtml(activeDeployment.binding?.clientId ?? "")
-    }"
+                value="${escapeHtml(activeDeployment.binding?.clientId ?? "")}"
                 placeholder="10000000000001"
-                ${
-      canvasConfigUrl === null ? "disabled" : ""
-    }
+                ${canvasConfigUrl === null ? "disabled" : ""}
               />
               <p class="field-hint">Paste the exact Client ID Canvas assigned when you created the tool.</p>
             </div>
@@ -221,9 +248,7 @@ export function renderDeploymentDetailPage(input: {
       escapeHtml(activeDeployment.binding?.deploymentId ?? "")
     }"
                 placeholder="deployment-123"
-                ${
-      canvasConfigUrl === null ? "disabled" : ""
-    }
+                ${canvasConfigUrl === null ? "disabled" : ""}
               />
               <p class="field-hint">Paste the exact Deployment ID for this Canvas placement. Lantern does not infer deployments from course or client data alone.</p>
             </div>
@@ -239,6 +264,63 @@ export function renderDeploymentDetailPage(input: {
             </div>
           </form>
           <p class="micro muted">Lantern records the exact Canvas identifiers and keeps them visible on reload so the install path stays auditable.</p>
+          <div class="callout">
+            <h3>Roster access proof</h3>
+            <p>${escapeHtml(rosterVerificationHeading)}</p>
+            <div class="facts">
+              <div class="fact">
+                <span class="fact-label">Last check</span>
+                <span class="fact-value">${
+      escapeHtml(
+        nrpsVerification === null
+          ? "Not run yet"
+          : formatDateTime(nrpsVerification.checkedAt),
+      )
+    }</span>
+              </div>
+              <div class="fact">
+                <span class="fact-label">Context ID</span>
+                <span class="fact-value">${
+      escapeHtml(
+        nrpsVerification?.contextId ?? "Latest launch context required",
+      )
+    }</span>
+              </div>
+              <div class="fact">
+                <span class="fact-label">Member count</span>
+                <span class="fact-value">${
+      escapeHtml(
+        nrpsVerification?.memberCount === null ||
+          nrpsVerification?.memberCount === undefined
+          ? "Not recorded"
+          : String(nrpsVerification.memberCount),
+      )
+    }</span>
+              </div>
+              <div class="fact">
+                <span class="fact-label">Status</span>
+                <span class="fact-value">${
+      escapeHtml(
+        nrpsVerification === null
+          ? "Pending verification"
+          : nrpsVerification.status === "succeeded"
+          ? "Succeeded"
+          : "Failed",
+      )
+    }</span>
+              </div>
+            </div>
+            <form method="post" action="/admin/packages/${
+      escapeHtml(input.appId)
+    }/deployment/verify-roster" class="stack">
+              <div class="button-row">
+                <button type="submit" class="button-secondary" ${
+      activeDeployment.binding === null ? "disabled" : ""
+    }>Verify roster access</button>
+              </div>
+            </form>
+            <p class="micro muted">Lantern uses the latest launch-captured NRPS URL for this deployment and stores only a small verification summary.</p>
+          </div>
           <p class="section-label">Version picker</p>
           <form method="post" action="/admin/packages/${
       escapeHtml(input.appId)

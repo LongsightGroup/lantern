@@ -3,6 +3,7 @@ import { type Context, Hono } from "@hono/hono";
 import { createDatabasePool } from "./db/pool.ts";
 import {
   buildDefaultDeploymentSeed,
+  type DeploymentNrpsVerificationSummary,
   renderDeploymentDetailPage,
 } from "./admin/deployment_detail.ts";
 import type { AdminNotice } from "./admin/layout.ts";
@@ -13,6 +14,11 @@ import {
   parseCanvasEnvironment,
   resolveCanvasIssuer,
 } from "./lti/config.ts";
+import {
+  readContextMemberships,
+  requestCanvasServiceAccessToken,
+} from "./lti/services.ts";
+import { LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE } from "./lti/types.ts";
 import { type CanvasLoginRequest, createLoginRedirect } from "./lti/login.ts";
 import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
@@ -26,7 +32,10 @@ import {
   createPackageReviewRepository,
   type PackageReviewRepository,
 } from "./package_review/repository.ts";
-import type { PackageVersionRecord } from "./package_review/types.ts";
+import type {
+  DeploymentRecord,
+  PackageVersionRecord,
+} from "./package_review/types.ts";
 import { renderHomePage } from "./pages/home.ts";
 import {
   authorizeRuntimeSession,
@@ -477,42 +486,21 @@ export function createApp(
   app.get("/admin/packages/:appId/deployment", async (context) => {
     try {
       const repository = resolvedServices.getRepository();
-      const history = await repository.listPackageVersionsByApp(
+      const detail = await loadDeploymentDetailState(
+        repository,
         context.req.param("appId"),
       );
-
-      if (history.length === 0) {
-        return context.html(
-          renderPackageIndexPage({
-            versions: [],
-            notice: {
-              tone: "error",
-              title: "Deployment page unavailable",
-              detail:
-                "Import a package version first so Lantern has an exact app to pin.",
-            },
-          }),
-          404,
-        );
-      }
-
-      const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
-      const seed = buildDefaultDeploymentSeed(
-        context.req.param("appId"),
-        appTitle,
-      );
-      const deployment = await repository.getDeploymentBySlug(seed.slug);
-      const canvasConfigUrl = getCanvasConfigUrlNoticeSafe();
 
       return context.html(
         renderDeploymentDetailPage({
           appId: context.req.param("appId"),
-          appTitle,
-          history,
-          deployment,
-          canvasConfigUrl: canvasConfigUrl.url,
+          appTitle: detail.appTitle,
+          history: detail.history,
+          deployment: detail.deployment,
+          nrpsVerification: detail.nrpsVerification,
+          canvasConfigUrl: detail.canvasConfigUrl.url,
           supportedCanvasEnvironments: listCanvasEnvironments(),
-          notice: canvasConfigUrl.notice,
+          notice: detail.canvasConfigUrl.notice,
         }),
       );
     } catch (error) {
@@ -525,6 +513,128 @@ export function createApp(
       );
     }
   });
+
+  app.post(
+    "/admin/packages/:appId/deployment/verify-roster",
+    async (context) => {
+      const appId = context.req.param("appId");
+      const repository = resolvedServices.getRepository();
+
+      try {
+        const detail = await loadDeploymentDetailState(repository, appId);
+
+        if (detail.deployment === null) {
+          throw new Error(
+            "Save the Canvas binding and exact deployment before verifying roster access.",
+          );
+        }
+
+        if (detail.deployment.binding === null) {
+          throw new Error(
+            "Canvas deployment binding is required before roster verification can run.",
+          );
+        }
+
+        const latestSession = await repository
+          .getLatestRuntimeSessionByDeploymentId(
+            detail.deployment.id,
+          );
+
+        if (latestSession === null) {
+          throw new Error(
+            "Launch the deployment from Canvas once before verifying roster access.",
+          );
+        }
+
+        if (latestSession.services.nrps === null) {
+          throw new Error(
+            "Launch did not provide NRPS service context for this deployment.",
+          );
+        }
+
+        const token = await requestCanvasServiceAccessToken({
+          issuer: detail.deployment.binding.issuer,
+          clientId: detail.deployment.binding.clientId,
+          scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
+        });
+        const members = await readContextMemberships({
+          accessToken: token.accessToken,
+          contextMembershipsUrl:
+            latestSession.services.nrps.contextMembershipsUrl,
+        });
+
+        await repository.recordAuditEvent({
+          eventType: "deployment.nrps_verified",
+          actorType: "system",
+          actorId: null,
+          deploymentRecordId: detail.deployment.id,
+          packageVersionId: detail.deployment.enabledPackageVersionId,
+          attemptId: latestSession.attemptId,
+          lineItemBindingId: null,
+          status: "succeeded",
+          summary:
+            "Read Canvas roster memberships through the launch-scoped NRPS service.",
+          detail: {
+            contextId: latestSession.launch.courseId,
+            memberCount: members.length,
+          },
+          occurredAt: new Date().toISOString(),
+        });
+
+        return context.redirect(`/admin/packages/${appId}/deployment`, 303);
+      } catch (error) {
+        const detail = await loadDeploymentDetailStateSafe(repository, appId);
+
+        if (detail.deployment !== null) {
+          await repository.recordAuditEvent({
+            eventType: "deployment.nrps_verified",
+            actorType: "system",
+            actorId: null,
+            deploymentRecordId: detail.deployment.id,
+            packageVersionId: detail.deployment.enabledPackageVersionId,
+            attemptId: null,
+            lineItemBindingId: null,
+            status: "failed",
+            summary: "Canvas roster verification failed.",
+            detail: {
+              message: errorMessage(error),
+            },
+            occurredAt: new Date().toISOString(),
+          });
+        }
+        const nrpsVerification = detail.deployment === null
+          ? detail.nrpsVerification
+          : await getLatestNrpsVerification(repository, detail.deployment.id);
+
+        if (detail.history.length === 0) {
+          return context.html(
+            renderPackageIndexPage({
+              versions: [],
+              notice: createErrorNotice("Deployment page unavailable", error),
+            }),
+            statusForNrpsError(error),
+          );
+        }
+
+        return context.html(
+          renderDeploymentDetailPage({
+            appId,
+            appTitle: detail.appTitle,
+            history: detail.history,
+            deployment: detail.deployment,
+            nrpsVerification,
+            canvasConfigUrl: detail.canvasConfigUrl.url,
+            supportedCanvasEnvironments: listCanvasEnvironments(),
+            notice: combineNotices(
+              detail.canvasConfigUrl.notice,
+              createErrorNotice("Roster verification failed", error),
+            ),
+          }),
+          statusForNrpsError(error),
+        );
+      }
+    },
+  );
 
   app.post("/admin/packages/:appId/deployment/pin", async (context) => {
     const appId = context.req.param("appId");
@@ -964,6 +1074,25 @@ function statusForFinalizePublishError(code: string): 409 | 500 {
   return 500;
 }
 
+function statusForNrpsError(error: unknown): 409 | 500 {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (
+    error.message.includes("required") ||
+    error.message.includes("Launch ") ||
+    error.message.includes("Canvas deployment binding") ||
+    error.message.includes("Import a package version") ||
+    error.message.includes("roster access") ||
+    error.message.includes("NRPS")
+  ) {
+    return 409;
+  }
+
+  return 500;
+}
+
 function normalizeOptionalString(
   value: FormDataEntryValue | null,
 ): string | null {
@@ -1008,6 +1137,99 @@ function getCanvasConfigUrlNoticeSafe(): {
       notice: createErrorNotice("Canvas config unavailable", error),
     };
   }
+}
+
+async function loadDeploymentDetailState(
+  repository: PackageReviewRepository,
+  appId: string,
+): Promise<{
+  history: PackageVersionRecord[];
+  appTitle: string;
+  deployment: DeploymentRecord | null;
+  nrpsVerification: DeploymentNrpsVerificationSummary | null;
+  canvasConfigUrl: {
+    url: string | null;
+    notice: AdminNotice | null;
+  };
+}> {
+  const history = await repository.listPackageVersionsByApp(appId);
+
+  if (history.length === 0) {
+    throw new Error(
+      "Import a package version first so Lantern has an exact app to pin.",
+    );
+  }
+
+  const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
+  const seed = buildDefaultDeploymentSeed(appId, appTitle);
+  const deployment = await repository.getDeploymentBySlug(seed.slug);
+  const nrpsVerification = deployment === null
+    ? null
+    : await getLatestNrpsVerification(repository, deployment.id);
+
+  return {
+    history,
+    appTitle,
+    deployment,
+    nrpsVerification,
+    canvasConfigUrl: getCanvasConfigUrlNoticeSafe(),
+  };
+}
+
+async function loadDeploymentDetailStateSafe(
+  repository: PackageReviewRepository,
+  appId: string,
+): Promise<{
+  history: PackageVersionRecord[];
+  appTitle: string;
+  deployment: DeploymentRecord | null;
+  nrpsVerification: DeploymentNrpsVerificationSummary | null;
+  canvasConfigUrl: {
+    url: string | null;
+    notice: AdminNotice | null;
+  };
+}> {
+  try {
+    return await loadDeploymentDetailState(repository, appId);
+  } catch {
+    return {
+      history: [],
+      appTitle: "Package",
+      deployment: null,
+      nrpsVerification: null,
+      canvasConfigUrl: getCanvasConfigUrlNoticeSafe(),
+    };
+  }
+}
+
+async function getLatestNrpsVerification(
+  repository: PackageReviewRepository,
+  deploymentRecordId: number,
+): Promise<DeploymentNrpsVerificationSummary | null> {
+  const events = await repository.listAuditEventsByEventType(
+    "deployment.nrps_verified",
+  );
+  const event = [...events].reverse().find((candidate) =>
+    candidate.deploymentRecordId === deploymentRecordId
+  );
+
+  if (!event) {
+    return null;
+  }
+
+  const memberCount = typeof event.detail.memberCount === "number"
+    ? event.detail.memberCount
+    : null;
+  const contextId = typeof event.detail.contextId === "string"
+    ? event.detail.contextId
+    : null;
+
+  return {
+    status: event.status === "succeeded" ? "succeeded" : "failed",
+    checkedAt: event.occurredAt,
+    contextId,
+    memberCount,
+  };
 }
 
 async function readCanvasLoginRequest(
