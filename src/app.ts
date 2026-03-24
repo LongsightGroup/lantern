@@ -35,7 +35,10 @@ import {
   loadRuntimeAssetBytes,
   renderRuntimeSessionPage,
 } from "./runtime/session.ts";
-import { acceptAttemptEvent } from "./runtime/gateway.ts";
+import {
+  acceptAttemptEvent,
+  finalizeRuntimeAttempt,
+} from "./runtime/gateway.ts";
 
 export interface AppServices {
   getRepository: () => PackageReviewRepository;
@@ -231,6 +234,61 @@ export function createApp(
       });
 
       return context.json({ accepted: true }, 202);
+    } catch (error) {
+      return context.text(errorMessage(error), statusForRuntimeError(error));
+    }
+  });
+
+  app.post("/runtime/sessions/:sessionId/finalize", async (context) => {
+    try {
+      const repository = resolvedServices.getRepository();
+      const session = await requireRuntimeSession(
+        repository,
+        context.req.param("sessionId"),
+      );
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      const result = await finalizeRuntimeAttempt({
+        repository,
+        session,
+        payload: await context.req.json(),
+      });
+
+      if (result.finalizedNow) {
+        await repository.recordAuditEvent({
+          eventType: "attempt.finalized",
+          actorType: "system",
+          actorId: null,
+          deploymentRecordId: session.deploymentRecordId,
+          packageVersionId: session.packageVersionId,
+          attemptId: session.attemptId,
+          lineItemBindingId: null,
+          status: "accepted",
+          summary: "Finalized the durable attempt inside the runtime gateway.",
+          detail: {
+            completionState: result.attempt.completionState,
+            scoreGiven: result.score.scoreGiven,
+            scoreMaximum: result.score.scoreMaximum,
+          },
+          occurredAt: new Date().toISOString(),
+        });
+      }
+
+      return context.json({
+        accepted: true,
+        alreadyFinalized: !result.finalizedNow,
+        attemptId: result.attempt.attemptId,
+        completionState: result.attempt.completionState,
+        scoreGiven: result.score.scoreGiven,
+        scoreMaximum: result.score.scoreMaximum,
+      }, 202);
     } catch (error) {
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }

@@ -3,6 +3,7 @@ import { createApp } from "./app.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
 import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
+  buildAttemptEventRecord,
   buildAttemptRecord,
   buildDeploymentRecord,
   buildImportedPackageVersion,
@@ -707,17 +708,54 @@ Deno.test(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "POST /runtime/sessions/:id/finalize finalizes the durable attempt and keeps grade publication inside the gateway boundary",
   async () => {
-    const app = createApp({
-      getRepository: () =>
-        createInMemoryPackageReviewRepository({
-          runtimeSessions: [buildRuntimeSessionRecord()],
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          artifact: {
+            snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+            manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+            entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+            digest: "sha256:example-snapshot",
+          },
         }),
+      ],
+      attempts: [buildAttemptRecord()],
+      attemptEvents: [
+        buildAttemptEventRecord({
+          id: 1,
+          sequence: 1,
+          event: {
+            type: "answer",
+            questionId: "q1",
+            answer: "resistance to a change in motion",
+            timestamp: "2026-03-24T02:30:00Z",
+          },
+        }),
+        buildAttemptEventRecord({
+          id: 2,
+          sequence: 2,
+          event: {
+            type: "answer",
+            questionId: "q2",
+            answer: "speed with direction",
+            timestamp: "2026-03-24T02:31:00Z",
+          },
+        }),
+      ],
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          expiresAt: "2026-03-25T02:45:00Z",
+        }),
+      ],
+    });
+    const app = createApp({
+      getRepository: () => repository,
     });
 
-    const response = await app.request(
+    const firstResponse = await app.request(
       "http://localhost/runtime/sessions/runtime-session-123/finalize",
       {
         method: "POST",
@@ -730,8 +768,49 @@ Deno.test.ignore(
         }),
       },
     );
+    const secondResponse = await app.request(
+      "http://localhost/runtime/sessions/runtime-session-123/finalize",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          completionState: "abandoned",
+        }),
+      },
+    );
 
-    assertEquals(response.status, 202);
+    assertEquals(firstResponse.status, 202);
+    assertEquals(secondResponse.status, 202);
+
+    const firstBody = await firstResponse.json() as {
+      accepted: boolean;
+      alreadyFinalized: boolean;
+      attemptId: string;
+      completionState: "completed" | "abandoned" | null;
+      scoreGiven: number;
+      scoreMaximum: number;
+    };
+    const secondBody = await secondResponse.json() as typeof firstBody;
+    const attempt = await repository.getAttemptById("attempt-123");
+    const auditEvents = await repository.listAuditEventsByEventType(
+      "attempt.finalized",
+    );
+
+    assertEquals(firstBody.accepted, true);
+    assertEquals(firstBody.alreadyFinalized, false);
+    assertEquals(firstBody.completionState, "completed");
+    assertEquals(firstBody.scoreGiven, 100);
+    assertEquals(firstBody.scoreMaximum, 100);
+    assertEquals(secondBody.alreadyFinalized, true);
+    assertEquals(secondBody.completionState, "completed");
+    assertEquals(secondBody.scoreGiven, 100);
+    assertEquals(attempt?.status, "completed");
+    assertEquals(typeof attempt?.finalizedAt, "string");
+    assertEquals(auditEvents.length, 1);
+    assertEquals(auditEvents[0]?.attemptId, "attempt-123");
   },
 );
 

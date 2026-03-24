@@ -522,3 +522,48 @@ Deno.test("repository appends attempt events in sequence order for a durable att
     ]);
   });
 });
+
+Deno.test("repository finalizes durable attempts idempotently", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for attempt finalize tests.",
+    });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+    const attempt = await repository.createAttempt(
+      buildAttemptRecord({
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+      }),
+    );
+
+    const firstFinalize = await repository.finalizeAttempt({
+      attemptId: attempt.attemptId,
+      status: "completed",
+      completionState: "completed",
+      finalizedAt: "2026-03-24T02:35:00Z",
+    });
+    const secondFinalize = await repository.finalizeAttempt({
+      attemptId: attempt.attemptId,
+      status: "abandoned",
+      completionState: "abandoned",
+      finalizedAt: "2026-03-24T02:40:00Z",
+    });
+
+    assertEquals(firstFinalize.status, "completed");
+    assertEquals(firstFinalize.completionState, "completed");
+    assertEquals(firstFinalize.finalizedAt, "2026-03-24T02:35:00.000Z");
+    assertEquals(secondFinalize.status, "completed");
+    assertEquals(secondFinalize.completionState, "completed");
+    assertEquals(secondFinalize.finalizedAt, "2026-03-24T02:35:00.000Z");
+  });
+});
