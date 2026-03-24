@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import { CANVAS_LTI_SCOPES } from "./types.ts";
 import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
 
 Deno.test("GET /lti/canvas/config.json publishes one supported Canvas config document", async () => {
@@ -16,12 +17,19 @@ Deno.test("GET /lti/canvas/config.json publishes one supported Canvas config doc
 
     assertEquals(response.status, 200);
 
-    const body = await response.text();
+    const body = await response.json() as {
+      oidc_initiation_url: string;
+      target_link_uri: string;
+      public_jwk_url: string;
+      scopes: string[];
+      extensions: unknown[];
+    };
 
-    assertStringIncludes(body, "\"oidc_initiation_url\"");
-    assertStringIncludes(body, "\"target_link_uri\"");
-    assertStringIncludes(body, "\"public_jwk_url\"");
-    assertStringIncludes(body, "\"placements\"");
+    assertEquals(typeof body.oidc_initiation_url, "string");
+    assertEquals(typeof body.target_link_uri, "string");
+    assertEquals(typeof body.public_jwk_url, "string");
+    assertEquals(body.scopes, [...CANVAS_LTI_SCOPES]);
+    assertEquals(Array.isArray(body.extensions), true);
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousJwk);
@@ -35,20 +43,22 @@ Deno.test("GET /lti/jwks.json exposes only the public Lantern tool JWK", async (
 
   try {
     const { createApp } = await import("../app.ts");
-    const response = await createApp().request("http://localhost/lti/jwks.json");
+    const response = await createApp().request(
+      "http://localhost/lti/jwks.json",
+    );
 
     assertEquals(response.status, 200);
 
     const body = await response.text();
 
-    assertStringIncludes(body, "\"keys\"");
-    assertEquals(body.includes("\"d\""), false);
+    assertStringIncludes(body, '"keys"');
+    assertEquals(body.includes('"d"'), false);
   } finally {
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousJwk);
   }
 });
 
-Deno.test("config document does not advertise unsupported Phase 2 scopes or placements", async () => {
+Deno.test("config document advertises exactly the Phase 3 AGS and NRPS scopes", async () => {
   const previousOrigin = Deno.env.get("APP_ORIGIN");
   const previousJwk = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
 
@@ -60,11 +70,13 @@ Deno.test("config document does not advertise unsupported Phase 2 scopes or plac
     const document = await buildCanvasConfigDocument();
 
     assertEquals(Array.isArray(document.extensions), true);
+    assertEquals(document.scopes, [...CANVAS_LTI_SCOPES]);
     assertEquals(
-      JSON.stringify(document).includes("contextmembership.readonly"),
+      document.scopes.includes(
+        "https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly",
+      ),
       false,
     );
-    assertEquals(JSON.stringify(document).includes("score"), false);
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousJwk);

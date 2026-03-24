@@ -84,6 +84,8 @@ async function parseToolPrivateJwk(rawValue: string): Promise<ToolPrivateJwk> {
     );
   }
 
+  readRequiredString(parsed, "kty", "RSA");
+
   const baseJwk = {
     kty: "RSA" as const,
     n: readRequiredString(parsed, "n"),
@@ -95,7 +97,6 @@ async function parseToolPrivateJwk(rawValue: string): Promise<ToolPrivateJwk> {
     dq: readRequiredString(parsed, "dq"),
     qi: readRequiredString(parsed, "qi"),
   };
-  readRequiredString(parsed, "kty", "RSA");
 
   const unsignedPublicJwk = {
     kty: baseJwk.kty,

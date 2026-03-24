@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
+import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
   buildDeploymentRecord,
   buildImportedPackageVersion,
@@ -372,10 +373,20 @@ Deno.test("GET /lti/canvas/config.json publishes the pilot Canvas config documen
     }).request("http://localhost/lti/canvas/config.json");
 
     assertEquals(response.status, 200);
-    const body = await response.text();
+    const body = await response.json() as {
+      oidc_initiation_url: string;
+      scopes: string[];
+      extensions: Array<
+        { settings: { placements: Array<{ placement: string }> } }
+      >;
+    };
 
-    assertStringIncludes(body, '"oidc_initiation_url"');
-    assertStringIncludes(body, '"course_navigation"');
+    assertEquals(typeof body.oidc_initiation_url, "string");
+    assertEquals(body.scopes, [...CANVAS_LTI_SCOPES]);
+    assertEquals(
+      body.extensions[0]?.settings.placements[0]?.placement,
+      "course_navigation",
+    );
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousJwk);
@@ -456,7 +467,7 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
       buildLoginStateRecord({
         state: "state-launch-123",
         nonce: "nonce-launch-123",
-        expiresAt: "2026-03-24T02:45:00Z",
+        expiresAt: "2026-03-25T02:45:00Z",
       }),
     ],
   });
@@ -509,7 +520,18 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
       const saved = await repository.getRuntimeSessionById(sessionId);
 
       assertEquals(saved?.packageVersionId, 5);
+      assertEquals(typeof saved?.attemptId, "string");
       assertEquals(saved?.launch.userRole, "learner");
+      assertEquals(
+        saved?.services.ags?.scope,
+        [...CANVAS_LTI_SCOPES].slice(0, 2),
+      );
+      assertEquals(
+        saved?.services.nrps?.contextMembershipsUrl?.includes(
+          "names_and_roles",
+        ),
+        true,
+      );
     },
   );
 });
@@ -538,7 +560,7 @@ Deno.test("POST /lti/launch rejects bad signed launches before any runtime hando
       buildLoginStateRecord({
         state: "state-invalid-launch",
         nonce: "nonce-invalid-launch",
-        expiresAt: "2026-03-24T02:45:00Z",
+        expiresAt: "2026-03-25T02:45:00Z",
       }),
     ],
   });
@@ -591,7 +613,7 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with Lantern
             snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
             entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-            expiresAt: "2026-03-24T02:45:00Z",
+            expiresAt: "2026-03-25T02:45:00Z",
           }),
         ],
       }),
@@ -603,12 +625,72 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with Lantern
   const body = await response.text();
 
   assertStringIncludes(body, "GatewayBootstrap");
+  assertStringIncludes(body, "attempt-123");
   assertStringIncludes(body, "runtime-token-123");
   assertStringIncludes(
     body,
     "/runtime/sessions/runtime-session-123/files/dist/?token=runtime-token-123",
   );
 });
+
+Deno.test.ignore(
+  "POST /runtime/sessions/:id/attempt-events enforces session auth, capability checks, and append-only event writes",
+  async () => {
+    const app = createApp({
+      getRepository: () =>
+        createInMemoryPackageReviewRepository({
+          runtimeSessions: [buildRuntimeSessionRecord()],
+        }),
+    });
+
+    const response = await app.request(
+      "http://localhost/runtime/sessions/runtime-session-123/attempt-events",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "answer",
+          questionId: "q1",
+          answer: "asteroid",
+          timestamp: "2026-03-24T02:30:00Z",
+        }),
+      },
+    );
+
+    assertEquals(response.status, 202);
+  },
+);
+
+Deno.test.ignore(
+  "POST /runtime/sessions/:id/finalize finalizes the durable attempt and keeps grade publication inside the gateway boundary",
+  async () => {
+    const app = createApp({
+      getRepository: () =>
+        createInMemoryPackageReviewRepository({
+          runtimeSessions: [buildRuntimeSessionRecord()],
+        }),
+    });
+
+    const response = await app.request(
+      "http://localhost/runtime/sessions/runtime-session-123/finalize",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          completionState: "completed",
+        }),
+      },
+    );
+
+    assertEquals(response.status, 202);
+  },
+);
 
 Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content through the scoped runtime bridge", async () => {
   const response = await createApp({
@@ -619,7 +701,7 @@ Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content th
             snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
             entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-            expiresAt: "2026-03-24T02:45:00Z",
+            expiresAt: "2026-03-25T02:45:00Z",
           }),
         ],
       }),
@@ -648,7 +730,7 @@ Deno.test("GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blo
             snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
             entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-            expiresAt: "2026-03-24T02:45:00Z",
+            expiresAt: "2026-03-25T02:45:00Z",
           }),
         ],
       }),

@@ -1,8 +1,14 @@
-import { createLocalJWKSet, jwtVerify, type JSONWebKeySet } from "jose";
+import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from "jose";
 import type { UserRole } from "../../sdk/app-sdk.ts";
 import type { PackageVersionRecord } from "../package_review/types.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
-import type { ValidatedLaunch, RuntimeSessionRecord } from "./types.ts";
+import type {
+  LaunchAssignmentAndGradeServices,
+  LaunchNamesAndRolesService,
+  LaunchServiceClaims,
+  RuntimeSessionRecord,
+  ValidatedLaunch,
+} from "./types.ts";
 import { resolveCanvasPlatform } from "./canvas_platform.ts";
 
 const CLAIM_MESSAGE_TYPE =
@@ -18,6 +24,10 @@ const CLAIM_CONTEXT = "https://purl.imsglobal.org/spec/lti/claim/context";
 const CLAIM_ROLES = "https://purl.imsglobal.org/spec/lti/claim/roles";
 const CLAIM_LAUNCH_PRESENTATION =
   "https://purl.imsglobal.org/spec/lti/claim/launch_presentation";
+const CLAIM_AGS_ENDPOINT =
+  "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint";
+const CLAIM_NRPS_SERVICE =
+  "https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice";
 const RUNTIME_SESSION_TTL_MS = 10 * 60 * 1000;
 
 export async function validateLaunchRequest(input: {
@@ -25,9 +35,11 @@ export async function validateLaunchRequest(input: {
   state: string;
   idToken: string;
   now?: () => Date;
+  createOpaqueToken?: () => string;
   loadJwks?: (url: string) => Promise<JSONWebKeySet>;
 }): Promise<ValidatedLaunch> {
   const now = input.now ?? (() => new Date());
+  const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const loadJwks = input.loadJwks ?? defaultLoadJwks;
   const state = requireTrimmedValue(input.state, "Launch state is required.");
   const idToken = requireTrimmedValue(
@@ -92,11 +104,15 @@ export async function validateLaunchRequest(input: {
   );
 
   if (deploymentId !== loginState.deploymentId) {
-    throw new Error("Launch deployment_id did not match the saved login state.");
+    throw new Error(
+      "Launch deployment_id did not match the saved login state.",
+    );
   }
 
   if (targetLinkUri !== loginState.targetLinkUri) {
-    throw new Error("Launch target_link_uri did not match the saved login state.");
+    throw new Error(
+      "Launch target_link_uri did not match the saved login state.",
+    );
   }
 
   if (nonce !== loginState.nonce) {
@@ -165,7 +181,10 @@ export async function validateLaunchRequest(input: {
     state,
     usedAt: now().toISOString(),
   });
-  const launchPresentation = asOptionalRecord(payload[CLAIM_LAUNCH_PRESENTATION]);
+  const launchPresentation = asOptionalRecord(
+    payload[CLAIM_LAUNCH_PRESENTATION],
+  );
+  const userId = requireStringClaim(payload.sub, "Launch subject is required.");
 
   return {
     internalDeploymentId: deployment.id,
@@ -173,7 +192,8 @@ export async function validateLaunchRequest(input: {
     appId: packageVersion.appId,
     packageVersionId: packageVersion.id,
     packageVersion: packageVersion.version,
-    userId: requireStringClaim(payload.sub, "Launch subject is required."),
+    attemptId: `attempt-${createOpaqueToken()}`,
+    userId,
     userRole: resolveUserRole(payload[CLAIM_ROLES]),
     resourceLinkId,
     resourceLinkTitle: optionalStringClaim(resourceLink.title),
@@ -182,6 +202,7 @@ export async function validateLaunchRequest(input: {
     targetLinkUri,
     returnUrl: optionalStringClaim(launchPresentation?.return_url),
     activityId: resourceLinkId,
+    services: parseLaunchServiceClaims(payload),
     issuedAt: now().toISOString(),
     canvasEnvironment: consumedState.canvasEnvironment,
     issuer: consumedState.issuer,
@@ -219,6 +240,7 @@ export async function createRuntimeSession(input: {
   return await input.repository.createRuntimeSession({
     sessionId: createOpaqueToken(),
     sessionToken: createOpaqueToken(),
+    attemptId: input.launch.attemptId,
     deploymentRecordId: input.launch.internalDeploymentId,
     deploymentSlug: input.launch.internalDeploymentSlug,
     appId: packageVersion.appId,
@@ -228,6 +250,7 @@ export async function createRuntimeSession(input: {
     snapshotRoot: packageVersion.artifact.snapshotRoot,
     entrypointPath: packageVersion.artifact.entrypointPath,
     contentPath: resolveContentPath(packageVersion),
+    services: input.launch.services,
     launch: {
       userRole: input.launch.userRole,
       courseId: requireTrimmedValue(
@@ -253,14 +276,18 @@ async function defaultLoadJwks(url: string): Promise<JSONWebKeySet> {
 }
 
 function resolveContentPath(packageVersion: PackageVersionRecord): string {
-  const contentFiles = readStringArray(packageVersion.manifestJson.content_files);
+  const contentFiles = readStringArray(
+    packageVersion.manifestJson.content_files,
+  );
   const firstContentFile = contentFiles[0];
 
   if (!firstContentFile) {
     return `${packageVersion.artifact.snapshotRoot}/content/activity.json`;
   }
 
-  return `${packageVersion.artifact.snapshotRoot}${trimLeadingSlash(firstContentFile)}`;
+  return `${packageVersion.artifact.snapshotRoot}${
+    trimLeadingSlash(firstContentFile)
+  }`;
 }
 
 function readStringArray(value: unknown): string[] {
@@ -268,7 +295,9 @@ function readStringArray(value: unknown): string[] {
     return [];
   }
 
-  const items = value.filter((item): item is string => typeof item === "string");
+  const items = value.filter((item): item is string =>
+    typeof item === "string"
+  );
 
   return items.map((item) => item.trim()).filter((item) => item !== "");
 }
@@ -304,7 +333,9 @@ function resolveUserRole(value: unknown): UserRole {
     return "learner";
   }
 
-  const roles = value.filter((item): item is string => typeof item === "string");
+  const roles = value.filter((item): item is string =>
+    typeof item === "string"
+  );
 
   if (roles.some((role) => role.includes("#Instructor"))) {
     return "instructor";
@@ -364,8 +395,52 @@ function defaultOpaqueToken(): string {
   return encodeBase64Url(crypto.getRandomValues(new Uint8Array(18)));
 }
 
+function parseLaunchServiceClaims(
+  payload: Record<string, unknown>,
+): LaunchServiceClaims {
+  return {
+    ags: parseAgsServiceClaim(asOptionalRecord(payload[CLAIM_AGS_ENDPOINT])),
+    nrps: parseNrpsServiceClaim(asOptionalRecord(payload[CLAIM_NRPS_SERVICE])),
+  };
+}
+
+function parseAgsServiceClaim(
+  value: Record<string, unknown> | null,
+): LaunchAssignmentAndGradeServices | null {
+  if (value === null) {
+    return null;
+  }
+
+  return {
+    scope: readStringArray(value.scope),
+    lineitemsUrl: optionalStringClaim(value.lineitems),
+    lineitemUrl: optionalStringClaim(value.lineitem),
+  };
+}
+
+function parseNrpsServiceClaim(
+  value: Record<string, unknown> | null,
+): LaunchNamesAndRolesService | null {
+  if (value === null) {
+    return null;
+  }
+
+  const contextMembershipsUrl = requireStringClaim(
+    value.context_memberships_url,
+    "Launch namesroleservice.context_memberships_url is required.",
+  );
+
+  return {
+    contextMembershipsUrl,
+    serviceVersions: readStringArray(value.service_versions),
+  };
+}
+
 function encodeBase64Url(bytes: Uint8Array): string {
   const chunk = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
 
-  return btoa(chunk).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
+  return btoa(chunk).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
+    "=",
+    "",
+  );
 }

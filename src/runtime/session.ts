@@ -147,7 +147,7 @@ function buildBootstrapPayload(
       capabilities: session.capabilities,
     },
     session: {
-      attempt_id: session.sessionId,
+      attempt_id: session.attemptId,
       token: session.sessionToken,
     },
   };
