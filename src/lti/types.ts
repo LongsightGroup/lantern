@@ -1,6 +1,17 @@
 import type { Capability, UserRole } from "../../sdk/app-sdk.ts";
 
 export type CanvasEnvironment = "production" | "beta" | "test";
+export const LTI_AGS_SCORE_SCOPE =
+  "https://purl.imsglobal.org/spec/lti-ags/scope/score";
+export const LTI_AGS_LINEITEM_SCOPE =
+  "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem";
+export const LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE =
+  "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly";
+export const CANVAS_LTI_SCOPES = [
+  LTI_AGS_SCORE_SCOPE,
+  LTI_AGS_LINEITEM_SCOPE,
+  LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE,
+] as const;
 
 export interface DeploymentBinding {
   canvasEnvironment: CanvasEnvironment;
@@ -27,12 +38,29 @@ export interface LoginStateRecord extends DeploymentBinding {
   usedAt: string | null;
 }
 
+export interface LaunchAssignmentAndGradeServices {
+  scope: string[];
+  lineitemsUrl: string | null;
+  lineitemUrl: string | null;
+}
+
+export interface LaunchNamesAndRolesService {
+  contextMembershipsUrl: string;
+  serviceVersions: string[];
+}
+
+export interface LaunchServiceClaims {
+  ags: LaunchAssignmentAndGradeServices | null;
+  nrps: LaunchNamesAndRolesService | null;
+}
+
 export interface ValidatedLaunch extends DeploymentBinding {
   internalDeploymentId: number;
   internalDeploymentSlug: string;
   appId: string;
   packageVersionId: number;
   packageVersion: string;
+  attemptId: string;
   userId: string;
   userRole: UserRole;
   resourceLinkId: string;
@@ -42,12 +70,14 @@ export interface ValidatedLaunch extends DeploymentBinding {
   targetLinkUri: string;
   returnUrl: string | null;
   activityId: string;
+  services: LaunchServiceClaims;
   issuedAt: string;
 }
 
 export interface RuntimeSessionRecord {
   sessionId: string;
   sessionToken: string;
+  attemptId: string;
   deploymentRecordId: number;
   deploymentSlug: string;
   appId: string;
@@ -57,6 +87,7 @@ export interface RuntimeSessionRecord {
   snapshotRoot: string;
   entrypointPath: string;
   contentPath: string;
+  services: LaunchServiceClaims;
   launch: {
     userRole: UserRole;
     courseId: string;

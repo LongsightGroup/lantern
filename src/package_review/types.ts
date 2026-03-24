@@ -1,10 +1,15 @@
-import type { Capability, UserRole } from "../../sdk/app-sdk.ts";
+import type { AttemptEvent, Capability, UserRole } from "../../sdk/app-sdk.ts";
 import type { DeploymentBinding } from "../lti/types.ts";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type InstallScope = "course" | "assignment";
 export type GradingMode = "declarative" | "manual" | "completion";
 export type ValidationSeverity = "error";
+export type AttemptStatus = "in_progress" | "completed" | "abandoned";
+export type AttemptCompletionState = "completed" | "abandoned";
+export type GradePublicationStatus = "pending" | "published" | "failed";
+export type AuditActorType = "user" | "system" | "platform";
+export type AuditEventStatus = "accepted" | "succeeded" | "failed";
 
 export interface PackageOwner {
   type: "user";
@@ -61,4 +66,82 @@ export interface DeploymentRecord {
   enabledPackageVersion: string | null;
   binding: DeploymentBinding | null;
   updatedAt: string;
+}
+
+export interface AttemptRecord {
+  id: number;
+  attemptId: string;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  appId: string;
+  packageVersionId: number;
+  packageVersion: string;
+  userId: string;
+  userRole: UserRole;
+  contextId: string;
+  resourceLinkId: string;
+  activityId: string;
+  status: AttemptStatus;
+  completionState: AttemptCompletionState | null;
+  startedAt: string;
+  finalizedAt: string | null;
+}
+
+export interface AttemptEventRecord {
+  id: number;
+  attemptId: string;
+  sequence: number;
+  eventType: AttemptEvent["type"];
+  event: AttemptEvent;
+  receivedAt: string;
+}
+
+export interface CanvasLineItemBindingRecord {
+  id: number;
+  deploymentRecordId: number;
+  packageVersionId: number;
+  contextId: string;
+  resourceLinkId: string;
+  activityId: string;
+  lineItemsUrl: string;
+  lineItemUrl: string;
+  resourceId: string;
+  tag: string;
+  label: string;
+  scoreMaximum: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GradePublicationRecord {
+  id: number;
+  attemptId: string;
+  lineItemBindingId: number;
+  lineItemUrl: string;
+  canvasUserId: string;
+  scoreGiven: number;
+  scoreMaximum: number;
+  activityProgress: "Completed" | "InProgress" | "Initialized";
+  gradingProgress: "Pending" | "PendingManual" | "FullyGraded" | "Failed";
+  status: GradePublicationStatus;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  errorCode: string | null;
+  errorDetail: Record<string, unknown> | null;
+}
+
+export interface AuditEventRecord {
+  id: number;
+  eventType: string;
+  actorType: AuditActorType;
+  actorId: string | null;
+  deploymentRecordId: number | null;
+  packageVersionId: number | null;
+  attemptId: string | null;
+  lineItemBindingId: number | null;
+  status: AuditEventStatus;
+  summary: string;
+  detail: Record<string, unknown>;
+  occurredAt: string;
 }

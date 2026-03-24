@@ -1,8 +1,10 @@
-import type {
-  CanvasEnvironment,
-} from "./types.ts";
+import type { CanvasEnvironment } from "./types.ts";
+import { CANVAS_LTI_SCOPES } from "./types.ts";
 import { getPublicJwkSet } from "./tool_key.ts";
-import { listCanvasPlatforms, resolveCanvasPlatform } from "./canvas_platform.ts";
+import {
+  listCanvasPlatforms,
+  resolveCanvasPlatform,
+} from "./canvas_platform.ts";
 
 export interface CanvasEnvironmentOption {
   id: CanvasEnvironment;
@@ -17,6 +19,7 @@ export interface CanvasConfigDocument {
   target_link_uri: string;
   public_jwk_url: string;
   redirect_uris: string[];
+  scopes: string[];
   extensions: Array<{
     domain: string;
     tool_id: string;
@@ -90,6 +93,7 @@ export async function buildCanvasConfigDocument(
     target_link_uri: launchUrl,
     public_jwk_url: buildCanvasJwksUrl(appOrigin),
     redirect_uris: [launchUrl],
+    scopes: [...CANVAS_LTI_SCOPES],
     extensions: [
       {
         domain: origin.host,

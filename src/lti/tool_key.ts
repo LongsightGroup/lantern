@@ -3,17 +3,21 @@ import { calculateJwkThumbprint, importJWK } from "jose";
 const TOOL_PRIVATE_JWK_ENV = "LTI_TOOL_PRIVATE_JWK";
 
 export interface ToolPublicJwk {
-  kty: "EC";
-  crv: "P-256";
-  x: string;
-  y: string;
-  alg: "ES256";
+  kty: "RSA";
+  n: string;
+  e: string;
+  alg: "RS256";
   use: "sig";
   kid: string;
 }
 
 export interface ToolPrivateJwk extends ToolPublicJwk {
   d: string;
+  p: string;
+  q: string;
+  dp: string;
+  dq: string;
+  qi: string;
 }
 
 export interface LoadedToolSigningKey {
@@ -33,7 +37,7 @@ export async function loadToolSigningKey(
 
   if (!rawValue) {
     throw new Error(
-      `Missing ${TOOL_PRIVATE_JWK_ENV}. Lantern needs one private JWK to publish its Canvas-facing public key.`,
+      `Missing ${TOOL_PRIVATE_JWK_ENV}. Lantern needs one RSA private JWK to publish its Canvas-facing public key and sign Canvas service assertions.`,
     );
   }
 
@@ -70,7 +74,7 @@ async function parseToolPrivateJwk(rawValue: string): Promise<ToolPrivateJwk> {
     parsed = JSON.parse(rawValue);
   } catch {
     throw new Error(
-      `${TOOL_PRIVATE_JWK_ENV} must be valid JSON containing one EC private JWK.`,
+      `${TOOL_PRIVATE_JWK_ENV} must be valid JSON containing one RSA private JWK.`,
     );
   }
 
@@ -81,26 +85,28 @@ async function parseToolPrivateJwk(rawValue: string): Promise<ToolPrivateJwk> {
   }
 
   const baseJwk = {
-    kty: "EC" as const,
-    crv: "P-256" as const,
-    x: readRequiredString(parsed, "x"),
-    y: readRequiredString(parsed, "y"),
+    kty: "RSA" as const,
+    n: readRequiredString(parsed, "n"),
+    e: readRequiredString(parsed, "e"),
     d: readRequiredString(parsed, "d"),
+    p: readRequiredString(parsed, "p"),
+    q: readRequiredString(parsed, "q"),
+    dp: readRequiredString(parsed, "dp"),
+    dq: readRequiredString(parsed, "dq"),
+    qi: readRequiredString(parsed, "qi"),
   };
-  readRequiredString(parsed, "kty", "EC");
-  readRequiredString(parsed, "crv", "P-256");
+  readRequiredString(parsed, "kty", "RSA");
 
   const unsignedPublicJwk = {
     kty: baseJwk.kty,
-    crv: baseJwk.crv,
-    x: baseJwk.x,
-    y: baseJwk.y,
+    n: baseJwk.n,
+    e: baseJwk.e,
   };
   const kid = await calculateJwkThumbprint(unsignedPublicJwk, "sha256");
 
   return {
     ...baseJwk,
-    alg: "ES256",
+    alg: "RS256",
     use: "sig",
     kid,
   };
@@ -109,9 +115,8 @@ async function parseToolPrivateJwk(rawValue: string): Promise<ToolPrivateJwk> {
 function toPublicJwk(privateJwk: ToolPrivateJwk): ToolPublicJwk {
   return {
     kty: privateJwk.kty,
-    crv: privateJwk.crv,
-    x: privateJwk.x,
-    y: privateJwk.y,
+    n: privateJwk.n,
+    e: privateJwk.e,
     alg: privateJwk.alg,
     use: privateJwk.use,
     kid: privateJwk.kid,
