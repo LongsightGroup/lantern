@@ -224,6 +224,7 @@ export function createInMemoryPackageReviewRepository(
     packageVersions?: PackageVersionRecord[];
     deployments?: DeploymentRecord[];
     attempts?: AttemptRecord[];
+    attemptEvents?: AttemptEventRecord[];
     auditEvents?: AuditEventRecord[];
     loginStates?: LoginStateRecord[];
     runtimeSessions?: RuntimeSessionRecord[];
@@ -232,6 +233,7 @@ export function createInMemoryPackageReviewRepository(
   const packageVersions = [...(options.packageVersions ?? [])];
   const deployments = [...(options.deployments ?? [])];
   const attempts = [...(options.attempts ?? [])];
+  const attemptEvents = [...(options.attemptEvents ?? [])];
   const auditEvents = [...(options.auditEvents ?? [])];
   const loginStates = [...(options.loginStates ?? [])];
   const runtimeSessions = [...(options.runtimeSessions ?? [])];
@@ -440,6 +442,71 @@ export function createInMemoryPackageReviewRepository(
         candidate.attemptId === attemptId
       );
       return Promise.resolve(record ? structuredClone(record) : null);
+    },
+
+    appendAttemptEvent(input) {
+      const attempt = attempts.find((candidate) =>
+        candidate.attemptId === input.attemptId
+      );
+
+      if (!attempt) {
+        throw new Error(`Attempt ${input.attemptId} was not found.`);
+      }
+
+      const sequence = attemptEvents
+        .filter((candidate) => candidate.attemptId === input.attemptId)
+        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const nextRecord = structuredClone({
+        id: nextId(attemptEvents),
+        attemptId: input.attemptId,
+        sequence,
+        eventType: input.event.type,
+        event: input.event,
+        receivedAt: input.receivedAt,
+      });
+
+      attemptEvents.push(nextRecord);
+
+      return Promise.resolve(structuredClone(nextRecord));
+    },
+
+    listAttemptEvents(attemptId) {
+      return Promise.resolve(
+        attemptEvents
+          .filter((candidate) => candidate.attemptId === attemptId)
+          .map((record) => structuredClone(record)),
+      );
+    },
+
+    finalizeAttempt(input) {
+      const index = attempts.findIndex((candidate) =>
+        candidate.attemptId === input.attemptId
+      );
+
+      if (index < 0) {
+        throw new Error(`Attempt ${input.attemptId} was not found.`);
+      }
+
+      const existing = attempts[index];
+
+      if (!existing) {
+        throw new Error(`Attempt ${input.attemptId} was not found.`);
+      }
+
+      if (existing.finalizedAt !== null) {
+        return Promise.resolve(structuredClone(existing));
+      }
+
+      const nextRecord = structuredClone({
+        ...existing,
+        status: input.status,
+        completionState: input.completionState,
+        finalizedAt: input.finalizedAt,
+      });
+
+      attempts.splice(index, 1, nextRecord);
+
+      return Promise.resolve(structuredClone(nextRecord));
     },
 
     recordAuditEvent(record) {

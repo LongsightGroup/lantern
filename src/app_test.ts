@@ -3,6 +3,7 @@ import { createApp } from "./app.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
 import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
+  buildAttemptRecord,
   buildDeploymentRecord,
   buildImportedPackageVersion,
   buildPackageVersionRecord,
@@ -660,14 +661,19 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with Lantern
   );
 });
 
-Deno.test.ignore(
+Deno.test(
   "POST /runtime/sessions/:id/attempt-events enforces session auth, capability checks, and append-only event writes",
   async () => {
-    const app = createApp({
-      getRepository: () =>
-        createInMemoryPackageReviewRepository({
-          runtimeSessions: [buildRuntimeSessionRecord()],
+    const repository = createInMemoryPackageReviewRepository({
+      attempts: [buildAttemptRecord()],
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          expiresAt: "2026-03-25T02:45:00Z",
         }),
+      ],
+    });
+    const app = createApp({
+      getRepository: () => repository,
     });
 
     const response = await app.request(
@@ -688,6 +694,16 @@ Deno.test.ignore(
     );
 
     assertEquals(response.status, 202);
+
+    const events = await repository.listAttemptEvents("attempt-123");
+    const auditEvents = await repository.listAuditEventsByEventType(
+      "attempt.submitted",
+    );
+
+    assertEquals(events.length, 1);
+    assertEquals(events[0]?.eventType, "answer");
+    assertEquals(auditEvents.length, 1);
+    assertEquals(auditEvents[0]?.attemptId, "attempt-123");
   },
 );
 

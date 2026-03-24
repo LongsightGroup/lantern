@@ -470,3 +470,55 @@ Deno.test("repository records append-only audit events in order and resetPackage
     );
   });
 });
+
+Deno.test("repository appends attempt events in sequence order for a durable attempt", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for attempt event tests.",
+    });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+    const attempt = await repository.createAttempt(
+      buildAttemptRecord({
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+      }),
+    );
+
+    await repository.appendAttemptEvent({
+      attemptId: attempt.attemptId,
+      event: {
+        type: "answer",
+        questionId: "q1",
+        answer: "asteroid",
+        timestamp: "2026-03-24T02:30:00Z",
+      },
+      receivedAt: "2026-03-24T02:30:01Z",
+    });
+    await repository.appendAttemptEvent({
+      attemptId: attempt.attemptId,
+      event: {
+        type: "complete",
+        timestamp: "2026-03-24T02:31:00Z",
+      },
+      receivedAt: "2026-03-24T02:31:01Z",
+    });
+
+    const events = await repository.listAttemptEvents(attempt.attemptId);
+
+    assertEquals(events.map((event) => event.sequence), [1, 2]);
+    assertEquals(events.map((event) => event.eventType), [
+      "answer",
+      "complete",
+    ]);
+  });
+});

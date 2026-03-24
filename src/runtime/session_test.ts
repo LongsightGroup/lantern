@@ -20,9 +20,19 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with inje
   assertStringIncludes(html, "GatewayBootstrap");
   assertStringIncludes(html, "chapter-4-asteroids");
   assertStringIncludes(html, "runtime-token-123");
+  assertStringIncludes(html, "emitAttemptEvent");
+  assertStringIncludes(html, "finalizeAttempt");
   assertStringIncludes(
     html,
     "/runtime/sessions/runtime-session-123/files/dist/?token=runtime-token-123",
+  );
+  assertStringIncludes(
+    html,
+    "/runtime/sessions/runtime-session-123/attempt-events",
+  );
+  assertStringIncludes(
+    html,
+    "/runtime/sessions/runtime-session-123/finalize",
   );
 });
 

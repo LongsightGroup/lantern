@@ -3,6 +3,7 @@ import { compare, parse } from "@std/semver";
 import type { ImportedPackageVersion } from "./intake.ts";
 import type {
   ApprovalStatus,
+  AttemptEventRecord,
   AttemptRecord,
   AuditEventRecord,
   DeploymentRecord,
@@ -160,6 +161,15 @@ interface AttemptRow {
   finalizedAt: Date | string | null;
 }
 
+interface AttemptEventRow {
+  id: number;
+  attemptId: string;
+  sequence: number;
+  eventType: AttemptEventRecord["eventType"];
+  event: AttemptEventRecord["event"];
+  receivedAt: Date | string;
+}
+
 interface AuditEventRow {
   id: number;
   eventType: string;
@@ -212,6 +222,18 @@ export interface PackageReviewRepository {
   ): Promise<RuntimeSessionRecord | null>;
   createAttempt(record: Omit<AttemptRecord, "id">): Promise<AttemptRecord>;
   getAttemptById(attemptId: string): Promise<AttemptRecord | null>;
+  appendAttemptEvent(input: {
+    attemptId: string;
+    event: AttemptEventRecord["event"];
+    receivedAt: string;
+  }): Promise<AttemptEventRecord>;
+  listAttemptEvents(attemptId: string): Promise<AttemptEventRecord[]>;
+  finalizeAttempt(input: {
+    attemptId: string;
+    status: AttemptRecord["status"];
+    completionState: AttemptRecord["completionState"];
+    finalizedAt: string;
+  }): Promise<AttemptRecord>;
   recordAuditEvent(
     record: Omit<AuditEventRecord, "id">,
   ): Promise<AuditEventRecord>;
@@ -833,6 +855,182 @@ export function createPackageReviewRepository(
         });
 
         return mapOptionalAttempt(result.rows[0]);
+      });
+    },
+
+    async appendAttemptEvent(input) {
+      return await withClient(pool, async (client) => {
+        return await withTransaction(
+          client,
+          "append_attempt_event",
+          async (transaction) => {
+            const attemptResult = await transaction.queryObject<{
+              attemptId: string;
+            }>({
+              text: `
+                SELECT attempt_id
+                FROM attempts
+                WHERE attempt_id = $1
+                FOR UPDATE
+              `,
+              args: [input.attemptId],
+              camelCase: true,
+            });
+
+            if (!attemptResult.rows[0]) {
+              throw new Error(`Attempt ${input.attemptId} was not found.`);
+            }
+
+            const sequenceResult = await transaction.queryObject<{
+              nextSequence: number;
+            }>({
+              text: `
+                SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence
+                FROM attempt_events
+                WHERE attempt_id = $1
+              `,
+              args: [input.attemptId],
+              camelCase: true,
+            });
+            const nextSequence = sequenceResult.rows[0]?.nextSequence ?? 1;
+            const result = await transaction.queryObject<AttemptEventRow>({
+              text: `
+                INSERT INTO attempt_events (
+                  attempt_id,
+                  sequence,
+                  event_type,
+                  event,
+                  received_at
+                ) VALUES (
+                  $1, $2, $3, $4::jsonb, $5
+                )
+                RETURNING
+                  id,
+                  attempt_id,
+                  sequence,
+                  event_type,
+                  event,
+                  received_at
+              `,
+              args: [
+                input.attemptId,
+                nextSequence,
+                input.event.type,
+                JSON.stringify(input.event),
+                input.receivedAt,
+              ],
+              camelCase: true,
+            });
+
+            return mapAttemptEventRow(result.rows[0]);
+          },
+        );
+      });
+    },
+
+    async listAttemptEvents(attemptId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<AttemptEventRow>({
+          text: `
+            SELECT
+              id,
+              attempt_id,
+              sequence,
+              event_type,
+              event,
+              received_at
+            FROM attempt_events
+            WHERE attempt_id = $1
+            ORDER BY sequence ASC
+          `,
+          args: [attemptId],
+          camelCase: true,
+        });
+
+        return result.rows.map(mapAttemptEventRow);
+      });
+    },
+
+    async finalizeAttempt(input) {
+      return await withClient(pool, async (client) => {
+        return await withTransaction(
+          client,
+          "finalize_attempt",
+          async (transaction) => {
+            const existingResult = await transaction.queryObject<AttemptRow>({
+              text: `
+                SELECT
+                  id,
+                  attempt_id,
+                  deployment_record_id,
+                  deployment_slug,
+                  app_id,
+                  package_version_id,
+                  package_version,
+                  user_id,
+                  user_role,
+                  context_id,
+                  resource_link_id,
+                  activity_id,
+                  status,
+                  completion_state,
+                  started_at,
+                  finalized_at
+                FROM attempts
+                WHERE attempt_id = $1
+                FOR UPDATE
+              `,
+              args: [input.attemptId],
+              camelCase: true,
+            });
+            const existing = existingResult.rows[0];
+
+            if (!existing) {
+              throw new Error(`Attempt ${input.attemptId} was not found.`);
+            }
+
+            if (existing.finalizedAt !== null) {
+              return mapAttemptRow(existing);
+            }
+
+            const updatedResult = await transaction.queryObject<AttemptRow>({
+              text: `
+                UPDATE attempts
+                SET
+                  status = $2,
+                  completion_state = $3,
+                  finalized_at = $4
+                WHERE attempt_id = $1
+                RETURNING
+                  id,
+                  attempt_id,
+                  deployment_record_id,
+                  deployment_slug,
+                  app_id,
+                  package_version_id,
+                  package_version,
+                  user_id,
+                  user_role,
+                  context_id,
+                  resource_link_id,
+                  activity_id,
+                  status,
+                  completion_state,
+                  started_at,
+                  finalized_at
+              `,
+              args: [
+                input.attemptId,
+                input.status,
+                input.completionState,
+                input.finalizedAt,
+              ],
+              camelCase: true,
+            });
+
+            return mapAttemptRow(updatedResult.rows[0]);
+          },
+        );
       });
     },
 
@@ -1509,6 +1707,23 @@ function mapAttemptRow(row: AttemptRow | undefined): AttemptRecord {
     completionState: row.completionState,
     startedAt: normalizeTimestamp(row.startedAt),
     finalizedAt: normalizeOptionalTimestamp(row.finalizedAt),
+  };
+}
+
+function mapAttemptEventRow(
+  row: AttemptEventRow | undefined,
+): AttemptEventRecord {
+  if (!row) {
+    throw new Error("Expected an attempt event row.");
+  }
+
+  return {
+    id: row.id,
+    attemptId: row.attemptId,
+    sequence: row.sequence,
+    eventType: row.eventType,
+    event: row.event,
+    receivedAt: normalizeTimestamp(row.receivedAt),
   };
 }
 

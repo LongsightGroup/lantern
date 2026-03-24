@@ -161,6 +161,12 @@ function buildRuntimeBootstrapScript(input: {
   const contentUrl = serializeForInlineScript(
     `${input.runtimeBasePath}/content`,
   );
+  const attemptEventsUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/attempt-events`,
+  );
+  const finalizeUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/finalize`,
+  );
 
   return `window.GatewayBootstrap = ${bootstrapJson};
 window.GatewayApp = {
@@ -183,6 +189,36 @@ window.GatewayApp = {
 
     if (!response.ok) {
       throw new Error('Activity content request failed with status ' + response.status + '.');
+    }
+
+    return await response.json();
+  },
+  async emitAttemptEvent(event) {
+    const response = await fetch(${attemptEventsUrl}, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + window.GatewayBootstrap.session.token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(event),
+    });
+
+    if (!response.ok) {
+      throw new Error('Attempt event request failed with status ' + response.status + '.');
+    }
+  },
+  async finalizeAttempt(input) {
+    const response = await fetch(${finalizeUrl}, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + window.GatewayBootstrap.session.token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(input ?? {}),
+    });
+
+    if (!response.ok) {
+      throw new Error('Finalize request failed with status ' + response.status + '.');
     }
 
     return await response.json();

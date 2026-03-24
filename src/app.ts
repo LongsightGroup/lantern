@@ -35,6 +35,7 @@ import {
   loadRuntimeAssetBytes,
   renderRuntimeSessionPage,
 } from "./runtime/session.ts";
+import { acceptAttemptEvent } from "./runtime/gateway.ts";
 
 export interface AppServices {
   getRepository: () => PackageReviewRepository;
@@ -186,6 +187,50 @@ export function createApp(
       });
 
       return context.json(await loadRuntimeActivityContent(session));
+    } catch (error) {
+      return context.text(errorMessage(error), statusForRuntimeError(error));
+    }
+  });
+
+  app.post("/runtime/sessions/:sessionId/attempt-events", async (context) => {
+    try {
+      const repository = resolvedServices.getRepository();
+      const session = await requireRuntimeSession(
+        repository,
+        context.req.param("sessionId"),
+      );
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      const attemptEvent = await acceptAttemptEvent({
+        repository,
+        session,
+        payload: await context.req.json(),
+      });
+      await repository.recordAuditEvent({
+        eventType: "attempt.submitted",
+        actorType: "system",
+        actorId: null,
+        deploymentRecordId: session.deploymentRecordId,
+        packageVersionId: session.packageVersionId,
+        attemptId: session.attemptId,
+        lineItemBindingId: null,
+        status: "accepted",
+        summary: "Accepted attempt submission through the runtime gateway.",
+        detail: {
+          sequence: attemptEvent.sequence,
+          eventType: attemptEvent.eventType,
+        },
+        occurredAt: new Date().toISOString(),
+      });
+
+      return context.json({ accepted: true }, 202);
     } catch (error) {
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }
@@ -791,7 +836,11 @@ function statusForRuntimeError(error: unknown): 404 | 409 | 500 {
   if (
     error.message.includes("Runtime session") ||
     error.message.includes("Runtime file") ||
-    error.message.includes("required")
+    error.message.includes("required") ||
+    error.message.includes("Attempt ") ||
+    error.message.includes("Unsupported attempt event") ||
+    error.message.includes("does not allow") ||
+    error.message.includes("Finalize ")
   ) {
     return 409;
   }
