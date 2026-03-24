@@ -14,7 +14,9 @@
     "@db/postgres": "jsr:@db/postgres@0.19.5",
     "@hono/hono": "jsr:@hono/hono@^4.10.1",
     "@std/assert": "jsr:@std/assert@^1.0.15",
-    "@std/semver": "jsr:@std/semver@1.0.8"
+    "@std/semver": "jsr:@std/semver@1.0.8",
+    "jose": "npm:jose@6.2.2",
+    "oauth4webapi": "npm:oauth4webapi@3.8.5"
   },
   "compilerOptions": {
     "strict": true,

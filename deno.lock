@@ -12,6 +12,7 @@
     "jsr:@std/path@^1.0.8": "1.1.4",
     "jsr:@std/semver@1.0.8": "1.0.8",
     "npm:ajv@8.18.0": "8.18.0",
+    "npm:jose@6.2.2": "6.2.2",
     "npm:oxfmt@0.32.0": "0.32.0",
     "npm:oxlint@1.14.0": "1.14.0"
   },
@@ -211,6 +212,9 @@
     "fast-uri@3.1.0": {
       "integrity": "sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA=="
     },
+    "jose@6.2.2": {
+      "integrity": "sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ=="
+    },
     "json-schema-traverse@1.0.0": {
       "integrity": "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="
     },
@@ -269,7 +273,9 @@
       "jsr:@hono/hono@^4.10.1",
       "jsr:@std/assert@^1.0.15",
       "jsr:@std/semver@1.0.8",
-      "npm:ajv@8.18.0"
+      "npm:ajv@8.18.0",
+      "npm:jose@6.2.2",
+      "npm:oauth4webapi@3.8.5"
     ]
   }
 }
