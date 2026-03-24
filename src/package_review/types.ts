@@ -163,3 +163,26 @@ export interface AuditEventRecord {
   detail: Record<string, unknown>;
   occurredAt: string;
 }
+
+export interface DeepLinkingResourceOption {
+  packageVersionId: number;
+  appId: string;
+  packageVersion: string;
+  packageTitle: string;
+  ownerId: string;
+  installScope: "assignment";
+  approvalStatus: "approved";
+  reviewedAt: string | null;
+  activityId: string;
+  contentPath: string;
+  contentTitle: string | null;
+}
+
+export interface DeepLinkingResourceSelection {
+  packageVersionId: number;
+  packageVersion: string;
+  packageTitle: string;
+  activityId: string;
+  contentPath: string;
+  contentTitle: string | null;
+}

@@ -101,18 +101,24 @@ export interface RuntimeSessionRecord {
   expiresAt: string;
 }
 
+export type DeepLinkingAcceptType = "ltiResourceLink";
+export type DeepLinkingPresentationDocumentTarget =
+  | "iframe"
+  | "window"
+  | "embed";
+
+export interface DeepLinkingSettings {
+  acceptTypes: DeepLinkingAcceptType[];
+  acceptMultiple: boolean;
+  acceptPresentationDocumentTargets: DeepLinkingPresentationDocumentTarget[];
+  acceptLineItem: boolean;
+}
+
 export type LtiMessageType =
   | typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE
   | typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
 
 export type LtiPlacement = typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
-
-export interface DeepLinkingSettings {
-  acceptTypes: string[];
-  acceptPresentationDocumentTargets: string[];
-  acceptMultiple: boolean;
-  acceptLineitem: boolean;
-}
 
 export interface ValidatedDeepLinkingRequest extends DeploymentBinding {
   internalDeploymentId: number;
@@ -130,6 +136,13 @@ export interface ValidatedDeepLinkingRequest extends DeploymentBinding {
   issuedAt: string;
 }
 
+export interface DeepLinkingSessionSelection {
+  packageVersionId: number;
+  packageVersion: string;
+  activityId: string;
+  contentPath: string;
+}
+
 export interface DeepLinkingSessionRecord {
   sessionId: string;
   sessionToken: string;
@@ -143,13 +156,11 @@ export interface DeepLinkingSessionRecord {
   deepLinkReturnUrl: string;
   data: string | null;
   placement: LtiPlacement;
-  acceptTypes: string[];
-  acceptPresentationDocumentTargets: string[];
+  acceptTypes: DeepLinkingAcceptType[];
   acceptMultiple: boolean;
-  acceptLineitem: boolean;
-  selectedPackageVersionId: number | null;
-  selectedPackageVersion: string | null;
-  selectedContentPath: string | null;
+  acceptPresentationDocumentTargets: DeepLinkingPresentationDocumentTarget[];
+  acceptLineItem: boolean;
+  selection: DeepLinkingSessionSelection | null;
   createdAt: string;
   expiresAt: string;
 }
