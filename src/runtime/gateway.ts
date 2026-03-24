@@ -12,6 +12,7 @@ import {
   requestCanvasServiceAccessToken,
 } from "../lti/services.ts";
 import {
+  buildLtiActivityResourceId,
   LTI_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE,
   type RuntimeSessionRecord,
@@ -627,7 +628,11 @@ async function requireRuntimeDeployment(
 }
 
 function buildLineItemResourceId(session: RuntimeSessionRecord): string {
-  return `${session.appId}:${session.packageVersion}`;
+  return buildLtiActivityResourceId({
+    appId: session.appId,
+    packageVersion: session.packageVersion,
+    activityId: session.launch.activityId,
+  });
 }
 
 function resolveActivityProgress(

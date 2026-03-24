@@ -18,6 +18,19 @@ export const CANVAS_LTI_SCOPES = [
   LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE,
 ] as const;
 
+export function buildLtiActivityResourceId(input: {
+  appId: string;
+  packageVersion: string;
+  activityId: string;
+}): string {
+  return [
+    "lantern",
+    input.appId,
+    input.packageVersion,
+    input.activityId,
+  ].join(":");
+}
+
 export interface DeploymentBinding {
   canvasEnvironment: CanvasEnvironment;
   issuer: string;

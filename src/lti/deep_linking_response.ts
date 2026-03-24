@@ -2,6 +2,7 @@ import { SignJWT } from "jose";
 import { buildCanvasLaunchUrl } from "./config.ts";
 import { loadToolSigningKey } from "./tool_key.ts";
 import {
+  buildLtiActivityResourceId,
   type DeepLinkingResponseContentItem,
   type DeepLinkingResponseLineItem,
   type DeepLinkingResponseSubmission,
@@ -86,12 +87,11 @@ export async function buildDeepLinkingResponseSubmission(input: {
 export function buildReviewedPlacementLineItemResourceId(
   placement: ReviewedPlacementRecord,
 ): string {
-  return [
-    "lantern",
-    placement.appId,
-    placement.packageVersion,
-    placement.activityId,
-  ].join(":");
+  return buildLtiActivityResourceId({
+    appId: placement.appId,
+    packageVersion: placement.packageVersion,
+    activityId: placement.activityId,
+  });
 }
 
 function buildDeepLinkingResponseContentItem(input: {

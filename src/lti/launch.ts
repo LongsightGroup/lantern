@@ -258,7 +258,10 @@ export async function createRuntimeSession(input: {
     capabilities: packageVersion.capabilities,
     snapshotRoot: packageVersion.artifact.snapshotRoot,
     entrypointPath: packageVersion.artifact.entrypointPath,
-    contentPath: resolveContentPath(packageVersion),
+    contentPath: resolveRuntimeContentPath(
+      packageVersion,
+      input.launch.contentPath,
+    ),
     services: input.launch.services,
     launch: {
       userRole: input.launch.userRole,
@@ -440,10 +443,11 @@ function resolveCanonicalContentPath(
   return trimLeadingSlash(firstContentFile);
 }
 
-function resolveContentPath(packageVersion: PackageVersionRecord): string {
-  return `${packageVersion.artifact.snapshotRoot}${
-    resolveCanonicalContentPath(packageVersion)
-  }`;
+function resolveRuntimeContentPath(
+  packageVersion: PackageVersionRecord,
+  contentPath: string,
+): string {
+  return `${packageVersion.artifact.snapshotRoot}${trimLeadingSlash(contentPath)}`;
 }
 
 function readStringArray(value: unknown): string[] {
