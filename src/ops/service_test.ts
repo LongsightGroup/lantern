@@ -1,8 +1,4 @@
 import { assertEquals, assertRejects } from "@std/assert";
-import type {
-  DeploymentGradePublicationSnapshot,
-  RetryRuntimeSessionLookup,
-} from "./types.ts";
 import {
   buildAttemptRecord,
   buildControlPlaneDiagnosticItem,
@@ -200,6 +196,18 @@ Deno.test(
       ],
     });
     const missingAgsRepository = createInMemoryPackageReviewRepository({
+      deployments: [
+        buildDeploymentRecord({
+          id: 1,
+          binding: buildDeploymentBinding(),
+        }),
+      ],
+      attempts: [
+        buildAttemptRecord({
+          id: 2,
+          attemptId: "attempt-456",
+        }),
+      ],
       gradePublications: [
         buildGradePublicationRecord({
           attemptId: "attempt-456",
@@ -217,27 +225,35 @@ Deno.test(
       ],
     });
 
-    await assertRejects(() =>
-      opsServiceModule.retryFailedGradePublication({
-        repository: missingPublicationRepository,
-        attemptId: "attempt-123",
-        requestAccessToken: () =>
-          Promise.resolve({
-            accessToken: "unused",
-          }),
-        publishScore: () => Promise.resolve({ accepted: true, status: 200 }),
-      }), Error, "could not find a failed grade publication");
+    await assertRejects(
+      () =>
+        opsServiceModule.retryFailedGradePublication({
+          repository: missingPublicationRepository,
+          attemptId: "attempt-123",
+          requestAccessToken: () =>
+            Promise.resolve({
+              accessToken: "unused",
+            }),
+          publishScore: () => Promise.resolve({ accepted: true, status: 200 }),
+        }),
+      Error,
+      "could not find a failed grade publication",
+    );
 
-    await assertRejects(() =>
-      opsServiceModule.retryFailedGradePublication({
-        repository: missingAgsRepository,
-        attemptId: "attempt-456",
-        requestAccessToken: () =>
-          Promise.resolve({
-            accessToken: "unused",
-          }),
-        publishScore: () => Promise.resolve({ accepted: true, status: 200 }),
-      }), Error, "does not include AGS service context");
+    await assertRejects(
+      () =>
+        opsServiceModule.retryFailedGradePublication({
+          repository: missingAgsRepository,
+          attemptId: "attempt-456",
+          requestAccessToken: () =>
+            Promise.resolve({
+              accessToken: "unused",
+            }),
+          publishScore: () => Promise.resolve({ accepted: true, status: 200 }),
+        }),
+      Error,
+      "does not include AGS service context",
+    );
   },
 );
 

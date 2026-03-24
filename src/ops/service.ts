@@ -1,18 +1,23 @@
+import type {
+  PublishFinalScoreInput,
+  PublishFinalScoreResult,
+} from "../lti/services.ts";
+import { requestCanvasServiceAccessToken } from "../lti/services.ts";
 import type { DeploymentBinding } from "../lti/types.ts";
+import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
   ApprovalStatus,
   GradePublicationStatus,
 } from "../package_review/types.ts";
+import { publishGovernedGradePublication } from "../runtime/gateway.ts";
 import type {
   BrokerVerificationRunStatus,
   ControlPlaneActivityStatus,
   ControlPlaneDeploymentHealth,
   ControlPlaneDiagnosticItem,
   ControlPlaneHealthDimension,
-  DeploymentGradePublicationSnapshot,
   PilotUsageMetrics,
   RetryableGradePublicationLookup,
-  RetryRuntimeSessionLookup,
 } from "./types.ts";
 
 export interface DeploymentHealthInput {
@@ -30,20 +35,20 @@ export interface DeploymentHealthInput {
   brokerCheckedAt?: string | null;
 }
 
-export interface RetryGradePublisher {
-  (input: {
-    attemptId: string;
-    publication: DeploymentGradePublicationSnapshot;
-    runtimeSession: RetryRuntimeSessionLookup;
-  }): Promise<{
-    status: DeploymentGradePublicationSnapshot["status"];
-    publishedAt: string | null;
-    errorCode?: string | null;
-    errorDetail?: Record<string, unknown> | null;
-  }>;
+export interface RetryScorePublisher {
+  (input: PublishFinalScoreInput): Promise<PublishFinalScoreResult>;
 }
 
-export interface RetryLookupRepository {
+export interface RetryAccessTokenRequester {
+  (input: {
+    issuer: string;
+    clientId: string;
+    scopes: string[];
+  }): Promise<{ accessToken: string }>;
+}
+
+export interface RetryLookupRepository
+  extends Pick<PackageReviewRepository, "updateGradePublication"> {
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
@@ -166,7 +171,8 @@ export async function retryFailedGradePublication(input: {
   repository: RetryLookupRepository;
   attemptId: string;
   now?: () => Date;
-  publishGrade: RetryGradePublisher;
+  requestAccessToken?: RetryAccessTokenRequester;
+  publishScore?: RetryScorePublisher;
 }): Promise<RetryableGradePublicationLookup> {
   const lookup = await input.repository.getRetryableGradePublicationLookup(
     input.attemptId,
@@ -190,22 +196,40 @@ export async function retryFailedGradePublication(input: {
     );
   }
 
-  const published = await input.publishGrade({
+  if (lookup.binding === null) {
+    throw new Error(
+      "Retry blocked: Lantern no longer has the saved Canvas binding for this grade publication.",
+    );
+  }
+
+  const requestAccessToken = input.requestAccessToken ??
+    requestCanvasServiceAccessToken;
+  const now = input.now ?? (() => new Date());
+  const token = await requestAccessToken({
+    issuer: lookup.binding.issuer,
+    clientId: lookup.binding.clientId,
+    scopes: lookup.runtimeSession.services.ags.scope,
+  });
+  const published = await publishGovernedGradePublication({
+    repository: input.repository,
     attemptId: lookup.attemptId,
     publication: lookup.publication,
-    runtimeSession: lookup.runtimeSession,
+    accessToken: token.accessToken,
+    now,
+    ...(input.publishScore === undefined
+      ? {}
+      : { publishScore: input.publishScore }),
   });
-  const updatedAt = (input.now ?? (() => new Date()))().toISOString();
 
   return {
     ...lookup,
     publication: {
       ...lookup.publication,
-      status: published.status,
-      publishedAt: published.publishedAt,
-      updatedAt,
-      errorCode: published.errorCode ?? null,
-      errorDetail: published.errorDetail ?? null,
+      status: published.gradePublication.status,
+      publishedAt: published.gradePublication.publishedAt,
+      updatedAt: published.gradePublication.updatedAt,
+      errorCode: published.gradePublication.errorCode,
+      errorDetail: published.gradePublication.errorDetail,
     },
   };
 }

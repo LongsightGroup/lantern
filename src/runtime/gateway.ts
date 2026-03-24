@@ -7,6 +7,8 @@ import {
 import {
   ensureLineItem,
   publishFinalScore,
+  type PublishFinalScoreInput,
+  type PublishFinalScoreResult,
   requestCanvasServiceAccessToken,
 } from "../lti/services.ts";
 import {
@@ -39,6 +41,30 @@ export interface FinalizeAttemptResult {
     message: string;
     detail: Record<string, unknown>;
   } | null;
+}
+
+export interface GovernedGradePublicationInput {
+  repository: Pick<PackageReviewRepository, "updateGradePublication">;
+  attemptId: string;
+  publication: Pick<
+    GradePublicationRecord,
+    | "lineItemUrl"
+    | "canvasUserId"
+    | "scoreGiven"
+    | "scoreMaximum"
+    | "activityProgress"
+  >;
+  accessToken: string;
+  now: () => Date;
+  publishScore?: (
+    input: PublishFinalScoreInput,
+  ) => Promise<PublishFinalScoreResult>;
+}
+
+export interface GovernedGradePublicationResult {
+  gradePublication: GradePublicationRecord;
+  gradePublishedNow: boolean;
+  publishError: FinalizeAttemptResult["publishError"];
 }
 
 export async function acceptAttemptEvent(input: {
@@ -208,6 +234,60 @@ export function requireRuntimeCapability(
 ): void {
   if (!session.capabilities.includes(capability)) {
     throw new Error(`Runtime session does not allow ${capability}.`);
+  }
+}
+
+export async function publishGovernedGradePublication(
+  input: GovernedGradePublicationInput,
+): Promise<GovernedGradePublicationResult> {
+  const publishScore = input.publishScore ?? publishFinalScore;
+  const timestamp = input.now().toISOString();
+
+  try {
+    await publishScore({
+      accessToken: input.accessToken,
+      lineItemUrl: input.publication.lineItemUrl,
+      canvasUserId: input.publication.canvasUserId,
+      scoreGiven: input.publication.scoreGiven,
+      scoreMaximum: input.publication.scoreMaximum,
+      activityProgress: input.publication.activityProgress,
+      gradingProgress: "FullyGraded",
+      timestamp,
+    });
+
+    return {
+      gradePublication: await input.repository.updateGradePublication({
+        attemptId: input.attemptId,
+        status: "published",
+        updatedAt: timestamp,
+        publishedAt: timestamp,
+        errorCode: null,
+        errorDetail: null,
+      }),
+      gradePublishedNow: true,
+      publishError: null,
+    };
+  } catch (error) {
+    return {
+      gradePublication: await input.repository.updateGradePublication({
+        attemptId: input.attemptId,
+        status: "failed",
+        updatedAt: timestamp,
+        publishedAt: null,
+        errorCode: "score_publish_failed",
+        errorDetail: {
+          message: errorMessage(error),
+        },
+      }),
+      gradePublishedNow: false,
+      publishError: {
+        code: "score_publish_failed",
+        message: errorMessage(error),
+        detail: {
+          lineItemUrl: input.publication.lineItemUrl,
+        },
+      },
+    };
   }
 }
 
@@ -509,55 +589,18 @@ async function publishRuntimeAttemptScore(input: {
       errorCode: null,
       errorDetail: null,
     });
+  const published = await publishGovernedGradePublication({
+    repository: input.repository,
+    attemptId: input.attempt.attemptId,
+    publication: gradePublication,
+    accessToken,
+    now: input.now,
+  });
 
-  try {
-    await publishFinalScore({
-      accessToken,
-      lineItemUrl: lineItemBinding.lineItemUrl,
-      canvasUserId: input.attempt.userId,
-      scoreGiven: input.score.scoreGiven,
-      scoreMaximum: input.score.scoreMaximum,
-      activityProgress: resolveActivityProgress(input.attempt),
-      gradingProgress: "FullyGraded",
-      timestamp: input.now().toISOString(),
-    });
-
-    return {
-      lineItemBinding,
-      gradePublication: await input.repository.updateGradePublication({
-        attemptId: input.attempt.attemptId,
-        status: "published",
-        updatedAt: input.now().toISOString(),
-        publishedAt: input.now().toISOString(),
-        errorCode: null,
-        errorDetail: null,
-      }),
-      gradePublishedNow: true,
-      publishError: null,
-    };
-  } catch (error) {
-    return {
-      lineItemBinding,
-      gradePublication: await input.repository.updateGradePublication({
-        attemptId: input.attempt.attemptId,
-        status: "failed",
-        updatedAt: input.now().toISOString(),
-        publishedAt: null,
-        errorCode: "score_publish_failed",
-        errorDetail: {
-          message: errorMessage(error),
-        },
-      }),
-      gradePublishedNow: false,
-      publishError: {
-        code: "score_publish_failed",
-        message: errorMessage(error),
-        detail: {
-          lineItemUrl: lineItemBinding.lineItemUrl,
-        },
-      },
-    };
-  }
+  return {
+    lineItemBinding,
+    ...published,
+  };
 }
 
 async function requireRuntimeDeployment(
