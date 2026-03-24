@@ -8,7 +8,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from "../test_helpers/package_review.ts";
 
-Deno.test.ignore(
+Deno.test(
   "GET /admin/packages renders the Phase 4 control-plane inventory, pilot usage metrics, and broker verification summary",
   async () => {
     const repository = createInMemoryPackageReviewRepository({
@@ -56,7 +56,7 @@ Deno.test.ignore(
   },
 );
 
-Deno.test.ignore(
+Deno.test(
   "control-plane renderer keeps internal broker verification evidence separate from official certification state",
   async () => {
     const modulePath = `./${"control_plane.ts"}`;

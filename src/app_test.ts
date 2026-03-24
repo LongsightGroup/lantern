@@ -5,8 +5,11 @@ import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
   buildAttemptEventRecord,
   buildAttemptRecord,
+  buildBrokerVerificationStatus,
   buildDeploymentRecord,
+  buildControlPlaneDeploymentInventoryRow,
   buildImportedPackageVersion,
+  buildOfficialBrokerCertificationStatus,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
@@ -60,7 +63,7 @@ Deno.test("GET /admin/packages renders the demo-first zero state when no version
   assertStringIncludes(body, "Import the demo learning game");
 });
 
-Deno.test("GET /admin/packages renders exact version rows and approval-state badges", async () => {
+Deno.test("GET /admin/packages renders the SSR control-plane inventory when package data exists", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -69,10 +72,20 @@ Deno.test("GET /admin/packages renders exact version rows and approval-state bad
         reviewNotes: "Ready for pilot.",
         reviewedAt: "2026-03-23T18:05:00Z",
       }),
-      buildPackageVersionRecord({
-        id: 2,
-        version: "0.2.0",
-        approvalStatus: "pending",
+    ],
+    controlPlaneDeployments: [
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 1,
+        deploymentSlug: "chapter-4-asteroids-pilot",
+        deploymentLabel: "Chapter 4 Asteroids Pilot Deployment",
+        lastGradePublishStatus: "failed",
+      }),
+    ],
+    brokerVerifications: [
+      buildBrokerVerificationStatus({
+        official: buildOfficialBrokerCertificationStatus({
+          state: "notCertified",
+        }),
       }),
     ],
   });
@@ -83,11 +96,13 @@ Deno.test("GET /admin/packages renders exact version rows and approval-state bad
   assertEquals(response.status, 200);
   const body = await response.text();
 
-  assertStringIncludes(body, "<strong>Version</strong> 0.2.0");
-  assertStringIncludes(body, "Pending review");
-  assertStringIncludes(body, "Approved");
+  assertStringIncludes(body, "Operator control plane");
+  assertStringIncludes(body, "Chapter 4 Asteroids Pilot Deployment");
+  assertStringIncludes(body, "Pilot usage");
+  assertStringIncludes(body, "Broker verification");
+  assertStringIncludes(body, "Retry required");
   assertStringIncludes(body, "Open dossier");
-  assertStringIncludes(body, "Version picker");
+  assertStringIncludes(body, "Open deployment");
 });
 
 Deno.test("POST /admin/packages/import-demo imports the demo package and redirects to the dossier", async () => {
