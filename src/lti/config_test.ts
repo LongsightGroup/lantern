@@ -83,6 +83,44 @@ Deno.test("config document advertises exactly the Phase 3 AGS and NRPS scopes", 
   }
 });
 
+Deno.test.ignore(
+  "config document advertises assignment-selection Deep Linking on a dedicated route",
+  async () => {
+    const previousOrigin = Deno.env.get("APP_ORIGIN");
+    const previousJwk = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+
+    Deno.env.set("APP_ORIGIN", "http://localhost:8000");
+    Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+    try {
+      const { buildCanvasConfigDocument } = await import("./config.ts");
+      const document = await buildCanvasConfigDocument();
+      const placements = document.extensions.flatMap((extension) =>
+        extension.settings.placements as Array<{
+          placement: string;
+          message_type: string;
+          target_link_uri: string;
+        }>
+      );
+      const assignmentSelection = placements.find((placement) =>
+        placement.placement === "assignment_selection"
+      );
+
+      assertEquals(
+        assignmentSelection?.message_type,
+        "LtiDeepLinkingRequest",
+      );
+      assertEquals(
+        assignmentSelection?.target_link_uri,
+        "http://localhost:8000/lti/deep-linking",
+      );
+    } finally {
+      restoreEnv("APP_ORIGIN", previousOrigin);
+      restoreEnv("LTI_TOOL_PRIVATE_JWK", previousJwk);
+    }
+  },
+);
+
 function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
     Deno.env.delete(name);

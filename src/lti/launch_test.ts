@@ -130,6 +130,10 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
     Error,
     "Unsupported LTI message type LtiDeepLinkingRequest.",
   );
+
+  const preservedState = await repository.getLoginStateByState("state-message");
+
+  assertEquals(preservedState?.usedAt, null);
 });
 
 Deno.test("createRuntimeSession keeps the pinned approved version instead of resolving latest", async () => {

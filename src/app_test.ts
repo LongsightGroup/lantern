@@ -1,7 +1,10 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
-import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
+import {
+  CANVAS_LTI_SCOPES,
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+} from "./lti/types.ts";
 import {
   buildAttemptEventRecord,
   buildAttemptRecord,
@@ -9,6 +12,7 @@ import {
   buildControlPlaneDeploymentDetailSnapshot,
   buildControlPlaneDeploymentInventoryRow,
   buildControlPlaneDiagnosticItem,
+  buildDeepLinkingResourceOption,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
   buildDeploymentRecord,
@@ -22,6 +26,7 @@ import {
 } from "./test_helpers/package_review.ts";
 import {
   buildCanvasLoginRequest,
+  buildDeepLinkingSessionRecord,
   buildDeploymentBinding,
   buildLoginStateRecord,
   buildRuntimeSessionRecord,
@@ -56,6 +61,117 @@ Deno.test("GET /health responds with ok", async () => {
   assertEquals(response.headers.get("content-type"), "application/json");
   assertEquals(await response.json(), { ok: true });
 });
+
+Deno.test.ignore(
+  "POST /lti/deep-linking accepts assignment-selection launches and redirects to a Lantern-owned picker session",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 1,
+          installScope: "assignment",
+          approvalStatus: "approved",
+          reviewedAt: "2026-03-24T16:15:00Z",
+        }),
+      ],
+      deployments: [
+        buildDeploymentRecord({
+          id: 7,
+          enabledPackageVersionId: 1,
+          enabledPackageVersion: "0.1.0",
+          binding: buildDeploymentBinding(),
+        }),
+      ],
+      loginStates: [
+        buildLoginStateRecord({
+          state: "state-deep-linking",
+          nonce: "nonce-deep-linking",
+          targetLinkUri: "http://localhost:8000/lti/deep-linking",
+        }),
+      ],
+      deepLinkingSessions: [buildDeepLinkingSessionRecord()],
+      deepLinkingResourceOptions: [buildDeepLinkingResourceOption()],
+    });
+    const formData = new FormData();
+    const idToken = await signCanvasIdToken({
+      nonce: "nonce-deep-linking",
+      subject: null,
+      messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+      targetLinkUri: "http://localhost:8000/lti/deep-linking",
+      deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
+      deepLinkData: "dl-state-123",
+    });
+
+    formData.set("state", "state-deep-linking");
+    formData.set("id_token", idToken);
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request("http://localhost/lti/deep-linking", {
+      method: "POST",
+      body: formData,
+    });
+
+    assertEquals(response.status, 303);
+    assertStringIncludes(
+      response.headers.get("location") ?? "",
+      "/lti/deep-linking/sessions/",
+    );
+  },
+);
+
+Deno.test.ignore(
+  "POST /lti/deep-linking rejects unsupported Deep Linking payloads before any picker handoff",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 1,
+          installScope: "assignment",
+          approvalStatus: "approved",
+          reviewedAt: "2026-03-24T16:15:00Z",
+        }),
+      ],
+      deployments: [
+        buildDeploymentRecord({
+          id: 7,
+          enabledPackageVersionId: 1,
+          enabledPackageVersion: "0.1.0",
+          binding: buildDeploymentBinding(),
+        }),
+      ],
+      loginStates: [
+        buildLoginStateRecord({
+          state: "state-deep-linking-error",
+          nonce: "nonce-deep-linking-error",
+          targetLinkUri: "http://localhost:8000/lti/deep-linking",
+        }),
+      ],
+    });
+    const formData = new FormData();
+    const idToken = await signCanvasIdToken({
+      nonce: "nonce-deep-linking-error",
+      subject: null,
+      messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+      targetLinkUri: "http://localhost:8000/lti/deep-linking",
+      deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
+      deepLinkAcceptTypes: ["html"],
+    });
+
+    formData.set("state", "state-deep-linking-error");
+    formData.set("id_token", idToken);
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request("http://localhost/lti/deep-linking", {
+      method: "POST",
+      body: formData,
+    });
+
+    assertEquals(response.status, 400);
+    assertStringIncludes(await response.text(), "Unsupported");
+  },
+);
 
 Deno.test("GET /admin/packages renders the demo-first zero state when no versions exist", async () => {
   const response = await createApp({
