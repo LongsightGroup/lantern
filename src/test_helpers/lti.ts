@@ -111,6 +111,7 @@ export interface CanvasLaunchTokenInput {
   deepLinkAcceptMultiple?: boolean;
   deepLinkAcceptPresentationDocumentTargets?: string[];
   deepLinkAcceptLineItem?: boolean;
+  custom?: Record<string, string>;
 }
 
 export interface ToolClientAssertionInput {
@@ -487,6 +488,11 @@ export async function signCanvasIdToken(
     "https://purl.imsglobal.org/spec/lti/claim/roles": input.roles ?? [
       "http://purl.imsglobal.org/vocab/lis/v2/membership#Learner",
     ],
+    ...(input.custom === undefined
+      ? {}
+      : {
+        "https://purl.imsglobal.org/spec/lti/claim/custom": input.custom,
+      }),
     ...(agsClaim === null ? {} : {
       "https://purl.imsglobal.org/spec/lti-ags/claim/endpoint": agsClaim,
     }),
