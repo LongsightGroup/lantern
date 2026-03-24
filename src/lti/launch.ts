@@ -310,7 +310,9 @@ async function resolveLaunchTarget(input: {
     return await resolvePinnedLaunchTarget(input);
   }
 
-  const placement = await input.repository.getReviewedPlacementById(placementId);
+  const placement = await input.repository.getReviewedPlacementById(
+    placementId,
+  );
 
   if (!placement) {
     throw new Error(`Reviewed placement ${placementId} was not found.`);
@@ -332,13 +334,14 @@ async function resolveLaunchTarget(input: {
     );
   }
 
-  const boundPlacement = await input.repository.bindReviewedPlacementResourceLink(
-    {
-      placementId,
-      resourceLinkId: input.resourceLinkId,
-      boundAt: input.now().toISOString(),
-    },
-  );
+  const boundPlacement = await input.repository
+    .bindReviewedPlacementResourceLink(
+      {
+        placementId,
+        resourceLinkId: input.resourceLinkId,
+        boundAt: input.now().toISOString(),
+      },
+    );
   const packageVersion = await requireApprovedLaunchPackageVersion({
     repository: input.repository,
     packageVersionId: boundPlacement.packageVersionId,
@@ -411,12 +414,10 @@ async function requireApprovedLaunchPackageVersion(input: {
 }
 
 function readReviewedPlacementId(customClaim: unknown): string | null {
-  const custom = customClaim === undefined
-    ? null
-    : requireRecordClaim(
-      customClaim,
-      "Launch custom claim must be an object when provided.",
-    );
+  const custom = customClaim === undefined ? null : requireRecordClaim(
+    customClaim,
+    "Launch custom claim must be an object when provided.",
+  );
 
   if (!custom || custom[LANTERN_PLACEMENT_CUSTOM_KEY] === undefined) {
     return null;
@@ -447,7 +448,9 @@ function resolveRuntimeContentPath(
   packageVersion: PackageVersionRecord,
   contentPath: string,
 ): string {
-  return `${packageVersion.artifact.snapshotRoot}${trimLeadingSlash(contentPath)}`;
+  return `${packageVersion.artifact.snapshotRoot}${
+    trimLeadingSlash(contentPath)
+  }`;
 }
 
 function readStringArray(value: unknown): string[] {
