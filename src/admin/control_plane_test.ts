@@ -52,6 +52,8 @@ Deno.test(
     assertStringIncludes(body, "Internal verification");
     assertStringIncludes(body, "Official certification");
     assertStringIncludes(body, "Not certified");
+    assertStringIncludes(body, "Record verification evidence");
+    assertStringIncludes(body, 'action="/admin/packages/verification"');
     assertStringIncludes(body, "Retry required");
   },
 );
@@ -76,7 +78,7 @@ Deno.test(
             official: buildOfficialBrokerCertificationStatus({
               state: "notCertified",
               checkedAt: "2026-03-24T12:55:00Z",
-              directoryUrl: null,
+              directoryUrl: "https://example.test/official-directory",
             }),
           }),
         }),
@@ -85,7 +87,7 @@ Deno.test(
         official: buildOfficialBrokerCertificationStatus({
           state: "notCertified",
           checkedAt: "2026-03-24T12:55:00Z",
-          directoryUrl: null,
+          directoryUrl: "https://example.test/official-directory",
         }),
       }),
     });
@@ -95,5 +97,7 @@ Deno.test(
     assertStringIncludes(html, "Passed");
     assertStringIncludes(html, "Not certified");
     assertStringIncludes(html, "https://example.test/internal-proof");
+    assertStringIncludes(html, "https://example.test/official-directory");
+    assertStringIncludes(html, "Record verification evidence");
   },
 );
