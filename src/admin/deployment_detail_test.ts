@@ -3,9 +3,9 @@ import { createApp } from "../app.ts";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
   buildControlPlaneDeploymentDetailSnapshot,
-  buildDeploymentRecord,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
+  buildDeploymentRecord,
   buildPackageVersionRecord,
   buildPilotUsageMetrics,
   createInMemoryPackageReviewRepository,

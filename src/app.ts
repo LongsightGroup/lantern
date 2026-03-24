@@ -511,6 +511,12 @@ export function createApp(
         repository,
         context.req.param("appId"),
       );
+      const controlPlaneDetail = detail.deployment === null
+        ? null
+        : await resolvedServices.getOpsRepository()
+          .getControlPlaneDeploymentDetail(
+            detail.deployment.id,
+          );
 
       return context.html(
         renderDeploymentDetailPage({
@@ -519,6 +525,7 @@ export function createApp(
           history: detail.history,
           deployment: detail.deployment,
           nrpsVerification: detail.nrpsVerification,
+          controlPlaneDetail,
           canvasConfigUrl: detail.canvasConfigUrl.url,
           supportedCanvasEnvironments: listCanvasEnvironments(),
           notice: detail.canvasConfigUrl.notice,

@@ -5,12 +5,12 @@ import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
   buildAttemptEventRecord,
   buildAttemptRecord,
-  buildControlPlaneDeploymentDetailSnapshot,
-  buildDeploymentActivitySnapshot,
   buildBrokerVerificationStatus,
+  buildControlPlaneDeploymentDetailSnapshot,
   buildControlPlaneDeploymentInventoryRow,
-  buildDeploymentRecord,
+  buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
+  buildDeploymentRecord,
   buildImportedPackageVersion,
   buildOfficialBrokerCertificationStatus,
   buildPackageVersionRecord,
@@ -390,8 +390,7 @@ Deno.test("GET /admin/packages/:appId/deployment renders the Canvas install sequ
               }),
               latestLaunch: buildDeploymentActivitySnapshot({
                 occurredAt: "2026-03-24T12:30:00Z",
-                summary:
-                  "Latest launch reached the governed runtime handoff.",
+                summary: "Latest launch reached the governed runtime handoff.",
               }),
               latestNrpsRead: buildDeploymentActivitySnapshot({
                 occurredAt: "2026-03-24T12:33:00Z",
