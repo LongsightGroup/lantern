@@ -11,10 +11,13 @@ import {
   buildCanvasLoginRequest,
   buildDeploymentBinding,
   buildLoginStateRecord,
+  buildRuntimeSessionRecord,
   getTestCanvasJwks,
   getTestToolPrivateJwkEnvValue,
   signCanvasIdToken,
 } from "./test_helpers/lti.ts";
+
+const EXAMPLE_SNAPSHOT_ROOT = "examples/apps/chapter-4-asteroids";
 
 Deno.test("GET / responds with html", async () => {
   const response = await createApp({
@@ -303,7 +306,10 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas bindi
     const deployment = await repository.getDeploymentBySlug(
       "chapter-4-asteroids-pilot",
     );
-    assertEquals(deployment?.binding?.issuer, resolveCanvasIssuer("production"));
+    assertEquals(
+      deployment?.binding?.issuer,
+      resolveCanvasIssuer("production"),
+    );
     assertEquals(deployment?.binding?.clientId, "10000000000001");
     assertEquals(deployment?.binding?.deploymentId, "deployment-123");
   } finally {
@@ -338,7 +344,9 @@ Deno.test("GET /admin/packages/:appId/deployment renders the Canvas install sequ
             }),
           ],
         }),
-    }).request("http://localhost/admin/packages/chapter-4-asteroids/deployment");
+    }).request(
+      "http://localhost/admin/packages/chapter-4-asteroids/deployment",
+    );
 
     assertEquals(response.status, 200);
     const body = await response.text();
@@ -366,8 +374,8 @@ Deno.test("GET /lti/canvas/config.json publishes the pilot Canvas config documen
     assertEquals(response.status, 200);
     const body = await response.text();
 
-    assertStringIncludes(body, "\"oidc_initiation_url\"");
-    assertStringIncludes(body, "\"course_navigation\"");
+    assertStringIncludes(body, '"oidc_initiation_url"');
+    assertStringIncludes(body, '"course_navigation"');
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousJwk);
@@ -388,11 +396,15 @@ Deno.test("GET /lti/login persists login state and redirects to the Canvas autho
   }).request(
     `http://localhost/lti/login?iss=${
       encodeURIComponent(loginRequest.iss)
-    }&login_hint=${encodeURIComponent(loginRequest.loginHint)}&target_link_uri=${
+    }&login_hint=${
+      encodeURIComponent(loginRequest.loginHint)
+    }&target_link_uri=${
       encodeURIComponent(loginRequest.targetLinkUri)
     }&client_id=${encodeURIComponent(loginRequest.clientId)}&deployment_id=${
       encodeURIComponent(loginRequest.deploymentId)
-    }&lti_message_hint=${encodeURIComponent(loginRequest.ltiMessageHint ?? "")}`,
+    }&lti_message_hint=${
+      encodeURIComponent(loginRequest.ltiMessageHint ?? "")
+    }`,
   );
 
   assertEquals(response.status, 302);
@@ -460,13 +472,15 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
   formData.set("id_token", idToken);
 
   await withFetchStub(
-    async () =>
-      new Response(JSON.stringify(getTestCanvasJwks()), {
-        status: 200,
-        headers: {
-          "content-type": "application/json",
-        },
-      }),
+    () =>
+      Promise.resolve(
+        new Response(JSON.stringify(getTestCanvasJwks()), {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
+        }),
+      ),
     async () => {
       const response = await createApp({
         getRepository: () => repository,
@@ -541,13 +555,15 @@ Deno.test("POST /lti/launch rejects bad signed launches before any runtime hando
   );
 
   await withFetchStub(
-    async () =>
-      new Response(JSON.stringify({ keys: [] }), {
-        status: 200,
-        headers: {
-          "content-type": "application/json",
-        },
-      }),
+    () =>
+      Promise.resolve(
+        new Response(JSON.stringify({ keys: [] }), {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+          },
+        }),
+      ),
     async () => {
       const response = await createApp({
         getRepository: () => repository,
@@ -558,8 +574,98 @@ Deno.test("POST /lti/launch rejects bad signed launches before any runtime hando
       const body = await response.text();
 
       assertEquals(response.status, 409);
-      assertStringIncludes(body, "Launch id_token signature or issuer validation failed.");
+      assertStringIncludes(
+        body,
+        "Launch id_token signature or issuer validation failed.",
+      );
     },
+  );
+});
+
+Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with Lantern bootstrap injected", async () => {
+  const response = await createApp({
+    getRepository: () =>
+      createInMemoryPackageReviewRepository({
+        runtimeSessions: [
+          buildRuntimeSessionRecord({
+            snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+            entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+            contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
+            expiresAt: "2026-03-24T02:45:00Z",
+          }),
+        ],
+      }),
+  }).request(
+    "http://localhost/runtime/sessions/runtime-session-123?token=runtime-token-123",
+  );
+
+  assertEquals(response.status, 200);
+  const body = await response.text();
+
+  assertStringIncludes(body, "GatewayBootstrap");
+  assertStringIncludes(body, "runtime-token-123");
+  assertStringIncludes(
+    body,
+    "/runtime/sessions/runtime-session-123/files/dist/?token=runtime-token-123",
+  );
+});
+
+Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content through the scoped runtime bridge", async () => {
+  const response = await createApp({
+    getRepository: () =>
+      createInMemoryPackageReviewRepository({
+        runtimeSessions: [
+          buildRuntimeSessionRecord({
+            snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+            entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+            contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
+            expiresAt: "2026-03-24T02:45:00Z",
+          }),
+        ],
+      }),
+  }).request("http://localhost/runtime/sessions/runtime-session-123/content", {
+    headers: {
+      Authorization: "Bearer runtime-token-123",
+    },
+  });
+
+  assertEquals(response.status, 200);
+  const body = await response.json() as {
+    title: string;
+    questions: Array<{ id: string }>;
+  };
+
+  assertEquals(body.title, "Chapter 4 Asteroids");
+  assertEquals(body.questions[0]?.id, "q1");
+});
+
+Deno.test("GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blocks bad tokens", async () => {
+  const app = createApp({
+    getRepository: () =>
+      createInMemoryPackageReviewRepository({
+        runtimeSessions: [
+          buildRuntimeSessionRecord({
+            snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+            entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+            contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
+            expiresAt: "2026-03-24T02:45:00Z",
+          }),
+        ],
+      }),
+  });
+  const goodResponse = await app.request(
+    "http://localhost/runtime/sessions/runtime-session-123/files/dist/app.js?token=runtime-token-123",
+  );
+  const deniedResponse = await app.request(
+    "http://localhost/runtime/sessions/runtime-session-123/files/dist/app.js?token=wrong-token",
+  );
+
+  assertEquals(goodResponse.status, 200);
+  assertStringIncludes(await goodResponse.text(), "Attempt finalized");
+  assertEquals(deniedResponse.status, 409);
+  assertStringIncludes(
+    await deniedResponse.text(),
+    "Runtime session token did not match the requested session.",
   );
 });
 
@@ -573,7 +679,10 @@ function restoreEnv(name: string, value: string | undefined): void {
 }
 
 async function withFetchStub<T>(
-  handler: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  handler: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Response | Promise<Response>,
   run: () => Promise<T>,
 ): Promise<T> {
   const originalFetch = globalThis.fetch;
@@ -581,7 +690,7 @@ async function withFetchStub<T>(
   globalThis.fetch = (
     input: RequestInfo | URL,
     init?: RequestInit,
-  ) => handler(input, init);
+  ) => Promise.resolve(handler(input, init));
 
   try {
     return await run();

@@ -13,7 +13,7 @@ import {
   parseCanvasEnvironment,
   resolveCanvasIssuer,
 } from "./lti/config.ts";
-import { createLoginRedirect, type CanvasLoginRequest } from "./lti/login.ts";
+import { type CanvasLoginRequest, createLoginRedirect } from "./lti/login.ts";
 import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
@@ -28,6 +28,13 @@ import {
 } from "./package_review/repository.ts";
 import type { PackageVersionRecord } from "./package_review/types.ts";
 import { renderHomePage } from "./pages/home.ts";
+import {
+  authorizeRuntimeSession,
+  contentTypeForRuntimePath,
+  loadRuntimeActivityContent,
+  loadRuntimeAssetBytes,
+  renderRuntimeSessionPage,
+} from "./runtime/session.ts";
 
 export interface AppServices {
   getRepository: () => PackageReviewRepository;
@@ -61,7 +68,9 @@ export function createApp(
       return context.json(await buildCanvasConfigDocument());
     } catch (error) {
       return context.json(
-        { error: error instanceof Error ? error.message : "Config unavailable." },
+        {
+          error: error instanceof Error ? error.message : "Config unavailable.",
+        },
         statusForError(error),
       );
     }
@@ -114,6 +123,89 @@ export function createApp(
       );
     } catch (error) {
       return context.text(errorMessage(error), statusForError(error));
+    }
+  });
+
+  app.get("/runtime/sessions/:sessionId", async (context) => {
+    try {
+      const repository = resolvedServices.getRepository();
+      const session = await requireRuntimeSession(
+        repository,
+        context.req.param("sessionId"),
+      );
+      const url = new URL(context.req.url);
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          url.searchParams.get("token"),
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      return context.html(await renderRuntimeSessionPage(session));
+    } catch (error) {
+      return context.text(errorMessage(error), statusForRuntimeError(error));
+    }
+  });
+
+  app.get("/runtime/sessions/:sessionId/content", async (context) => {
+    try {
+      const repository = resolvedServices.getRepository();
+      const session = await requireRuntimeSession(
+        repository,
+        context.req.param("sessionId"),
+      );
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      return context.json(await loadRuntimeActivityContent(session));
+    } catch (error) {
+      return context.text(errorMessage(error), statusForRuntimeError(error));
+    }
+  });
+
+  app.get("/runtime/sessions/:sessionId/files/*", async (context) => {
+    try {
+      const repository = resolvedServices.getRepository();
+      const session = await requireRuntimeSession(
+        repository,
+        context.req.param("sessionId"),
+      );
+      const url = new URL(context.req.url);
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          url.searchParams.get("token"),
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      const relativePath = runtimeFilePathFromRequest(context);
+      const contentType = contentTypeForRuntimePath(relativePath);
+      const assetBytes = await loadRuntimeAssetBytes(session, relativePath);
+      const assetBody = new Uint8Array(assetBytes.byteLength);
+
+      assetBody.set(assetBytes);
+
+      return new Response(
+        new Blob([assetBody], { type: contentType }),
+        {
+          status: 200,
+          headers: {
+            "content-type": contentType,
+          },
+        },
+      );
+    } catch (error) {
+      return context.text(errorMessage(error), statusForRuntimeError(error));
     }
   });
 
@@ -558,6 +650,19 @@ async function handleLoginInitiation(
   }
 }
 
+async function requireRuntimeSession(
+  repository: PackageReviewRepository,
+  sessionId: string,
+) {
+  const session = await repository.getRuntimeSessionById(sessionId);
+
+  if (!session) {
+    throw new Error(`Runtime session ${sessionId} was not found.`);
+  }
+
+  return session;
+}
+
 function createErrorNotice(title: string, error: unknown): AdminNotice {
   const message = errorMessage(error);
   const items = message.includes("; ") ? message.split("; ") : [];
@@ -590,6 +695,26 @@ function statusForError(error: unknown): 409 | 500 {
     error.message.includes("Canvas issuer") ||
     error.message.includes("Login state") ||
     error.message.includes("Launch ")
+  ) {
+    return 409;
+  }
+
+  return 500;
+}
+
+function statusForRuntimeError(error: unknown): 404 | 409 | 500 {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (error.message.includes("was not found")) {
+    return 404;
+  }
+
+  if (
+    error.message.includes("Runtime session") ||
+    error.message.includes("Runtime file") ||
+    error.message.includes("required")
   ) {
     return 409;
   }
@@ -643,7 +768,9 @@ function getCanvasConfigUrlNoticeSafe(): {
   }
 }
 
-async function readCanvasLoginRequest(context: Context): Promise<CanvasLoginRequest> {
+async function readCanvasLoginRequest(
+  context: Context,
+): Promise<CanvasLoginRequest> {
   if (context.req.method === "GET") {
     const url = new URL(context.req.url);
 
@@ -769,6 +896,27 @@ function normalizeNullableString(value: string | null): string | null {
 
 function formValueAsString(value: FormDataEntryValue | null): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function readBearerToken(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/^Bearer\s+(.+)$/i);
+
+  return match?.[1] ?? null;
+}
+
+function runtimeFilePathFromRequest(context: Context): string {
+  const pathname = new URL(context.req.url).pathname;
+  const prefix = `/runtime/sessions/${context.req.param("sessionId")}/files/`;
+
+  if (!pathname.startsWith(prefix)) {
+    throw new Error("Runtime file path is invalid.");
+  }
+
+  return decodeURIComponent(pathname.slice(prefix.length));
 }
 
 function errorMessage(error: unknown): string {

@@ -3,8 +3,8 @@ import { createRuntimeSession, validateLaunchRequest } from "./launch.ts";
 import {
   buildDeploymentBinding,
   buildLoginStateRecord,
-  buildValidatedLaunch,
   buildRuntimeSessionRecord,
+  buildValidatedLaunch,
   getTestCanvasJwks,
   signCanvasIdToken,
 } from "../test_helpers/lti.ts";
@@ -42,7 +42,7 @@ Deno.test("validateLaunchRequest accepts a signed launch with matching state, no
     state: "state-123",
     idToken,
     now: () => new Date("2026-03-23T22:45:00Z"),
-    loadJwks: async () => getTestCanvasJwks(),
+    loadJwks: () => Promise.resolve(getTestCanvasJwks()),
   });
   const loginState = await repository.getLoginStateByState("state-123");
 
@@ -101,7 +101,7 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
         state: "state-123",
         idToken: invalidSignatureToken,
         now: () => new Date("2026-03-23T22:45:00Z"),
-        loadJwks: async () => ({ keys: [] }),
+        loadJwks: () => Promise.resolve({ keys: [] }),
       }),
     Error,
     "Launch id_token signature or issuer validation failed.",
@@ -113,7 +113,7 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
         state: "state-target",
         idToken: targetMismatchToken,
         now: () => new Date("2026-03-23T22:45:00Z"),
-        loadJwks: async () => getTestCanvasJwks(),
+        loadJwks: () => Promise.resolve(getTestCanvasJwks()),
       }),
     Error,
     "Launch target_link_uri did not match the saved login state.",
@@ -125,7 +125,7 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
         state: "state-message",
         idToken: messageMismatchToken,
         now: () => new Date("2026-03-23T22:45:00Z"),
-        loadJwks: async () => getTestCanvasJwks(),
+        loadJwks: () => Promise.resolve(getTestCanvasJwks()),
       }),
     Error,
     "Unsupported LTI message type LtiDeepLinkingRequest.",

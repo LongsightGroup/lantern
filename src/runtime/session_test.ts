@@ -1,33 +1,71 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import {
-  buildRuntimeSessionRecord,
-  buildValidatedLaunch,
-} from "../test_helpers/lti.ts";
+  authorizeRuntimeSession,
+  loadRuntimeActivityContent,
+  renderRuntimeSessionPage,
+} from "./session.ts";
+import { buildRuntimeSessionRecord } from "../test_helpers/lti.ts";
 
-Deno.test.ignore("runtime session route serves the pinned reviewed entrypoint with injected bootstrap payload", async () => {
-  const { renderRuntimeSessionPage } = await import("./session.ts");
-  const html = await renderRuntimeSessionPage(buildRuntimeSessionRecord());
+const EXAMPLE_SNAPSHOT_ROOT = "examples/apps/chapter-4-asteroids";
+
+Deno.test("runtime session route serves the pinned reviewed entrypoint with injected bootstrap payload", async () => {
+  const html = await renderRuntimeSessionPage(
+    buildRuntimeSessionRecord({
+      snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+      entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+      contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
+    }),
+  );
 
   assertStringIncludes(html, "GatewayBootstrap");
   assertStringIncludes(html, "chapter-4-asteroids");
   assertStringIncludes(html, "runtime-token-123");
+  assertStringIncludes(
+    html,
+    "/runtime/sessions/runtime-session-123/files/dist/?token=runtime-token-123",
+  );
 });
 
-Deno.test.ignore("runtime content route serves reviewed activity content through the Lantern bridge", async () => {
-  const { loadRuntimeActivityContent } = await import("./session.ts");
-  const content = await loadRuntimeActivityContent(buildRuntimeSessionRecord());
-
-  assertEquals(typeof content, "object");
-});
-
-Deno.test.ignore("missing or expired runtime session tokens are blocked before artifact bytes are served", async () => {
-  const { authorizeRuntimeSession } = await import("./session.ts");
-
-  await authorizeRuntimeSession({
-    token: "expired-session-token",
-    expected: buildRuntimeSessionRecord({
-      expiresAt: "2026-03-23T22:40:00Z",
+Deno.test("runtime content route serves reviewed activity content through the Lantern bridge", async () => {
+  const content = await loadRuntimeActivityContent(
+    buildRuntimeSessionRecord({
+      snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+      entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+      contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
     }),
-    launch: buildValidatedLaunch(),
-  });
+  ) as { title: string; questions: Array<{ id: string }> };
+
+  assertEquals(content.title, "Chapter 4 Asteroids");
+  assertEquals(content.questions[0]?.id, "q1");
+});
+
+Deno.test("missing or expired runtime session tokens are blocked before artifact bytes are served", async () => {
+  await assertRejects(
+    () =>
+      Promise.resolve().then(() =>
+        authorizeRuntimeSession({
+          token: "expired-session-token",
+          expected: buildRuntimeSessionRecord({
+            expiresAt: "2026-03-23T22:40:00Z",
+          }),
+          now: () => new Date("2026-03-23T22:45:00Z"),
+        })
+      ),
+    Error,
+    "Runtime session token did not match the requested session.",
+  );
+  await assertRejects(
+    () =>
+      Promise.resolve().then(() =>
+        authorizeRuntimeSession({
+          token: "runtime-token-123",
+          expected: buildRuntimeSessionRecord({
+            expiresAt: "2026-03-23T22:40:00Z",
+          }),
+          now: () => new Date("2026-03-23T22:45:00Z"),
+        })
+      ),
+    Error,
+    "Runtime session has expired.",
+  );
 });
