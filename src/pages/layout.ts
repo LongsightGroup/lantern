@@ -39,90 +39,109 @@ export function renderLayout(title: string, body: string): string {
       }
 
       body {
+        margin: 0;
         color: var(--ink);
         font: 16px/1.6 var(--font);
         -webkit-font-smoothing: antialiased;
-      }
-
-      .hero {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 40px 24px;
         background:
-          radial-gradient(ellipse 60% 50% at 50% 35%, rgba(245, 158, 11, 0.07) 0%, transparent 60%),
-          radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79, 70, 229, 0.10) 0%, transparent 60%),
-          linear-gradient(180deg, #0a2540 0%, #0d3155 50%, #122b44 100%);
-        color: #fff;
+          radial-gradient(circle at 10% 10%, rgba(79, 70, 229, 0.07), transparent 45%),
+          radial-gradient(circle at 90% 0%, rgba(245, 158, 11, 0.07), transparent 35%),
+          #f7f9fc;
       }
 
-      .hero-mark {
-        margin-bottom: 28px;
+      .home {
+        width: min(1080px, 100% - 40px);
+        margin: 0 auto;
+        padding: 56px 0 64px;
       }
 
-      .hero h1 {
-        font-size: clamp(3rem, 8vw, 5.5rem);
-        font-weight: 700;
-        letter-spacing: -0.04em;
-        line-height: 1;
-        margin-bottom: 12px;
-      }
-
-      .hero-sub {
-        font-size: clamp(1.1rem, 2vw, 1.35rem);
-        font-weight: 500;
-        color: rgba(255, 255, 255, 0.5);
-        letter-spacing: -0.01em;
+      .home-hero {
+        background: linear-gradient(165deg, #ffffff 0%, #f5f8ff 100%);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: clamp(24px, 4vw, 40px);
+        box-shadow: 0 8px 28px rgba(10, 37, 64, 0.08);
         margin-bottom: 20px;
       }
 
-      .hero-desc {
-        max-width: 44ch;
-        font-size: clamp(0.95rem, 1.2vw, 1.05rem);
-        line-height: 1.65;
-        color: rgba(255, 255, 255, 0.4);
+      .eyebrow {
+        color: var(--accent);
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 10px;
       }
 
-      .hero-cta {
-        margin-top: 36px;
-        display: flex;
-        gap: 12px;
+      h1 {
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        margin-bottom: 14px;
       }
 
-      .hero-cta a {
+      .home-hero p {
+        color: var(--secondary);
+        max-width: 68ch;
+      }
+
+      .home-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+
+      .home-card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px 18px 16px;
+        box-shadow: 0 2px 10px rgba(10, 37, 64, 0.06);
+      }
+
+      h2 {
+        font-size: 1.05rem;
+        margin-bottom: 8px;
+      }
+
+      .home-card p {
+        color: var(--secondary);
+      }
+
+      ul,
+      ol {
+        color: var(--secondary);
+        padding-left: 20px;
+        display: grid;
+        gap: 6px;
+      }
+
+      .home-cta {
+        margin-top: 12px;
+      }
+
+      .cta-primary {
         display: inline-flex;
         align-items: center;
-        height: 44px;
-        padding: 0 24px;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 14px;
         border-radius: 8px;
-        font-size: 15px;
-        font-weight: 600;
-        text-decoration: none;
-        transition: background 120ms;
-      }
-
-      .hero-cta .cta-primary {
         background: var(--accent);
         color: #fff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(79, 70, 229, 0.3);
+        text-decoration: none;
+        font-weight: 600;
       }
 
-      .hero-cta .cta-primary:hover {
+      .cta-primary:hover {
         background: var(--accent-hover);
       }
 
-      .hero-cta .cta-secondary {
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-      }
-
-      .hero-cta .cta-secondary:hover {
-        background: rgba(255, 255, 255, 0.12);
-        color: #fff;
+      @media (max-width: 640px) {
+        .home {
+          width: min(1080px, 100% - 28px);
+          padding-top: 32px;
+        }
       }
     </style>
   </head>
