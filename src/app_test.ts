@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createLocalJWKSet, jwtVerify } from "jose";
 import { createApp } from "./app.ts";
+import { renderHomePage } from "./pages/home.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
 import { buildDeepLinkingSelectionValue } from "./lti/deep_linking.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
@@ -47,7 +48,7 @@ import {
 
 const EXAMPLE_SNAPSHOT_ROOT = "examples/apps/chapter-4-asteroids";
 
-Deno.test("GET / responds with html", async () => {
+Deno.test("GET / serves the public capability story page from renderHomePage", async () => {
   const response = await createApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request("http://localhost/");
@@ -59,7 +60,8 @@ Deno.test("GET / responds with html", async () => {
   );
 
   const body = await response.text();
-  assertEquals(body.includes("Lantern"), true);
+  assertEquals(body, renderHomePage());
+  assertStringIncludes(body, "Governed capabilities");
 });
 
 Deno.test("GET /health responds with ok", async () => {
