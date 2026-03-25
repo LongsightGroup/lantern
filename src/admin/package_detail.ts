@@ -244,6 +244,15 @@ function renderDecisionSection(packageVersion: PackageVersionRecord): string {
       <p class="section-label">Decision record</p>
       <h2>${escapeHtml(approvalStatusLabel(packageVersion.approvalStatus))}</h2>
       <p>${escapeHtml(approvalStatusDetail(packageVersion.approvalStatus))}</p>
+      ${
+    packageVersion.approvalStatus === "approved"
+      ? `<div class="button-row">
+            <a class="button-primary" href="/admin/packages/${
+        escapeHtml(packageVersion.appId)
+      }/versions/${escapeHtml(packageVersion.version)}/preview">Open governed preview launch</a>
+          </div>`
+      : ""
+  }
       <div class="facts">
         <div class="fact">
           <span class="fact-label">Reviewed at</span>

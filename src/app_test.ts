@@ -732,8 +732,8 @@ Deno.test("GET /admin/packages/:appId/versions/:version/preview renders fake lau
   const body = await response.text();
 
   assertStringIncludes(body, "Governed preview launch");
-  assertStringIncludes(body, "preview-course-42");
-  assertStringIncludes(body, "preview-activity-9");
+  assertStringIncludes(body, "course_demo");
+  assertStringIncludes(body, "chapter-4-asteroids");
   assertStringIncludes(
     body,
     'action="/admin/packages/chapter-4-asteroids/versions/0.1.0/preview"',

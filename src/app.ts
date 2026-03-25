@@ -42,6 +42,7 @@ import { buildDeepLinkingResponseSubmission } from "./lti/deep_linking_response.
 import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
+import { renderPreviewPage } from "./admin/preview_page.ts";
 import { renderPackageIndexPage } from "./admin/package_index.ts";
 import {
   importDemoPackage,
@@ -70,6 +71,7 @@ import {
   loadRuntimeAssetBytes,
   renderRuntimeSessionPage,
 } from "./runtime/session.ts";
+import { preparePreviewSession } from "./preview/service.ts";
 import {
   acceptAttemptEvent,
   finalizeRuntimeAttempt,
@@ -781,6 +783,71 @@ export function createApp(
         renderPackageIndexPage({
           versions: [],
           notice: createErrorNotice("Package dossier unavailable", error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.get("/admin/packages/:appId/versions/:version/preview", async (context) => {
+    const repository = resolvedServices.getRepository();
+    const appId = context.req.param("appId");
+    const version = context.req.param("version");
+
+    try {
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        appId,
+        version,
+      );
+
+      if (!packageVersion) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: [],
+            notice: {
+              tone: "error",
+              title: "Package version not found",
+              detail:
+                "Lantern could not find that exact app version in the review inventory.",
+            },
+          }),
+          404,
+        );
+      }
+
+      const previewSession = await preparePreviewSession({
+        packageVersion,
+      });
+
+      return context.html(
+        renderPreviewPage({
+          packageVersion,
+          previewSession,
+        }),
+      );
+    } catch (error) {
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        appId,
+        version,
+      );
+
+      if (!packageVersion) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: [],
+            notice: createErrorNotice("Preview launch unavailable", error),
+          }),
+          statusForError(error),
+        );
+      }
+
+      const history = await repository.listPackageVersionsByApp(appId);
+
+      return context.html(
+        renderPackageDetailPage({
+          packageVersion,
+          history,
+          notice: createErrorNotice("Preview launch unavailable", error),
         }),
         statusForError(error),
       );
@@ -1894,7 +1961,8 @@ function statusForError(error: unknown): 409 | 500 {
     error.message.includes("Canvas deployment") ||
     error.message.includes("Canvas issuer") ||
     error.message.includes("Login state") ||
-    error.message.includes("Launch ")
+    error.message.includes("Launch ") ||
+    error.message.includes("Preview ")
   ) {
     return 409;
   }
