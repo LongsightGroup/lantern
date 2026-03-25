@@ -820,7 +820,10 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview creates a previ
   assertEquals(session?.services.nrps, null);
   assertEquals(session?.launch.courseId, "course_demo");
   assertEquals(session?.launch.activityId, "chapter-4-asteroids");
-  assertEquals(session?.sessionToken, runtimeLocation.searchParams.get("token"));
+  assertEquals(
+    session?.sessionToken,
+    runtimeLocation.searchParams.get("token"),
+  );
 });
 
 Deno.test("POST /admin/packages/:appId/versions/:version/preview writes durable preview launch evidence linked to the preview session", async () => {
@@ -869,7 +872,9 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview writes durable 
   const auditEvents = await repository.listAuditEventsByEventType(
     "preview.launch",
   );
-  const previewSessionId = String(auditEvents[0]?.detail.previewSessionId ?? "");
+  const previewSessionId = String(
+    auditEvents[0]?.detail.previewSessionId ?? "",
+  );
   const previewEvidence = await repository.listPreviewEvidence(
     previewSessionId,
   );

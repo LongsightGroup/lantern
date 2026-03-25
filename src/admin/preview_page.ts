@@ -1,4 +1,7 @@
-import type { PackageVersionRecord, PreviewSessionRecord } from "../package_review/types.ts";
+import type {
+  PackageVersionRecord,
+  PreviewSessionRecord,
+} from "../package_review/types.ts";
 import { type AdminNotice, escapeHtml, renderAdminLayout } from "./layout.ts";
 
 export function renderPreviewPage(input: {
@@ -40,15 +43,21 @@ export function renderPreviewPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">App</span>
-              <span class="fact-value">${escapeHtml(packageVersion.appId)}</span>
+              <span class="fact-value">${
+      escapeHtml(packageVersion.appId)
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Version</span>
-              <span class="fact-value">${escapeHtml(packageVersion.version)}</span>
+              <span class="fact-value">${
+      escapeHtml(packageVersion.version)
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Snapshot</span>
-              <span class="fact-value">${escapeHtml(packageVersion.artifact.snapshotRoot)}</span>
+              <span class="fact-value">${
+      escapeHtml(packageVersion.artifact.snapshotRoot)
+    }</span>
             </div>
           </div>
         </section>
@@ -57,11 +66,15 @@ export function renderPreviewPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">User role</span>
-              <span class="fact-value">${escapeHtml(previewSession.launch.userRole)}</span>
+              <span class="fact-value">${
+      escapeHtml(previewSession.launch.userRole)
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Course</span>
-              <span class="fact-value">${escapeHtml(previewSession.launch.courseId)}</span>
+              <span class="fact-value">${
+      escapeHtml(previewSession.launch.courseId)
+    }</span>
             </div>
             <div class="fact">
               <span class="fact-label">Assignment</span>
@@ -71,7 +84,9 @@ export function renderPreviewPage(input: {
             </div>
             <div class="fact">
               <span class="fact-label">Activity</span>
-              <span class="fact-value">${escapeHtml(previewSession.launch.activityId)}</span>
+              <span class="fact-value">${
+      escapeHtml(previewSession.launch.activityId)
+    }</span>
             </div>
           </div>
         </section>

@@ -170,11 +170,9 @@ function buildRuntimeBootstrapScript(input: {
     `${input.runtimeBasePath}/finalize`,
   );
   const previewJson = serializeForInlineScript(
-    input.previewSessionId === null
-      ? null
-      : {
-        previewSessionId: input.previewSessionId,
-      },
+    input.previewSessionId === null ? null : {
+      previewSessionId: input.previewSessionId,
+    },
   );
 
   return `window.GatewayBootstrap = ${bootstrapJson};

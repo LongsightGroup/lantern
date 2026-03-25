@@ -289,8 +289,12 @@ function resolvePreviewRuntimeContentPath(
   }`;
 }
 
-function readCanonicalContentPath(packageVersion: PackageVersionRecord): string {
-  const contentFiles = readTrimmedStringArray(packageVersion.manifestJson.content_files);
+function readCanonicalContentPath(
+  packageVersion: PackageVersionRecord,
+): string {
+  const contentFiles = readTrimmedStringArray(
+    packageVersion.manifestJson.content_files,
+  );
 
   return contentFiles[0] ?? "/content/activity.json";
 }

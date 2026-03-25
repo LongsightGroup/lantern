@@ -792,70 +792,73 @@ export function createApp(
     }
   });
 
-  app.get("/admin/packages/:appId/versions/:version/preview", async (context) => {
-    const repository = resolvedServices.getRepository();
-    const appId = context.req.param("appId");
-    const version = context.req.param("version");
+  app.get(
+    "/admin/packages/:appId/versions/:version/preview",
+    async (context) => {
+      const repository = resolvedServices.getRepository();
+      const appId = context.req.param("appId");
+      const version = context.req.param("version");
 
-    try {
-      const packageVersion = await repository.getPackageVersionByAppVersion(
-        appId,
-        version,
-      );
-
-      if (!packageVersion) {
-        return context.html(
-          renderPackageIndexPage({
-            versions: [],
-            notice: {
-              tone: "error",
-              title: "Package version not found",
-              detail:
-                "Lantern could not find that exact app version in the review inventory.",
-            },
-          }),
-          404,
+      try {
+        const packageVersion = await repository.getPackageVersionByAppVersion(
+          appId,
+          version,
         );
-      }
 
-      const previewSession = await preparePreviewSession({
-        packageVersion,
-      });
+        if (!packageVersion) {
+          return context.html(
+            renderPackageIndexPage({
+              versions: [],
+              notice: {
+                tone: "error",
+                title: "Package version not found",
+                detail:
+                  "Lantern could not find that exact app version in the review inventory.",
+              },
+            }),
+            404,
+          );
+        }
 
-      return context.html(
-        renderPreviewPage({
+        const previewSession = await preparePreviewSession({
           packageVersion,
-          previewSession,
-        }),
-      );
-    } catch (error) {
-      const packageVersion = await repository.getPackageVersionByAppVersion(
-        appId,
-        version,
-      );
+        });
 
-      if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
-            versions: [],
+          renderPreviewPage({
+            packageVersion,
+            previewSession,
+          }),
+        );
+      } catch (error) {
+        const packageVersion = await repository.getPackageVersionByAppVersion(
+          appId,
+          version,
+        );
+
+        if (!packageVersion) {
+          return context.html(
+            renderPackageIndexPage({
+              versions: [],
+              notice: createErrorNotice("Preview launch unavailable", error),
+            }),
+            statusForError(error),
+          );
+        }
+
+        const history = await repository.listPackageVersionsByApp(appId);
+
+        return context.html(
+          renderPackageDetailPage({
+            packageVersion,
+            history,
             notice: createErrorNotice("Preview launch unavailable", error),
           }),
           statusForError(error),
         );
       }
-
-      const history = await repository.listPackageVersionsByApp(appId);
-
-      return context.html(
-        renderPackageDetailPage({
-          packageVersion,
-          history,
-          notice: createErrorNotice("Preview launch unavailable", error),
-        }),
-        statusForError(error),
-      );
-    }
-  });
+    },
+  );
 
   app.post(
     "/admin/packages/:appId/versions/:version/preview",
