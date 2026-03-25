@@ -665,6 +665,107 @@ Deno.test("GET /admin/packages renders the SSR control-plane inventory when pack
   assertStringIncludes(body, 'action="/admin/packages/verification"');
 });
 
+Deno.test("approved package dossier includes a governed preview launch link", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 41,
+        approvalStatus: "approved",
+        reviewNotes: "Ready for governed preview.",
+        reviewedAt: "2026-03-25T00:40:00Z",
+      }),
+    ],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0",
+  );
+
+  assertEquals(response.status, 200);
+
+  const body = await response.text();
+
+  assertStringIncludes(
+    body,
+    "/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
+  );
+});
+
+Deno.test("GET /admin/packages/:appId/versions/:version/preview renders fake launch context for approved reviewed versions", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 42,
+        appId: "chapter-4-asteroids",
+        version: "0.1.0",
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-25T00:40:00Z",
+        manifestJson: {
+          app_id: "chapter-4-asteroids",
+          version: "0.1.0",
+          title: "Chapter 4 Asteroids",
+          preview: {
+            fixtures_file: "/preview/fixtures.json",
+            tests_file: "/preview/tests.json",
+          },
+        },
+        artifact: {
+          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+          manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+          digest: "sha256:example-approved-preview",
+        },
+      }),
+    ],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
+  );
+
+  assertEquals(response.status, 200);
+
+  const body = await response.text();
+
+  assertStringIncludes(body, "Governed preview launch");
+  assertStringIncludes(body, "preview-course-42");
+  assertStringIncludes(body, "preview-activity-9");
+  assertStringIncludes(
+    body,
+    'action="/admin/packages/chapter-4-asteroids/versions/0.1.0/preview"',
+  );
+});
+
+Deno.test("GET /admin/packages/:appId/versions/:version/preview fails clearly for non-approved versions with no runtime redirect", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 43,
+        appId: "chapter-4-asteroids",
+        version: "0.2.0",
+        approvalStatus: "pending",
+      }),
+    ],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.2.0/preview",
+  );
+
+  assertEquals(response.status, 409);
+  assertEquals(response.headers.get("location"), null);
+  assertStringIncludes(
+    await response.text(),
+    "Preview requires an approved package version.",
+  );
+});
+
 Deno.test("POST /admin/packages/verification records a broker verification run and redirects back to the control plane", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
