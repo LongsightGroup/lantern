@@ -24,6 +24,7 @@ import type {
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
+  PreviewSessionRecord,
 } from "../package_review/types.ts";
 
 export interface FinalizeAttemptInput {
@@ -74,15 +75,55 @@ export async function acceptAttemptEvent(input: {
   payload: unknown;
   now?: () => Date;
 }) {
-  requireRuntimeCapability(input.session, "submit_attempt_event");
-  const event = parseAttemptEvent(input.payload);
   const now = input.now ?? (() => new Date());
+  const occurredAt = now().toISOString();
+  const previewSession = await resolvePreviewSession(
+    input.repository,
+    input.session,
+  );
 
-  return await input.repository.appendAttemptEvent({
-    attemptId: input.session.attemptId,
-    event,
-    receivedAt: now().toISOString(),
-  });
+  try {
+    requireRuntimeCapability(input.session, "submit_attempt_event");
+    const event = parseAttemptEvent(input.payload);
+    const attemptEvent = await input.repository.appendAttemptEvent({
+      attemptId: input.session.attemptId,
+      event,
+      receivedAt: occurredAt,
+    });
+
+    if (previewSession !== null) {
+      await input.repository.appendPreviewEvidence({
+        previewSessionId: previewSession.sessionId,
+        eventType: "preview.attempt_event",
+        capability: "submit_attempt_event",
+        summary: "Recorded preview attempt activity without LMS side effects.",
+        detail: {
+          attemptId: input.session.attemptId,
+          sequence: attemptEvent.sequence,
+          eventType: attemptEvent.eventType,
+        },
+        occurredAt,
+      });
+    }
+
+    return attemptEvent;
+  } catch (error) {
+    if (previewSession !== null) {
+      await input.repository.appendPreviewEvidence({
+        previewSessionId: previewSession.sessionId,
+        eventType: "preview.attempt_event.blocked",
+        capability: "submit_attempt_event",
+        summary: "Blocked preview attempt-event write outside declared capability.",
+        detail: {
+          attemptId: input.session.attemptId,
+          reason: errorMessage(error),
+        },
+        occurredAt,
+      });
+    }
+
+    throw error;
+  }
 }
 
 export async function finalizeRuntimeAttempt(input: {
@@ -91,15 +132,81 @@ export async function finalizeRuntimeAttempt(input: {
   payload: unknown;
   now?: () => Date;
 }): Promise<FinalizeAttemptResult> {
-  requireRuntimeCapability(input.session, "finalize_attempt");
-  const finalizeInput = parseFinalizeAttemptInput(input.payload);
   const now = input.now ?? (() => new Date());
+  const occurredAt = now().toISOString();
+  const previewSession = await resolvePreviewSession(
+    input.repository,
+    input.session,
+  );
+  let previewBlockEvidenceRecorded = false;
 
   try {
+    requireRuntimeCapability(input.session, "finalize_attempt");
+    const finalizeInput = parseFinalizeAttemptInput(input.payload);
     const attempt = await requireRuntimeAttempt(
       input.repository,
       input.session,
     );
+
+    if (previewSession !== null) {
+      if (previewSessionHasLiveServicePath(input.session)) {
+        await input.repository.appendPreviewEvidence({
+          previewSessionId: previewSession.sessionId,
+          eventType: "preview.finalize.blocked",
+          capability: "finalize_attempt",
+          summary: "Blocked preview finalize from attempting live LMS side effects.",
+          detail: {
+            attemptId: input.session.attemptId,
+            hasAgsServices: input.session.services.ags !== null,
+            hasNrpsServices: input.session.services.nrps !== null,
+          },
+          occurredAt,
+        });
+        previewBlockEvidenceRecorded = true;
+        throw new Error("Preview mode blocks live LMS side effects.");
+      }
+
+      const finalizedNow = attempt.finalizedAt === null;
+      const finalizedAttempt = finalizedNow
+        ? await input.repository.finalizeAttempt({
+          attemptId: attempt.attemptId,
+          status: completionStateToAttemptStatus(finalizeInput.completionState),
+          completionState: finalizeInput.completionState,
+          finalizedAt: occurredAt,
+        })
+        : attempt;
+      const score: AttemptScoreResult = {
+        scoreGiven: 0,
+        scoreMaximum: previewSession.fakeScoreMaximum,
+      };
+
+      await input.repository.appendPreviewEvidence({
+        previewSessionId: previewSession.sessionId,
+        eventType: "preview.finalize",
+        capability: "finalize_attempt",
+        summary:
+          "Finalized preview attempt with Lantern fake scoring and no LMS writes.",
+        detail: {
+          attemptId: finalizedAttempt.attemptId,
+          completionState: finalizedAttempt.completionState,
+          scoreGiven: score.scoreGiven,
+          scoreMaximum: score.scoreMaximum,
+          alreadyFinalized: !finalizedNow,
+        },
+        occurredAt,
+      });
+
+      return {
+        attempt: finalizedAttempt,
+        score,
+        finalizedNow,
+        lineItemBinding: null,
+        gradePublication: null,
+        gradePublishedNow: false,
+        publishError: null,
+      };
+    }
+
     const packageVersion = await requireRuntimePackageVersion(
       input.repository,
       input.session,
@@ -151,6 +258,20 @@ export async function finalizeRuntimeAttempt(input: {
       ...publishResult,
     };
   } catch (error) {
+    if (previewSession !== null && !previewBlockEvidenceRecorded) {
+      await input.repository.appendPreviewEvidence({
+        previewSessionId: previewSession.sessionId,
+        eventType: "preview.finalize.blocked",
+        capability: "finalize_attempt",
+        summary: "Blocked preview finalize request before any LMS side effect.",
+        detail: {
+          attemptId: input.session.attemptId,
+          reason: errorMessage(error),
+        },
+        occurredAt,
+      });
+    }
+
     throw toFinalizeError(error);
   }
 }
@@ -345,6 +466,46 @@ function requireTimestamp(value: unknown, message: string): string {
   }
 
   return timestamp;
+}
+
+async function resolvePreviewSession(
+  repository: PackageReviewRepository,
+  session: RuntimeSessionRecord,
+): Promise<PreviewSessionRecord | null> {
+  if (session.preview === undefined) {
+    return null;
+  }
+
+  const previewSession = await repository.getPreviewSessionById(
+    session.preview.previewSessionId,
+  );
+
+  if (previewSession === null) {
+    throw new Error(
+      `Preview session ${session.preview.previewSessionId} was not found.`,
+    );
+  }
+
+  if (
+    previewSession.appId !== session.appId ||
+    previewSession.packageVersionId !== session.packageVersionId ||
+    previewSession.packageVersion !== session.packageVersion ||
+    previewSession.fakeAttemptId !== session.attemptId
+  ) {
+    throw new Error(
+      `Preview session ${previewSession.sessionId} did not match the runtime session context.`,
+    );
+  }
+
+  return previewSession;
+}
+
+function previewSessionHasLiveServicePath(
+  session: RuntimeSessionRecord,
+): boolean {
+  return session.deploymentRecordId !== 0 ||
+    session.services.ags !== null ||
+    session.services.nrps !== null;
 }
 
 async function requireRuntimeAttempt(
