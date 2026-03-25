@@ -31,7 +31,8 @@ export type ControlPlaneDiagnosticKind =
   | "launch"
   | "nrps"
   | "gradePublication"
-  | "brokerVerification";
+  | "brokerVerification"
+  | "reviewer";
 
 export type BrokerVerificationSource = "manual" | "ci" | "1edtech";
 export type BrokerVerificationRunStatus =

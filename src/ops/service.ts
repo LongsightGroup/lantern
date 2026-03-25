@@ -492,6 +492,12 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
       : "Broker verification evidence was recorded for the supported Canvas path.";
   }
 
+  if (item.kind === "reviewer") {
+    return item.status === "failed"
+      ? "Reviewer activity ended in a failed state and needs follow-up."
+      : "Reviewer evidence was recorded for this reviewed placement.";
+  }
+
   if (item.code === "token_request_failed") {
     return "Lantern could not get a Canvas service token for this attempt from the control plane.";
   }

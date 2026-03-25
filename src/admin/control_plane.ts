@@ -89,6 +89,19 @@ export function renderControlPlanePage(input: {
     <section class="panel">
       <div class="panel-body two-column">
         <div class="stack">
+          <p class="section-label">Placement audits</p>
+          <h2>Open reviewed placement evidence</h2>
+          <p>Use one placement id to open selected content, reviewed package identity, Canvas context, and reviewer evidence on the dedicated audit surface.</p>
+        </div>
+        <div class="stack">
+          <a class="button-secondary" href="/admin/placements">Open placement audits</a>
+          <p class="micro muted">From package dossiers or deployment diagnostics, follow the placement id to keep one auditable trail.</p>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-body two-column">
+        <div class="stack">
           <p class="section-label">Broker verification</p>
           <h2>Supported Canvas path</h2>
           <p>Lantern keeps internal proof of the supported broker path separate from any official directory status so operators can see evidence, not marketing shorthand.</p>

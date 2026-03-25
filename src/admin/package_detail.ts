@@ -134,6 +134,24 @@ export function renderPackageDetailPage(input: {
       escapeHtml(packageVersion.appId)
     }/deployment">Open exact version picker</a>
           </section>
+          <section class="fact">
+            <span class="fact-label">Placement audit</span>
+            <p class="micro muted">Open a reviewed placement by id.</p>
+            <form method="get" action="/admin/placements" class="stack">
+              <div class="field">
+                <label for="placement-id">Placement id</label>
+                <input
+                  id="placement-id"
+                  name="placementId"
+                  type="text"
+                  placeholder="placement-123"
+                >
+              </div>
+              <div class="button-row">
+                <button type="submit" class="button-secondary">Open placement audit</button>
+              </div>
+            </form>
+          </section>
         </aside>
       </div>
     </section>
@@ -249,7 +267,9 @@ function renderDecisionSection(packageVersion: PackageVersionRecord): string {
       ? `<div class="button-row">
             <a class="button-primary" href="/admin/packages/${
         escapeHtml(packageVersion.appId)
-      }/versions/${escapeHtml(packageVersion.version)}/preview">Open governed preview launch</a>
+      }/versions/${
+        escapeHtml(packageVersion.version)
+      }/preview">Open governed preview launch</a>
           </div>`
       : ""
   }

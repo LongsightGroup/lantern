@@ -215,6 +215,7 @@ const DIAGNOSTICS_QUERY = `
       OR audit_events.event_type = 'deployment.nrps_verified'
       OR audit_events.event_type LIKE 'grade_publish.%'
       OR audit_events.event_type LIKE 'broker_verification.%'
+      OR audit_events.event_type LIKE 'reviewer.%'
     )
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
 `;
@@ -1030,6 +1031,10 @@ function mapDiagnosticKind(
 
   if (eventType.startsWith("broker_verification.")) {
     return "brokerVerification";
+  }
+
+  if (eventType.startsWith("reviewer.")) {
+    return "reviewer";
   }
 
   return "gradePublication";

@@ -2,11 +2,7 @@ import type {
   AuditEventRecord,
   PlacementAuditSnapshot,
 } from "../package_review/types.ts";
-import {
-  escapeHtml,
-  formatDateTime,
-  renderAdminLayout,
-} from "./layout.ts";
+import { escapeHtml, formatDateTime, renderAdminLayout } from "./layout.ts";
 
 export function renderPlacementAuditPage(input: {
   snapshot: PlacementAuditSnapshot;
@@ -20,12 +16,10 @@ export function renderPlacementAuditPage(input: {
 }): string {
   const { placement } = input.snapshot;
   const status = describePlacementStatus(input.snapshot.status);
-  const previewLink = `/admin/packages/${placement.appId}/versions/${
-    placement.packageVersion
-  }/preview`;
-  const packageLink = `/admin/packages/${placement.appId}/versions/${
-    placement.packageVersion
-  }`;
+  const previewLink =
+    `/admin/packages/${placement.appId}/versions/${placement.packageVersion}/preview`;
+  const packageLink =
+    `/admin/packages/${placement.appId}/versions/${placement.packageVersion}`;
   const deploymentLink = `/admin/packages/${placement.appId}/deployment`;
 
   return renderAdminLayout({
@@ -69,15 +63,19 @@ export function renderPlacementAuditPage(input: {
               <span class="fact-value">${
       escapeHtml(placement.contextTitle ?? "Not recorded yet")
     }</span>
-              <p class="micro muted">${escapeHtml(
-      placement.contextId ?? "Not recorded yet",
-    )}</p>
+              <p class="micro muted">${
+      escapeHtml(
+        placement.contextId ?? "Not recorded yet",
+      )
+    }</p>
             </div>
             <div class="fact">
               <span class="fact-label">Resource link</span>
-              <span class="fact-value">${escapeHtml(
-      placement.resourceLinkId ?? "Not recorded yet",
-    )}</span>
+              <span class="fact-value">${
+      escapeHtml(
+        placement.resourceLinkId ?? "Not recorded yet",
+      )
+    }</span>
             </div>
           </div>
         </div>
@@ -94,12 +92,18 @@ export function renderPlacementAuditPage(input: {
     }</p>
           </section>
           <div class="button-row">
-            <a class="button-secondary" href="${escapeHtml(packageLink)}">Open reviewed package</a>
-            <a class="button-secondary" href="${escapeHtml(deploymentLink)}">Open deployment</a>
+            <a class="button-secondary" href="${
+      escapeHtml(packageLink)
+    }">Open reviewed package</a>
+            <a class="button-secondary" href="${
+      escapeHtml(deploymentLink)
+    }">Open deployment</a>
             ${
       input.snapshot.latestPreviewSessionId === null
         ? ""
-        : `<a class="button-secondary" href="${escapeHtml(previewLink)}">Open preview evidence</a>`
+        : `<a class="button-secondary" href="${
+          escapeHtml(previewLink)
+        }">Open preview evidence</a>`
     }
           </div>
         </aside>
@@ -158,11 +162,13 @@ function renderTimelineRows(
       return occurred;
     }
     return right.id - left.id;
-  }).map((event) => `<article class="line-item">
+  }).map((event) =>
+    `<article class="line-item">
       <p class="line-title">${escapeHtml(event.eventType)}</p>
       <p class="line-copy">${escapeHtml(event.summary)}</p>
       <p class="micro muted">${escapeHtml(formatDateTime(event.occurredAt))}</p>
-    </article>`);
+    </article>`
+  );
 
   if (snapshot.latestPreviewSessionId !== null) {
     rows.unshift(`<article class="line-item">
@@ -173,7 +179,9 @@ function renderTimelineRows(
       <p class="micro muted">${
       escapeHtml(formatDateTime(snapshot.latestPreviewOccurredAt))
     }</p>
-      <a class="button-ghost" href="${escapeHtml(previewLink)}">Open preview evidence</a>
+      <a class="button-ghost" href="${
+      escapeHtml(previewLink)
+    }">Open preview evidence</a>
     </article>`);
   }
 

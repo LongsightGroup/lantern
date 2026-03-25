@@ -649,6 +649,10 @@ Deno.test(
         ),
         true,
       );
+      const reviewerItem = detail.diagnostics.find((
+        item: { eventType: string },
+      ) => item.eventType === "reviewer.preview_viewed");
+      assertEquals(reviewerItem?.kind, "reviewer");
     });
   },
 );

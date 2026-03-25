@@ -11,9 +11,9 @@ import {
   LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
 } from "./lti/types.ts";
 import {
-  buildAuditEventRecord,
   buildAttemptEventRecord,
   buildAttemptRecord,
+  buildAuditEventRecord,
   buildBrokerVerificationStatus,
   buildControlPlaneDeploymentDetailSnapshot,
   buildControlPlaneDeploymentInventoryRow,
@@ -770,9 +770,14 @@ Deno.test(
       getRepository: () => repository,
     });
 
-    const missingIdResponse = await app.request("http://localhost/admin/placements");
+    const missingIdResponse = await app.request(
+      "http://localhost/admin/placements",
+    );
     assertEquals(missingIdResponse.status, 400);
-    assertStringIncludes(await missingIdResponse.text(), "Placement id is required.");
+    assertStringIncludes(
+      await missingIdResponse.text(),
+      "Placement id is required.",
+    );
 
     const unknownResponse = await app.request(
       "http://localhost/admin/placements/placement-missing",

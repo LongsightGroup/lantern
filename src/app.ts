@@ -773,6 +773,18 @@ export function createApp(
   });
 
   app.get("/admin/placements", (context) => {
+    const url = new URL(context.req.url);
+    const placementId = normalizeOptionalString(
+      url.searchParams.get("placementId"),
+    );
+
+    if (placementId !== null) {
+      return context.redirect(
+        `/admin/placements/${encodeURIComponent(placementId)}`,
+        303,
+      );
+    }
+
     return context.html(
       renderPlacementAuditRequestPage({
         notice: {
@@ -2935,7 +2947,9 @@ async function loadPlacementAuditTimeline(
   ] as const;
 
   const groups = await Promise.all(
-    eventTypes.map((eventType) => repository.listAuditEventsByEventType(eventType)),
+    eventTypes.map((eventType) =>
+      repository.listAuditEventsByEventType(eventType)
+    ),
   );
 
   return groups.flat().filter((event) => {

@@ -705,6 +705,8 @@ function describeDiagnosticKind(
       return "NRPS";
     case "brokerVerification":
       return "Broker verification";
+    case "reviewer":
+      return "Reviewer";
     case "gradePublication":
       return "AGS publish";
   }
