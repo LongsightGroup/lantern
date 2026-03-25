@@ -139,6 +139,42 @@ const CREATE_REVIEWED_PLACEMENTS_TABLE_SQL = `
   )
 `;
 
+const CREATE_PREVIEW_SESSIONS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS preview_sessions (
+    session_id text PRIMARY KEY,
+    package_version_id bigint NOT NULL REFERENCES package_versions (id) ON DELETE CASCADE,
+    app_id text NOT NULL,
+    package_version text NOT NULL,
+    package_title text NOT NULL,
+    capabilities text[] NOT NULL,
+    snapshot_root text NOT NULL,
+    entrypoint_path text NOT NULL,
+    launch_user_id text NOT NULL,
+    launch_user_role text NOT NULL,
+    launch_course_id text NOT NULL,
+    launch_assignment_id text,
+    launch_activity_id text NOT NULL,
+    fake_attempt_id text NOT NULL,
+    fake_score_maximum numeric NOT NULL,
+    fixture_data jsonb NOT NULL,
+    created_at timestamptz NOT NULL
+  )
+`;
+
+const CREATE_PREVIEW_EVIDENCE_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS preview_evidence (
+    id bigserial PRIMARY KEY,
+    preview_session_id text NOT NULL REFERENCES preview_sessions (session_id) ON DELETE CASCADE,
+    sequence integer NOT NULL,
+    event_type text NOT NULL,
+    capability text,
+    summary text NOT NULL,
+    detail jsonb NOT NULL,
+    occurred_at timestamptz NOT NULL,
+    UNIQUE (preview_session_id, sequence)
+  )
+`;
+
 const CREATE_ATTEMPTS_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS attempts (
     id bigserial PRIMARY KEY,
@@ -352,6 +388,8 @@ export async function bootstrapPackageReviewSchema(
     await client.queryArray(CREATE_RUNTIME_SESSIONS_TABLE_SQL);
     await client.queryArray(CREATE_DEEP_LINKING_SESSIONS_TABLE_SQL);
     await client.queryArray(CREATE_REVIEWED_PLACEMENTS_TABLE_SQL);
+    await client.queryArray(CREATE_PREVIEW_SESSIONS_TABLE_SQL);
+    await client.queryArray(CREATE_PREVIEW_EVIDENCE_TABLE_SQL);
     await client.queryArray(CREATE_ATTEMPTS_TABLE_SQL);
     await client.queryArray(CREATE_ATTEMPT_EVENTS_TABLE_SQL);
     await client.queryArray(CREATE_CANVAS_LINE_ITEM_BINDINGS_TABLE_SQL);
@@ -381,7 +419,7 @@ export async function resetPackageReviewTables(pool: Pool): Promise<void> {
   try {
     await client.queryArray("BEGIN");
     await client.queryArray(
-      "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
+      "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, preview_evidence, preview_sessions, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE",
     );
     await client.queryArray("COMMIT");
   } catch (error) {

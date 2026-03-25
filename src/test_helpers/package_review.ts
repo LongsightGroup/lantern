@@ -35,6 +35,8 @@ import type {
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
+  PreviewEvidenceRecord,
+  PreviewSessionRecord,
   ReviewedPlacementRecord,
 } from "../package_review/types.ts";
 
@@ -292,6 +294,65 @@ export function buildReviewedPlacementRecord(
     resourceLinkId: overrides.resourceLinkId ?? null,
     createdAt: overrides.createdAt ?? DEFAULT_PHASE4_AT,
     boundAt: overrides.boundAt ?? null,
+  };
+}
+
+export function buildPreviewSessionRecord(
+  overrides: Partial<PreviewSessionRecord> = {},
+): PreviewSessionRecord {
+  return {
+    sessionId: overrides.sessionId ?? "preview-session-123",
+    packageVersionId: overrides.packageVersionId ?? 1,
+    appId: overrides.appId ?? "chapter-4-asteroids",
+    packageVersion: overrides.packageVersion ?? "0.1.0",
+    packageTitle: overrides.packageTitle ?? "Chapter 4 Asteroids",
+    capabilities: overrides.capabilities ?? [
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "finalize_attempt",
+    ],
+    snapshotRoot: overrides.snapshotRoot ??
+      "var/packages/chapter-4-asteroids/0.1.0",
+    entrypointPath: overrides.entrypointPath ??
+      "var/packages/chapter-4-asteroids/0.1.0/dist/index.html",
+    launch: overrides.launch ?? {
+      userId: "preview-user-123",
+      userRole: "instructor",
+      courseId: "preview-course-42",
+      assignmentId: "preview-assignment-7",
+      activityId: "preview-activity-9",
+    },
+    fakeAttemptId: overrides.fakeAttemptId ?? "preview-attempt-123",
+    fakeScoreMaximum: overrides.fakeScoreMaximum ?? 100,
+    fixtureData: overrides.fixtureData ?? {
+      launch: {
+        user_role: "instructor",
+        course_id: "preview-course-42",
+        assignment_id: "preview-assignment-7",
+        activity_id: "preview-activity-9",
+      },
+      attempt_id: "preview-attempt-123",
+      local_state: null,
+    },
+    createdAt: overrides.createdAt ?? DEFAULT_PHASE4_AT,
+  };
+}
+
+export function buildPreviewEvidenceRecord(
+  overrides: Partial<PreviewEvidenceRecord> = {},
+): PreviewEvidenceRecord {
+  return {
+    id: overrides.id ?? 1,
+    previewSessionId: overrides.previewSessionId ?? "preview-session-123",
+    sequence: overrides.sequence ?? 1,
+    eventType: overrides.eventType ?? "preview.launch",
+    capability: overrides.capability ?? null,
+    summary: overrides.summary ?? "Preview session launched.",
+    detail: overrides.detail ?? {
+      route: "/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
+    },
+    occurredAt: overrides.occurredAt ?? DEFAULT_PHASE4_AT,
   };
 }
 
@@ -629,6 +690,8 @@ export function createInMemoryPackageReviewRepository(
     deepLinkingSessions?: DeepLinkingSessionRecord[];
     deepLinkingResourceOptions?: DeepLinkingResourceOption[];
     reviewedPlacements?: ReviewedPlacementRecord[];
+    previewSessions?: PreviewSessionRecord[];
+    previewEvidence?: PreviewEvidenceRecord[];
     controlPlaneDeployments?: ControlPlaneDeploymentInventoryRow[];
     controlPlaneDeploymentDetails?: ControlPlaneDeploymentDetailSnapshot[];
     controlPlaneDiagnostics?: ControlPlaneDiagnosticItem[];
@@ -653,6 +716,8 @@ export function createInMemoryPackageReviewRepository(
     ...(options.deepLinkingResourceOptions ?? []),
   ];
   const reviewedPlacements = [...(options.reviewedPlacements ?? [])];
+  const previewSessions = [...(options.previewSessions ?? [])];
+  const previewEvidence = [...(options.previewEvidence ?? [])];
   const controlPlaneDeployments = [...(options.controlPlaneDeployments ?? [])];
   const controlPlaneDeploymentDetails = [
     ...(options.controlPlaneDeploymentDetails ?? []),
@@ -1002,6 +1067,84 @@ export function createInMemoryPackageReviewRepository(
       reviewedPlacements.splice(index, 1, nextRecord);
 
       return Promise.resolve(cloneReviewedPlacement(nextRecord));
+    },
+
+    createPreviewSession(record) {
+      const packageVersion = packageVersions.find((candidate) =>
+        candidate.id === record.packageVersionId
+      );
+
+      if (!packageVersion) {
+        throw new Error(
+          `Package version id ${record.packageVersionId} was not found.`,
+        );
+      }
+
+      const existing = previewSessions.find((candidate) =>
+        candidate.sessionId === record.sessionId
+      );
+
+      if (existing) {
+        throw new Error(
+          `Preview session ${record.sessionId} already exists and cannot be replaced.`,
+        );
+      }
+
+      const nextRecord = clonePreviewSession(record);
+      previewSessions.push(nextRecord);
+
+      return Promise.resolve(clonePreviewSession(nextRecord));
+    },
+
+    getPreviewSessionById(sessionId) {
+      const record = previewSessions.find((candidate) =>
+        candidate.sessionId === sessionId
+      );
+
+      return Promise.resolve(record ? clonePreviewSession(record) : null);
+    },
+
+    appendPreviewEvidence(input) {
+      const session = previewSessions.find((candidate) =>
+        candidate.sessionId === input.previewSessionId
+      );
+
+      if (!session) {
+        throw new Error(
+          `Preview session ${input.previewSessionId} was not found.`,
+        );
+      }
+
+      const sequence = previewEvidence
+        .filter((candidate) =>
+          candidate.previewSessionId === input.previewSessionId
+        )
+        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const nextRecord = buildPreviewEvidenceRecord({
+        id: nextId(previewEvidence),
+        previewSessionId: input.previewSessionId,
+        sequence,
+        eventType: input.eventType,
+        capability: input.capability,
+        summary: input.summary,
+        detail: input.detail,
+        occurredAt: input.occurredAt,
+      });
+
+      previewEvidence.push(clonePreviewEvidence(nextRecord));
+
+      return Promise.resolve(clonePreviewEvidence(nextRecord));
+    },
+
+    listPreviewEvidence(previewSessionId) {
+      return Promise.resolve(
+        previewEvidence
+          .filter((candidate) =>
+            candidate.previewSessionId === previewSessionId
+          )
+          .sort((left, right) => left.sequence - right.sequence)
+          .map(clonePreviewEvidence),
+      );
     },
 
     createAttempt(record) {
@@ -1591,6 +1734,18 @@ function cloneDeepLinkingResourceOption(
 function cloneReviewedPlacement(
   record: ReviewedPlacementRecord,
 ): ReviewedPlacementRecord {
+  return structuredClone(record);
+}
+
+function clonePreviewSession(
+  record: PreviewSessionRecord,
+): PreviewSessionRecord {
+  return structuredClone(record);
+}
+
+function clonePreviewEvidence(
+  record: PreviewEvidenceRecord,
+): PreviewEvidenceRecord {
   return structuredClone(record);
 }
 

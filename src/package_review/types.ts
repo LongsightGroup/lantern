@@ -205,3 +205,47 @@ export interface ReviewedPlacementRecord {
   createdAt: string;
   boundAt: string | null;
 }
+
+export interface PreviewFixtureData {
+  launch: {
+    user_role: UserRole;
+    course_id: string;
+    assignment_id: string | null;
+    activity_id: string;
+  };
+  attempt_id: string;
+  local_state: Record<string, unknown> | null;
+}
+
+export interface PreviewSessionRecord {
+  sessionId: string;
+  packageVersionId: number;
+  appId: string;
+  packageVersion: string;
+  packageTitle: string;
+  capabilities: Capability[];
+  snapshotRoot: string;
+  entrypointPath: string;
+  launch: {
+    userId: string;
+    userRole: UserRole;
+    courseId: string;
+    assignmentId: string | null;
+    activityId: string;
+  };
+  fakeAttemptId: string;
+  fakeScoreMaximum: number;
+  fixtureData: PreviewFixtureData;
+  createdAt: string;
+}
+
+export interface PreviewEvidenceRecord {
+  id: number;
+  previewSessionId: string;
+  sequence: number;
+  eventType: string;
+  capability: Capability | null;
+  summary: string;
+  detail: Record<string, unknown>;
+  occurredAt: string;
+}
