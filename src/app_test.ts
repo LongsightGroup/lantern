@@ -1751,7 +1751,7 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
       buildLoginStateRecord({
         state: "state-launch-123",
         nonce: "nonce-launch-123",
-        expiresAt: "2026-03-25T02:45:00Z",
+        expiresAt: "2026-03-26T02:45:00Z",
       }),
     ],
   });
@@ -1902,7 +1902,7 @@ Deno.test("POST /lti/launch keeps reviewed assignment launches on the reviewed v
       buildLoginStateRecord({
         state: "state-reviewed-launch",
         nonce: "nonce-reviewed-launch",
-        expiresAt: "2026-03-25T02:45:00Z",
+        expiresAt: "2026-03-26T02:45:00Z",
       }),
     ],
   });
@@ -2001,7 +2001,7 @@ Deno.test("POST /lti/launch rejects bad signed launches before any runtime hando
       buildLoginStateRecord({
         state: "state-invalid-launch",
         nonce: "nonce-invalid-launch",
-        expiresAt: "2026-03-25T02:45:00Z",
+        expiresAt: "2026-03-26T02:45:00Z",
       }),
     ],
   });
@@ -2072,7 +2072,7 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with Lantern
             snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
             entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-            expiresAt: "2026-03-25T02:45:00Z",
+            expiresAt: "2026-03-26T02:45:00Z",
           }),
         ],
       }),
@@ -2099,7 +2099,7 @@ Deno.test(
       attempts: [buildAttemptRecord()],
       runtimeSessions: [
         buildRuntimeSessionRecord({
-          expiresAt: "2026-03-25T02:45:00Z",
+          expiresAt: "2026-03-26T02:45:00Z",
         }),
       ],
     });
@@ -2182,7 +2182,7 @@ Deno.test(
           deploymentRecordId: 3,
           packageVersionId: 5,
           packageVersion: "0.1.0",
-          expiresAt: "2026-03-25T12:30:00Z",
+          expiresAt: "2026-03-26T12:30:00Z",
         }),
       ],
       controlPlaneDeploymentDetails: [
@@ -2324,7 +2324,7 @@ Deno.test(
       ],
       runtimeSessions: [
         buildRuntimeSessionRecord({
-          expiresAt: "2026-03-25T02:45:00Z",
+          expiresAt: "2026-03-26T02:45:00Z",
         }),
       ],
     });
@@ -2480,7 +2480,7 @@ Deno.test(
       ],
       runtimeSessions: [
         buildRuntimeSessionRecord({
-          expiresAt: "2026-03-25T02:45:00Z",
+          expiresAt: "2026-03-26T02:45:00Z",
         }),
       ],
     });
@@ -2554,7 +2554,7 @@ Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content th
             snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
             entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-            expiresAt: "2026-03-25T02:45:00Z",
+            expiresAt: "2026-03-26T02:45:00Z",
           }),
         ],
       }),
@@ -2583,7 +2583,7 @@ Deno.test("GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blo
             snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
             entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-            expiresAt: "2026-03-25T02:45:00Z",
+            expiresAt: "2026-03-26T02:45:00Z",
           }),
         ],
       }),

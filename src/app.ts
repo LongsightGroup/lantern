@@ -42,6 +42,10 @@ import { buildDeepLinkingResponseSubmission } from "./lti/deep_linking_response.
 import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
+import {
+  renderPlacementAuditPage,
+  renderPlacementAuditRequestPage,
+} from "./admin/placement_audit_page.ts";
 import { renderPreviewPage } from "./admin/preview_page.ts";
 import { renderPackageIndexPage } from "./admin/package_index.ts";
 import {
@@ -59,6 +63,7 @@ import {
 } from "./ops/repository.ts";
 import { retryFailedGradePublication } from "./ops/service.ts";
 import type {
+  AuditEventRecord,
   DeepLinkingResourceSelection,
   DeploymentRecord,
   PackageVersionRecord,
@@ -763,6 +768,49 @@ export function createApp(
           notice: createErrorNotice("Package inventory unavailable", error),
         }),
         statusForError(error),
+      );
+    }
+  });
+
+  app.get("/admin/placements", (context) => {
+    return context.html(
+      renderPlacementAuditRequestPage({
+        notice: {
+          tone: "error",
+          title: "Placement id is required.",
+          detail:
+            "Use /admin/placements/:placementId to inspect one reviewed placement.",
+        },
+      }),
+      400,
+    );
+  });
+
+  app.get("/admin/placements/:placementId", async (context) => {
+    const repository = resolvedServices.getRepository();
+    const placementId = context.req.param("placementId");
+
+    try {
+      const snapshot = await repository.requirePlacementAuditSnapshotById(
+        requireTrimmedString(placementId, "Placement id is required."),
+      );
+      const timeline = await loadPlacementAuditTimeline(
+        repository,
+        snapshot.placement,
+      );
+
+      return context.html(
+        renderPlacementAuditPage({
+          snapshot,
+          timeline,
+        }),
+      );
+    } catch (error) {
+      return context.html(
+        renderPlacementAuditRequestPage({
+          notice: createErrorNotice("Placement audit unavailable", error),
+        }),
+        statusForPlacementAuditError(error),
       );
     }
   });
@@ -2258,6 +2306,22 @@ function statusForRuntimeError(error: unknown): 404 | 409 | 500 {
   return 500;
 }
 
+function statusForPlacementAuditError(error: unknown): 400 | 404 | 500 {
+  if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (error.message.includes("was not found")) {
+    return 404;
+  }
+
+  if (error.message.includes("required")) {
+    return 400;
+  }
+
+  return 500;
+}
+
 function statusForFinalizePublishError(code: string): 409 | 500 {
   if (
     code === "missing_binding" ||
@@ -2854,4 +2918,38 @@ function errorMessage(error: unknown): string {
 
 function packageDetailPath(appId: string, version: string): string {
   return `/admin/packages/${appId}/versions/${version}`;
+}
+
+async function loadPlacementAuditTimeline(
+  repository: PackageReviewRepository,
+  placement: {
+    placementId: string;
+    deploymentRecordId: number;
+    packageVersionId: number;
+  },
+): Promise<AuditEventRecord[]> {
+  const eventTypes = [
+    "deep_linking.request.accepted",
+    "deep_linking.placement.created",
+    "reviewer.preview_viewed",
+  ] as const;
+
+  const groups = await Promise.all(
+    eventTypes.map((eventType) => repository.listAuditEventsByEventType(eventType)),
+  );
+
+  return groups.flat().filter((event) => {
+    if (
+      event.deploymentRecordId !== placement.deploymentRecordId ||
+      event.packageVersionId !== placement.packageVersionId
+    ) {
+      return false;
+    }
+
+    if (event.eventType === "deep_linking.request.accepted") {
+      return true;
+    }
+
+    return event.detail.placementId === placement.placementId;
+  });
 }
