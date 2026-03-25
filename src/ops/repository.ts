@@ -1,8 +1,6 @@
 import type { Pool, PoolClient } from "@db/postgres";
 import type { DeploymentBinding, LaunchServiceClaims } from "../lti/types.ts";
-import {
-  createPackageReviewRepository,
-} from "../package_review/repository.ts";
+import { createPackageReviewRepository } from "../package_review/repository.ts";
 import type {
   ApprovalStatus,
   AuditActorType,

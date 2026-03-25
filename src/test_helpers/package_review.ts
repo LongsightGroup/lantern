@@ -1031,30 +1031,31 @@ export function createInMemoryPackageReviewRepository(
         .sort((left, right) =>
           Date.parse(right.createdAt) - Date.parse(left.createdAt)
         )[0] ?? null;
-      const previewRows = latestPreviewSession === null
-        ? []
-        : previewEvidence
-          .filter((candidate) =>
-            candidate.previewSessionId === latestPreviewSession.sessionId
-          )
-          .sort((left, right) => left.sequence - right.sequence);
-      const deepLinkingRequestCount = auditEvents.filter((candidate) =>
-        candidate.deploymentRecordId === placement.deploymentRecordId &&
-        candidate.packageVersionId === placement.packageVersionId &&
-        candidate.eventType.startsWith("deep_linking.request.")
-      ).length;
-      const placementEventCount = auditEvents.filter((candidate) =>
-        candidate.deploymentRecordId === placement.deploymentRecordId &&
-        candidate.packageVersionId === placement.packageVersionId &&
-        candidate.eventType.startsWith("deep_linking.placement.") &&
-        candidate.detail.placementId === placement.placementId
-      ).length;
-      const reviewerEventCount = auditEvents.filter((candidate) =>
-        candidate.deploymentRecordId === placement.deploymentRecordId &&
-        candidate.packageVersionId === placement.packageVersionId &&
-        candidate.eventType.startsWith("reviewer.") &&
-        candidate.detail.placementId === placement.placementId
-      ).length;
+      const previewRows = latestPreviewSession === null ? [] : previewEvidence
+        .filter((candidate) =>
+          candidate.previewSessionId === latestPreviewSession.sessionId
+        )
+        .sort((left, right) => left.sequence - right.sequence);
+      const deepLinkingRequestCount =
+        auditEvents.filter((candidate) =>
+          candidate.deploymentRecordId === placement.deploymentRecordId &&
+          candidate.packageVersionId === placement.packageVersionId &&
+          candidate.eventType.startsWith("deep_linking.request.")
+        ).length;
+      const placementEventCount =
+        auditEvents.filter((candidate) =>
+          candidate.deploymentRecordId === placement.deploymentRecordId &&
+          candidate.packageVersionId === placement.packageVersionId &&
+          candidate.eventType.startsWith("deep_linking.placement.") &&
+          candidate.detail.placementId === placement.placementId
+        ).length;
+      const reviewerEventCount =
+        auditEvents.filter((candidate) =>
+          candidate.deploymentRecordId === placement.deploymentRecordId &&
+          candidate.packageVersionId === placement.packageVersionId &&
+          candidate.eventType.startsWith("reviewer.") &&
+          candidate.detail.placementId === placement.placementId
+        ).length;
       const latestOccurredAt = auditEvents
         .filter((candidate) =>
           candidate.deploymentRecordId === placement.deploymentRecordId &&
@@ -1095,13 +1096,15 @@ export function createInMemoryPackageReviewRepository(
     },
 
     requirePlacementAuditSnapshotById(placementId) {
-      return this.getPlacementAuditSnapshotById(placementId).then((snapshot) => {
-        if (snapshot === null) {
-          throw new Error(`Reviewed placement ${placementId} was not found.`);
-        }
+      return this.getPlacementAuditSnapshotById(placementId).then(
+        (snapshot) => {
+          if (snapshot === null) {
+            throw new Error(`Reviewed placement ${placementId} was not found.`);
+          }
 
-        return snapshot;
-      });
+          return snapshot;
+        },
+      );
     },
 
     bindReviewedPlacementResourceLink(input) {
