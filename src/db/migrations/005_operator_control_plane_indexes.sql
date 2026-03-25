@@ -23,5 +23,27 @@ CREATE INDEX IF NOT EXISTS audit_events_deployment_event_occurred_at_idx
 CREATE INDEX IF NOT EXISTS grade_publications_status_updated_at_idx
   ON grade_publications (status, updated_at DESC, id DESC);
 
-CREATE INDEX IF NOT EXISTS broker_verification_runs_path_checked_at_idx
-  ON broker_verification_runs (supported_path, checked_at DESC, id DESC);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'broker_verification_runs'
+      AND column_name = 'supported_path'
+  ) THEN
+    EXECUTE '
+      CREATE INDEX IF NOT EXISTS broker_verification_runs_path_checked_at_idx
+        ON broker_verification_runs (supported_path, checked_at DESC, id DESC)
+    ';
+  ELSIF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_name = 'broker_verification_runs'
+      AND column_name = 'scope'
+  ) THEN
+    EXECUTE '
+      CREATE INDEX IF NOT EXISTS broker_verification_runs_path_checked_at_idx
+        ON broker_verification_runs (scope, checked_at DESC, id DESC)
+    ';
+  END IF;
+END $$;

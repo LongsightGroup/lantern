@@ -2,8 +2,8 @@ import type {
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
-} from "../package_review/types.ts";
-import { type AdminNotice, escapeHtml, renderAdminLayout } from "./layout.ts";
+} from '../package_review/types.ts';
+import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 
 export function renderPreviewPage(input: {
   packageVersion: PackageVersionRecord;
@@ -15,20 +15,20 @@ export function renderPreviewPage(input: {
 
   return renderAdminLayout({
     title: `${packageVersion.title} ${packageVersion.version} Preview`,
-    eyebrow: "Governed Preview",
+    eyebrow: 'Governed Preview',
     heading: packageVersion.title,
     intro:
-      "Launch a reviewed fixture-backed preview without Canvas. Lantern keeps the preview inside the existing runtime session boundary.",
+      'Launch a reviewed fixture-backed preview without Canvas. Lantern keeps the preview inside the existing runtime session boundary.',
     breadcrumbs: [
-      { label: "Packages", href: "/admin/packages" },
+      { label: 'Packages', href: '/admin/packages' },
       { label: packageVersion.title },
       {
         label: packageVersion.version,
-        href: `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${
-          escapeHtml(packageVersion.version)
-        }`,
+        href: `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${escapeHtml(
+          packageVersion.version,
+        )}`,
       },
-      { label: "Preview" },
+      { label: 'Preview' },
     ],
     notice: input.notice ?? null,
     body: `<section class="panel">
@@ -45,21 +45,15 @@ export function renderPreviewPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">App</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.appId)
-    }</span>
+              <span class="fact-value">${escapeHtml(packageVersion.appId)}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Version</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.version)
-    }</span>
+              <span class="fact-value">${escapeHtml(packageVersion.version)}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Snapshot</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.artifact.snapshotRoot)
-    }</span>
+              <span class="fact-value">${escapeHtml(packageVersion.artifact.snapshotRoot)}</span>
             </div>
           </div>
         </section>
@@ -68,27 +62,21 @@ export function renderPreviewPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">User role</span>
-              <span class="fact-value">${
-      escapeHtml(previewSession.launch.userRole)
-    }</span>
+              <span class="fact-value">${escapeHtml(previewSession.launch.userRole)}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Course</span>
-              <span class="fact-value">${
-      escapeHtml(previewSession.launch.courseId)
-    }</span>
+              <span class="fact-value">${escapeHtml(previewSession.launch.courseId)}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Assignment</span>
-              <span class="fact-value">${
-      escapeHtml(previewSession.launch.assignmentId ?? "Not provided")
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                previewSession.launch.assignmentId ?? 'Not provided',
+              )}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Activity</span>
-              <span class="fact-value">${
-      escapeHtml(previewSession.launch.activityId)
-    }</span>
+              <span class="fact-value">${escapeHtml(previewSession.launch.activityId)}</span>
             </div>
           </div>
         </section>
@@ -98,55 +86,50 @@ export function renderPreviewPage(input: {
       <div class="panel-body stack">
         <p class="section-label">Declared capabilities</p>
         <ul class="compact-list">
-          ${
-      previewSession.capabilities.map((capability) =>
-        `<li><code>${escapeHtml(capability)}</code></li>`
-      ).join("")
-    }
+          ${previewSession.capabilities
+            .map((capability) => `<li><code>${escapeHtml(capability)}</code></li>`)
+            .join('')}
         </ul>
       </div>
     </section>
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Preview capability log</p>
-        <p class="micro muted">Latest preview session: ${
-      escapeHtml(previewSession.sessionId)
-    }</p>
+        <p class="micro muted">Latest preview session: ${escapeHtml(previewSession.sessionId)}</p>
         ${
-      previewEvidence.length === 0
-        ? `<p class="muted">No preview activity has been recorded yet. Launch the preview runtime to capture governed capability evidence.</p>`
-        : `<ul class="stack">
-          ${
-          previewEvidence.map((record) =>
-            `<li class="stack">
+          previewEvidence.length === 0
+            ? `<p class="muted">No preview activity has been recorded yet. Launch the preview runtime to capture governed capability evidence.</p>`
+            : `<ul class="stack">
+          ${previewEvidence
+            .map(
+              (record) =>
+                `<li class="stack">
               <div class="micro muted">${escapeHtml(record.occurredAt)}</div>
               <div><strong>${escapeHtml(record.eventType)}</strong> ${
-              record.capability === null
-                ? ""
-                : `<code>${escapeHtml(record.capability)}</code>`
-            }</div>
+                record.capability === null ? '' : `<code>${escapeHtml(record.capability)}</code>`
+              }</div>
               <div>${escapeHtml(record.summary)}</div>
-              <div class="micro muted">${
-              escapeHtml(formatPreviewEvidenceDetail(record.detail))
-            }</div>
-            </li>`
-          ).join("")
-        }
+              <div class="micro muted">${escapeHtml(
+                formatPreviewEvidenceDetail(record.detail),
+              )}</div>
+            </li>`,
+            )
+            .join('')}
         </ul>`
-    }
+        }
       </div>
     </section>
     <section class="panel">
       <div class="panel-body stack">
-        <form method="post" class="stack" action="/admin/packages/${
-      escapeHtml(packageVersion.appId)
-    }/versions/${escapeHtml(packageVersion.version)}/preview">
+        <form method="post" class="stack" action="/admin/packages/${escapeHtml(
+          packageVersion.appId,
+        )}/versions/${escapeHtml(packageVersion.version)}/preview">
           <p class="micro muted">Launching writes preview evidence and redirects to Lantern runtime session URL.</p>
           <div class="button-row">
             <button type="submit" class="button-primary">Launch preview runtime</button>
-            <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(packageVersion.appId)
-    }/versions/${escapeHtml(packageVersion.version)}">Back to dossier</a>
+            <a class="button-secondary" href="/admin/packages/${escapeHtml(
+              packageVersion.appId,
+            )}/versions/${escapeHtml(packageVersion.version)}">Back to dossier</a>
           </div>
         </form>
       </div>

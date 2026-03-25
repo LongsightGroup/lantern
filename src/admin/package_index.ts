@@ -2,35 +2,30 @@ import {
   approvalStatusClass,
   approvalStatusDetail,
   approvalStatusLabel,
-} from "../package_review/summary.ts";
-import type { PackageVersionRecord } from "../package_review/types.ts";
-import {
-  type AdminNotice,
-  escapeHtml,
-  formatDateTime,
-  renderAdminLayout,
-} from "./layout.ts";
+} from '../package_review/summary.ts';
+import type { PackageVersionRecord } from '../package_review/types.ts';
+import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 
 export function renderPackageIndexPage(input: {
   versions: PackageVersionRecord[];
   notice?: AdminNotice | null;
 }): string {
-  const packageCount =
-    new Set(input.versions.map((version) => version.appId)).size;
-  const approvedCount =
-    input.versions.filter((version) => version.approvalStatus === "approved")
-      .length;
+  const packageCount = new Set(input.versions.map((version) => version.appId)).size;
+  const approvedCount = input.versions.filter(
+    (version) => version.approvalStatus === 'approved',
+  ).length;
 
-  const body = input.versions.length === 0
-    ? renderEmptyState()
-    : renderInventoryState(input.versions, packageCount, approvedCount);
+  const body =
+    input.versions.length === 0
+      ? renderEmptyState()
+      : renderInventoryState(input.versions, packageCount, approvedCount);
 
   return renderAdminLayout({
-    title: "Lantern Admin Packages",
-    eyebrow: "Package Intake",
-    heading: "Bring one reviewed package into view before you wire an LMS.",
+    title: 'Lantern Admin Packages',
+    eyebrow: 'Package Intake',
+    heading: 'Bring one reviewed package into view before you wire an LMS.',
     intro:
-      "Start with the demo app, then move through the same review surface institutions will use for every governed deployment.",
+      'Start with the demo app, then move through the same review surface institutions will use for every governed deployment.',
     notice: input.notice ?? null,
     body,
   });
@@ -103,7 +98,7 @@ function renderInventoryState(
         <span class="micro muted">Exact versions stay immutable. Re-importing the same version will fail clearly.</span>
       </div>
       <div class="table-list">
-        ${versions.map(renderInventoryRow).join("")}
+        ${versions.map(renderInventoryRow).join('')}
       </div>
     </div>
   </section>`;
@@ -115,30 +110,26 @@ function renderInventoryRow(version: PackageVersionRecord): string {
       <div class="stack">
         <p class="line-title">
           <span>${escapeHtml(version.title)}</span>
-          <span class="${approvalStatusClass(version.approvalStatus)}">${
-    escapeHtml(approvalStatusLabel(version.approvalStatus))
-  }</span>
+          <span class="${approvalStatusClass(version.approvalStatus)}">${escapeHtml(
+            approvalStatusLabel(version.approvalStatus),
+          )}</span>
         </p>
-        <p class="line-copy">${
-    escapeHtml(approvalStatusDetail(version.approvalStatus))
-  }</p>
+        <p class="line-copy">${escapeHtml(approvalStatusDetail(version.approvalStatus))}</p>
       </div>
       <div class="button-row">
-        <a class="button-ghost" href="/admin/packages/${
-    escapeHtml(version.appId)
-  }/versions/${escapeHtml(version.version)}">Open dossier</a>
-        <a class="button-secondary" href="/admin/packages/${
-    escapeHtml(version.appId)
-  }/deployment">Version picker</a>
+        <a class="button-ghost" href="/admin/packages/${escapeHtml(
+          version.appId,
+        )}/versions/${escapeHtml(version.version)}">Open dossier</a>
+        <a class="button-secondary" href="/admin/packages/${escapeHtml(
+          version.appId,
+        )}/deployment">Version picker</a>
       </div>
     </div>
     <div class="table-row-meta">
       <span><strong>Version</strong> ${escapeHtml(version.version)}</span>
       <span><strong>Owner</strong> ${escapeHtml(version.owner.id)}</span>
       <span><strong>App ID</strong> ${escapeHtml(version.appId)}</span>
-      <span><strong>Imported</strong> ${
-    escapeHtml(formatDateTime(version.importedAt))
-  }</span>
+      <span><strong>Imported</strong> ${escapeHtml(formatDateTime(version.importedAt))}</span>
     </div>
   </article>`;
 }

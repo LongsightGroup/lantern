@@ -1,18 +1,18 @@
-import type { AttemptEvent, Capability, UserRole } from "../../sdk/app-sdk.ts";
-import type { DeploymentBinding } from "../lti/types.ts";
+import type { AttemptEvent, Capability, UserRole } from '../../sdk/app-sdk.ts';
+import type { DeploymentBinding } from '../lti/types.ts';
 
-export type ApprovalStatus = "pending" | "approved" | "rejected";
-export type InstallScope = "course" | "assignment";
-export type GradingMode = "declarative" | "manual" | "completion";
-export type ValidationSeverity = "error";
-export type AttemptStatus = "in_progress" | "completed" | "abandoned";
-export type AttemptCompletionState = "completed" | "abandoned";
-export type GradePublicationStatus = "pending" | "published" | "failed";
-export type AuditActorType = "user" | "system" | "platform";
-export type AuditEventStatus = "accepted" | "succeeded" | "failed";
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type InstallScope = 'course' | 'assignment';
+export type GradingMode = 'declarative' | 'manual' | 'completion';
+export type ValidationSeverity = 'error';
+export type AttemptStatus = 'in_progress' | 'completed' | 'abandoned';
+export type AttemptCompletionState = 'completed' | 'abandoned';
+export type GradePublicationStatus = 'pending' | 'published' | 'failed';
+export type AuditActorType = 'user' | 'system' | 'platform';
+export type AuditEventStatus = 'accepted' | 'succeeded' | 'failed';
 
 export interface PackageOwner {
-  type: "user";
+  type: 'user';
   id: string;
 }
 
@@ -109,7 +109,7 @@ export interface AttemptEventRecord {
   id: number;
   attemptId: string;
   sequence: number;
-  eventType: AttemptEvent["type"];
+  eventType: AttemptEvent['type'];
   event: AttemptEvent;
   receivedAt: string;
 }
@@ -139,8 +139,8 @@ export interface GradePublicationRecord {
   canvasUserId: string;
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: "Completed" | "InProgress" | "Initialized";
-  gradingProgress: "Pending" | "PendingManual" | "FullyGraded" | "Failed";
+  activityProgress: 'Completed' | 'InProgress' | 'Initialized';
+  gradingProgress: 'Pending' | 'PendingManual' | 'FullyGraded' | 'Failed';
   status: GradePublicationStatus;
   createdAt: string;
   updatedAt: string;
@@ -170,8 +170,8 @@ export interface DeepLinkingResourceOption {
   packageVersion: string;
   packageTitle: string;
   ownerId: string;
-  installScope: "assignment";
-  approvalStatus: "approved";
+  installScope: 'assignment';
+  approvalStatus: 'approved';
   reviewedAt: string | null;
   activityId: string;
   contentPath: string;
@@ -207,10 +207,10 @@ export interface ReviewedPlacementRecord {
 }
 
 export type PlacementAuditStatus =
-  | "awaiting_canvas_binding"
-  | "bound_no_preview"
-  | "bound_with_preview"
-  | "reviewed";
+  | 'awaiting_canvas_binding'
+  | 'bound_no_preview'
+  | 'bound_with_preview'
+  | 'reviewed';
 
 export interface PlacementAuditEvidenceSummary {
   deepLinkingRequestCount: number;

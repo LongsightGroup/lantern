@@ -1,0 +1,217 @@
+import type { Context } from '@hono/hono';
+import { renderControlPlanePage } from './admin/control_plane.ts';
+import {
+  buildDefaultDeploymentSeed,
+  renderDeploymentDetailPage,
+} from './admin/deployment_detail.ts';
+import type { AdminNotice } from './admin/layout.ts';
+import { listCanvasEnvironments } from './lti/config.ts';
+import {
+  combineNotices,
+  createErrorNotice,
+  getCanvasConfigUrlNoticeSafe,
+  packageDetailPath,
+} from './app_notice_support.ts';
+import { normalizeOptionalString } from './app_request_support.ts';
+import { statusForError } from './app_status_support.ts';
+import type { AppServices } from './app_services.ts';
+import { renderPackageDetailPage } from './admin/package_detail.ts';
+import { renderPackageIndexPage } from './admin/package_index.ts';
+import type { PackageVersionRecord } from './package_review/types.ts';
+
+export async function handleReviewDecision(
+  context: Context,
+  services: AppServices,
+  decision: 'approve' | 'reject',
+) {
+  const id = Number(context.req.param('id'));
+
+  try {
+    const formData = await context.req.formData();
+    const reviewNotes = normalizeOptionalString(formData.get('reviewNotes'));
+    const repository = services.getRepository();
+    const packageVersion =
+      decision === 'approve'
+        ? await repository.approvePackageVersion({ id, reviewNotes })
+        : await repository.rejectPackageVersion({ id, reviewNotes });
+    await repository.recordAuditEvent({
+      eventType: decision === 'approve' ? 'package.approved' : 'package.rejected',
+      actorType: 'user',
+      actorId: null,
+      deploymentRecordId: null,
+      packageVersionId: packageVersion.id,
+      attemptId: null,
+      lineItemBindingId: null,
+      status: 'succeeded',
+      summary:
+        decision === 'approve'
+          ? 'Approved the reviewed package version.'
+          : 'Rejected the reviewed package version.',
+      detail: {
+        appId: packageVersion.appId,
+        version: packageVersion.version,
+        reviewNotes,
+      },
+      occurredAt: new Date().toISOString(),
+    });
+
+    return context.redirect(packageDetailPath(packageVersion.appId, packageVersion.version), 303);
+  } catch (error) {
+    return await renderPackageDetailError(
+      context,
+      services,
+      id,
+      decision === 'approve' ? 'Approval blocked' : 'Rejection blocked',
+      error,
+    );
+  }
+}
+
+export async function renderInventoryError(
+  context: Context,
+  services: AppServices,
+  title: string,
+  error: unknown,
+) {
+  let versions: PackageVersionRecord[] = [];
+
+  try {
+    versions = await services.getRepository().listPackageVersions();
+  } catch {
+    versions = [];
+  }
+
+  return context.html(
+    renderPackageIndexPage({
+      versions,
+      notice: createErrorNotice(title, error),
+    }),
+    statusForError(error),
+  );
+}
+
+export async function renderPackagesPage(
+  context: Context,
+  services: AppServices,
+  input: {
+    notice?: AdminNotice | null;
+    status?: 200 | 400 | 500;
+  } = {},
+) {
+  const versions = await services.getRepository().listPackageVersions();
+
+  if (versions.length === 0) {
+    return context.html(
+      renderPackageIndexPage({
+        versions,
+        notice: input.notice ?? null,
+      }),
+      input.status ?? 200,
+    );
+  }
+
+  const [deployments, latestBrokerVerification] = await Promise.all([
+    services.getOpsRepository().listControlPlaneDeployments(),
+    services.getOpsRepository().getLatestBrokerVerificationStatus(),
+  ]);
+
+  return context.html(
+    renderControlPlanePage({
+      deployments,
+      latestBrokerVerification,
+      notice: input.notice ?? null,
+    }),
+    input.status ?? 200,
+  );
+}
+
+export async function renderPackageDetailError(
+  context: Context,
+  services: AppServices,
+  id: number,
+  title: string,
+  error: unknown,
+) {
+  try {
+    const repository = services.getRepository();
+    const packageVersion = await repository.getPackageVersionById(id);
+
+    if (!packageVersion) {
+      return context.html(
+        renderPackageIndexPage({
+          versions: [],
+          notice: createErrorNotice(title, error),
+        }),
+        statusForError(error),
+      );
+    }
+
+    const history = await repository.listPackageVersionsByApp(packageVersion.appId);
+
+    return context.html(
+      renderPackageDetailPage({
+        packageVersion,
+        history,
+        notice: createErrorNotice(title, error),
+      }),
+      statusForError(error),
+    );
+  } catch {
+    return context.html(
+      renderPackageIndexPage({
+        versions: [],
+        notice: createErrorNotice(title, error),
+      }),
+      statusForError(error),
+    );
+  }
+}
+
+export async function renderDeploymentError(
+  context: Context,
+  services: AppServices,
+  appId: string,
+  title: string,
+  error: unknown,
+) {
+  try {
+    const repository = services.getRepository();
+    const history = await repository.listPackageVersionsByApp(appId);
+
+    if (history.length === 0) {
+      return context.html(
+        renderPackageIndexPage({
+          versions: [],
+          notice: createErrorNotice(title, error),
+        }),
+        statusForError(error),
+      );
+    }
+
+    const appTitle = history[0]?.title ?? history[0]?.appId ?? 'Package';
+    const seed = buildDefaultDeploymentSeed(appId, appTitle);
+    const deployment = await repository.getDeploymentBySlug(seed.slug);
+    const canvasConfigUrl = getCanvasConfigUrlNoticeSafe();
+
+    return context.html(
+      renderDeploymentDetailPage({
+        appId,
+        appTitle,
+        history,
+        deployment,
+        canvasConfigUrl: canvasConfigUrl.url,
+        supportedCanvasEnvironments: listCanvasEnvironments(),
+        notice: combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error)),
+      }),
+      statusForError(error),
+    );
+  } catch {
+    return context.html(
+      renderPackageIndexPage({
+        versions: [],
+        notice: createErrorNotice(title, error),
+      }),
+      statusForError(error),
+    );
+  }
+}

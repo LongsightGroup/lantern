@@ -1,0 +1,200 @@
+import type { ImportedPackageVersion } from '../package_review/intake.ts';
+import type {
+  AttemptEventRecord,
+  AttemptRecord,
+  AuditEventRecord,
+  CanvasLineItemBindingRecord,
+  DeploymentRecord,
+  GradePublicationRecord,
+  PackageVersionRecord,
+} from '../package_review/types.ts';
+import {
+  DEFAULT_IMPORTED_AT,
+  DEFAULT_PHASE3_AT,
+  DEFAULT_UPDATED_AT,
+} from './package_review_test_defaults.ts';
+
+export function buildPackageVersionRecord(
+  overrides: Partial<PackageVersionRecord> = {},
+): PackageVersionRecord {
+  return {
+    id: 1,
+    appId: 'chapter-4-asteroids',
+    version: '0.1.0',
+    title: 'Chapter 4 Asteroids',
+    description: 'Shoot the correct vocabulary target.',
+    owner: { type: 'user', id: 'instructor_123' },
+    entrypoint: '/dist/index.html',
+    roles: ['learner', 'instructor'],
+    installScope: 'course',
+    capabilities: [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_attempt_event',
+      'finalize_attempt',
+      'read_local_state',
+      'write_local_state',
+    ],
+    grading: {
+      mode: 'declarative',
+      rubricFile: '/scoring/rubric.json',
+      maxScore: 100,
+    },
+    approvalStatus: 'pending',
+    reviewNotes: null,
+    reviewedAt: null,
+    validationIssues: [],
+    manifestJson: {
+      app_id: 'chapter-4-asteroids',
+      version: '0.1.0',
+      title: 'Chapter 4 Asteroids',
+    },
+    artifact: {
+      snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
+      manifestPath: 'var/packages/chapter-4-asteroids/0.1.0/manifest.json',
+      entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
+      digest: 'sha256:chapter-4-asteroids-0.1.0',
+    },
+    importedAt: DEFAULT_IMPORTED_AT,
+    ...overrides,
+  };
+}
+
+export function buildImportedPackageVersion(
+  overrides: Partial<PackageVersionRecord> = {},
+): ImportedPackageVersion {
+  const record = buildPackageVersionRecord(overrides);
+
+  return {
+    reviewData: {
+      appId: record.appId,
+      version: record.version,
+      title: record.title,
+      description: record.description,
+      owner: record.owner,
+      entrypoint: record.entrypoint,
+      roles: record.roles,
+      installScope: record.installScope,
+      capabilities: record.capabilities,
+      grading: record.grading,
+      manifestJson: record.manifestJson,
+      validationIssues: record.validationIssues,
+    },
+    artifact: record.artifact,
+  };
+}
+
+export function buildDeploymentRecord(overrides: Partial<DeploymentRecord> = {}): DeploymentRecord {
+  return {
+    id: 1,
+    slug: 'chapter-4-asteroids-pilot',
+    label: 'Chapter 4 Asteroids Pilot Deployment',
+    appId: 'chapter-4-asteroids',
+    enabledPackageVersionId: 1,
+    enabledPackageVersion: '0.1.0',
+    binding: null,
+    updatedAt: DEFAULT_UPDATED_AT,
+    ...overrides,
+  };
+}
+
+export function buildAttemptRecord(overrides: Partial<AttemptRecord> = {}): AttemptRecord {
+  return {
+    id: overrides.id ?? 1,
+    attemptId: overrides.attemptId ?? 'attempt-123',
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
+    appId: overrides.appId ?? 'chapter-4-asteroids',
+    packageVersionId: overrides.packageVersionId ?? 1,
+    packageVersion: overrides.packageVersion ?? '0.1.0',
+    userId: overrides.userId ?? 'canvas-user-123',
+    userRole: overrides.userRole ?? 'learner',
+    contextId: overrides.contextId ?? 'course-42',
+    resourceLinkId: overrides.resourceLinkId ?? 'resource-link-123',
+    activityId: overrides.activityId ?? 'activity-123',
+    status: overrides.status ?? 'in_progress',
+    completionState: overrides.completionState ?? null,
+    startedAt: overrides.startedAt ?? DEFAULT_PHASE3_AT,
+    finalizedAt: overrides.finalizedAt ?? null,
+  };
+}
+
+export function buildAttemptEventRecord(
+  overrides: Partial<AttemptEventRecord> = {},
+): AttemptEventRecord {
+  return {
+    id: overrides.id ?? 1,
+    attemptId: overrides.attemptId ?? 'attempt-123',
+    sequence: overrides.sequence ?? 1,
+    eventType: overrides.eventType ?? 'answer',
+    event: overrides.event ?? {
+      type: 'answer',
+      questionId: 'q1',
+      answer: 'asteroid',
+      timestamp: DEFAULT_PHASE3_AT,
+    },
+    receivedAt: overrides.receivedAt ?? DEFAULT_PHASE3_AT,
+  };
+}
+
+export function buildCanvasLineItemBindingRecord(
+  overrides: Partial<CanvasLineItemBindingRecord> = {},
+): CanvasLineItemBindingRecord {
+  return {
+    id: overrides.id ?? 1,
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    packageVersionId: overrides.packageVersionId ?? 1,
+    contextId: overrides.contextId ?? 'course-42',
+    resourceLinkId: overrides.resourceLinkId ?? 'resource-link-123',
+    activityId: overrides.activityId ?? 'activity-123',
+    lineItemsUrl: overrides.lineItemsUrl ?? 'https://canvas.example/api/lti/courses/42/line_items',
+    lineItemUrl: overrides.lineItemUrl ?? 'https://canvas.example/api/lti/courses/42/line_items/9',
+    resourceId: overrides.resourceId ?? 'chapter-4-asteroids:0.1.0',
+    tag: overrides.tag ?? 'final-grade',
+    label: overrides.label ?? 'Chapter 4 Asteroids Final Grade',
+    scoreMaximum: overrides.scoreMaximum ?? 100,
+    createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
+    updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
+  };
+}
+
+export function buildGradePublicationRecord(
+  overrides: Partial<GradePublicationRecord> = {},
+): GradePublicationRecord {
+  return {
+    id: overrides.id ?? 1,
+    attemptId: overrides.attemptId ?? 'attempt-123',
+    lineItemBindingId: overrides.lineItemBindingId ?? 1,
+    lineItemUrl: overrides.lineItemUrl ?? 'https://canvas.example/api/lti/courses/42/line_items/9',
+    canvasUserId: overrides.canvasUserId ?? 'canvas-user-123',
+    scoreGiven: overrides.scoreGiven ?? 85,
+    scoreMaximum: overrides.scoreMaximum ?? 100,
+    activityProgress: overrides.activityProgress ?? 'Completed',
+    gradingProgress: overrides.gradingProgress ?? 'FullyGraded',
+    status: overrides.status ?? 'published',
+    createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
+    updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
+    publishedAt: overrides.publishedAt ?? DEFAULT_PHASE3_AT,
+    errorCode: overrides.errorCode ?? null,
+    errorDetail: overrides.errorDetail ?? null,
+  };
+}
+
+export function buildAuditEventRecord(overrides: Partial<AuditEventRecord> = {}): AuditEventRecord {
+  return {
+    id: overrides.id ?? 1,
+    eventType: overrides.eventType ?? 'attempt.submitted',
+    actorType: overrides.actorType ?? 'system',
+    actorId: overrides.actorId ?? null,
+    deploymentRecordId: overrides.deploymentRecordId ?? 1,
+    packageVersionId: overrides.packageVersionId ?? 1,
+    attemptId: overrides.attemptId === undefined ? 'attempt-123' : overrides.attemptId,
+    lineItemBindingId: overrides.lineItemBindingId ?? null,
+    status: overrides.status ?? 'accepted',
+    summary: overrides.summary ?? 'Accepted attempt submission.',
+    detail: overrides.detail ?? {
+      route: '/runtime/sessions/runtime-session-123/attempt-events',
+    },
+    occurredAt: overrides.occurredAt ?? DEFAULT_PHASE3_AT,
+  };
+}

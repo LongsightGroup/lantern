@@ -1,19 +1,16 @@
-import type { AppManifest } from "./manifest_contract.ts";
-import type { ValidationIssue } from "./types.ts";
+import type { AppManifest } from './manifest_contract.ts';
+import type { ValidationIssue } from './types.ts';
 
 export async function readManifestJson(
   manifestPath: string,
-): Promise<
-  | { value: unknown }
-  | { issues: ValidationIssue[] }
-> {
+): Promise<{ value: unknown } | { issues: ValidationIssue[] }> {
   let sourceText: string;
 
   try {
     sourceText = await Deno.readTextFile(manifestPath);
   } catch {
     return {
-      issues: [createMissingFileIssue("/manifest.json", "/manifest.json")],
+      issues: [createMissingFileIssue('/manifest.json', '/manifest.json')],
     };
   }
 
@@ -25,10 +22,10 @@ export async function readManifestJson(
     return {
       issues: [
         {
-          field: "/manifest.json",
-          keyword: "invalid_json",
-          severity: "error",
-          message: "Manifest must be valid JSON before Lantern can review it.",
+          field: '/manifest.json',
+          keyword: 'invalid_json',
+          severity: 'error',
+          message: 'Manifest must be valid JSON before Lantern can review it.',
         },
       ],
     };
@@ -41,14 +38,14 @@ export async function collectReferencedFileIssues(
 ): Promise<ValidationIssue[]> {
   const references: Array<{ field: string; path: string }> = [
     {
-      field: "/entrypoint",
+      field: '/entrypoint',
       path: manifest.entrypoint,
     },
   ];
 
   if (manifest.grading.rubric_file) {
     references.push({
-      field: "/grading/rubric_file",
+      field: '/grading/rubric_file',
       path: manifest.grading.rubric_file,
     });
   }
@@ -62,18 +59,18 @@ export async function collectReferencedFileIssues(
 
   if (manifest.preview) {
     references.push({
-      field: "/preview/fixtures_file",
+      field: '/preview/fixtures_file',
       path: manifest.preview.fixtures_file,
     });
     references.push({
-      field: "/preview/tests_file",
+      field: '/preview/tests_file',
       path: manifest.preview.tests_file,
     });
   }
 
   if (manifest.icon) {
     references.push({
-      field: "/icon",
+      field: '/icon',
       path: manifest.icon,
     });
   }
@@ -91,16 +88,15 @@ export async function collectReferencedFileIssues(
   }
 
   const layoutEntrypointExists = await fileExists(
-    joinFileSystemPath(sourceRoot, "dist", "index.html"),
+    joinFileSystemPath(sourceRoot, 'dist', 'index.html'),
   );
 
   if (!layoutEntrypointExists) {
     issues.push({
-      field: "/entrypoint",
-      keyword: "missing_file",
-      severity: "error",
-      message:
-        "Package must include /dist/index.html for the reviewed app shell.",
+      field: '/entrypoint',
+      keyword: 'missing_file',
+      severity: 'error',
+      message: 'Package must include /dist/index.html for the reviewed app shell.',
     });
   }
 
@@ -110,29 +106,29 @@ export async function collectReferencedFileIssues(
 function createMissingFileIssue(field: string, path: string): ValidationIssue {
   return {
     field,
-    keyword: "missing_file",
-    severity: "error",
+    keyword: 'missing_file',
+    severity: 'error',
     message: `Referenced file ${path} is missing from the package.`,
   };
 }
 
 function trimLeadingSlash(value: string): string {
-  return value.replace(/^\/+/, "");
+  return value.replace(/^\/+/, '');
 }
 
 function joinFileSystemPath(...segments: string[]): string {
   if (segments.length === 0) {
-    return ".";
+    return '.';
   }
 
-  const [firstSegment = ".", ...rest] = segments;
-  let path = firstSegment.replace(/\/+$/, "");
+  const [firstSegment = '.', ...rest] = segments;
+  let path = firstSegment.replace(/\/+$/, '');
 
   for (const segment of rest) {
-    path = `${path}/${segment.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+    path = `${path}/${segment.replace(/^\/+/, '').replace(/\/+$/, '')}`;
   }
 
-  return path.replaceAll(/\/{2,}/g, "/");
+  return path.replaceAll(/\/{2,}/g, '/');
 }
 
 async function fileExists(path: string): Promise<boolean> {

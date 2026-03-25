@@ -1,0 +1,103 @@
+import type { Hono } from '@hono/hono';
+import {
+  handleReviewDecision,
+  renderInventoryError,
+  renderPackagesPage,
+} from './app_admin_support.ts';
+import { createErrorNotice, packageDetailPath } from './app_notice_support.ts';
+import { parseBrokerVerificationRunForm } from './app_request_support.ts';
+import { statusForError, statusForVerificationError } from './app_status_support.ts';
+import type { AppServices } from './app_services.ts';
+import { renderPackageDetailPage } from './admin/package_detail.ts';
+import { renderPackageIndexPage } from './admin/package_index.ts';
+
+export function registerAdminInventoryRoutes(app: Hono, services: AppServices): void {
+  app.get('/admin/packages', async (context) => {
+    try {
+      return await renderPackagesPage(context, services);
+    } catch (error) {
+      return context.html(
+        renderPackageIndexPage({
+          versions: [],
+          notice: createErrorNotice('Package inventory unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.post('/admin/packages/verification', async (context) => {
+    try {
+      const verificationRun = parseBrokerVerificationRunForm(await context.req.formData());
+
+      await services.getOpsRepository().recordBrokerVerificationRun(verificationRun);
+
+      return context.redirect('/admin/packages', 303);
+    } catch (error) {
+      return await renderPackagesPage(context, services, {
+        notice: createErrorNotice('Verification update blocked', error),
+        status: statusForVerificationError(error),
+      });
+    }
+  });
+
+  app.post('/admin/packages/import-demo', async (context) => {
+    try {
+      const imported = await services.importDemoPackage();
+      const packageVersion = await services.getRepository().registerPackageVersion(imported);
+
+      return context.redirect(packageDetailPath(packageVersion.appId, packageVersion.version), 303);
+    } catch (error) {
+      return await renderInventoryError(context, services, 'Demo import blocked', error);
+    }
+  });
+
+  app.get('/admin/packages/:appId/versions/:version', async (context) => {
+    try {
+      const repository = services.getRepository();
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        context.req.param('appId'),
+        context.req.param('version'),
+      );
+
+      if (!packageVersion) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: [],
+            notice: {
+              tone: 'error',
+              title: 'Package version not found',
+              detail: 'Lantern could not find that exact app version in the review inventory.',
+            },
+          }),
+          404,
+        );
+      }
+
+      const history = await repository.listPackageVersionsByApp(packageVersion.appId);
+
+      return context.html(
+        renderPackageDetailPage({
+          packageVersion,
+          history,
+        }),
+      );
+    } catch (error) {
+      return context.html(
+        renderPackageIndexPage({
+          versions: [],
+          notice: createErrorNotice('Package dossier unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.post('/admin/packages/:id/approve', async (context) => {
+    return await handleReviewDecision(context, services, 'approve');
+  });
+
+  app.post('/admin/packages/:id/reject', async (context) => {
+    return await handleReviewDecision(context, services, 'reject');
+  });
+}

@@ -1,17 +1,15 @@
-import type { Capability, UserRole } from "../../sdk/app-sdk.ts";
+import type { Capability, UserRole } from '../../sdk/app-sdk.ts';
 
-export type CanvasEnvironment = "production" | "beta" | "test";
-export const LTI_AGS_SCORE_SCOPE =
-  "https://purl.imsglobal.org/spec/lti-ags/scope/score";
-export const LTI_AGS_LINEITEM_SCOPE =
-  "https://purl.imsglobal.org/spec/lti-ags/scope/lineitem";
+export type CanvasEnvironment = 'production' | 'beta' | 'test';
+export const LTI_AGS_SCORE_SCOPE = 'https://purl.imsglobal.org/spec/lti-ags/scope/score';
+export const LTI_AGS_LINEITEM_SCOPE = 'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem';
 export const LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE =
-  "https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly";
-export const LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE = "LtiResourceLinkRequest";
-export const LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE = "LtiDeepLinkingRequest";
-export const LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE = "LtiDeepLinkingResponse";
-export const LTI_ASSIGNMENT_SELECTION_PLACEMENT = "assignment_selection";
-export const LANTERN_PLACEMENT_CUSTOM_KEY = "lantern_placement_id";
+  'https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly';
+export const LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE = 'LtiResourceLinkRequest';
+export const LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE = 'LtiDeepLinkingRequest';
+export const LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE = 'LtiDeepLinkingResponse';
+export const LTI_ASSIGNMENT_SELECTION_PLACEMENT = 'assignment_selection';
+export const LANTERN_PLACEMENT_CUSTOM_KEY = 'lantern_placement_id';
 export const CANVAS_LTI_SCOPES = [
   LTI_AGS_SCORE_SCOPE,
   LTI_AGS_LINEITEM_SCOPE,
@@ -23,12 +21,7 @@ export function buildLtiActivityResourceId(input: {
   packageVersion: string;
   activityId: string;
 }): string {
-  return [
-    "lantern",
-    input.appId,
-    input.packageVersion,
-    input.activityId,
-  ].join(":");
+  return ['lantern', input.appId, input.packageVersion, input.activityId].join(':');
 }
 
 export interface DeploymentBinding {
@@ -120,11 +113,8 @@ export interface RuntimeSessionRecord {
   expiresAt: string;
 }
 
-export type DeepLinkingAcceptType = "ltiResourceLink";
-export type DeepLinkingPresentationDocumentTarget =
-  | "iframe"
-  | "window"
-  | "embed";
+export type DeepLinkingAcceptType = 'ltiResourceLink';
+export type DeepLinkingPresentationDocumentTarget = 'iframe' | 'window' | 'embed';
 
 export interface DeepLinkingSettings {
   acceptTypes: DeepLinkingAcceptType[];
@@ -192,7 +182,7 @@ export interface DeepLinkingResponseLineItem {
 }
 
 export interface DeepLinkingResponseContentItem {
-  type: "ltiResourceLink";
+  type: 'ltiResourceLink';
   title: string;
   text: string;
   url: string;

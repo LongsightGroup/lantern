@@ -1,14 +1,25 @@
-import * as oauth from "oauth4webapi";
-import { resolveCanvasPlatform } from "./canvas_platform.ts";
-import { loadToolSigningKey } from "./tool_key.ts";
-import type { GradePublicationRecord } from "../package_review/types.ts";
+import * as oauth from 'oauth4webapi';
+import { resolveCanvasPlatform } from './canvas_platform.ts';
+import {
+  mapMembership,
+  parseLineItemCollection,
+  parseNextLink,
+  readJsonResponse,
+  readMaybeJson,
+  requireRecord,
+  requireTrimmedString,
+  resolveCanvasTokenEndpoint,
+  toLineItemsUrl,
+  toScoresUrl,
+  uniqueTrimmedStrings,
+} from './service_support.ts';
+import { loadToolSigningKey } from './tool_key.ts';
+import type { GradePublicationRecord } from '../package_review/types.ts';
 
-const LINE_ITEM_CONTENT_TYPE = "application/vnd.ims.lis.v2.lineitem+json";
-const LINE_ITEM_CONTAINER_CONTENT_TYPE =
-  "application/vnd.ims.lis.v2.lineitemcontainer+json";
-const SCORE_CONTENT_TYPE = "application/vnd.ims.lis.v1.score+json";
-const NRPS_CONTENT_TYPE =
-  "application/vnd.ims.lti-nrps.v2.membershipcontainer+json";
+const LINE_ITEM_CONTENT_TYPE = 'application/vnd.ims.lis.v2.lineitem+json';
+const LINE_ITEM_CONTAINER_CONTENT_TYPE = 'application/vnd.ims.lis.v2.lineitemcontainer+json';
+const SCORE_CONTENT_TYPE = 'application/vnd.ims.lis.v1.score+json';
+const NRPS_CONTENT_TYPE = 'application/vnd.ims.lti-nrps.v2.membershipcontainer+json';
 
 export interface CanvasServiceToken {
   accessToken: string;
@@ -43,15 +54,12 @@ export interface PublishFinalScoreInput {
   canvasUserId: string;
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: GradePublicationRecord["activityProgress"];
-  gradingProgress: GradePublicationRecord["gradingProgress"];
+  activityProgress: GradePublicationRecord['activityProgress'];
+  gradingProgress: GradePublicationRecord['gradingProgress'];
   timestamp?: string;
 }
 
-export interface PublishFinalScoreResult {
-  accepted: boolean;
-  status: number;
-}
+export type PublishFinalScoreResult = { accepted: boolean; status: number };
 
 export interface NrpsMembership {
   userId: string | null;
@@ -68,16 +76,14 @@ export async function requestCanvasServiceAccessToken(input: {
 }): Promise<CanvasServiceToken> {
   const clientId = requireTrimmedString(
     input.clientId,
-    "Canvas client ID is required for service auth.",
+    'Canvas client ID is required for service auth.',
   );
   const scopes = uniqueTrimmedStrings(
     input.scopes,
-    "At least one Canvas service scope is required.",
+    'At least one Canvas service scope is required.',
   );
   const platform = resolveCanvasPlatform(input.issuer);
-  const tokenEndpoint = resolveCanvasTokenEndpoint(
-    platform.authorizationEndpoint,
-  );
+  const tokenEndpoint = resolveCanvasTokenEndpoint(platform.authorizationEndpoint);
   const signingKey = await loadToolSigningKey();
   const as: oauth.AuthorizationServer = {
     issuer: platform.issuer,
@@ -95,38 +101,27 @@ export async function requestCanvasServiceAccessToken(input: {
       },
     }),
     new URLSearchParams({
-      scope: scopes.join(" "),
+      scope: scopes.join(' '),
     }),
   );
-  const token = await oauth.processClientCredentialsResponse(
-    as,
-    client,
-    response,
-  );
+  const token = await oauth.processClientCredentialsResponse(as, client, response);
 
-  if (token.token_type !== "bearer") {
-    throw new Error(
-      `Canvas token endpoint returned unsupported token type ${token.token_type}.`,
-    );
+  if (token.token_type !== 'bearer') {
+    throw new Error(`Canvas token endpoint returned unsupported token type ${token.token_type}.`);
   }
 
   return {
     accessToken: token.access_token,
     expiresIn: token.expires_in ?? null,
-    scope: token.scope ? token.scope.split(" ").filter(Boolean) : scopes,
+    scope: token.scope ? token.scope.split(' ').filter(Boolean) : scopes,
   };
 }
 
-export async function ensureLineItem(
-  input: EnsureLineItemInput,
-): Promise<EnsureLineItemResult> {
+export async function ensureLineItem(input: EnsureLineItemInput): Promise<EnsureLineItemResult> {
   if (input.lineitemUrl) {
     return {
       lineItemsUrl: input.lineitemsUrl ?? toLineItemsUrl(input.lineitemUrl),
-      lineItemUrl: requireTrimmedString(
-        input.lineitemUrl,
-        "Canvas AGS lineitem URL is required.",
-      ),
+      lineItemUrl: requireTrimmedString(input.lineitemUrl, 'Canvas AGS lineitem URL is required.'),
       resourceId: input.resourceId,
       tag: input.tag,
       label: input.label,
@@ -137,23 +132,20 @@ export async function ensureLineItem(
 
   const lineItemsUrl = requireTrimmedString(
     input.lineitemsUrl,
-    "Canvas AGS lineitems URL is required.",
+    'Canvas AGS lineitems URL is required.',
   );
   const listResponse = await fetch(lineItemsUrl, {
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
-      Accept:
-        `${LINE_ITEM_CONTAINER_CONTENT_TYPE}, ${LINE_ITEM_CONTENT_TYPE}, application/json`,
+      Accept: `${LINE_ITEM_CONTAINER_CONTENT_TYPE}, ${LINE_ITEM_CONTENT_TYPE}, application/json`,
     },
   });
-  const listedItems = await readJsonResponse(
-    listResponse,
-    "Canvas line item lookup failed.",
-  );
-  const existing = parseLineItemCollection(listedItems).find((candidate) =>
-    candidate.resourceLinkId === input.resourceLinkId &&
-    candidate.resourceId === input.resourceId &&
-    candidate.tag === input.tag
+  const listedItems = await readJsonResponse(listResponse, 'Canvas line item lookup failed.');
+  const existing = parseLineItemCollection(listedItems).find(
+    (candidate) =>
+      candidate.resourceLinkId === input.resourceLinkId &&
+      candidate.resourceId === input.resourceId &&
+      candidate.tag === input.tag,
   );
 
   if (existing) {
@@ -169,11 +161,11 @@ export async function ensureLineItem(
   }
 
   const createResponse = await fetch(lineItemsUrl, {
-    method: "POST",
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
       Accept: `${LINE_ITEM_CONTENT_TYPE}, application/json`,
-      "content-type": LINE_ITEM_CONTENT_TYPE,
+      'content-type': LINE_ITEM_CONTENT_TYPE,
     },
     body: JSON.stringify({
       scoreMaximum: input.scoreMaximum,
@@ -185,30 +177,28 @@ export async function ensureLineItem(
   });
 
   if (!createResponse.ok) {
-    throw new Error(
-      `Canvas line item create failed with status ${createResponse.status}.`,
-    );
+    throw new Error(`Canvas line item create failed with status ${createResponse.status}.`);
   }
 
   const created = await readMaybeJson(createResponse);
-  const lineItemUrl = created && typeof created.id === "string"
-    ? created.id
-    : requireTrimmedString(
-      createResponse.headers.get("location"),
-      "Canvas line item create response did not include an id or location.",
-    );
+  const lineItemUrl =
+    created && typeof created.id === 'string'
+      ? created.id
+      : requireTrimmedString(
+          createResponse.headers.get('location'),
+          'Canvas line item create response did not include an id or location.',
+        );
 
   return {
     lineItemsUrl,
     lineItemUrl,
     resourceId: input.resourceId,
     tag: input.tag,
-    label: created && typeof created.label === "string"
-      ? created.label
-      : input.label,
-    scoreMaximum: created && typeof created.scoreMaximum === "number"
-      ? created.scoreMaximum
-      : input.scoreMaximum,
+    label: created && typeof created.label === 'string' ? created.label : input.label,
+    scoreMaximum:
+      created && typeof created.scoreMaximum === 'number'
+        ? created.scoreMaximum
+        : input.scoreMaximum,
     created: true,
   };
 }
@@ -217,11 +207,11 @@ export async function publishFinalScore(
   input: PublishFinalScoreInput,
 ): Promise<PublishFinalScoreResult> {
   const response = await fetch(toScoresUrl(input.lineItemUrl), {
-    method: "POST",
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
-      Accept: "application/json",
-      "content-type": SCORE_CONTENT_TYPE,
+      Accept: 'application/json',
+      'content-type': SCORE_CONTENT_TYPE,
     },
     body: JSON.stringify({
       userId: input.canvasUserId,
@@ -234,9 +224,7 @@ export async function publishFinalScore(
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Canvas score publish failed with status ${response.status}.`,
-    );
+    throw new Error(`Canvas score publish failed with status ${response.status}.`);
   }
 
   return {
@@ -252,7 +240,7 @@ export async function readContextMemberships(input: {
   const memberships: NrpsMembership[] = [];
   let nextUrl: string | null = requireTrimmedString(
     input.contextMembershipsUrl,
-    "Canvas NRPS memberships URL is required.",
+    'Canvas NRPS memberships URL is required.',
   );
 
   while (nextUrl !== null) {
@@ -262,221 +250,17 @@ export async function readContextMemberships(input: {
         Accept: `${NRPS_CONTENT_TYPE}, application/json`,
       },
     });
-    const payload = await readJsonResponse(
-      response,
-      "Canvas NRPS memberships read failed.",
-    );
-    const container = requireRecord(
-      payload,
-      "Canvas NRPS memberships response must be an object.",
-    );
+    const payload = await readJsonResponse(response, 'Canvas NRPS memberships read failed.');
+    const container = requireRecord(payload, 'Canvas NRPS memberships response must be an object.');
     const members = container.members;
 
     if (!Array.isArray(members)) {
-      throw new Error("Canvas NRPS memberships response must include members.");
+      throw new TypeError('Canvas NRPS memberships response must include members.');
     }
 
-    memberships.push(
-      ...members.map((member, index) => mapMembership(member, index)),
-    );
-    nextUrl = parseNextLink(response.headers.get("link"));
+    memberships.push(...members.map((member, index) => mapMembership(member, index)));
+    nextUrl = parseNextLink(response.headers.get('link'));
   }
 
   return memberships;
-}
-
-interface ParsedLineItem {
-  lineItemUrl: string;
-  resourceLinkId: string;
-  resourceId: string;
-  tag: string;
-  label: string;
-  scoreMaximum: number;
-}
-
-function parseLineItemCollection(value: unknown): ParsedLineItem[] {
-  if (!Array.isArray(value)) {
-    throw new Error("Canvas line item lookup must return an array.");
-  }
-
-  return value.map((item, index) => mapLineItem(item, index));
-}
-
-function mapLineItem(value: unknown, index: number): ParsedLineItem {
-  const record = requireRecord(
-    value,
-    `Canvas line item ${index} must be an object.`,
-  );
-
-  return {
-    lineItemUrl: requireTrimmedString(
-      valueAsString(record.id),
-      `Canvas line item ${index} must include id.`,
-    ),
-    resourceLinkId: requireTrimmedString(
-      valueAsString(record.resourceLinkId),
-      `Canvas line item ${index} must include resourceLinkId.`,
-    ),
-    resourceId: requireTrimmedString(
-      valueAsString(record.resourceId),
-      `Canvas line item ${index} must include resourceId.`,
-    ),
-    tag: requireTrimmedString(
-      valueAsString(record.tag),
-      `Canvas line item ${index} must include tag.`,
-    ),
-    label: requireTrimmedString(
-      valueAsString(record.label),
-      `Canvas line item ${index} must include label.`,
-    ),
-    scoreMaximum: requireNumber(
-      record.scoreMaximum,
-      `Canvas line item ${index} must include scoreMaximum.`,
-    ),
-  };
-}
-
-function mapMembership(value: unknown, index: number): NrpsMembership {
-  const record = requireRecord(
-    value,
-    `Canvas NRPS member ${index} must be an object.`,
-  );
-  const userId = valueAsString(record.user_id);
-  const name = valueAsString(record.name);
-  const email = valueAsString(record.email);
-  const status = valueAsString(record.status);
-  const rolesValue = record.roles;
-
-  return {
-    userId: userId === null ? null : userId.trim(),
-    roles: Array.isArray(rolesValue)
-      ? rolesValue.filter((role): role is string =>
-        typeof role === "string" && role.trim() !== ""
-      )
-      : [],
-    status: status === null ? null : status.trim(),
-    name: name === null ? null : name.trim(),
-    email: email === null ? null : email.trim(),
-  };
-}
-
-async function readJsonResponse(
-  response: Response,
-  message: string,
-): Promise<unknown> {
-  if (!response.ok) {
-    throw new Error(`${message} Status ${response.status}.`);
-  }
-
-  return await response.json();
-}
-
-async function readMaybeJson(
-  response: Response,
-): Promise<Record<string, unknown> | null> {
-  const text = await response.text();
-
-  if (text.trim() === "") {
-    return null;
-  }
-
-  const parsed = JSON.parse(text) as unknown;
-
-  return requireRecord(parsed, "Canvas response body must be an object.");
-}
-
-function parseNextLink(headerValue: string | null): string | null {
-  if (!headerValue) {
-    return null;
-  }
-
-  for (const part of headerValue.split(",")) {
-    const trimmed = part.trim();
-
-    if (!trimmed.includes('rel="next"')) {
-      continue;
-    }
-
-    const match = trimmed.match(/^<([^>]+)>/);
-
-    if (match?.[1]) {
-      return match[1];
-    }
-  }
-
-  return null;
-}
-
-function resolveCanvasTokenEndpoint(authorizationEndpoint: string): string {
-  const url = new URL(authorizationEndpoint);
-
-  url.pathname = "/login/oauth2/token";
-  url.search = "";
-
-  return url.toString();
-}
-
-function toLineItemsUrl(lineItemUrl: string): string {
-  const url = new URL(lineItemUrl);
-  const segments = url.pathname.split("/").filter(Boolean);
-
-  if (segments.length < 2) {
-    throw new Error("Canvas lineitem URL could not be resolved to lineitems.");
-  }
-
-  segments.pop();
-  url.pathname = `/${segments.join("/")}`;
-  url.search = "";
-
-  return url.toString();
-}
-
-function toScoresUrl(lineItemUrl: string): string {
-  return `${lineItemUrl.replace(/\/$/, "")}/scores`;
-}
-
-function requireRecord(
-  value: unknown,
-  message: string,
-): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(message);
-  }
-
-  return value as Record<string, unknown>;
-}
-
-function requireTrimmedString(
-  value: string | null,
-  message: string,
-): string {
-  if (value === null || value.trim() === "") {
-    throw new Error(message);
-  }
-
-  return value.trim();
-}
-
-function requireNumber(value: unknown, message: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new Error(message);
-  }
-
-  return value;
-}
-
-function uniqueTrimmedStrings(values: string[], message: string): string[] {
-  const uniqueValues = [
-    ...new Set(values.map((value) => value.trim()).filter(Boolean)),
-  ];
-
-  if (uniqueValues.length === 0) {
-    throw new Error(message);
-  }
-
-  return uniqueValues;
-}
-
-function valueAsString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
 }
