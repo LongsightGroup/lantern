@@ -11,6 +11,7 @@ import {
   LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
 } from "./lti/types.ts";
 import {
+  buildAuditEventRecord,
   buildAttemptEventRecord,
   buildAttemptRecord,
   buildBrokerVerificationStatus,
@@ -27,6 +28,8 @@ import {
   buildOfficialBrokerCertificationStatus,
   buildPackageVersionRecord,
   buildPilotUsageMetrics,
+  buildPreviewEvidenceRecord,
+  buildPreviewSessionRecord,
   buildRetryableGradePublicationLookup,
   buildReviewedPlacementRecord,
   createInMemoryPackageReviewRepository,
@@ -686,6 +689,103 @@ Deno.test("GET /admin/packages renders the SSR control-plane inventory when pack
   assertStringIncludes(body, "Record verification evidence");
   assertStringIncludes(body, 'action="/admin/packages/verification"');
 });
+
+Deno.test(
+  "GET /admin/placements/:placementId renders selected content, reviewed version, Canvas context, and evidence timeline",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      reviewedPlacements: [
+        buildReviewedPlacementRecord({
+          placementId: "placement-audit-123",
+          packageVersionId: 8,
+          packageVersion: "0.8.0",
+          packageTitle: "Chapter 4 Asteroids",
+          contentPath: "/content/bonus.json",
+          contentTitle: "Bonus Activity",
+          contextId: "course-42",
+          contextTitle: "Physics 101",
+          resourceLinkId: "resource-link-123",
+        }),
+      ],
+      previewSessions: [
+        buildPreviewSessionRecord({
+          sessionId: "preview-session-123",
+          packageVersionId: 8,
+          packageVersion: "0.8.0",
+        }),
+      ],
+      previewEvidence: [
+        buildPreviewEvidenceRecord({
+          previewSessionId: "preview-session-123",
+          eventType: "preview.launch",
+        }),
+      ],
+      auditEvents: [
+        buildAuditEventRecord({
+          eventType: "deep_linking.request.accepted",
+          packageVersionId: 8,
+        }),
+        buildAuditEventRecord({
+          eventType: "deep_linking.placement.created",
+          packageVersionId: 8,
+          summary: "Created reviewed placement from Deep Linking selection.",
+          detail: {
+            placementId: "placement-audit-123",
+          },
+        }),
+        buildAuditEventRecord({
+          eventType: "reviewer.preview_viewed",
+          packageVersionId: 8,
+          summary: "Reviewer opened governed preview evidence.",
+          detail: {
+            placementId: "placement-audit-123",
+          },
+        }),
+      ],
+    });
+
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request("http://localhost/admin/placements/placement-audit-123");
+
+    assertEquals(response.status, 200);
+    const body = await response.text();
+
+    assertStringIncludes(body, "Placement audit");
+    assertStringIncludes(body, "placement-audit-123");
+    assertStringIncludes(body, "Chapter 4 Asteroids");
+    assertStringIncludes(body, "Version 0.8.0");
+    assertStringIncludes(body, "/content/bonus.json");
+    assertStringIncludes(body, "Physics 101");
+    assertStringIncludes(body, "reviewer.preview_viewed");
+    assertStringIncludes(body, "Open preview evidence");
+  },
+);
+
+Deno.test(
+  "GET /admin/placements and /admin/placements/:placementId fail clearly for missing and unknown placement ids",
+  async () => {
+    const repository = createInMemoryPackageReviewRepository();
+    const app = createApp({
+      getRepository: () => repository,
+    });
+
+    const missingIdResponse = await app.request("http://localhost/admin/placements");
+    assertEquals(missingIdResponse.status, 400);
+    assertStringIncludes(await missingIdResponse.text(), "Placement id is required.");
+
+    const unknownResponse = await app.request(
+      "http://localhost/admin/placements/placement-missing",
+    );
+    assertEquals(unknownResponse.status, 404);
+    const unknownBody = await unknownResponse.text();
+    assertStringIncludes(unknownBody, "Placement audit unavailable");
+    assertStringIncludes(
+      unknownBody,
+      "Reviewed placement placement-missing was not found.",
+    );
+  },
+);
 
 Deno.test("approved package dossier includes a governed preview launch link", async () => {
   const repository = createInMemoryPackageReviewRepository({
