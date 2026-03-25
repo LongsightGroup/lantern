@@ -406,6 +406,7 @@ export function buildRuntimeSessionRecord(
       assignmentId: "assignment-9",
       activityId: "activity-123",
     },
+    ...(overrides.preview === undefined ? {} : { preview: overrides.preview }),
     createdAt: overrides.createdAt ?? TEST_NOW,
     expiresAt: overrides.expiresAt ?? "2026-03-23T22:47:00Z",
   };

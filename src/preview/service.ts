@@ -1,4 +1,5 @@
 import type { UserRole } from "../../sdk/app-sdk.ts";
+import type { RuntimeSessionRecord } from "../lti/types.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
   PackageVersionRecord,
@@ -36,6 +37,78 @@ export async function createPreviewSession(input: {
       activityProgress: "Completed",
       gradingProgress: "FullyGraded",
     },
+  };
+}
+
+const PREVIEW_RUNTIME_SESSION_TTL_MS = 10 * 60 * 1000;
+
+export async function launchPreviewRuntimeSession(input: {
+  repository: PackageReviewRepository;
+  packageVersion: PackageVersionRecord;
+  now?: () => Date;
+  createOpaqueToken?: () => string;
+}): Promise<{
+  previewSession: PreviewSessionRecord;
+  runtimeSession: RuntimeSessionRecord;
+}> {
+  const now = input.now ?? (() => new Date());
+  const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
+  const createdAt = now();
+  const created = await createPreviewSession({
+    repository: input.repository,
+    packageVersion: input.packageVersion,
+    now,
+    createOpaqueToken,
+  });
+  const runtimeSession = await input.repository.createRuntimeSession({
+    sessionId: `preview-runtime-${createOpaqueToken()}`,
+    sessionToken: createOpaqueToken(),
+    attemptId: created.previewSession.fakeAttemptId,
+    deploymentRecordId: 0,
+    deploymentSlug: `${created.previewSession.appId}-preview`,
+    appId: created.previewSession.appId,
+    packageVersionId: created.previewSession.packageVersionId,
+    packageVersion: created.previewSession.packageVersion,
+    capabilities: created.previewSession.capabilities,
+    snapshotRoot: created.previewSession.snapshotRoot,
+    entrypointPath: created.previewSession.entrypointPath,
+    contentPath: resolvePreviewRuntimeContentPath(input.packageVersion),
+    services: {
+      ags: null,
+      nrps: null,
+    },
+    launch: {
+      userRole: created.previewSession.launch.userRole,
+      courseId: created.previewSession.launch.courseId,
+      ...(created.previewSession.launch.assignmentId === null
+        ? {}
+        : { assignmentId: created.previewSession.launch.assignmentId }),
+      activityId: created.previewSession.launch.activityId,
+    },
+    preview: {
+      previewSessionId: created.previewSession.sessionId,
+    },
+    createdAt: createdAt.toISOString(),
+    expiresAt: new Date(createdAt.getTime() + PREVIEW_RUNTIME_SESSION_TTL_MS)
+      .toISOString(),
+  });
+
+  await input.repository.appendPreviewEvidence({
+    previewSessionId: created.previewSession.sessionId,
+    eventType: "preview.launch",
+    capability: null,
+    summary: "Launched reviewed preview runtime session.",
+    detail: {
+      runtimeSessionId: runtimeSession.sessionId,
+      route:
+        `/admin/packages/${created.previewSession.appId}/versions/${created.previewSession.packageVersion}/preview`,
+    },
+    occurredAt: createdAt.toISOString(),
+  });
+
+  return {
+    previewSession: created.previewSession,
+    runtimeSession,
   };
 }
 
@@ -204,6 +277,37 @@ function resolveSnapshotPath(snapshotRoot: string, filePath: string): string {
   assertPathInsideSnapshot(snapshotRoot, absolutePath);
 
   return absolutePath;
+}
+
+function resolvePreviewRuntimeContentPath(
+  packageVersion: PackageVersionRecord,
+): string {
+  const canonicalContentPath = readCanonicalContentPath(packageVersion);
+
+  return `${packageVersion.artifact.snapshotRoot}${
+    ensureLeadingSlash(canonicalContentPath)
+  }`;
+}
+
+function readCanonicalContentPath(packageVersion: PackageVersionRecord): string {
+  const contentFiles = readTrimmedStringArray(packageVersion.manifestJson.content_files);
+
+  return contentFiles[0] ?? "/content/activity.json";
+}
+
+function readTrimmedStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item !== "");
+}
+
+function ensureLeadingSlash(value: string): string {
+  return value.startsWith("/") ? value : `/${value}`;
 }
 
 function trimLeadingSlash(value: string): string {

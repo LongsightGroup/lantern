@@ -43,6 +43,7 @@ export async function renderRuntimeSessionPage(
     buildRuntimeBootstrapScript({
       bootstrap,
       runtimeBasePath,
+      previewSessionId: session.preview?.previewSessionId ?? null,
     })
   }</script>`;
 
@@ -156,6 +157,7 @@ function buildBootstrapPayload(
 function buildRuntimeBootstrapScript(input: {
   bootstrap: BootstrapPayload;
   runtimeBasePath: string;
+  previewSessionId: string | null;
 }): string {
   const bootstrapJson = serializeForInlineScript(input.bootstrap);
   const contentUrl = serializeForInlineScript(
@@ -167,8 +169,16 @@ function buildRuntimeBootstrapScript(input: {
   const finalizeUrl = serializeForInlineScript(
     `${input.runtimeBasePath}/finalize`,
   );
+  const previewJson = serializeForInlineScript(
+    input.previewSessionId === null
+      ? null
+      : {
+        previewSessionId: input.previewSessionId,
+      },
+  );
 
   return `window.GatewayBootstrap = ${bootstrapJson};
+window.GatewayPreview = ${previewJson};
 window.GatewayApp = {
   getLaunchContext() {
     return Promise.resolve({

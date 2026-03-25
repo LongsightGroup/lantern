@@ -71,7 +71,10 @@ import {
   loadRuntimeAssetBytes,
   renderRuntimeSessionPage,
 } from "./runtime/session.ts";
-import { preparePreviewSession } from "./preview/service.ts";
+import {
+  launchPreviewRuntimeSession,
+  preparePreviewSession,
+} from "./preview/service.ts";
 import {
   acceptAttemptEvent,
   finalizeRuntimeAttempt,
@@ -853,6 +856,115 @@ export function createApp(
       );
     }
   });
+
+  app.post(
+    "/admin/packages/:appId/versions/:version/preview",
+    async (context) => {
+      const repository = resolvedServices.getRepository();
+      const appId = context.req.param("appId");
+      const version = context.req.param("version");
+
+      try {
+        const packageVersion = await repository.getPackageVersionByAppVersion(
+          appId,
+          version,
+        );
+
+        if (!packageVersion) {
+          return context.html(
+            renderPackageIndexPage({
+              versions: [],
+              notice: {
+                tone: "error",
+                title: "Package version not found",
+                detail:
+                  "Lantern could not find that exact app version in the review inventory.",
+              },
+            }),
+            404,
+          );
+        }
+
+        const launched = await launchPreviewRuntimeSession({
+          repository,
+          packageVersion,
+        });
+
+        await repository.recordAuditEvent({
+          eventType: "preview.launch",
+          actorType: "user",
+          actorId: null,
+          deploymentRecordId: null,
+          packageVersionId: packageVersion.id,
+          attemptId: launched.runtimeSession.attemptId,
+          lineItemBindingId: null,
+          status: "succeeded",
+          summary: "Launched a governed preview runtime session.",
+          detail: {
+            previewSessionId: launched.previewSession.sessionId,
+            runtimeSessionId: launched.runtimeSession.sessionId,
+            appId: packageVersion.appId,
+            packageVersion: packageVersion.version,
+          },
+          occurredAt: new Date().toISOString(),
+        });
+
+        return context.redirect(
+          `/runtime/sessions/${launched.runtimeSession.sessionId}?token=${
+            encodeURIComponent(launched.runtimeSession.sessionToken)
+          }`,
+          303,
+        );
+      } catch (error) {
+        const packageVersion = await repository.getPackageVersionByAppVersion(
+          appId,
+          version,
+        );
+
+        if (!packageVersion) {
+          return context.html(
+            renderPackageIndexPage({
+              versions: [],
+              notice: createErrorNotice("Preview launch blocked", error),
+            }),
+            statusForError(error),
+          );
+        }
+
+        let previewSession = null;
+
+        try {
+          previewSession = await preparePreviewSession({
+            packageVersion,
+          });
+        } catch {
+          previewSession = null;
+        }
+
+        if (previewSession !== null) {
+          return context.html(
+            renderPreviewPage({
+              packageVersion,
+              previewSession,
+              notice: createErrorNotice("Preview launch blocked", error),
+            }),
+            statusForError(error),
+          );
+        }
+
+        const history = await repository.listPackageVersionsByApp(appId);
+
+        return context.html(
+          renderPackageDetailPage({
+            packageVersion,
+            history,
+            notice: createErrorNotice("Preview launch blocked", error),
+          }),
+          statusForError(error),
+        );
+      }
+    },
+  );
 
   app.post("/admin/packages/:id/approve", async (context) => {
     return await handleReviewDecision(

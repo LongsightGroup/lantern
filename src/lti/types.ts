@@ -113,6 +113,9 @@ export interface RuntimeSessionRecord {
     assignmentId?: string;
     activityId: string;
   };
+  preview?: {
+    previewSessionId: string;
+  };
   createdAt: string;
   expiresAt: string;
 }
