@@ -1104,6 +1104,16 @@ export function createInMemoryPackageReviewRepository(
       return Promise.resolve(record ? clonePreviewSession(record) : null);
     },
 
+    getLatestPreviewSessionByPackageVersion(packageVersionId) {
+      const latest = previewSessions
+        .filter((candidate) => candidate.packageVersionId === packageVersionId)
+        .sort((left, right) =>
+          Date.parse(right.createdAt) - Date.parse(left.createdAt)
+        )[0];
+
+      return Promise.resolve(latest ? clonePreviewSession(latest) : null);
+    },
+
     appendPreviewEvidence(input) {
       const session = previewSessions.find((candidate) =>
         candidate.sessionId === input.previewSessionId

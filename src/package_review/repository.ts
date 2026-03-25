@@ -513,6 +513,9 @@ export interface PackageReviewRepository {
   getPreviewSessionById(
     sessionId: string,
   ): Promise<PreviewSessionRecord | null>;
+  getLatestPreviewSessionByPackageVersion(
+    packageVersionId: number,
+  ): Promise<PreviewSessionRecord | null>;
   appendPreviewEvidence(input: {
     previewSessionId: string;
     eventType: string;
@@ -1524,6 +1527,23 @@ export function createPackageReviewRepository(
         const result = await client.queryObject<PreviewSessionRow>({
           text: `${PREVIEW_SESSION_SELECT} WHERE session_id = $1`,
           args: [sessionId],
+          camelCase: true,
+        });
+
+        return mapOptionalPreviewSession(result.rows[0]);
+      });
+    },
+
+    async getLatestPreviewSessionByPackageVersion(packageVersionId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<PreviewSessionRow>({
+          text: `
+            ${PREVIEW_SESSION_SELECT}
+            WHERE package_version_id = $1
+            ORDER BY created_at DESC
+            LIMIT 1
+          `,
+          args: [packageVersionId],
           camelCase: true,
         });
 

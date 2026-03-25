@@ -60,10 +60,30 @@ export async function launchPreviewRuntimeSession(input: {
     now,
     createOpaqueToken,
   });
+  const runtimeAttemptId = buildPreviewRuntimeAttemptId(created.previewSession);
+
+  await input.repository.createAttempt({
+    attemptId: runtimeAttemptId,
+    deploymentRecordId: 0,
+    deploymentSlug: `${created.previewSession.appId}-preview`,
+    appId: created.previewSession.appId,
+    packageVersionId: created.previewSession.packageVersionId,
+    packageVersion: created.previewSession.packageVersion,
+    userId: created.previewSession.launch.userId,
+    userRole: created.previewSession.launch.userRole,
+    contextId: created.previewSession.launch.courseId,
+    resourceLinkId: `preview-resource-${created.previewSession.sessionId}`,
+    activityId: created.previewSession.launch.activityId,
+    status: "in_progress",
+    completionState: null,
+    startedAt: createdAt.toISOString(),
+    finalizedAt: null,
+  });
+
   const runtimeSession = await input.repository.createRuntimeSession({
     sessionId: `preview-runtime-${createOpaqueToken()}`,
     sessionToken: createOpaqueToken(),
-    attemptId: created.previewSession.fakeAttemptId,
+    attemptId: runtimeAttemptId,
     deploymentRecordId: 0,
     deploymentSlug: `${created.previewSession.appId}-preview`,
     appId: created.previewSession.appId,
@@ -110,6 +130,12 @@ export async function launchPreviewRuntimeSession(input: {
     previewSession: created.previewSession,
     runtimeSession,
   };
+}
+
+function buildPreviewRuntimeAttemptId(
+  previewSession: PreviewSessionRecord,
+): string {
+  return `${previewSession.fakeAttemptId}:${previewSession.sessionId}`;
 }
 
 export async function preparePreviewSession(input: {

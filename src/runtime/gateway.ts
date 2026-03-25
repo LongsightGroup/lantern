@@ -490,7 +490,7 @@ async function resolvePreviewSession(
     previewSession.appId !== session.appId ||
     previewSession.packageVersionId !== session.packageVersionId ||
     previewSession.packageVersion !== session.packageVersion ||
-    previewSession.fakeAttemptId !== session.attemptId
+    !matchesPreviewAttemptId(session.attemptId, previewSession)
   ) {
     throw new Error(
       `Preview session ${previewSession.sessionId} did not match the runtime session context.`,
@@ -506,6 +506,15 @@ function previewSessionHasLiveServicePath(
   return session.deploymentRecordId !== 0 ||
     session.services.ags !== null ||
     session.services.nrps !== null;
+}
+
+function matchesPreviewAttemptId(
+  attemptId: string,
+  previewSession: PreviewSessionRecord,
+): boolean {
+  return attemptId === previewSession.fakeAttemptId ||
+    attemptId ===
+      `${previewSession.fakeAttemptId}:${previewSession.sessionId}`;
 }
 
 async function requireRuntimeAttempt(

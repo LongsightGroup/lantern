@@ -62,6 +62,8 @@ import type {
   DeepLinkingResourceSelection,
   DeploymentRecord,
   PackageVersionRecord,
+  PreviewEvidenceRecord,
+  PreviewSessionRecord,
 } from "./package_review/types.ts";
 import { renderHomePage } from "./pages/home.ts";
 import {
@@ -502,7 +504,24 @@ export function createApp(
         expected: session,
       });
 
-      return context.json(await loadRuntimeActivityContent(session));
+      const content = await loadRuntimeActivityContent(session);
+
+      if (session.preview !== undefined) {
+        await repository.appendPreviewEvidence({
+          previewSessionId: session.preview.previewSessionId,
+          eventType: "preview.content_read",
+          capability: "read_activity_content",
+          summary:
+            "Read reviewed activity content from the governed preview runtime.",
+          detail: {
+            attemptId: session.attemptId,
+            contentPath: session.contentPath,
+          },
+          occurredAt: new Date().toISOString(),
+        });
+      }
+
+      return context.json(content);
     } catch (error) {
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }
@@ -823,11 +842,16 @@ export function createApp(
         const previewSession = await preparePreviewSession({
           packageVersion,
         });
+        const { session, evidence } = await loadPreviewCapabilityLog({
+          repository,
+          packageVersionId: packageVersion.id,
+        });
 
         return context.html(
           renderPreviewPage({
             packageVersion,
-            previewSession,
+            previewSession: session ?? previewSession,
+            previewEvidence: evidence,
           }),
         );
       } catch (error) {
@@ -945,10 +969,16 @@ export function createApp(
         }
 
         if (previewSession !== null) {
+          const { session, evidence } = await loadPreviewCapabilityLog({
+            repository,
+            packageVersionId: packageVersion.id,
+          });
+
           return context.html(
             renderPreviewPage({
               packageVersion,
-              previewSession,
+              previewSession: session ?? previewSession,
+              previewEvidence: evidence,
               notice: createErrorNotice("Preview launch blocked", error),
             }),
             statusForError(error),
@@ -2619,6 +2649,30 @@ function readBearerToken(value: string | undefined): string | null {
   const match = value.match(/^Bearer\s+(.+)$/i);
 
   return match?.[1] ?? null;
+}
+
+async function loadPreviewCapabilityLog(input: {
+  repository: PackageReviewRepository;
+  packageVersionId: number;
+}): Promise<{
+  session: PreviewSessionRecord | null;
+  evidence: PreviewEvidenceRecord[];
+}> {
+  const session = await input.repository.getLatestPreviewSessionByPackageVersion(
+    input.packageVersionId,
+  );
+
+  if (session === null) {
+    return {
+      session: null,
+      evidence: [],
+    };
+  }
+
+  return {
+    session,
+    evidence: await input.repository.listPreviewEvidence(session.sessionId),
+  };
 }
 
 function runtimeFilePathFromRequest(context: Context): string {
