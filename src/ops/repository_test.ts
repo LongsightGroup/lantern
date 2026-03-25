@@ -591,6 +591,69 @@ Deno.test(
 );
 
 Deno.test(
+  "ops repository diagnostics include reviewer events while keeping launch, NRPS, and AGS diagnostics intact",
+  async () => {
+    await withPackageReviewTestDatabase(async (pool) => {
+      await bootstrapPackageReviewSchema(pool);
+      await resetPackageReviewTables(pool);
+      await seedOpsRepositoryFixtures(pool);
+      const client = await pool.connect();
+
+      try {
+        await insertAuditEvent(
+          client,
+          buildAuditEventRecord({
+            id: 4,
+            eventType: "reviewer.preview_viewed",
+            actorType: "user",
+            actorId: "reviewer-123",
+            status: "succeeded",
+            summary: "Reviewer opened placement evidence.",
+            detail: {
+              placementId: "placement-ops-123",
+            },
+            occurredAt: "2026-03-24T12:36:00Z",
+          }),
+        );
+      } finally {
+        client.release();
+      }
+
+      const modulePath = `./${"repository.ts"}`;
+      const opsRepositoryModule = await import(modulePath);
+      const repository = opsRepositoryModule.createOpsRepository(pool);
+      const detail = await repository.getControlPlaneDeploymentDetail(1);
+
+      assertEquals(detail.diagnostics.length, 4);
+      assertEquals(
+        detail.diagnostics.some((item: { eventType: string }) =>
+          item.eventType === "launch.accepted"
+        ),
+        true,
+      );
+      assertEquals(
+        detail.diagnostics.some((item: { eventType: string }) =>
+          item.eventType === "deployment.nrps_verified"
+        ),
+        true,
+      );
+      assertEquals(
+        detail.diagnostics.some((item: { eventType: string }) =>
+          item.eventType === "grade_publish.failed"
+        ),
+        true,
+      );
+      assertEquals(
+        detail.diagnostics.some((item: { eventType: string }) =>
+          item.eventType === "reviewer.preview_viewed"
+        ),
+        true,
+      );
+    });
+  },
+);
+
+Deno.test(
   "ops repository records broker verification runs and returns the latest internal result separately from the latest official certification result",
   async () => {
     await withPackageReviewTestDatabase(async (pool) => {

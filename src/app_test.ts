@@ -813,6 +813,9 @@ Deno.test("approved package dossier includes a governed preview launch link", as
     body,
     "/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
   );
+  assertStringIncludes(body, "Placement audit");
+  assertStringIncludes(body, 'action="/admin/placements"');
+  assertStringIncludes(body, 'name="placementId"');
 });
 
 Deno.test("GET /admin/packages/:appId/versions/:version/preview renders fake launch context for approved reviewed versions", async () => {

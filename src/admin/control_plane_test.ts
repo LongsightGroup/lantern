@@ -55,6 +55,8 @@ Deno.test(
     assertStringIncludes(body, "Record verification evidence");
     assertStringIncludes(body, 'action="/admin/packages/verification"');
     assertStringIncludes(body, "Retry required");
+    assertStringIncludes(body, "Placement audits");
+    assertStringIncludes(body, 'href="/admin/placements"');
   },
 );
 
