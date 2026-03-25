@@ -955,6 +955,88 @@ Deno.test("repository appends preview evidence rows in chronological append orde
   });
 });
 
+Deno.test("repository returns the latest preview session by package version for capability log lookup", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion({
+          version: "0.5.0",
+        }),
+      )).id,
+      reviewNotes: "Approved for preview capability-log lookup.",
+    });
+
+    await repository.createPreviewSession({
+      sessionId: "preview-session-oldest",
+      packageVersionId: approvedRecord.id,
+      appId: approvedRecord.appId,
+      packageVersion: approvedRecord.version,
+      packageTitle: approvedRecord.title,
+      capabilities: approvedRecord.capabilities,
+      snapshotRoot: approvedRecord.artifact.snapshotRoot,
+      entrypointPath: approvedRecord.artifact.entrypointPath,
+      launch: {
+        userId: "preview-user-old",
+        userRole: "learner",
+        courseId: "preview-course-42",
+        assignmentId: null,
+        activityId: "preview-activity-9",
+      },
+      fakeAttemptId: "preview-attempt-old",
+      fakeScoreMaximum: 100,
+      fixtureData: {
+        launch: {
+          user_role: "learner",
+          course_id: "preview-course-42",
+          assignment_id: null,
+          activity_id: "preview-activity-9",
+        },
+        attempt_id: "preview-attempt-old",
+        local_state: null,
+      },
+      createdAt: "2026-03-25T01:00:00Z",
+    });
+
+    const latestCreated = await repository.createPreviewSession({
+      sessionId: "preview-session-latest",
+      packageVersionId: approvedRecord.id,
+      appId: approvedRecord.appId,
+      packageVersion: approvedRecord.version,
+      packageTitle: approvedRecord.title,
+      capabilities: approvedRecord.capabilities,
+      snapshotRoot: approvedRecord.artifact.snapshotRoot,
+      entrypointPath: approvedRecord.artifact.entrypointPath,
+      launch: {
+        userId: "preview-user-new",
+        userRole: "instructor",
+        courseId: "preview-course-42",
+        assignmentId: null,
+        activityId: "preview-activity-9",
+      },
+      fakeAttemptId: "preview-attempt-new",
+      fakeScoreMaximum: 100,
+      fixtureData: {
+        launch: {
+          user_role: "instructor",
+          course_id: "preview-course-42",
+          assignment_id: null,
+          activity_id: "preview-activity-9",
+        },
+        attempt_id: "preview-attempt-new",
+        local_state: null,
+      },
+      createdAt: "2026-03-25T01:01:00Z",
+    });
+
+    const latest = await repository.getLatestPreviewSessionByPackageVersion(
+      approvedRecord.id,
+    );
+
+    assertEquals(latest?.sessionId, latestCreated.sessionId);
+    assertEquals(latest?.launch.userRole, "instructor");
+  });
+});
+
 Deno.test("repository rejects preview writes that reference missing sessions or package versions", async () => {
   await withRepositoryTestDatabase(async ({ repository }) => {
     await assertRejects(
