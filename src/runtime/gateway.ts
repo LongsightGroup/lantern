@@ -113,7 +113,8 @@ export async function acceptAttemptEvent(input: {
         previewSessionId: previewSession.sessionId,
         eventType: "preview.attempt_event.blocked",
         capability: "submit_attempt_event",
-        summary: "Blocked preview attempt-event write outside declared capability.",
+        summary:
+          "Blocked preview attempt-event write outside declared capability.",
         detail: {
           attemptId: input.session.attemptId,
           reason: errorMessage(error),
@@ -154,7 +155,8 @@ export async function finalizeRuntimeAttempt(input: {
           previewSessionId: previewSession.sessionId,
           eventType: "preview.finalize.blocked",
           capability: "finalize_attempt",
-          summary: "Blocked preview finalize from attempting live LMS side effects.",
+          summary:
+            "Blocked preview finalize from attempting live LMS side effects.",
           detail: {
             attemptId: input.session.attemptId,
             hasAgsServices: input.session.services.ags !== null,

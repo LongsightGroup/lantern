@@ -934,7 +934,9 @@ Deno.test("preview capability log shows durable launch, content-read, attempt, a
   const runtimeLocation = new URL(`http://localhost${location}`);
   const runtimeSessionId = runtimeLocation.pathname.split("/").at(-1) ?? "";
   const runtimeToken = runtimeLocation.searchParams.get("token") ?? "";
-  const runtimeSession = await repository.getRuntimeSessionById(runtimeSessionId);
+  const runtimeSession = await repository.getRuntimeSessionById(
+    runtimeSessionId,
+  );
 
   await app.request(
     `http://localhost/runtime/sessions/${runtimeSessionId}/content`,
@@ -960,16 +962,19 @@ Deno.test("preview capability log shows durable launch, content-read, attempt, a
       }),
     },
   );
-  await app.request(`http://localhost/runtime/sessions/${runtimeSessionId}/finalize`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${runtimeToken}`,
-      "content-type": "application/json",
+  await app.request(
+    `http://localhost/runtime/sessions/${runtimeSessionId}/finalize`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${runtimeToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        completionState: "completed",
+      }),
     },
-    body: JSON.stringify({
-      completionState: "completed",
-    }),
-  });
+  );
 
   const previewPageResponse = await app.request(
     "http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
@@ -983,7 +988,9 @@ Deno.test("preview capability log shows durable launch, content-read, attempt, a
       String(event.detail.runtimeSessionId ?? "") === runtimeSessionId
     )?.detail.previewSessionId ?? "",
   );
-  const previewEvidence = await repository.listPreviewEvidence(previewSessionId);
+  const previewEvidence = await repository.listPreviewEvidence(
+    previewSessionId,
+  );
 
   assertEquals(launchResponse.status, 303);
   assertEquals(runtimeSession?.preview?.previewSessionId, previewSessionId);

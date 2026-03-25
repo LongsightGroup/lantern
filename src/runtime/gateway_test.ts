@@ -568,7 +568,9 @@ Deno.test(
     });
 
     await withFetchStub(() => {
-      throw new Error("Canvas fetch should not be called for preview finalize.");
+      throw new Error(
+        "Canvas fetch should not be called for preview finalize.",
+      );
     }, async () => {
       const result = await finalizeRuntimeAttempt({
         repository,

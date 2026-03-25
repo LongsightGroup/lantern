@@ -99,10 +99,10 @@ export function renderPreviewPage(input: {
         <p class="section-label">Declared capabilities</p>
         <ul class="compact-list">
           ${
-    previewSession.capabilities.map((capability) =>
-      `<li><code>${escapeHtml(capability)}</code></li>`
-    ).join("")
-  }
+      previewSession.capabilities.map((capability) =>
+        `<li><code>${escapeHtml(capability)}</code></li>`
+      ).join("")
+    }
         </ul>
       </div>
     </section>
@@ -110,28 +110,30 @@ export function renderPreviewPage(input: {
       <div class="panel-body stack">
         <p class="section-label">Preview capability log</p>
         <p class="micro muted">Latest preview session: ${
-    escapeHtml(previewSession.sessionId)
-  }</p>
+      escapeHtml(previewSession.sessionId)
+    }</p>
         ${
-    previewEvidence.length === 0
-      ? `<p class="muted">No preview activity has been recorded yet. Launch the preview runtime to capture governed capability evidence.</p>`
-      : `<ul class="stack">
+      previewEvidence.length === 0
+        ? `<p class="muted">No preview activity has been recorded yet. Launch the preview runtime to capture governed capability evidence.</p>`
+        : `<ul class="stack">
           ${
-        previewEvidence.map((record) =>
-          `<li class="stack">
+          previewEvidence.map((record) =>
+            `<li class="stack">
               <div class="micro muted">${escapeHtml(record.occurredAt)}</div>
               <div><strong>${escapeHtml(record.eventType)}</strong> ${
-            record.capability === null
-              ? ""
-              : `<code>${escapeHtml(record.capability)}</code>`
-          }</div>
+              record.capability === null
+                ? ""
+                : `<code>${escapeHtml(record.capability)}</code>`
+            }</div>
               <div>${escapeHtml(record.summary)}</div>
-              <div class="micro muted">${escapeHtml(formatPreviewEvidenceDetail(record.detail))}</div>
+              <div class="micro muted">${
+              escapeHtml(formatPreviewEvidenceDetail(record.detail))
+            }</div>
             </li>`
-        ).join("")
-      }
+          ).join("")
+        }
         </ul>`
-  }
+    }
       </div>
     </section>
     <section class="panel">

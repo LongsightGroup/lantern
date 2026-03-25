@@ -2658,9 +2658,10 @@ async function loadPreviewCapabilityLog(input: {
   session: PreviewSessionRecord | null;
   evidence: PreviewEvidenceRecord[];
 }> {
-  const session = await input.repository.getLatestPreviewSessionByPackageVersion(
-    input.packageVersionId,
-  );
+  const session = await input.repository
+    .getLatestPreviewSessionByPackageVersion(
+      input.packageVersionId,
+    );
 
   if (session === null) {
     return {
