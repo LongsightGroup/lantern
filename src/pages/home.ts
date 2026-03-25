@@ -1,8 +1,8 @@
-import { renderLayout } from './layout.ts';
+import { renderLayout } from "./layout.ts";
 
 export function renderHomePage(): string {
   return renderLayout(
-    'Lantern',
+    "Lantern",
     `<main class="home">
       <section class="home-hero">
         <p class="eyebrow">Lantern</p>

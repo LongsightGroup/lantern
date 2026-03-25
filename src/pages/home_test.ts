@@ -14,13 +14,15 @@ Deno.test("renderHomePage includes the public capability story sections and eval
 Deno.test("renderHomePage excludes tenant-private identifiers from public output", () => {
   const html = renderHomePage();
 
-  for (const forbidden of [
-    "issuer",
-    "client_id",
-    "user_id",
-    "deployment_id",
-    "resource_link_id",
-  ]) {
+  for (
+    const forbidden of [
+      "issuer",
+      "client_id",
+      "user_id",
+      "deployment_id",
+      "resource_link_id",
+    ]
+  ) {
     assertEquals(html.includes(forbidden), false);
   }
 });
