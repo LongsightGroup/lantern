@@ -1,10 +1,7 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { buildPackageVersionRecord } from "../test_helpers/package_review.ts";
 import { createInMemoryPackageReviewRepository } from "../test_helpers/package_review.ts";
-import {
-  createPreviewSession,
-  preparePreviewSession,
-} from "./service.ts";
+import { createPreviewSession, preparePreviewSession } from "./service.ts";
 
 Deno.test("preview service loads preview.fixtures_file and validates required fields before preparing launch context", async () => {
   const snapshotRoot = await Deno.makeTempDir({ prefix: "lantern-preview-" });
