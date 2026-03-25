@@ -206,6 +206,28 @@ export interface ReviewedPlacementRecord {
   boundAt: string | null;
 }
 
+export type PlacementAuditStatus =
+  | "awaiting_canvas_binding"
+  | "bound_no_preview"
+  | "bound_with_preview"
+  | "reviewed";
+
+export interface PlacementAuditEvidenceSummary {
+  deepLinkingRequestCount: number;
+  placementEventCount: number;
+  reviewerEventCount: number;
+  latestOccurredAt: string | null;
+}
+
+export interface PlacementAuditSnapshot {
+  placement: ReviewedPlacementRecord;
+  status: PlacementAuditStatus;
+  latestPreviewSessionId: string | null;
+  latestPreviewOccurredAt: string | null;
+  previewEvidenceCount: number;
+  evidenceSummary: PlacementAuditEvidenceSummary;
+}
+
 export interface PreviewFixtureData {
   launch: {
     user_role: UserRole;

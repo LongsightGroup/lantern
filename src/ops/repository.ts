@@ -1,10 +1,14 @@
 import type { Pool, PoolClient } from "@db/postgres";
 import type { DeploymentBinding, LaunchServiceClaims } from "../lti/types.ts";
+import {
+  createPackageReviewRepository,
+} from "../package_review/repository.ts";
 import type {
   ApprovalStatus,
   AuditActorType,
   AuditEventStatus,
   GradePublicationStatus,
+  PlacementAuditSnapshot,
 } from "../package_review/types.ts";
 import { deriveDeploymentHealth, formatDiagnosticItem } from "./service.ts";
 import type {
@@ -477,9 +481,14 @@ export interface OpsRepository {
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
+  getPlacementAuditSnapshot(
+    placementId: string,
+  ): Promise<PlacementAuditSnapshot>;
 }
 
 export function createOpsRepository(pool: Pool): OpsRepository {
+  const packageReviewRepository = createPackageReviewRepository(pool);
+
   return {
     async listControlPlaneDeployments() {
       return await withClient(pool, async (client) => {
@@ -574,6 +583,12 @@ export function createOpsRepository(pool: Pool): OpsRepository {
         pool,
         async (client) =>
           await getRetryableGradePublicationLookupForClient(client, attemptId),
+      );
+    },
+
+    async getPlacementAuditSnapshot(placementId) {
+      return await packageReviewRepository.requirePlacementAuditSnapshotById(
+        placementId,
       );
     },
   };

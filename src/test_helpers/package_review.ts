@@ -35,6 +35,7 @@ import type {
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
+  PlacementAuditSnapshot,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
   ReviewedPlacementRecord,
@@ -1012,6 +1013,95 @@ export function createInMemoryPackageReviewRepository(
       );
 
       return Promise.resolve(record ? cloneReviewedPlacement(record) : null);
+    },
+
+    getPlacementAuditSnapshotById(placementId) {
+      const placement = reviewedPlacements.find((candidate) =>
+        candidate.placementId === placementId
+      );
+
+      if (!placement) {
+        return Promise.resolve(null);
+      }
+
+      const latestPreviewSession = previewSessions
+        .filter((candidate) =>
+          candidate.packageVersionId === placement.packageVersionId
+        )
+        .sort((left, right) =>
+          Date.parse(right.createdAt) - Date.parse(left.createdAt)
+        )[0] ?? null;
+      const previewRows = latestPreviewSession === null
+        ? []
+        : previewEvidence
+          .filter((candidate) =>
+            candidate.previewSessionId === latestPreviewSession.sessionId
+          )
+          .sort((left, right) => left.sequence - right.sequence);
+      const deepLinkingRequestCount = auditEvents.filter((candidate) =>
+        candidate.deploymentRecordId === placement.deploymentRecordId &&
+        candidate.packageVersionId === placement.packageVersionId &&
+        candidate.eventType.startsWith("deep_linking.request.")
+      ).length;
+      const placementEventCount = auditEvents.filter((candidate) =>
+        candidate.deploymentRecordId === placement.deploymentRecordId &&
+        candidate.packageVersionId === placement.packageVersionId &&
+        candidate.eventType.startsWith("deep_linking.placement.") &&
+        candidate.detail.placementId === placement.placementId
+      ).length;
+      const reviewerEventCount = auditEvents.filter((candidate) =>
+        candidate.deploymentRecordId === placement.deploymentRecordId &&
+        candidate.packageVersionId === placement.packageVersionId &&
+        candidate.eventType.startsWith("reviewer.") &&
+        candidate.detail.placementId === placement.placementId
+      ).length;
+      const latestOccurredAt = auditEvents
+        .filter((candidate) =>
+          candidate.deploymentRecordId === placement.deploymentRecordId &&
+          candidate.packageVersionId === placement.packageVersionId &&
+          (
+            candidate.eventType.startsWith("deep_linking.request.") ||
+            candidate.eventType.startsWith("deep_linking.placement.") ||
+            candidate.eventType.startsWith("reviewer.")
+          )
+        )
+        .sort((left, right) =>
+          Date.parse(right.occurredAt) - Date.parse(left.occurredAt)
+        )[0]?.occurredAt ?? null;
+      const previewEvidenceCount = previewRows.length;
+      const status = reviewerEventCount > 0
+        ? "reviewed"
+        : placement.resourceLinkId === null
+        ? "awaiting_canvas_binding"
+        : previewEvidenceCount > 0
+        ? "bound_with_preview"
+        : "bound_no_preview";
+      const snapshot: PlacementAuditSnapshot = {
+        placement: cloneReviewedPlacement(placement),
+        status,
+        latestPreviewSessionId: latestPreviewSession?.sessionId ?? null,
+        latestPreviewOccurredAt: previewRows[previewRows.length - 1]
+          ?.occurredAt ?? null,
+        previewEvidenceCount,
+        evidenceSummary: {
+          deepLinkingRequestCount,
+          placementEventCount,
+          reviewerEventCount,
+          latestOccurredAt,
+        },
+      };
+
+      return Promise.resolve(snapshot);
+    },
+
+    requirePlacementAuditSnapshotById(placementId) {
+      return this.getPlacementAuditSnapshotById(placementId).then((snapshot) => {
+        if (snapshot === null) {
+          throw new Error(`Reviewed placement ${placementId} was not found.`);
+        }
+
+        return snapshot;
+      });
     },
 
     bindReviewedPlacementResourceLink(input) {

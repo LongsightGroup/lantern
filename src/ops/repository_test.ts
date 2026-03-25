@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import type { Pool } from "@db/postgres";
 import {
   buildAttemptRecord,
@@ -794,6 +794,268 @@ Deno.test(
       );
 
       assertEquals(lookup, null);
+    });
+  },
+);
+
+Deno.test(
+  "ops repository resolves placement audit snapshots through the shared placement read model",
+  async () => {
+    await withPackageReviewTestDatabase(async (pool) => {
+      await bootstrapPackageReviewSchema(pool);
+      await resetPackageReviewTables(pool);
+      const client = await pool.connect();
+
+      try {
+        await client.queryArray("BEGIN");
+        await client.queryArray({
+          text: `
+            INSERT INTO package_versions (
+              id,
+              app_id,
+              version,
+              title,
+              description,
+              owner_type,
+              owner_id,
+              entrypoint,
+              roles,
+              install_scope,
+              capabilities,
+              grading_mode,
+              grading_rubric_file,
+              grading_max_score,
+              approval_status,
+              review_notes,
+              reviewed_at,
+              validation_issues,
+              manifest_json,
+              artifact_root,
+              artifact_digest,
+              imported_at
+            ) VALUES (
+              1,
+              'chapter-4-asteroids',
+              '0.8.0',
+              'Chapter 4 Asteroids',
+              'Placement audit fixture',
+              'user',
+              'instructor_123',
+              '/dist/index.html',
+              ARRAY['learner', 'instructor']::text[],
+              'assignment',
+              ARRAY['read_launch_context']::text[],
+              'declarative',
+              '/scoring/rubric.json',
+              100,
+              'approved',
+              'Approved for ops placement audit fixture.',
+              '2026-03-25T04:00:00Z',
+              '[]'::jsonb,
+              '{"app_id":"chapter-4-asteroids","version":"0.8.0","title":"Chapter 4 Asteroids"}'::jsonb,
+              'var/packages/chapter-4-asteroids/0.8.0',
+              'sha256:fixture-0-8-0',
+              '2026-03-25T03:55:00Z'
+            )
+          `,
+        });
+        await client.queryArray({
+          text: `
+            INSERT INTO deployments (
+              id,
+              slug,
+              label,
+              app_id,
+              enabled_package_version_id,
+              canvas_environment,
+              issuer,
+              client_id,
+              deployment_id,
+              updated_at
+            ) VALUES (
+              1,
+              'chapter-4-asteroids-pilot',
+              'Chapter 4 Asteroids Pilot Deployment',
+              'chapter-4-asteroids',
+              1,
+              'production',
+              'https://canvas.instructure.com',
+              '10000000000001',
+              'deployment-123',
+              '2026-03-25T04:01:00Z'
+            )
+          `,
+        });
+        await client.queryArray({
+          text: `
+            INSERT INTO reviewed_placements (
+              placement_id,
+              deployment_record_id,
+              deployment_slug,
+              app_id,
+              context_id,
+              context_title,
+              package_version_id,
+              package_version,
+              package_title,
+              activity_id,
+              content_path,
+              content_title,
+              created_by_user_id,
+              resource_link_id,
+              created_at,
+              bound_at
+            ) VALUES (
+              'placement-ops-123',
+              1,
+              'chapter-4-asteroids-pilot',
+              'chapter-4-asteroids',
+              'course-42',
+              'Physics 101',
+              1,
+              '0.8.0',
+              'Chapter 4 Asteroids',
+              '/content/bonus.json',
+              '/content/bonus.json',
+              'Bonus Activity',
+              'canvas-user-123',
+              'resource-link-123',
+              '2026-03-25T04:02:00Z',
+              '2026-03-25T04:03:00Z'
+            )
+          `,
+        });
+        await client.queryArray({
+          text: `
+            INSERT INTO preview_sessions (
+              session_id,
+              package_version_id,
+              app_id,
+              package_version,
+              package_title,
+              capabilities,
+              snapshot_root,
+              entrypoint_path,
+              launch_user_id,
+              launch_user_role,
+              launch_course_id,
+              launch_assignment_id,
+              launch_activity_id,
+              fake_attempt_id,
+              fake_score_maximum,
+              fixture_data,
+              created_at
+            ) VALUES (
+              'preview-session-ops-123',
+              1,
+              'chapter-4-asteroids',
+              '0.8.0',
+              'Chapter 4 Asteroids',
+              ARRAY['read_launch_context']::text[],
+              'var/packages/chapter-4-asteroids/0.8.0',
+              'var/packages/chapter-4-asteroids/0.8.0/dist/index.html',
+              'preview-user-123',
+              'instructor',
+              'course-42',
+              NULL,
+              'preview-activity-9',
+              'preview-attempt-123',
+              100,
+              '{"launch":{"user_role":"instructor","course_id":"course-42","assignment_id":null,"activity_id":"preview-activity-9"},"attempt_id":"preview-attempt-123","local_state":null}'::jsonb,
+              '2026-03-25T04:04:00Z'
+            )
+          `,
+        });
+        await client.queryArray({
+          text: `
+            INSERT INTO preview_evidence (
+              preview_session_id,
+              sequence,
+              event_type,
+              capability,
+              summary,
+              detail,
+              occurred_at
+            ) VALUES (
+              'preview-session-ops-123',
+              1,
+              'preview.launch',
+              NULL,
+              'Preview launched for ops placement snapshot.',
+              '{"placementId":"placement-ops-123"}'::jsonb,
+              '2026-03-25T04:05:00Z'
+            )
+          `,
+        });
+        await client.queryArray({
+          text: `
+            INSERT INTO audit_events (
+              event_type,
+              actor_type,
+              actor_id,
+              deployment_record_id,
+              package_version_id,
+              attempt_id,
+              line_item_binding_id,
+              status,
+              summary,
+              detail,
+              occurred_at
+            ) VALUES (
+              'reviewer.preview_viewed',
+              'user',
+              'reviewer-123',
+              1,
+              1,
+              NULL,
+              NULL,
+              'succeeded',
+              'Reviewer opened placement evidence.',
+              '{"placementId":"placement-ops-123"}'::jsonb,
+              '2026-03-25T04:06:00Z'
+            )
+          `,
+        });
+        await client.queryArray("COMMIT");
+      } catch (error) {
+        await client.queryArray("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+
+      const modulePath = `./${"repository.ts"}`;
+      const opsRepositoryModule = await import(modulePath);
+      const repository = opsRepositoryModule.createOpsRepository(pool);
+      const snapshot = await repository.getPlacementAuditSnapshot(
+        "placement-ops-123",
+      );
+
+      assertEquals(snapshot.placement.placementId, "placement-ops-123");
+      assertEquals(snapshot.placement.contextId, "course-42");
+      assertEquals(snapshot.placement.packageVersion, "0.8.0");
+      assertEquals(snapshot.status, "reviewed");
+      assertEquals(snapshot.previewEvidenceCount, 1);
+      assertEquals(snapshot.evidenceSummary.reviewerEventCount, 1);
+    });
+  },
+);
+
+Deno.test(
+  "ops repository placement audit snapshot fails clearly for unknown placement ids",
+  async () => {
+    await withPackageReviewTestDatabase(async (pool) => {
+      await bootstrapPackageReviewSchema(pool);
+      await resetPackageReviewTables(pool);
+      const modulePath = `./${"repository.ts"}`;
+      const opsRepositoryModule = await import(modulePath);
+      const repository = opsRepositoryModule.createOpsRepository(pool);
+
+      await assertRejects(
+        () => repository.getPlacementAuditSnapshot("placement-missing"),
+        Error,
+        "Reviewed placement placement-missing was not found.",
+      );
     });
   },
 );

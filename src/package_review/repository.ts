@@ -11,6 +11,8 @@ import type {
   DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
+  PlacementAuditSnapshot,
+  PlacementAuditStatus,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
   ReviewedPlacementRecord,
@@ -144,6 +146,79 @@ const REVIEWED_PLACEMENT_SELECT = `
     created_at,
     bound_at
   FROM reviewed_placements
+`;
+
+const PLACEMENT_AUDIT_SNAPSHOT_SELECT = `
+  SELECT
+    reviewed_placements.placement_id,
+    reviewed_placements.deployment_record_id,
+    reviewed_placements.deployment_slug,
+    reviewed_placements.app_id,
+    reviewed_placements.context_id,
+    reviewed_placements.context_title,
+    reviewed_placements.package_version_id,
+    reviewed_placements.package_version,
+    reviewed_placements.package_title,
+    reviewed_placements.activity_id,
+    reviewed_placements.content_path,
+    reviewed_placements.content_title,
+    reviewed_placements.created_by_user_id,
+    reviewed_placements.resource_link_id,
+    reviewed_placements.created_at,
+    reviewed_placements.bound_at,
+    latest_preview.session_id AS latest_preview_session_id,
+    latest_preview.latest_preview_occurred_at,
+    COALESCE(preview_summary.preview_evidence_count, 0)::integer
+      AS preview_evidence_count,
+    COALESCE(audit_summary.deep_linking_request_count, 0)::integer
+      AS deep_linking_request_count,
+    COALESCE(audit_summary.placement_event_count, 0)::integer
+      AS placement_event_count,
+    COALESCE(audit_summary.reviewer_event_count, 0)::integer
+      AS reviewer_event_count,
+    audit_summary.latest_audit_occurred_at
+  FROM reviewed_placements
+  LEFT JOIN LATERAL (
+    SELECT
+      preview_sessions.session_id,
+      MAX(preview_evidence.occurred_at) AS latest_preview_occurred_at
+    FROM preview_sessions
+    LEFT JOIN preview_evidence
+      ON preview_evidence.preview_session_id = preview_sessions.session_id
+    WHERE preview_sessions.package_version_id = reviewed_placements.package_version_id
+    GROUP BY preview_sessions.session_id, preview_sessions.created_at
+    ORDER BY preview_sessions.created_at DESC, preview_sessions.session_id DESC
+    LIMIT 1
+  ) AS latest_preview ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      COUNT(*)::integer AS preview_evidence_count
+    FROM preview_evidence
+    WHERE preview_evidence.preview_session_id = latest_preview.session_id
+  ) AS preview_summary ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      COUNT(*) FILTER (
+        WHERE audit_events.event_type LIKE 'deep_linking.request.%'
+      )::integer AS deep_linking_request_count,
+      COUNT(*) FILTER (
+        WHERE audit_events.event_type LIKE 'deep_linking.placement.%'
+          AND audit_events.detail ->> 'placementId' = reviewed_placements.placement_id
+      )::integer AS placement_event_count,
+      COUNT(*) FILTER (
+        WHERE audit_events.event_type LIKE 'reviewer.%'
+          AND audit_events.detail ->> 'placementId' = reviewed_placements.placement_id
+      )::integer AS reviewer_event_count,
+      MAX(audit_events.occurred_at) AS latest_audit_occurred_at
+    FROM audit_events
+    WHERE audit_events.deployment_record_id = reviewed_placements.deployment_record_id
+      AND audit_events.package_version_id = reviewed_placements.package_version_id
+      AND (
+        audit_events.event_type LIKE 'deep_linking.request.%'
+        OR audit_events.event_type LIKE 'deep_linking.placement.%'
+        OR audit_events.event_type LIKE 'reviewer.%'
+      )
+  ) AS audit_summary ON TRUE
 `;
 
 const PREVIEW_SESSION_SELECT = `
@@ -365,6 +440,16 @@ interface PreviewSessionRow {
   createdAt: Date | string;
 }
 
+interface PlacementAuditSnapshotRow extends ReviewedPlacementRow {
+  latestPreviewSessionId: string | null;
+  latestPreviewOccurredAt: Date | string | null;
+  previewEvidenceCount: number | string;
+  deepLinkingRequestCount: number | string;
+  placementEventCount: number | string;
+  reviewerEventCount: number | string;
+  latestAuditOccurredAt: Date | string | null;
+}
+
 interface PreviewEvidenceRow {
   id: number;
   previewSessionId: string;
@@ -502,6 +587,12 @@ export interface PackageReviewRepository {
   getReviewedPlacementById(
     placementId: string,
   ): Promise<ReviewedPlacementRecord | null>;
+  getPlacementAuditSnapshotById(
+    placementId: string,
+  ): Promise<PlacementAuditSnapshot | null>;
+  requirePlacementAuditSnapshotById(
+    placementId: string,
+  ): Promise<PlacementAuditSnapshot>;
   bindReviewedPlacementResourceLink(input: {
     placementId: string;
     resourceLinkId: string;
@@ -1323,6 +1414,29 @@ export function createPackageReviewRepository(
 
         return mapOptionalReviewedPlacement(result.rows[0]);
       });
+    },
+
+    async getPlacementAuditSnapshotById(placementId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<PlacementAuditSnapshotRow>({
+          text:
+            `${PLACEMENT_AUDIT_SNAPSHOT_SELECT} WHERE reviewed_placements.placement_id = $1`,
+          args: [placementId],
+          camelCase: true,
+        });
+
+        return mapOptionalPlacementAuditSnapshot(result.rows[0]);
+      });
+    },
+
+    async requirePlacementAuditSnapshotById(placementId) {
+      const snapshot = await this.getPlacementAuditSnapshotById(placementId);
+
+      if (snapshot === null) {
+        throw new Error(`Reviewed placement ${placementId} was not found.`);
+      }
+
+      return snapshot;
     },
 
     async bindReviewedPlacementResourceLink(input) {
@@ -3031,6 +3145,67 @@ function mapReviewedPlacementRow(
     createdAt: normalizeTimestamp(row.createdAt),
     boundAt: row.boundAt === null ? null : normalizeTimestamp(row.boundAt),
   };
+}
+
+function mapOptionalPlacementAuditSnapshot(
+  row: PlacementAuditSnapshotRow | undefined,
+): PlacementAuditSnapshot | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapPlacementAuditSnapshotRow(row);
+}
+
+function mapPlacementAuditSnapshotRow(
+  row: PlacementAuditSnapshotRow | undefined,
+): PlacementAuditSnapshot {
+  if (!row) {
+    throw new Error("Expected a placement audit snapshot row.");
+  }
+
+  const previewEvidenceCount = normalizeNumeric(row.previewEvidenceCount);
+  const reviewerEventCount = normalizeNumeric(row.reviewerEventCount);
+
+  return {
+    placement: mapReviewedPlacementRow(row),
+    status: derivePlacementAuditStatus({
+      resourceLinkId: row.resourceLinkId,
+      previewEvidenceCount,
+      reviewerEventCount,
+    }),
+    latestPreviewSessionId: row.latestPreviewSessionId,
+    latestPreviewOccurredAt: normalizeOptionalTimestamp(
+      row.latestPreviewOccurredAt,
+    ),
+    previewEvidenceCount,
+    evidenceSummary: {
+      deepLinkingRequestCount: normalizeNumeric(row.deepLinkingRequestCount),
+      placementEventCount: normalizeNumeric(row.placementEventCount),
+      reviewerEventCount,
+      latestOccurredAt: normalizeOptionalTimestamp(row.latestAuditOccurredAt),
+    },
+  };
+}
+
+export function derivePlacementAuditStatus(input: {
+  resourceLinkId: string | null;
+  previewEvidenceCount: number;
+  reviewerEventCount: number;
+}): PlacementAuditStatus {
+  if (input.reviewerEventCount > 0) {
+    return "reviewed";
+  }
+
+  if (input.resourceLinkId === null) {
+    return "awaiting_canvas_binding";
+  }
+
+  if (input.previewEvidenceCount > 0) {
+    return "bound_with_preview";
+  }
+
+  return "bound_no_preview";
 }
 
 function mapOptionalPreviewSession(
