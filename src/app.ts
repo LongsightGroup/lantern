@@ -228,6 +228,30 @@ export function createApp(
         repository,
         request,
       });
+      const deployment = await repository.getDeploymentBySlug(
+        request.internalDeploymentSlug,
+      );
+      await repository.recordAuditEvent({
+        eventType: "deep_linking.request.accepted",
+        actorType: "platform",
+        actorId: request.userId,
+        deploymentRecordId: request.internalDeploymentId,
+        packageVersionId: deployment?.enabledPackageVersionId ?? null,
+        attemptId: null,
+        lineItemBindingId: null,
+        status: "accepted",
+        summary: "Accepted an assignment-selection Deep Linking request.",
+        detail: {
+          deepLinkingSessionId: session.sessionId,
+          internalDeploymentSlug: request.internalDeploymentSlug,
+          issuer: request.issuer,
+          clientId: request.clientId,
+          deploymentId: request.deploymentId,
+          contextId: request.contextId,
+          placement: request.placement,
+        },
+        occurredAt: new Date().toISOString(),
+      });
 
       return context.redirect(
         `/lti/deep-linking/sessions/${session.sessionId}?token=${
@@ -427,6 +451,25 @@ export function createApp(
           session,
         },
       );
+      await repository.recordAuditEvent({
+        eventType: "deep_linking.placement.created",
+        actorType: "platform",
+        actorId: session.userId,
+        deploymentRecordId: session.deploymentRecordId,
+        packageVersionId: placement.packageVersionId,
+        attemptId: null,
+        lineItemBindingId: null,
+        status: "succeeded",
+        summary: "Created a reviewed placement for Deep Linking return.",
+        detail: {
+          deepLinkingSessionId: session.sessionId,
+          placementId: placement.placementId,
+          contentPath: placement.contentPath,
+          activityId: placement.activityId,
+          contextId: placement.contextId,
+        },
+        occurredAt: new Date().toISOString(),
+      });
       const submission = await buildDeepLinkingResponseSubmission({
         session,
         deployment,
@@ -845,6 +888,24 @@ export function createApp(
         const { session, evidence } = await loadPreviewCapabilityLog({
           repository,
           packageVersionId: packageVersion.id,
+        });
+        await repository.recordAuditEvent({
+          eventType: "reviewer.preview_viewed",
+          actorType: "user",
+          actorId: null,
+          deploymentRecordId: null,
+          packageVersionId: packageVersion.id,
+          attemptId: null,
+          lineItemBindingId: null,
+          status: "succeeded",
+          summary: "Reviewer opened governed preview evidence.",
+          detail: {
+            appId: packageVersion.appId,
+            packageVersion: packageVersion.version,
+            previewSessionId: (session ?? previewSession).sessionId,
+            previewEvidenceCount: evidence.length,
+          },
+          occurredAt: new Date().toISOString(),
         });
 
         return context.html(

@@ -127,6 +127,9 @@ Deno.test(
       .getLatestRuntimeSessionByDeploymentId(
         7,
       );
+    const auditEvents = await repository.listAuditEventsByEventType(
+      "deep_linking.request.accepted",
+    );
 
     assertEquals(response.status, 303);
     assertStringIncludes(
@@ -142,6 +145,13 @@ Deno.test(
       sessionLocation.searchParams.get("token"),
     );
     assertEquals(runtimeSession, null);
+    assertEquals(auditEvents.length, 1);
+    assertEquals(auditEvents[0]?.deploymentRecordId, 7);
+    assertEquals(auditEvents[0]?.packageVersionId, 1);
+    assertEquals(
+      String(auditEvents[0]?.detail.internalDeploymentSlug ?? ""),
+      "chapter-4-asteroids-pilot",
+    );
   },
 );
 
@@ -402,6 +412,9 @@ Deno.test(
       const savedPlacement = await repository.getReviewedPlacementById(
         placementId,
       );
+      const auditEvents = await repository.listAuditEventsByEventType(
+        "deep_linking.placement.created",
+      );
 
       assertStringIncludes(body, "<!doctype html>");
       assertStringIncludes(
@@ -420,6 +433,15 @@ Deno.test(
       assertEquals(savedPlacement?.packageVersionId, 2);
       assertEquals(savedPlacement?.contentPath, "/content/bonus.json");
       assertEquals(savedPlacement?.resourceLinkId, null);
+      assertEquals(auditEvents.length, 1);
+      assertEquals(
+        String(auditEvents[0]?.detail.placementId ?? ""),
+        placementId,
+      );
+      assertEquals(
+        String(auditEvents[0]?.detail.contentPath ?? ""),
+        "/content/bonus.json",
+      );
     });
   },
 );
@@ -1008,6 +1030,89 @@ Deno.test("preview capability log shows durable launch, content-read, attempt, a
       "preview.attempt_event",
       "preview.finalize",
     ],
+  );
+});
+
+Deno.test("GET /admin/packages/:appId/versions/:version/preview records a reviewer action with bounded detail", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 47,
+        appId: "chapter-4-asteroids",
+        version: "0.3.0",
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-25T01:10:00Z",
+        manifestJson: {
+          app_id: "chapter-4-asteroids",
+          version: "0.3.0",
+          title: "Chapter 4 Asteroids",
+          preview: {
+            fixtures_file: "/preview/fixtures.json",
+            tests_file: "/preview/tests.json",
+          },
+        },
+        artifact: {
+          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+          manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+          digest: "sha256:example-approved-preview-reviewer-action",
+        },
+      }),
+    ],
+    previewSessions: [
+      {
+        sessionId: "preview-session-reviewer-action",
+        packageVersionId: 47,
+        appId: "chapter-4-asteroids",
+        packageVersion: "0.3.0",
+        packageTitle: "Chapter 4 Asteroids",
+        capabilities: ["read_launch_context"],
+        snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+        entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+        launch: {
+          userId: "preview-user-123",
+          userRole: "instructor",
+          courseId: "preview-course-42",
+          assignmentId: null,
+          activityId: "preview-activity-9",
+        },
+        fakeAttemptId: "preview-attempt-reviewer-action",
+        fakeScoreMaximum: 100,
+        fixtureData: {
+          launch: {
+            user_role: "instructor",
+            course_id: "preview-course-42",
+            assignment_id: null,
+            activity_id: "preview-activity-9",
+          },
+          attempt_id: "preview-attempt-reviewer-action",
+          local_state: null,
+        },
+        createdAt: "2026-03-25T01:40:00Z",
+      },
+    ],
+  });
+  const app = createApp({
+    getRepository: () => repository,
+  });
+
+  const response = await app.request(
+    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.3.0/preview",
+  );
+  const auditEvents = await repository.listAuditEventsByEventType(
+    "reviewer.preview_viewed",
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(auditEvents.length, 1);
+  assertEquals(auditEvents[0]?.packageVersionId, 47);
+  assertEquals(
+    String(auditEvents[0]?.detail.previewSessionId ?? ""),
+    "preview-session-reviewer-action",
+  );
+  assertEquals(
+    "runtimeSessionId" in (auditEvents[0]?.detail ?? {}),
+    false,
   );
 });
 
