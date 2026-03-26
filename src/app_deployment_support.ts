@@ -4,6 +4,7 @@ import {
   getPersistedManagedDeployment,
   getPrimaryManagedDeployment,
   type DeploymentNrpsVerificationSummary,
+  type ManagedDeploymentSlot,
 } from './admin/deployment_detail.ts';
 import { getCanvasConfigUrlNoticeSafe } from './app_notice_support.ts';
 import type { PackageReviewRepository } from './package_review/repository.ts';
@@ -24,6 +25,7 @@ export interface DeploymentDetailState {
   history: PackageVersionRecord[];
   appTitle: string;
   deployments: DeploymentRecord[];
+  slots: ManagedDeploymentSlot[];
   primaryDeployment: DeploymentRecord | null;
   canvasDeployment: DeploymentRecord | null;
   nrpsVerification: DeploymentNrpsVerificationSummary | null;
@@ -56,6 +58,7 @@ export async function loadDeploymentDetailState(
     history,
     appTitle,
     deployments,
+    slots,
     primaryDeployment,
     canvasDeployment,
     nrpsVerification,
@@ -74,6 +77,7 @@ export async function loadDeploymentDetailStateSafe(
       history: [],
       appTitle: 'Package',
       deployments: [],
+      slots: [],
       primaryDeployment: null,
       canvasDeployment: null,
       nrpsVerification: null,

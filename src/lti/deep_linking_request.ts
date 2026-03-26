@@ -124,6 +124,7 @@ export async function validateDeepLinkingRequest(input: {
   }
 
   const deployment = await input.repository.getDeploymentByBinding({
+    lms: 'canvas',
     issuer: loginState.issuer,
     clientId: loginState.clientId,
     deploymentId,
@@ -146,6 +147,7 @@ export async function validateDeepLinkingRequest(input: {
   });
 
   return {
+    lms: 'canvas',
     internalDeploymentId: deployment.id,
     internalDeploymentSlug: deployment.slug,
     appId: deployment.appId,

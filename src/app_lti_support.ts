@@ -33,6 +33,7 @@ export async function recordRejectedLaunchAudit(input: {
       ? null
       : await input.repository
           .getDeploymentByBinding({
+            lms: 'canvas',
             issuer: loginState.issuer,
             clientId: loginState.clientId,
             deploymentId: loginState.deploymentId,

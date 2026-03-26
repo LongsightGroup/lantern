@@ -22,6 +22,7 @@ export function statusForError(error: unknown): 409 | 500 {
     error.message.includes('required') ||
     error.message.includes('belongs to another deployment') ||
     error.message.includes('Choose one supported Canvas environment') ||
+    error.message.includes('Choose one supported LMS deployment') ||
     error.message.includes('Canvas deployment') ||
     error.message.includes('Canvas issuer') ||
     error.message.includes('Login state') ||
