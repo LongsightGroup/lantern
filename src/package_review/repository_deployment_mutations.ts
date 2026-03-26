@@ -11,6 +11,12 @@ export function createDeploymentMutationRepositoryMethods(
 ): Pick<PackageReviewRepository, 'saveDeploymentBinding' | 'pinDeploymentVersion'> {
   return {
     async saveDeploymentBinding(input) {
+      if (input.binding.lms !== 'canvas') {
+        throw new Error(`Saving ${input.binding.lms} bindings is not implemented yet.`);
+      }
+
+      const binding = input.binding;
+
       return await withClient(pool, async (client) => {
         return await withTransaction(client, 'save_deployment_binding', async (transaction) => {
           const existingDeploymentResult = await transaction.queryObject<DeploymentRow>({
@@ -88,15 +94,15 @@ export function createDeploymentMutationRepositoryMethods(
                     ) AS enabled_package_version,
                     deployments.updated_at
                 `,
-              args: [
-                input.slug,
-                input.label,
-                input.appId,
-                input.binding.canvasEnvironment,
-                input.binding.issuer,
-                input.binding.clientId,
-                input.binding.deploymentId,
-              ],
+            args: [
+              input.slug,
+              input.label,
+              input.appId,
+              binding.canvasEnvironment,
+              binding.issuer,
+              binding.clientId,
+              binding.deploymentId,
+            ],
               camelCase: true,
             });
 

@@ -16,6 +16,8 @@ export const CANVAS_LTI_SCOPES = [
   LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE,
 ] as const;
 
+export type LmsType = 'canvas' | 'moodle' | 'sakai';
+
 export function buildLtiActivityResourceId(input: {
   appId: string;
   packageVersion: string;
@@ -24,12 +26,34 @@ export function buildLtiActivityResourceId(input: {
   return ['lantern', input.appId, input.packageVersion, input.activityId].join(':');
 }
 
-export interface DeploymentBinding {
-  canvasEnvironment: CanvasEnvironment;
-  issuer: string;
-  clientId: string;
-  deploymentId: string;
-}
+export type DeploymentBinding =
+  | {
+      lms: 'canvas';
+      issuer: string;
+      clientId: string;
+      deploymentId: string;
+      canvasEnvironment: CanvasEnvironment;
+    }
+  | {
+      lms: 'moodle';
+      issuer: string;
+      clientId: string;
+      deploymentId: string;
+      authenticationRequestUrl: string;
+      accessTokenUrl: string;
+      jwksUrl: string;
+    }
+  | {
+      lms: 'sakai';
+      issuer: string;
+      clientId: string;
+      deploymentId: string;
+      oidcAuthenticationUrl: string;
+      accessTokenUrl: string;
+      jwksUrl: string;
+    };
+
+export type CanvasDeploymentBinding = Extract<DeploymentBinding, { lms: 'canvas' }>;
 
 export interface CanvasPlatformConfig {
   environment: CanvasEnvironment;
@@ -38,7 +62,7 @@ export interface CanvasPlatformConfig {
   jwksUrl: string;
 }
 
-export interface LoginStateRecord extends DeploymentBinding {
+export interface LoginStateRecord extends CanvasDeploymentBinding {
   state: string;
   nonce: string;
   loginHint: string;
@@ -65,7 +89,7 @@ export interface LaunchServiceClaims {
   nrps: LaunchNamesAndRolesService | null;
 }
 
-export interface ValidatedLaunch extends DeploymentBinding {
+export interface ValidatedLaunch extends CanvasDeploymentBinding {
   internalDeploymentId: number;
   internalDeploymentSlug: string;
   appId: string;
@@ -129,7 +153,7 @@ export type LtiMessageType =
 
 export type LtiPlacement = typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
 
-export interface ValidatedDeepLinkingRequest extends DeploymentBinding {
+export interface ValidatedDeepLinkingRequest extends CanvasDeploymentBinding {
   internalDeploymentId: number;
   internalDeploymentSlug: string;
   appId: string;

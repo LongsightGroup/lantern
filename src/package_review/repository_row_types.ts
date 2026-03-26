@@ -10,8 +10,10 @@ import type {
   ValidationIssue,
 } from './types.ts';
 import type {
+  CanvasDeploymentBinding,
   CanvasEnvironment,
   DeepLinkingSessionRecord,
+  LmsType,
   RuntimeSessionRecord,
 } from '../lti/types.ts';
 
@@ -47,19 +49,26 @@ export interface DeploymentRow {
   appId: string;
   enabledPackageVersionId: number | null;
   enabledPackageVersion: string | null;
+  lmsType: LmsType;
   canvasEnvironment: CanvasEnvironment | null;
   issuer: string | null;
   clientId: string | null;
   deploymentId: string | null;
+  moodleAuthenticationRequestUrl: string | null;
+  moodleAccessTokenUrl: string | null;
+  moodleJwksUrl: string | null;
+  sakaiOidcAuthenticationUrl: string | null;
+  sakaiAccessTokenUrl: string | null;
+  sakaiJwksUrl: string | null;
   updatedAt: Date | string;
 }
 
 export interface LoginStateRow {
   state: string;
-  canvasEnvironment: CanvasEnvironment;
-  issuer: string;
-  clientId: string;
-  deploymentId: string;
+  canvasEnvironment: CanvasDeploymentBinding['canvasEnvironment'];
+  issuer: CanvasDeploymentBinding['issuer'];
+  clientId: CanvasDeploymentBinding['clientId'];
+  deploymentId: CanvasDeploymentBinding['deploymentId'];
   nonce: string;
   loginHint: string;
   targetLinkUri: string;

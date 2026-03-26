@@ -78,20 +78,59 @@ export function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentReco
 }
 
 export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | null {
-  if (
-    row.canvasEnvironment === null ||
-    row.issuer === null ||
-    row.clientId === null ||
-    row.deploymentId === null
-  ) {
+  if (row.issuer === null || row.clientId === null || row.deploymentId === null) {
     return null;
   }
 
-  return {
-    canvasEnvironment: row.canvasEnvironment,
-    issuer: row.issuer,
-    clientId: row.clientId,
-    deploymentId: row.deploymentId,
+  switch (row.lmsType) {
+    case 'canvas':
+      if (row.canvasEnvironment === null) {
+        return null;
+      }
+
+      return {
+        lms: 'canvas',
+        canvasEnvironment: row.canvasEnvironment,
+        issuer: row.issuer,
+        clientId: row.clientId,
+        deploymentId: row.deploymentId,
+      };
+    case 'moodle':
+      if (
+        row.moodleAuthenticationRequestUrl === null ||
+        row.moodleAccessTokenUrl === null ||
+        row.moodleJwksUrl === null
+      ) {
+        return null;
+      }
+
+      return {
+        lms: 'moodle',
+        issuer: row.issuer,
+        clientId: row.clientId,
+        deploymentId: row.deploymentId,
+        authenticationRequestUrl: row.moodleAuthenticationRequestUrl,
+        accessTokenUrl: row.moodleAccessTokenUrl,
+        jwksUrl: row.moodleJwksUrl,
+      };
+    case 'sakai':
+      if (
+        row.sakaiOidcAuthenticationUrl === null ||
+        row.sakaiAccessTokenUrl === null ||
+        row.sakaiJwksUrl === null
+      ) {
+        return null;
+      }
+
+      return {
+        lms: 'sakai',
+        issuer: row.issuer,
+        clientId: row.clientId,
+        deploymentId: row.deploymentId,
+        oidcAuthenticationUrl: row.sakaiOidcAuthenticationUrl,
+        accessTokenUrl: row.sakaiAccessTokenUrl,
+        jwksUrl: row.sakaiJwksUrl,
+      };
   };
 }
 
@@ -109,6 +148,7 @@ export function mapLoginStateRow(row: LoginStateRow | undefined): LoginStateReco
   }
 
   return {
+    lms: 'canvas',
     state: row.state,
     canvasEnvironment: row.canvasEnvironment,
     issuer: row.issuer,

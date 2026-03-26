@@ -52,8 +52,9 @@ export interface PackageReviewRepository {
     reviewNotes: string | null;
   }): Promise<PackageVersionRecord>;
   getDeploymentBySlug(slug: string): Promise<DeploymentRecord | null>;
+  listDeploymentsByApp(appId: string): Promise<DeploymentRecord[]>;
   getDeploymentByBinding(
-    binding: Pick<DeploymentBinding, 'issuer' | 'clientId' | 'deploymentId'>,
+    binding: Pick<DeploymentBinding, 'lms' | 'issuer' | 'clientId' | 'deploymentId'>,
   ): Promise<DeploymentRecord | null>;
   createLoginState(record: LoginStateRecord): Promise<LoginStateRecord>;
   getLoginStateByState(state: string): Promise<LoginStateRecord | null>;
@@ -149,6 +150,9 @@ export interface PackageReviewRepository {
 export function createPackageReviewRepository(pool: Pool): PackageReviewRepository {
   return {
     ...createPackageVersionRepositoryMethods(pool),
+    listDeploymentsByApp() {
+      throw new Error('listDeploymentsByApp is not implemented yet.');
+    },
     ...createDeploymentLoginRepositoryMethods(pool),
     ...createRuntimeSessionRepositoryMethods(pool),
     ...createDeepLinkingSessionRepositoryMethods(pool),
