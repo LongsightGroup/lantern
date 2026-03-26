@@ -1,4 +1,4 @@
-import type { DeploymentBinding } from '../lti/types.ts';
+import type { CanvasEnvironment, DeploymentBinding, LmsType } from '../lti/types.ts';
 import { deriveDeploymentHealth, formatDiagnosticItem } from './service.ts';
 import type {
   BrokerVerificationStatus,
@@ -22,10 +22,17 @@ export function mapInventoryRow(
   brokerVerification: BrokerVerificationStatus | null,
 ): ControlPlaneDeploymentInventoryRow {
   const binding = mapDeploymentBinding({
+    lmsType: row.bindingLmsType,
     canvasEnvironment: row.bindingCanvasEnvironment,
     issuer: row.bindingIssuer,
     clientId: row.bindingClientId,
     deploymentId: row.bindingDeploymentId,
+    moodleAuthenticationRequestUrl: row.bindingMoodleAuthenticationRequestUrl,
+    moodleAccessTokenUrl: row.bindingMoodleAccessTokenUrl,
+    moodleJwksUrl: row.bindingMoodleJwksUrl,
+    sakaiOidcAuthenticationUrl: row.bindingSakaiOidcAuthenticationUrl,
+    sakaiAccessTokenUrl: row.bindingSakaiAccessTokenUrl,
+    sakaiJwksUrl: row.bindingSakaiJwksUrl,
   });
 
   return {
@@ -203,26 +210,82 @@ export function assertBrokerVerificationRunInput(input: RecordBrokerVerification
 }
 
 export function mapDeploymentBinding(input: {
+  lmsType?: LmsType | null;
   canvasEnvironment: string | null;
   issuer: string | null;
   clientId: string | null;
   deploymentId: string | null;
+  moodleAuthenticationRequestUrl?: string | null;
+  moodleAccessTokenUrl?: string | null;
+  moodleJwksUrl?: string | null;
+  sakaiOidcAuthenticationUrl?: string | null;
+  sakaiAccessTokenUrl?: string | null;
+  sakaiJwksUrl?: string | null;
 }): DeploymentBinding | null {
-  if (
-    input.canvasEnvironment === null ||
-    input.issuer === null ||
-    input.clientId === null ||
-    input.deploymentId === null
-  ) {
+  if (input.issuer === null || input.clientId === null || input.deploymentId === null) {
     return null;
   }
 
-  return {
-    canvasEnvironment: input.canvasEnvironment as DeploymentBinding['canvasEnvironment'],
-    issuer: input.issuer,
-    clientId: input.clientId,
-    deploymentId: input.deploymentId,
-  };
+  const lmsType = input.lmsType ?? (input.canvasEnvironment === null ? null : 'canvas');
+
+  switch (lmsType) {
+    case 'canvas':
+      if (input.canvasEnvironment === null) {
+        return null;
+      }
+
+      return {
+        lms: 'canvas',
+        canvasEnvironment: input.canvasEnvironment as CanvasEnvironment,
+        issuer: input.issuer,
+        clientId: input.clientId,
+        deploymentId: input.deploymentId,
+      };
+    case 'moodle':
+      if (
+        input.moodleAuthenticationRequestUrl === null ||
+        input.moodleAuthenticationRequestUrl === undefined ||
+        input.moodleAccessTokenUrl === null ||
+        input.moodleAccessTokenUrl === undefined ||
+        input.moodleJwksUrl === null ||
+        input.moodleJwksUrl === undefined
+      ) {
+        return null;
+      }
+
+      return {
+        lms: 'moodle',
+        issuer: input.issuer,
+        clientId: input.clientId,
+        deploymentId: input.deploymentId,
+        authenticationRequestUrl: input.moodleAuthenticationRequestUrl,
+        accessTokenUrl: input.moodleAccessTokenUrl,
+        jwksUrl: input.moodleJwksUrl,
+      };
+    case 'sakai':
+      if (
+        input.sakaiOidcAuthenticationUrl === null ||
+        input.sakaiOidcAuthenticationUrl === undefined ||
+        input.sakaiAccessTokenUrl === null ||
+        input.sakaiAccessTokenUrl === undefined ||
+        input.sakaiJwksUrl === null ||
+        input.sakaiJwksUrl === undefined
+      ) {
+        return null;
+      }
+
+      return {
+        lms: 'sakai',
+        issuer: input.issuer,
+        clientId: input.clientId,
+        deploymentId: input.deploymentId,
+        oidcAuthenticationUrl: input.sakaiOidcAuthenticationUrl,
+        accessTokenUrl: input.sakaiAccessTokenUrl,
+        jwksUrl: input.sakaiJwksUrl,
+      };
+    case null:
+      return null;
+  }
 }
 
 export function normalizeTimestamp(value: Date | string | null): string {

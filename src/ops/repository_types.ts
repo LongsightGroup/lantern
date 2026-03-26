@@ -5,6 +5,7 @@ import type {
   GradePublicationStatus,
   PlacementAuditSnapshot,
 } from '../package_review/types.ts';
+import type { LmsType } from '../lti/types.ts';
 import type {
   BrokerVerificationRunStatus,
   BrokerVerificationSource,
@@ -28,10 +29,17 @@ export interface InventoryQueryRow {
   enabledPackageVersion: string | null;
   approvalStatus: ApprovalStatus | null;
   reviewedAt: Date | string | null;
+  bindingLmsType: LmsType | null;
   bindingCanvasEnvironment: string | null;
   bindingIssuer: string | null;
   bindingClientId: string | null;
   bindingDeploymentId: string | null;
+  bindingMoodleAuthenticationRequestUrl: string | null;
+  bindingMoodleAccessTokenUrl: string | null;
+  bindingMoodleJwksUrl: string | null;
+  bindingSakaiOidcAuthenticationUrl: string | null;
+  bindingSakaiAccessTokenUrl: string | null;
+  bindingSakaiJwksUrl: string | null;
   updatedAt: Date | string;
   lastLaunchAt: Date | string | null;
   lastLaunchStatus: ControlPlaneActivityStatus | null;

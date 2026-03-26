@@ -1,5 +1,5 @@
 import type { Pool } from '@db/postgres';
-import type { DeploymentBinding, RuntimeSessionRecord } from '../lti/types.ts';
+import type { CanvasDeploymentBinding, RuntimeSessionRecord } from '../lti/types.ts';
 import type {
   AttemptRecord,
   AuditEventRecord,
@@ -83,7 +83,7 @@ export async function insertDeployment(
   client: TestClient,
   appId: string,
   enabledPackageVersionId: number,
-  binding: DeploymentBinding,
+  binding: CanvasDeploymentBinding,
 ): Promise<void> {
   await client.queryArray({
     text: 'INSERT INTO deployments (id, slug, label, app_id, enabled_package_version_id, canvas_environment, issuer, client_id, deployment_id, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',

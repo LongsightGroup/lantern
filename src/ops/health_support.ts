@@ -54,7 +54,7 @@ export function buildEnablementDimension(
     return {
       name: 'enablement',
       status: 'healthy',
-      summary: 'Deployment pin and Canvas binding are present.',
+      summary: `Deployment pin and ${describeBinding(binding)} are present.`,
       checkedAt: null,
     };
   }
@@ -63,7 +63,7 @@ export function buildEnablementDimension(
     return {
       name: 'enablement',
       status: 'attention',
-      summary: 'Exact version is pinned, but the Canvas binding is still missing.',
+      summary: 'Exact version is pinned, but the deployment binding is still missing.',
       checkedAt: null,
     };
   }
@@ -72,7 +72,7 @@ export function buildEnablementDimension(
     return {
       name: 'enablement',
       status: 'attention',
-      summary: 'Canvas binding is saved, but no exact reviewed version is pinned.',
+      summary: `${describeBinding(binding)} is saved, but no exact reviewed version is pinned.`,
       checkedAt: null,
     };
   }
@@ -80,7 +80,7 @@ export function buildEnablementDimension(
   return {
     name: 'enablement',
     status: 'unknown',
-    summary: 'Deployment still needs an exact version pin and a Canvas binding.',
+    summary: 'Deployment still needs an exact version pin and deployment binding.',
     checkedAt: null,
   };
 }
@@ -223,4 +223,15 @@ export function summarizeOverallHealth(
   }
 
   return 'Deployment does not have enough evidence yet to determine health.';
+}
+
+function describeBinding(binding: DeploymentBinding): string {
+  switch (binding.lms) {
+    case 'canvas':
+      return 'Canvas binding';
+    case 'moodle':
+      return 'Moodle binding';
+    case 'sakai':
+      return 'Sakai binding';
+  }
 }
