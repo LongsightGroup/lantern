@@ -1,4 +1,4 @@
-import { assertStringIncludes } from '@std/assert';
+import { assertFalse, assertStringIncludes } from '@std/assert';
 import { resolveCanvasIssuer } from '../lti/config.ts';
 import {
   buildControlPlaneDeploymentDetailSnapshot,
@@ -10,11 +10,14 @@ import {
   buildPilotUsageMetrics,
   buildRetryableGradePublicationLookup,
 } from '../test_helpers/package_review.ts';
-import { buildDeploymentBinding } from '../test_helpers/lti.ts';
+import {
+  buildCanvasDeploymentBinding,
+  buildDeploymentBinding,
+} from '../test_helpers/lti.ts';
 import { renderDeploymentDetailPage } from './deployment_detail.ts';
 
-Deno.test('deployment page explains the single Canvas install path in plain language', () => {
-  const binding = buildDeploymentBinding();
+Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai instructions separately', () => {
+  const binding = buildCanvasDeploymentBinding();
   const html = renderDeploymentDetailPage({
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
@@ -25,11 +28,13 @@ Deno.test('deployment page explains the single Canvas install path in plain lang
         reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
-    deployment: buildDeploymentRecord({
-      enabledPackageVersionId: 1,
-      enabledPackageVersion: '0.1.0',
-      binding,
-    }),
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: '0.1.0',
+        binding,
+      }),
+    ],
     canvasConfigUrl: 'http://localhost:8000/lti/canvas/config.json',
     supportedCanvasEnvironments: [
       {
@@ -40,10 +45,18 @@ Deno.test('deployment page explains the single Canvas install path in plain lang
     ],
   });
 
-  assertStringIncludes(html, 'One supported setup path');
-  assertStringIncludes(html, 'config URL');
-  assertStringIncludes(html, 'Client ID');
-  assertStringIncludes(html, 'Deployment ID');
+  assertStringIncludes(html, 'Managed LMS deployment');
+  assertFalse(
+    html.includes(
+      'Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path.',
+    ),
+  );
+  assertStringIncludes(html, 'Config URL');
+  assertStringIncludes(html, 'Canvas environment');
+  assertStringIncludes(html, 'Platform ID');
+  assertStringIncludes(html, 'Authentication request URL');
+  assertStringIncludes(html, 'OIDC authentication URL');
+  assertStringIncludes(html, 'Public keyset URL');
   assertStringIncludes(html, binding.issuer);
 });
 
@@ -58,11 +71,13 @@ Deno.test('deployment page shows the latest roster verification summary and acti
         reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
-    deployment: buildDeploymentRecord({
-      enabledPackageVersionId: 1,
-      enabledPackageVersion: '0.1.0',
-      binding: buildDeploymentBinding(),
-    }),
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: '0.1.0',
+        binding: buildDeploymentBinding(),
+      }),
+    ],
     nrpsVerification: {
       status: 'succeeded',
       checkedAt: '2026-03-24T03:05:00Z',
@@ -97,11 +112,13 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
         reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
-    deployment: buildDeploymentRecord({
-      enabledPackageVersionId: 1,
-      enabledPackageVersion: '0.1.0',
-      binding: buildDeploymentBinding(),
-    }),
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: '0.1.0',
+        binding: buildDeploymentBinding(),
+      }),
+    ],
     controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
       latestLaunch: buildDeploymentActivitySnapshot({
         occurredAt: '2026-03-24T12:30:00Z',
@@ -142,8 +159,8 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
   assertStringIncludes(html, 'Attempts completed');
   assertStringIncludes(html, 'Grade publishes');
   assertStringIncludes(html, 'Recent active users');
-  assertStringIncludes(html, 'Canvas binding');
-  assertStringIncludes(html, 'Version picker');
+  assertStringIncludes(html, 'Canvas deployment');
+  assertStringIncludes(html, 'Save exact version pin');
 });
 
 Deno.test('deployment page shows diagnostics and an explicit retry action for retryable AGS failures', () => {
@@ -157,11 +174,13 @@ Deno.test('deployment page shows diagnostics and an explicit retry action for re
         reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
-    deployment: buildDeploymentRecord({
-      enabledPackageVersionId: 1,
-      enabledPackageVersion: '0.1.0',
-      binding: buildDeploymentBinding(),
-    }),
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: '0.1.0',
+        binding: buildDeploymentBinding(),
+      }),
+    ],
     controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
       diagnostics: [
         buildControlPlaneDiagnosticItem({
