@@ -14,6 +14,7 @@ import type {
   CanvasEnvironment,
   DeepLinkingSessionRecord,
   LmsType,
+  PersistedDeploymentLmsType,
   RuntimeSessionRecord,
 } from "../lti/types.ts";
 
@@ -49,7 +50,7 @@ export interface DeploymentRow {
   appId: string;
   enabledPackageVersionId: number | null;
   enabledPackageVersion: string | null;
-  lmsType: LmsType;
+  lmsType: PersistedDeploymentLmsType;
   canvasEnvironment: CanvasEnvironment | null;
   issuer: string | null;
   clientId: string | null;

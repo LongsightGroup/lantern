@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -6,117 +6,512 @@
     <title>Chapter 4 Asteroids</title>
     <style>
       :root {
-        color-scheme: light;
-        --bg: #f7f9fc;
-        --surface: #ffffff;
-        --text: #18354a;
-        --muted: #5f7484;
-        --accent: #1d7ed6;
-        --border: #d8e1e8;
-        --good: #0d8a56;
+        color-scheme: dark;
+        --ink: oklch(0.97 0.015 88);
+        --muted: oklch(0.78 0.03 220);
+        --panel: color-mix(in oklab, oklch(0.23 0.05 238) 82%, black);
+        --panel-strong: color-mix(in oklab, oklch(0.2 0.06 238) 90%, black);
+        --line: color-mix(in oklab, oklch(0.74 0.1 205) 28%, transparent);
+        --aqua: oklch(0.77 0.15 190);
+        --sky: oklch(0.74 0.15 235);
+        --sun: oklch(0.84 0.16 84);
+        --ember: oklch(0.72 0.19 32);
+        --good: oklch(0.8 0.18 150);
+        --warn: oklch(0.82 0.18 72);
+        --shadow: 0 24px 80px rgba(5, 15, 28, 0.42);
       }
 
       * {
         box-sizing: border-box;
       }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
       body {
         margin: 0;
-        padding: 24px;
-        background: var(--bg);
-        color: var(--text);
-        font:
-          16px/1.5 system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          'Segoe UI',
-          sans-serif;
+        color: var(--ink);
+        font: 16px/1.5 "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(253, 173, 71, 0.2),
+            transparent 34%
+          ),
+          radial-gradient(
+          circle at 78% 18%,
+          rgba(30, 189, 199, 0.2),
+          transparent 22%
+        ),
+          linear-gradient(180deg, #07111d 0%, #081825 44%, #050b12 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(
+            circle at 20% 20%,
+            rgba(255, 255, 255, 0.08) 0 1px,
+            transparent 1px
+          ),
+          radial-gradient(
+          circle at 72% 36%,
+          rgba(255, 255, 255, 0.05) 0 1px,
+          transparent 1px
+        ),
+          radial-gradient(
+          circle at 35% 74%,
+          rgba(255, 255, 255, 0.05) 0 1px,
+          transparent 1px
+        );
+        background-size: 180px 180px, 240px 240px, 220px 220px;
+        opacity: 0.65;
+        pointer-events: none;
+      }
+
+      button,
+      canvas {
+        touch-action: manipulation;
       }
 
       .shell {
-        max-width: 760px;
+        position: relative;
+        z-index: 1;
+        width: min(1200px, calc(100vw - 32px));
         margin: 0 auto;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 24px;
-        box-shadow: 0 16px 40px rgba(24, 53, 74, 0.08);
+        padding: clamp(20px, 4vw, 40px) 0 32px;
+      }
+
+      .masthead {
+        display: grid;
+        gap: 12px;
+        margin-bottom: 22px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        color: var(--sun);
+        background: rgba(6, 12, 22, 0.52);
+        backdrop-filter: blur(12px);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
       }
 
       h1 {
-        margin: 0 0 8px;
-        font-size: 1.75rem;
-        line-height: 1.2;
+        margin: 0;
+        font:
+          900 clamp(2.4rem, 6vw, 5.4rem) / 0.96 "Avenir Next Condensed",
+          "Arial Narrow",
+          "Trebuchet MS",
+          sans-serif;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        text-wrap: balance;
       }
 
-      p {
-        margin: 0 0 16px;
+      #instructions {
+        max-width: 70ch;
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+
+      .stage-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.56fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      .arena-card,
+      .mission-card,
+      .stats-card,
+      .controls-card {
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: linear-gradient(
+          180deg,
+          rgba(13, 25, 38, 0.92),
+          rgba(7, 14, 24, 0.94)
+        );
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(16px);
+      }
+
+      .arena-card {
+        position: relative;
+        overflow: hidden;
+        padding: 18px;
+      }
+
+      .arena-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+
+      .status-pill,
+      .wave-progress {
+        display: inline-flex;
+        align-items: center;
+        min-height: 42px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.06);
+        font-weight: 700;
+      }
+
+      .status-pill[data-tone="success"] {
+        color: var(--good);
+      }
+
+      .status-pill[data-tone="warning"] {
+        color: var(--warn);
+      }
+
+      .status-pill[data-tone="neutral"] {
+        color: var(--aqua);
+      }
+
+      .wave-progress {
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-size: 0.83rem;
+      }
+
+      #game-canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        border-radius: 22px;
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(255, 199, 104, 0.16),
+            transparent 28%
+          ),
+          linear-gradient(
+          180deg,
+          rgba(8, 20, 31, 0.98),
+          rgba(5, 10, 18, 0.98)
+        );
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .arena-caption {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .arena-caption strong {
+        color: var(--ink);
+      }
+
+      .sidebar {
+        display: grid;
+        gap: 16px;
+      }
+
+      .mission-card,
+      .stats-card,
+      .controls-card {
+        padding: 18px;
+      }
+
+      .section-label {
+        color: var(--sun);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+      }
+
+      #wave-label {
+        display: block;
+        margin-top: 10px;
+        font-size: 1.4rem;
+        font-weight: 800;
+      }
+
+      #prompt {
+        display: block;
+        margin-top: 10px;
+        font-size: 1.05rem;
+        color: var(--ink);
+      }
+
+      #mission-detail,
+      .controls-card p {
+        margin: 12px 0 0;
         color: var(--muted);
       }
 
-      .card {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 16px;
-        margin-top: 16px;
-        background: #fcfdfe;
-      }
-
-      .choices {
+      .stats-grid {
         display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+        margin: 14px 0 0;
+      }
+
+      .stat {
+        padding: 14px;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .stat dt {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+
+      .stat dd {
+        margin: 8px 0 0;
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+
+      .touch-controls {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
-        margin-top: 12px;
+        margin-top: 16px;
       }
 
-      button {
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 12px 14px;
-        background: white;
-        color: var(--text);
-        text-align: left;
-        cursor: pointer;
+      .touch-controls button,
+      .complete {
+        border: 0;
+        border-radius: 18px;
+        padding: 14px 16px;
         font: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        transition:
+          transform 160ms ease,
+          filter 160ms ease,
+          opacity 160ms ease;
       }
 
-      button:hover {
-        border-color: var(--accent);
+      .touch-controls button {
+        color: var(--ink);
+        background: linear-gradient(
+          180deg,
+          rgba(95, 203, 214, 0.95),
+          rgba(56, 146, 191, 0.92)
+        );
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      }
+
+      .touch-controls button[data-control="fire"] {
+        background: linear-gradient(
+          180deg,
+          rgba(255, 180, 74, 0.98),
+          rgba(232, 104, 52, 0.95)
+        );
+      }
+
+      .touch-controls button:hover,
+      .complete:hover {
+        filter: brightness(1.06);
+        transform: translateY(-1px);
       }
 
       .footer {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-top: 20px;
-        gap: 12px;
+        gap: 16px;
+        margin-top: 18px;
       }
 
-      .status {
-        color: var(--good);
-        font-weight: 600;
+      #footer-note {
+        margin: 0;
+        color: var(--muted);
+        max-width: 58ch;
       }
 
       .complete {
-        background: var(--accent);
-        color: white;
-        border-color: var(--accent);
-        text-align: center;
+        min-width: 220px;
+        color: #08101a;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 212, 112, 1),
+          rgba(255, 139, 62, 0.96)
+        );
+      }
+
+      .complete:disabled {
+        cursor: not-allowed;
+        opacity: 0.56;
+        transform: none;
+        filter: grayscale(0.1);
+      }
+
+      @media (max-width: 940px) {
+        .stage-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        body {
+          font-size: 15px;
+        }
+
+        .shell {
+          width: min(100vw - 18px, 100%);
+          padding-top: 14px;
+        }
+
+        .arena-card,
+        .mission-card,
+        .stats-card,
+        .controls-card {
+          border-radius: 22px;
+        }
+
+        .arena-top,
+        .footer {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .stats-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .complete {
+          width: 100%;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .touch-controls button,
+        .complete {
+          transition: none;
+        }
       }
     </style>
   </head>
   <body>
     <main class="shell">
-      <h1 data-test="app-title">Chapter 4 Asteroids</h1>
-      <p id="instructions"></p>
+      <header class="masthead">
+        <div class="eyebrow">Governed Arcade Demo</div>
+        <h1 data-test="app-title">Chapter 4 Asteroids</h1>
+        <p id="instructions"></p>
+      </header>
 
-      <section class="card">
-        <strong data-test="question-prompt" id="prompt"></strong>
-        <div class="choices" id="choices"></div>
+      <section class="stage-layout">
+        <section class="arena-card">
+          <div class="arena-top">
+            <div
+              class="status-pill"
+              data-test="mission-status"
+              data-tone="neutral"
+              id="mission-status"
+            >
+              Interceptor online
+            </div>
+            <div class="wave-progress" id="wave-progress">Wave 1 / 2</div>
+          </div>
+          <canvas
+            aria-label="Arcade asteroid targeting mission"
+            data-test="game-canvas"
+            id="game-canvas"
+          ></canvas>
+          <div class="arena-caption">
+            <span>Blast the labeled asteroid that matches the live physics
+              prompt.</span>
+            <strong id="canvas-caption"
+            >Keyboard or touch controls ready.</strong>
+          </div>
+        </section>
+
+        <aside class="sidebar">
+          <section class="mission-card">
+            <div class="section-label">Current Wave</div>
+            <strong id="wave-label">Wave 1</strong>
+            <strong data-test="question-prompt" id="prompt"></strong>
+            <p id="mission-detail">
+              Clear the concept asteroid. Wrong targets relaunch the wave.
+            </p>
+          </section>
+
+          <section class="stats-card">
+            <div class="section-label">Flight Board</div>
+            <dl class="stats-grid">
+              <div class="stat">
+                <dt>Arcade score</dt>
+                <dd id="arcade-score">0000</dd>
+              </div>
+              <div class="stat">
+                <dt>Hull</dt>
+                <dd id="hull-value">100%</dd>
+              </div>
+              <div class="stat">
+                <dt>Accuracy</dt>
+                <dd id="accuracy-value">0%</dd>
+              </div>
+              <div class="stat">
+                <dt>Cleared</dt>
+                <dd id="cleared-value">0 / 2</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="controls-card">
+            <div class="section-label">Flight Controls</div>
+            <p>
+              Drift with <strong>Arrow keys</strong> or <strong>A / D</strong>.
+              Fire with <strong>Space</strong>. Touch controls stay visible for
+              demos on tablets and phones.
+            </p>
+            <div class="touch-controls">
+              <button data-control="left" type="button">Drift left</button>
+              <button data-control="fire" type="button">Pulse shot</button>
+              <button data-control="right" type="button">Drift right</button>
+            </div>
+          </section>
+        </aside>
       </section>
 
-      <div class="footer">
-        <span class="status" id="status">Preview mode</span>
-        <button class="complete" data-test="complete-button" id="complete">Finish activity</button>
-      </div>
+      <footer class="footer">
+        <p id="footer-note">
+          The latest correct hit for each wave earns the reviewed score inside
+          Lantern.
+        </p>
+        <button
+          class="complete"
+          data-test="complete-button"
+          disabled
+          id="complete"
+          type="button"
+        >
+          Finish mission
+        </button>
+      </footer>
     </main>
 
     <script src="./app.js"></script>

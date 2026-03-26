@@ -89,15 +89,31 @@ export function buildDeploymentRecord(
 ): DeploymentRecord {
   const appId = overrides.appId ?? "chapter-4-asteroids";
   const binding = overrides.binding ?? null;
-  const defaultDeploymentIdentity = binding === null || binding.lms === "canvas"
-    ? {
-      slug: `${appId}-pilot`,
-      label: "Pilot Deployment",
+  const lmsType = overrides.lmsType ?? binding?.lms ?? "canvas";
+  const defaultDeploymentIdentity = (() => {
+    switch (lmsType) {
+      case "canvas":
+        return {
+          slug: `${appId}-pilot`,
+          label: "Pilot Deployment",
+        };
+      case "moodle":
+        return {
+          slug: `${appId}-moodle`,
+          label: "Moodle Deployment",
+        };
+      case "sakai":
+        return {
+          slug: `${appId}-sakai`,
+          label: "Sakai Deployment",
+        };
+      case "preview":
+        return {
+          slug: `${appId}-preview`,
+          label: "Preview Deployment",
+        };
     }
-    : {
-      slug: `${appId}-${binding.lms}`,
-      label: `${capitalizeSegment(binding.lms)} Deployment`,
-    };
+  })();
 
   return {
     id: 1,
@@ -111,16 +127,11 @@ export function buildDeploymentRecord(
     appId,
     enabledPackageVersionId: 1,
     enabledPackageVersion: "0.1.0",
+    lmsType,
     binding,
     updatedAt: DEFAULT_UPDATED_AT,
     ...overrides,
   };
-}
-
-function capitalizeSegment(value: string): string {
-  return value.length === 0
-    ? value
-    : `${value[0]!.toUpperCase()}${value.slice(1)}`;
 }
 
 export function buildAttemptRecord(

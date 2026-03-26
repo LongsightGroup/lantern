@@ -206,6 +206,7 @@ export function createDeploymentMutationRepositoryMethods(
           client,
           "pin_deployment_version",
           async (transaction) => {
+            const lmsType = input.lmsType ?? "canvas";
             const packageVersionResult = await transaction.queryObject<
               PackageVersionRow
             >({
@@ -252,6 +253,14 @@ export function createDeploymentMutationRepositoryMethods(
               );
             }
 
+            if (
+              existingDeployment && existingDeployment.lmsType !== lmsType
+            ) {
+              throw new Error(
+                `Deployment ${input.slug} is already reserved as ${existingDeployment.lmsType} and cannot change to ${lmsType}.`,
+              );
+            }
+
             const deploymentAppId = existingDeployment?.appId ?? input.appId;
 
             if (packageVersion.appId !== deploymentAppId) {
@@ -266,14 +275,22 @@ export function createDeploymentMutationRepositoryMethods(
                 slug,
                 label,
                 app_id,
+                lms_type,
                 enabled_package_version_id
-              ) VALUES ($1, $2, $3, $4)
+              ) VALUES ($1, $2, $3, $4, $5)
               ON CONFLICT (slug) DO UPDATE SET
                 label = EXCLUDED.label,
+                lms_type = EXCLUDED.lms_type,
                 enabled_package_version_id = EXCLUDED.enabled_package_version_id,
                 updated_at = now()
             `,
-              [input.slug, input.label, deploymentAppId, packageVersion.id],
+              [
+                input.slug,
+                input.label,
+                deploymentAppId,
+                lmsType,
+                packageVersion.id,
+              ],
             );
 
             const savedDeploymentResult = await transaction.queryObject<

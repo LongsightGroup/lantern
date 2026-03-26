@@ -74,7 +74,9 @@ export function buildManagedDeploymentSlots(input: {
   return orderedLms.map((lms) => {
     const seed = buildManagedDeploymentSeed(input.appId, input.appTitle, lms);
     const existing = input.deployments.find((candidate) =>
-      candidate.binding?.lms === lms || candidate.slug === seed.slug
+      candidate.lmsType === lms ||
+      candidate.binding?.lms === lms ||
+      candidate.slug === seed.slug
     );
 
     if (existing) {
@@ -95,6 +97,7 @@ export function buildManagedDeploymentSlots(input: {
         appId: input.appId,
         enabledPackageVersionId: null,
         enabledPackageVersion: null,
+        lmsType: lms,
         binding: null,
         updatedAt: new Date().toISOString(),
       },
@@ -146,6 +149,7 @@ export function buildEmptyDeploymentRecord(
     appId,
     enabledPackageVersionId: null,
     enabledPackageVersion: null,
+    lmsType: "canvas",
     binding: null,
     updatedAt: new Date().toISOString(),
   };

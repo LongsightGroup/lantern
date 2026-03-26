@@ -28,7 +28,9 @@ export function createInMemoryDeploymentRepository(
     listDeploymentsByApp(appId) {
       return Promise.resolve(
         state.deployments
-          .filter((candidate) => candidate.appId === appId)
+          .filter((candidate) =>
+            candidate.appId === appId && candidate.lmsType !== "preview"
+          )
           .map((deployment) => cloneRecord(deployment)),
       );
     },
@@ -143,6 +145,7 @@ export function createInMemoryDeploymentRepository(
     },
 
     pinDeploymentVersion(input) {
+      const lmsType = input.lmsType ?? "canvas";
       const packageVersion = state.packageVersions.find(
         (candidate) => candidate.id === input.packageVersionId,
       );
@@ -173,6 +176,12 @@ export function createInMemoryDeploymentRepository(
         );
       }
 
+      if (existing && existing.lmsType !== lmsType) {
+        throw new Error(
+          `Deployment ${input.slug} is already reserved as ${existing.lmsType} and cannot change to ${lmsType}.`,
+        );
+      }
+
       const nextDeployment = buildDeploymentRecord({
         id: existing?.id ?? nextId(state.deployments),
         slug: input.slug,
@@ -180,6 +189,7 @@ export function createInMemoryDeploymentRepository(
         appId: input.appId,
         enabledPackageVersionId: packageVersion.id,
         enabledPackageVersion: packageVersion.version,
+        lmsType,
         binding: existing?.binding ?? null,
         updatedAt: DEFAULT_UPDATED_AT,
       });

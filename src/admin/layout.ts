@@ -1,17 +1,20 @@
-import { ADMIN_LAYOUT_STYLES } from './layout_styles.ts';
+import { ADMIN_LAYOUT_STYLES } from "./layout_styles.ts";
 import {
+  type AdminBreadcrumb,
+  type AdminNotice,
   defaultNav,
   escapeHtml,
-  formatDateTime,
   renderNotice,
   renderPageHeader,
   renderSidebar,
-  type AdminBreadcrumb,
-  type AdminNotice,
-} from './layout_support.ts';
+} from "./layout_support.ts";
 
-export type { AdminBreadcrumb, AdminNotice, NavItem } from './layout_support.ts';
-export { escapeHtml, formatDateTime } from './layout_support.ts';
+export type {
+  AdminBreadcrumb,
+  AdminNotice,
+  NavItem,
+} from "./layout_support.ts";
+export { escapeHtml, formatDateTime } from "./layout_support.ts";
 
 export function renderAdminLayout(input: {
   title: string;
@@ -24,7 +27,7 @@ export function renderAdminLayout(input: {
   activePath?: string;
 }): string {
   const breadcrumbs = input.breadcrumbs ?? [];
-  const nav = defaultNav(input.activePath ?? '/admin/packages');
+  const nav = defaultNav(input.activePath ?? "/admin/packages");
 
   return `<!doctype html>
 <html lang="en">
@@ -42,15 +45,17 @@ export function renderAdminLayout(input: {
     <div class="app">
       ${renderSidebar(nav)}
       <div class="main">
-        ${renderPageHeader({
-          breadcrumbs,
-          eyebrow: input.eyebrow,
-          heading: input.heading,
-          intro: input.intro,
-        })}
+        ${
+    renderPageHeader({
+      breadcrumbs,
+      eyebrow: input.eyebrow,
+      heading: input.heading,
+      intro: input.intro,
+    })
+  }
         <main class="page-body">
           <div class="content">
-            ${input.notice ? renderNotice(input.notice) : ''}
+            ${input.notice ? renderNotice(input.notice) : ""}
             ${input.body}
           </div>
         </main>

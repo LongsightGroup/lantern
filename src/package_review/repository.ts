@@ -18,6 +18,7 @@ import type {
   DeepLinkingSessionRecord,
   DeploymentBinding,
   LoginStateRecord,
+  PersistedDeploymentLmsType,
   RuntimeSessionRecord,
 } from "../lti/types.ts";
 import { createAuditEventRepositoryMethods } from "./repository_audit_events.ts";
@@ -184,6 +185,7 @@ export interface PackageReviewRepository {
     label: string;
     appId: string;
     packageVersionId: number;
+    lmsType?: PersistedDeploymentLmsType;
   }): Promise<DeploymentRecord>;
 }
 

@@ -67,6 +67,7 @@ export async function launchPreviewRuntimeSession(input: {
     label: buildPreviewDeploymentLabel(created.previewSession.packageTitle),
     appId: created.previewSession.appId,
     packageVersionId: created.previewSession.packageVersionId,
+    lmsType: "preview",
   });
   const runtimeAttemptId = buildPreviewRuntimeAttemptId(created.previewSession);
 

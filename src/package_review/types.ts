@@ -1,5 +1,8 @@
 import type { AttemptEvent, Capability, UserRole } from "../../sdk/app-sdk.ts";
-import type { DeploymentBinding } from "../lti/types.ts";
+import type {
+  DeploymentBinding,
+  PersistedDeploymentLmsType,
+} from "../lti/types.ts";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type InstallScope = "course" | "assignment";
@@ -82,6 +85,7 @@ export interface DeploymentRecord {
   appId: string;
   enabledPackageVersionId: number | null;
   enabledPackageVersion: string | null;
+  lmsType: PersistedDeploymentLmsType;
   binding: DeploymentBinding | null;
   updatedAt: string;
 }

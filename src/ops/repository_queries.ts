@@ -122,6 +122,7 @@ export const INVENTORY_BASE_QUERY = `
       ON grade_publications.attempt_id = attempts.attempt_id
     WHERE attempts.deployment_record_id = deployments.id
   ) AS grade_usage ON TRUE
+  WHERE deployments.lms_type <> 'preview'
 `;
 export const INVENTORY_ORDER_BY = `
   ORDER BY deployments.updated_at DESC, deployments.id DESC

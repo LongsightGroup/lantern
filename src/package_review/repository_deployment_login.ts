@@ -41,6 +41,7 @@ export function createDeploymentLoginRepositoryMethods(
           text: `
             ${DEPLOYMENT_SELECT}
             WHERE deployments.app_id = $1
+              AND deployments.lms_type <> 'preview'
             ORDER BY deployments.lms_type ASC, deployments.slug ASC
           `,
           args: [appId],

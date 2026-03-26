@@ -85,6 +85,7 @@ export function mapDeploymentRow(
     appId: row.appId,
     enabledPackageVersionId: row.enabledPackageVersionId,
     enabledPackageVersion: row.enabledPackageVersion,
+    lmsType: row.lmsType,
     binding: mapDeploymentBinding(row),
     updatedAt: normalizeTimestamp(row.updatedAt),
   };
@@ -148,6 +149,8 @@ export function mapDeploymentBinding(
         accessTokenUrl: row.sakaiAccessTokenUrl,
         jwksUrl: row.sakaiJwksUrl,
       };
+    case "preview":
+      return null;
   }
 }
 

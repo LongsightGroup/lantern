@@ -3,7 +3,7 @@
   "app_id": "chapter-4-asteroids",
   "version": "0.1.0",
   "title": "Chapter 4 Asteroids",
-  "description": "Shoot the correct vocabulary target.",
+  "description": "A colorful arcade interceptor that turns vocabulary review into a live asteroid mission.",
   "owner": {
     "type": "user",
     "id": "instructor_123"

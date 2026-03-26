@@ -19,6 +19,7 @@ export const CANVAS_LTI_SCOPES = [
 ] as const;
 
 export type LmsType = "canvas" | "moodle" | "sakai";
+export type PersistedDeploymentLmsType = LmsType | "preview";
 
 export function buildLtiActivityResourceId(input: {
   appId: string;

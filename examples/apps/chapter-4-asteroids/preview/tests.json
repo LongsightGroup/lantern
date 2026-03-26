@@ -14,6 +14,12 @@
     }
   },
   {
+    "name": "renders arcade canvas",
+    "assert": {
+      "selector": "[data-test='game-canvas']"
+    }
+  },
+  {
     "name": "complete button exists",
     "assert": {
       "selector": "[data-test='complete-button']"

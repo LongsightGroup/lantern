@@ -1,10 +1,10 @@
 {
   "title": "Chapter 4 Asteroids",
-  "instructions": "Shoot the correct vocabulary target. Wrong targets cost points.",
+  "instructions": "Pilot the interceptor, blast the asteroid whose label matches each physics term, and clear both waves to finish the mission.",
   "questions": [
     {
       "id": "q1",
-      "prompt": "Select the correct meaning of inertia.",
+      "prompt": "Wave 1: Which asteroid defines inertia?",
       "correct": "resistance to a change in motion",
       "choices": [
         "stored heat in an object",
@@ -14,9 +14,13 @@
     },
     {
       "id": "q2",
-      "prompt": "Select the correct meaning of velocity.",
+      "prompt": "Wave 2: Which asteroid defines velocity?",
       "correct": "speed with direction",
-      "choices": ["force over area", "speed with direction", "a measure of mass"]
+      "choices": [
+        "force over area",
+        "speed with direction",
+        "a measure of mass"
+      ]
     }
   ]
 }
