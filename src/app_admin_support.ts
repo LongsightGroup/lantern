@@ -1,49 +1,49 @@
-import type { Context } from '@hono/hono';
-import { renderControlPlanePage } from './admin/control_plane.ts';
-import { renderDeploymentDetailPage } from './admin/deployment_detail.ts';
-import type { AdminNotice } from './admin/layout.ts';
-import { listCanvasEnvironments } from './lti/config.ts';
+import type { Context } from "@hono/hono";
+import { renderControlPlanePage } from "./admin/control_plane.ts";
+import { renderDeploymentDetailPage } from "./admin/deployment_detail.ts";
+import type { AdminNotice } from "./admin/layout.ts";
+import { listCanvasEnvironments } from "./lti/config.ts";
 import {
   combineNotices,
   createErrorNotice,
   getCanvasConfigUrlNoticeSafe,
   packageDetailPath,
-} from './app_notice_support.ts';
-import { normalizeOptionalString } from './app_request_support.ts';
-import { statusForError } from './app_status_support.ts';
-import type { AppServices } from './app_services.ts';
-import { renderPackageDetailPage } from './admin/package_detail.ts';
-import { renderPackageIndexPage } from './admin/package_index.ts';
-import type { PackageVersionRecord } from './package_review/types.ts';
+} from "./app_notice_support.ts";
+import { normalizeOptionalString } from "./app_request_support.ts";
+import { statusForError } from "./app_status_support.ts";
+import type { AppServices } from "./app_services.ts";
+import { renderPackageDetailPage } from "./admin/package_detail.ts";
+import { renderPackageIndexPage } from "./admin/package_index.ts";
+import type { PackageVersionRecord } from "./package_review/types.ts";
 
 export async function handleReviewDecision(
   context: Context,
   services: AppServices,
-  decision: 'approve' | 'reject',
+  decision: "approve" | "reject",
 ) {
-  const id = Number(context.req.param('id'));
+  const id = Number(context.req.param("id"));
 
   try {
     const formData = await context.req.formData();
-    const reviewNotes = normalizeOptionalString(formData.get('reviewNotes'));
+    const reviewNotes = normalizeOptionalString(formData.get("reviewNotes"));
     const repository = services.getRepository();
-    const packageVersion =
-      decision === 'approve'
-        ? await repository.approvePackageVersion({ id, reviewNotes })
-        : await repository.rejectPackageVersion({ id, reviewNotes });
+    const packageVersion = decision === "approve"
+      ? await repository.approvePackageVersion({ id, reviewNotes })
+      : await repository.rejectPackageVersion({ id, reviewNotes });
     await repository.recordAuditEvent({
-      eventType: decision === 'approve' ? 'package.approved' : 'package.rejected',
-      actorType: 'user',
+      eventType: decision === "approve"
+        ? "package.approved"
+        : "package.rejected",
+      actorType: "user",
       actorId: null,
       deploymentRecordId: null,
       packageVersionId: packageVersion.id,
       attemptId: null,
       lineItemBindingId: null,
-      status: 'succeeded',
-      summary:
-        decision === 'approve'
-          ? 'Approved the reviewed package version.'
-          : 'Rejected the reviewed package version.',
+      status: "succeeded",
+      summary: decision === "approve"
+        ? "Approved the reviewed package version."
+        : "Rejected the reviewed package version.",
       detail: {
         appId: packageVersion.appId,
         version: packageVersion.version,
@@ -52,13 +52,16 @@ export async function handleReviewDecision(
       occurredAt: new Date().toISOString(),
     });
 
-    return context.redirect(packageDetailPath(packageVersion.appId, packageVersion.version), 303);
+    return context.redirect(
+      packageDetailPath(packageVersion.appId, packageVersion.version),
+      303,
+    );
   } catch (error) {
     return await renderPackageDetailError(
       context,
       services,
       id,
-      decision === 'approve' ? 'Approval blocked' : 'Rejection blocked',
+      decision === "approve" ? "Approval blocked" : "Rejection blocked",
       error,
     );
   }
@@ -143,7 +146,9 @@ export async function renderPackageDetailError(
       );
     }
 
-    const history = await repository.listPackageVersionsByApp(packageVersion.appId);
+    const history = await repository.listPackageVersionsByApp(
+      packageVersion.appId,
+    );
 
     return context.html(
       renderPackageDetailPage({
@@ -185,7 +190,7 @@ export async function renderDeploymentError(
       );
     }
 
-    const appTitle = history[0]?.title ?? history[0]?.appId ?? 'Package';
+    const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
     const deployments = await repository.listDeploymentsByApp(appId);
     const canvasConfigUrl = getCanvasConfigUrlNoticeSafe();
 
@@ -197,7 +202,10 @@ export async function renderDeploymentError(
         deployments,
         canvasConfigUrl: canvasConfigUrl.url,
         supportedCanvasEnvironments: listCanvasEnvironments(),
-        notice: combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error)),
+        notice: combineNotices(
+          canvasConfigUrl.notice,
+          createErrorNotice(title, error),
+        ),
       }),
       statusForError(error),
     );

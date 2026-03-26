@@ -1,5 +1,5 @@
-import { assertFalse, assertStringIncludes } from '@std/assert';
-import { resolveCanvasIssuer } from '../lti/config.ts';
+import { assertFalse, assertStringIncludes } from "@std/assert";
+import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
   buildControlPlaneDeploymentDetailSnapshot,
   buildControlPlaneDiagnosticItem,
@@ -9,128 +9,128 @@ import {
   buildPackageVersionRecord,
   buildPilotUsageMetrics,
   buildRetryableGradePublicationLookup,
-} from '../test_helpers/package_review.ts';
+} from "../test_helpers/package_review.ts";
 import {
   buildCanvasDeploymentBinding,
   buildDeploymentBinding,
-} from '../test_helpers/lti.ts';
-import { renderDeploymentDetailPage } from './deployment_detail.ts';
+} from "../test_helpers/lti.ts";
+import { renderDeploymentDetailPage } from "./deployment_detail.ts";
 
-Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai instructions separately', () => {
+Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai instructions separately", () => {
   const binding = buildCanvasDeploymentBinding();
   const html = renderDeploymentDetailPage({
-    appId: 'chapter-4-asteroids',
-    appTitle: 'Chapter 4 Asteroids',
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
     history: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: 'approved',
-        reviewedAt: '2026-03-23T18:05:00Z',
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         enabledPackageVersionId: 1,
-        enabledPackageVersion: '0.1.0',
+        enabledPackageVersion: "0.1.0",
         binding,
       }),
     ],
-    canvasConfigUrl: 'http://localhost:8000/lti/canvas/config.json',
+    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
-        id: 'production',
-        label: 'Production Canvas',
-        issuer: resolveCanvasIssuer('production'),
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
       },
     ],
   });
 
-  assertStringIncludes(html, 'Managed LMS deployment');
+  assertStringIncludes(html, "Managed LMS deployment");
   assertFalse(
     html.includes(
-      'Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path.',
+      "Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path.",
     ),
   );
-  assertStringIncludes(html, 'Config URL');
-  assertStringIncludes(html, 'Canvas environment');
-  assertStringIncludes(html, 'Platform ID');
-  assertStringIncludes(html, 'Authentication request URL');
-  assertStringIncludes(html, 'OIDC authentication URL');
-  assertStringIncludes(html, 'Public keyset URL');
+  assertStringIncludes(html, "Config URL");
+  assertStringIncludes(html, "Canvas environment");
+  assertStringIncludes(html, "Platform ID");
+  assertStringIncludes(html, "Authentication request URL");
+  assertStringIncludes(html, "OIDC authentication URL");
+  assertStringIncludes(html, "Public keyset URL");
   assertStringIncludes(html, binding.issuer);
 });
 
-Deno.test('deployment page shows the latest roster verification summary and action', () => {
+Deno.test("deployment page shows the latest roster verification summary and action", () => {
   const html = renderDeploymentDetailPage({
-    appId: 'chapter-4-asteroids',
-    appTitle: 'Chapter 4 Asteroids',
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
     history: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: 'approved',
-        reviewedAt: '2026-03-23T18:05:00Z',
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         enabledPackageVersionId: 1,
-        enabledPackageVersion: '0.1.0',
+        enabledPackageVersion: "0.1.0",
         binding: buildDeploymentBinding(),
       }),
     ],
     nrpsVerification: {
-      status: 'succeeded',
-      checkedAt: '2026-03-24T03:05:00Z',
-      contextId: 'course-42',
+      status: "succeeded",
+      checkedAt: "2026-03-24T03:05:00Z",
+      contextId: "course-42",
       memberCount: 2,
     },
-    canvasConfigUrl: 'http://localhost:8000/lti/canvas/config.json',
+    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
-        id: 'production',
-        label: 'Production Canvas',
-        issuer: resolveCanvasIssuer('production'),
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
       },
     ],
   });
 
-  assertStringIncludes(html, 'Roster access proof');
-  assertStringIncludes(html, 'Latest roster read succeeded');
-  assertStringIncludes(html, 'Verify roster access');
-  assertStringIncludes(html, 'course-42');
-  assertStringIncludes(html, '2');
+  assertStringIncludes(html, "Roster access proof");
+  assertStringIncludes(html, "Latest roster read succeeded");
+  assertStringIncludes(html, "Verify roster access");
+  assertStringIncludes(html, "course-42");
+  assertStringIncludes(html, "2");
 });
 
-Deno.test('deployment page shows status panels and pilot usage without dropping the binding and version controls', () => {
+Deno.test("deployment page shows status panels and pilot usage without dropping the binding and version controls", () => {
   const html = renderDeploymentDetailPage({
-    appId: 'chapter-4-asteroids',
-    appTitle: 'Chapter 4 Asteroids',
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
     history: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: 'approved',
-        reviewedAt: '2026-03-23T18:05:00Z',
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         enabledPackageVersionId: 1,
-        enabledPackageVersion: '0.1.0',
+        enabledPackageVersion: "0.1.0",
         binding: buildDeploymentBinding(),
       }),
     ],
     controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
       latestLaunch: buildDeploymentActivitySnapshot({
-        occurredAt: '2026-03-24T12:30:00Z',
-        summary: 'Latest launch reached the governed runtime handoff.',
+        occurredAt: "2026-03-24T12:30:00Z",
+        summary: "Latest launch reached the governed runtime handoff.",
       }),
       latestNrpsRead: buildDeploymentActivitySnapshot({
-        occurredAt: '2026-03-24T12:33:00Z',
-        summary: 'Latest roster verification succeeded.',
+        occurredAt: "2026-03-24T12:33:00Z",
+        summary: "Latest roster verification succeeded.",
       }),
       latestGradePublish: buildDeploymentGradePublicationSnapshot({
-        updatedAt: '2026-03-24T12:35:00Z',
-        status: 'failed',
+        updatedAt: "2026-03-24T12:35:00Z",
+        status: "failed",
       }),
       pilotUsage: buildPilotUsageMetrics({
         totalLaunches: 6,
@@ -140,44 +140,44 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
         recentActiveUsers: 3,
       }),
     }),
-    canvasConfigUrl: 'http://localhost:8000/lti/canvas/config.json',
+    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
-        id: 'production',
-        label: 'Production Canvas',
-        issuer: resolveCanvasIssuer('production'),
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
       },
     ],
   });
 
-  assertStringIncludes(html, 'Current status');
-  assertStringIncludes(html, 'Last launch');
-  assertStringIncludes(html, 'Last AGS write');
-  assertStringIncludes(html, 'Last NRPS read');
-  assertStringIncludes(html, 'Pilot usage');
-  assertStringIncludes(html, 'Launches recorded');
-  assertStringIncludes(html, 'Attempts completed');
-  assertStringIncludes(html, 'Grade publishes');
-  assertStringIncludes(html, 'Recent active users');
-  assertStringIncludes(html, 'Canvas deployment');
-  assertStringIncludes(html, 'Save exact version pin');
+  assertStringIncludes(html, "Current status");
+  assertStringIncludes(html, "Last launch");
+  assertStringIncludes(html, "Last AGS write");
+  assertStringIncludes(html, "Last NRPS read");
+  assertStringIncludes(html, "Pilot usage");
+  assertStringIncludes(html, "Launches recorded");
+  assertStringIncludes(html, "Attempts completed");
+  assertStringIncludes(html, "Grade publishes");
+  assertStringIncludes(html, "Recent active users");
+  assertStringIncludes(html, "Canvas deployment");
+  assertStringIncludes(html, "Save exact version pin");
 });
 
-Deno.test('deployment page shows diagnostics and an explicit retry action for retryable AGS failures', () => {
+Deno.test("deployment page shows diagnostics and an explicit retry action for retryable AGS failures", () => {
   const html = renderDeploymentDetailPage({
-    appId: 'chapter-4-asteroids',
-    appTitle: 'Chapter 4 Asteroids',
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
     history: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: 'approved',
-        reviewedAt: '2026-03-23T18:05:00Z',
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         enabledPackageVersionId: 1,
-        enabledPackageVersion: '0.1.0',
+        enabledPackageVersion: "0.1.0",
         binding: buildDeploymentBinding(),
       }),
     ],
@@ -185,54 +185,62 @@ Deno.test('deployment page shows diagnostics and an explicit retry action for re
       diagnostics: [
         buildControlPlaneDiagnosticItem({
           id: 1,
-          kind: 'launch',
-          eventType: 'launch.rejected',
-          summary: 'Rejected launch before runtime handoff.',
+          kind: "launch",
+          eventType: "launch.rejected",
+          summary: "Rejected launch before runtime handoff.",
           operatorSummary:
-            'Launch failed before Lantern could hand the learner into the governed runtime.',
+            "Launch failed before Lantern could hand the learner into the governed runtime.",
         }),
         buildControlPlaneDiagnosticItem({
           id: 2,
-          kind: 'nrps',
-          eventType: 'deployment.nrps_verified',
-          status: 'failed',
-          code: 'token_request_failed',
-          summary: 'Canvas roster verification failed.',
-          operatorSummary: 'Roster verification failed for the saved deployment path.',
+          kind: "nrps",
+          eventType: "deployment.nrps_verified",
+          status: "failed",
+          code: "token_request_failed",
+          summary: "Canvas roster verification failed.",
+          operatorSummary:
+            "Roster verification failed for the saved deployment path.",
         }),
         buildControlPlaneDiagnosticItem({
           id: 3,
-          kind: 'gradePublication',
-          eventType: 'grade_publish.failed',
-          status: 'failed',
-          attemptId: 'attempt-123',
-          code: 'token_request_failed',
-          summary: 'Canvas AGS score publish failed.',
-          operatorSummary: 'Grade publish failed and can be retried from the control plane.',
+          kind: "gradePublication",
+          eventType: "grade_publish.failed",
+          status: "failed",
+          attemptId: "attempt-123",
+          code: "token_request_failed",
+          summary: "Canvas AGS score publish failed.",
+          operatorSummary:
+            "Grade publish failed and can be retried from the control plane.",
           retryable: true,
         }),
       ],
       retryableGradePublication: buildRetryableGradePublicationLookup({
-        attemptId: 'attempt-123',
+        attemptId: "attempt-123",
       }),
     }),
-    canvasConfigUrl: 'http://localhost:8000/lti/canvas/config.json',
+    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
-        id: 'production',
-        label: 'Production Canvas',
-        issuer: resolveCanvasIssuer('production'),
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
       },
     ],
   });
 
-  assertStringIncludes(html, 'Diagnostics');
+  assertStringIncludes(html, "Diagnostics");
   assertStringIncludes(
     html,
-    'Launch failed before Lantern could hand the learner into the governed runtime.',
+    "Launch failed before Lantern could hand the learner into the governed runtime.",
   );
-  assertStringIncludes(html, 'Roster verification failed for the saved deployment path.');
-  assertStringIncludes(html, 'Grade publish failed and can be retried from the control plane.');
-  assertStringIncludes(html, 'retry-grade-publish');
-  assertStringIncludes(html, 'Retry grade publish');
+  assertStringIncludes(
+    html,
+    "Roster verification failed for the saved deployment path.",
+  );
+  assertStringIncludes(
+    html,
+    "Grade publish failed and can be retried from the control plane.",
+  );
+  assertStringIncludes(html, "retry-grade-publish");
+  assertStringIncludes(html, "Retry grade publish");
 });
