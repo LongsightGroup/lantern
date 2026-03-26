@@ -22,16 +22,18 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
       const repository = services.getRepository();
       const detail = await loadDeploymentDetailState(repository, context.req.param('appId'));
       const controlPlaneDetail =
-        detail.deployment === null
+        detail.primaryDeployment === null
           ? null
-          : await services.getOpsRepository().getControlPlaneDeploymentDetail(detail.deployment.id);
+          : await services
+              .getOpsRepository()
+              .getControlPlaneDeploymentDetail(detail.primaryDeployment.id);
 
       return context.html(
         renderDeploymentDetailPage({
           appId: context.req.param('appId'),
           appTitle: detail.appTitle,
           history: detail.history,
-          deployment: detail.deployment,
+          deployments: detail.deployments,
           nrpsVerification: detail.nrpsVerification,
           controlPlaneDetail,
           canvasConfigUrl: detail.canvasConfigUrl.url,

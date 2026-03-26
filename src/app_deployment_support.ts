@@ -1,6 +1,8 @@
 import type { AdminNotice } from './admin/layout.ts';
 import {
-  buildDefaultDeploymentSeed,
+  buildManagedDeploymentSlots,
+  getPersistedManagedDeployment,
+  getPrimaryManagedDeployment,
   type DeploymentNrpsVerificationSummary,
 } from './admin/deployment_detail.ts';
 import { getCanvasConfigUrlNoticeSafe } from './app_notice_support.ts';
@@ -21,7 +23,9 @@ export interface CanvasConfigUrlState {
 export interface DeploymentDetailState {
   history: PackageVersionRecord[];
   appTitle: string;
-  deployment: DeploymentRecord | null;
+  deployments: DeploymentRecord[];
+  primaryDeployment: DeploymentRecord | null;
+  canvasDeployment: DeploymentRecord | null;
   nrpsVerification: DeploymentNrpsVerificationSummary | null;
   canvasConfigUrl: CanvasConfigUrlState;
 }
@@ -37,15 +41,23 @@ export async function loadDeploymentDetailState(
   }
 
   const appTitle = history[0]?.title ?? history[0]?.appId ?? 'Package';
-  const seed = buildDefaultDeploymentSeed(appId, appTitle);
-  const deployment = await repository.getDeploymentBySlug(seed.slug);
+  const deployments = await repository.listDeploymentsByApp(appId);
+  const slots = buildManagedDeploymentSlots({
+    appId,
+    appTitle,
+    deployments,
+  });
+  const primaryDeployment = getPrimaryManagedDeployment(slots);
+  const canvasDeployment = getPersistedManagedDeployment(slots, 'canvas');
   const nrpsVerification =
-    deployment === null ? null : await getLatestNrpsVerification(repository, deployment.id);
+    canvasDeployment === null ? null : await getLatestNrpsVerification(repository, canvasDeployment.id);
 
   return {
     history,
     appTitle,
-    deployment,
+    deployments,
+    primaryDeployment,
+    canvasDeployment,
     nrpsVerification,
     canvasConfigUrl: getCanvasConfigUrlNoticeSafe(),
   };
@@ -61,7 +73,9 @@ export async function loadDeploymentDetailStateSafe(
     return {
       history: [],
       appTitle: 'Package',
-      deployment: null,
+      deployments: [],
+      primaryDeployment: null,
+      canvasDeployment: null,
       nrpsVerification: null,
       canvasConfigUrl: getCanvasConfigUrlNoticeSafe(),
     };

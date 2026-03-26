@@ -25,8 +25,9 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
 
     try {
       const detail = await loadDeploymentDetailState(repository, appId);
+      const canvasDeployment = detail.canvasDeployment;
 
-      if (detail.deployment === null) {
+      if (canvasDeployment === null) {
         throw new Error(
           'Save the Canvas binding and exact deployment before retrying a grade publish.',
         );
@@ -48,8 +49,8 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
           eventType: 'grade_publish.retry_succeeded',
           actorType: 'user',
           actorId: null,
-          deploymentRecordId: detail.deployment.id,
-          packageVersionId: detail.deployment.enabledPackageVersionId,
+          deploymentRecordId: canvasDeployment.id,
+          packageVersionId: canvasDeployment.enabledPackageVersionId,
           attemptId: retryResult.attemptId,
           lineItemBindingId: null,
           status: 'succeeded',
@@ -68,8 +69,8 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
         eventType: 'grade_publish.retry_failed',
         actorType: 'user',
         actorId: null,
-        deploymentRecordId: detail.deployment.id,
-        packageVersionId: detail.deployment.enabledPackageVersionId,
+        deploymentRecordId: canvasDeployment.id,
+        packageVersionId: canvasDeployment.enabledPackageVersionId,
         attemptId: retryResult.attemptId,
         lineItemBindingId: null,
         status: 'failed',
@@ -82,7 +83,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
       });
 
       const controlPlaneDetail = await opsRepository.getControlPlaneDeploymentDetail(
-        detail.deployment.id,
+        canvasDeployment.id,
       );
 
       return context.html(
@@ -90,7 +91,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
-          deployment: detail.deployment,
+          deployments: detail.deployments,
           nrpsVerification: detail.nrpsVerification,
           controlPlaneDetail,
           canvasConfigUrl: detail.canvasConfigUrl.url,
@@ -107,14 +108,15 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
       );
     } catch (error) {
       const detail = await loadDeploymentDetailStateSafe(repository, appId);
+      const canvasDeployment = detail.canvasDeployment;
 
-      if (detail.deployment !== null) {
+      if (canvasDeployment !== null) {
         await repository.recordAuditEvent({
           eventType: 'grade_publish.retry_failed',
           actorType: 'user',
           actorId: null,
-          deploymentRecordId: detail.deployment.id,
-          packageVersionId: detail.deployment.enabledPackageVersionId,
+          deploymentRecordId: canvasDeployment.id,
+          packageVersionId: canvasDeployment.enabledPackageVersionId,
           attemptId,
           lineItemBindingId: null,
           status: 'failed',
@@ -139,16 +141,16 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
       }
 
       const controlPlaneDetail =
-        detail.deployment === null
+        canvasDeployment === null
           ? null
-          : await opsRepository.getControlPlaneDeploymentDetail(detail.deployment.id);
+          : await opsRepository.getControlPlaneDeploymentDetail(canvasDeployment.id);
 
       return context.html(
         renderDeploymentDetailPage({
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
-          deployment: detail.deployment,
+          deployments: detail.deployments,
           nrpsVerification: detail.nrpsVerification,
           controlPlaneDetail,
           canvasConfigUrl: detail.canvasConfigUrl.url,

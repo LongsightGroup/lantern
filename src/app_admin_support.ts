@@ -1,9 +1,6 @@
 import type { Context } from '@hono/hono';
 import { renderControlPlanePage } from './admin/control_plane.ts';
-import {
-  buildDefaultDeploymentSeed,
-  renderDeploymentDetailPage,
-} from './admin/deployment_detail.ts';
+import { renderDeploymentDetailPage } from './admin/deployment_detail.ts';
 import type { AdminNotice } from './admin/layout.ts';
 import { listCanvasEnvironments } from './lti/config.ts';
 import {
@@ -189,8 +186,7 @@ export async function renderDeploymentError(
     }
 
     const appTitle = history[0]?.title ?? history[0]?.appId ?? 'Package';
-    const seed = buildDefaultDeploymentSeed(appId, appTitle);
-    const deployment = await repository.getDeploymentBySlug(seed.slug);
+    const deployments = await repository.listDeploymentsByApp(appId);
     const canvasConfigUrl = getCanvasConfigUrlNoticeSafe();
 
     return context.html(
@@ -198,7 +194,7 @@ export async function renderDeploymentError(
         appId,
         appTitle,
         history,
-        deployment,
+        deployments,
         canvasConfigUrl: canvasConfigUrl.url,
         supportedCanvasEnvironments: listCanvasEnvironments(),
         notice: combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error)),

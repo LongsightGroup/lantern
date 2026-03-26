@@ -1,10 +1,8 @@
 import type { CanvasEnvironmentOption } from '../lti/config.ts';
+import type { LmsType } from '../lti/types.ts';
 import type { ControlPlaneDeploymentDetailSnapshot } from '../ops/types.ts';
 import type { DeploymentRecord, PackageVersionRecord } from '../package_review/types.ts';
-import {
-  renderCanvasInstallSection,
-  renderCurrentPinSection,
-} from './deployment_detail_release_sections.ts';
+import { renderManagedDeploymentSections } from './deployment_detail_release_sections.ts';
 import { renderVersionHistorySection } from './deployment_detail_history_section.ts';
 import {
   renderControlPlaneStatusSection,
@@ -20,6 +18,12 @@ export interface DeploymentNrpsVerificationSummary {
   memberCount: number | null;
 }
 
+export interface ManagedDeploymentSlot {
+  lms: LmsType;
+  deployment: DeploymentRecord;
+  persisted: boolean;
+}
+
 export function buildDefaultDeploymentSeed(
   appId: string,
   appTitle: string,
@@ -27,9 +31,118 @@ export function buildDefaultDeploymentSeed(
   slug: string;
   label: string;
 } {
+  return buildManagedDeploymentSeed(appId, appTitle, 'canvas');
+}
+
+export function buildManagedDeploymentSeed(
+  appId: string,
+  appTitle: string,
+  lms: LmsType,
+): {
+  slug: string;
+  label: string;
+} {
+  switch (lms) {
+    case 'canvas':
+      return {
+        slug: `${appId}-pilot`,
+        label: `${appTitle} Pilot Deployment`,
+      };
+    case 'moodle':
+      return {
+        slug: `${appId}-moodle`,
+        label: `${appTitle} Moodle Deployment`,
+      };
+    case 'sakai':
+      return {
+        slug: `${appId}-sakai`,
+        label: `${appTitle} Sakai Deployment`,
+      };
+  }
+}
+
+export function buildManagedDeploymentSlots(input: {
+  appId: string;
+  appTitle: string;
+  deployments: DeploymentRecord[];
+}): ManagedDeploymentSlot[] {
+  const orderedLms: LmsType[] = ['canvas', 'moodle', 'sakai'];
+
+  return orderedLms.map((lms) => {
+    const seed = buildManagedDeploymentSeed(input.appId, input.appTitle, lms);
+    const existing = input.deployments.find((candidate) =>
+      candidate.binding?.lms === lms || candidate.slug === seed.slug
+    );
+
+    if (existing) {
+      return {
+        lms,
+        deployment: existing,
+        persisted: true,
+      };
+    }
+
+    return {
+      lms,
+      persisted: false,
+      deployment: {
+        id: 0,
+        slug: seed.slug,
+        label: seed.label,
+        appId: input.appId,
+        enabledPackageVersionId: null,
+        enabledPackageVersion: null,
+        binding: null,
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  });
+}
+
+export function getManagedDeploymentSlot(
+  slots: ManagedDeploymentSlot[],
+  lms: LmsType,
+): ManagedDeploymentSlot {
+  const slot = slots.find((candidate) => candidate.lms === lms);
+
+  if (!slot) {
+    throw new Error(`Managed deployment slot ${lms} is required.`);
+  }
+
+  return slot;
+}
+
+export function getPrimaryManagedDeployment(
+  slots: ManagedDeploymentSlot[],
+): DeploymentRecord | null {
+  const canvasSlot = slots.find((slot) => slot.lms === 'canvas' && slot.persisted);
+  if (canvasSlot) {
+    return canvasSlot.deployment;
+  }
+
+  return slots.find((slot) => slot.persisted)?.deployment ?? null;
+}
+
+export function getPersistedManagedDeployment(
+  slots: ManagedDeploymentSlot[],
+  lms: LmsType,
+): DeploymentRecord | null {
+  const slot = getManagedDeploymentSlot(slots, lms);
+  return slot.persisted ? slot.deployment : null;
+}
+
+export function buildEmptyDeploymentRecord(
+  appId: string,
+  appTitle: string,
+): DeploymentRecord {
   return {
-    slug: `${appId}-pilot`,
-    label: `${appTitle} Pilot Deployment`,
+    id: 0,
+    ...buildDefaultDeploymentSeed(appId, appTitle),
+    appId,
+    enabledPackageVersionId: null,
+    enabledPackageVersion: null,
+    binding: null,
+    updatedAt: new Date().toISOString(),
   };
 }
 
@@ -37,52 +150,32 @@ export function renderDeploymentDetailPage(input: {
   appId: string;
   appTitle: string;
   history: PackageVersionRecord[];
-  deployment: DeploymentRecord | null;
+  deployments: DeploymentRecord[];
   nrpsVerification?: DeploymentNrpsVerificationSummary | null;
   controlPlaneDetail?: ControlPlaneDeploymentDetailSnapshot | null;
   canvasConfigUrl?: string | null;
   supportedCanvasEnvironments?: CanvasEnvironmentOption[];
   notice?: AdminNotice | null;
 }): string {
-  const seed = buildDefaultDeploymentSeed(input.appId, input.appTitle);
-  const approvedVersions = input.history.filter((version) => version.approvalStatus === 'approved');
-  const activeDeployment = input.deployment ?? {
-    id: 0,
-    slug: seed.slug,
-    label: seed.label,
+  const slots = buildManagedDeploymentSlots({
     appId: input.appId,
-    enabledPackageVersionId: null,
-    enabledPackageVersion: null,
-    binding: null,
-    updatedAt: input.history[0]?.importedAt ?? new Date().toISOString(),
-  };
+    appTitle: input.appTitle,
+    deployments: input.deployments,
+  });
+  const approvedVersions = input.history.filter((version) => version.approvalStatus === 'approved');
+  const primaryDeployment =
+    getPrimaryManagedDeployment(slots) ?? buildEmptyDeploymentRecord(input.appId, input.appTitle);
   const canvasConfigUrl = input.canvasConfigUrl ?? null;
   const nrpsVerification = input.nrpsVerification ?? null;
   const controlPlaneDetail = input.controlPlaneDetail ?? null;
   const supportedCanvasEnvironments = input.supportedCanvasEnvironments ?? [];
-  const launchReady =
-    activeDeployment.enabledPackageVersionId !== null &&
-    activeDeployment.binding !== null &&
-    canvasConfigUrl !== null;
-  const rosterVerificationHeading =
-    nrpsVerification === null
-      ? 'Roster access not verified yet'
-      : nrpsVerification.status === 'succeeded'
-        ? 'Latest roster read succeeded'
-        : 'Latest roster read failed';
-  const installStatusHeading =
-    activeDeployment.binding === null
-      ? 'Canvas binding not saved yet'
-      : launchReady
-        ? 'Launch-ready configuration saved'
-        : 'Canvas binding saved, finish release setup';
 
   return renderAdminLayout({
     title: `${input.appTitle} Deployment`,
-    eyebrow: 'Canvas Deployment',
-    heading: activeDeployment.label,
+    eyebrow: 'Managed LMS deployment',
+    heading: `${input.appTitle} Deployment`,
     intro:
-      'Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path. Lantern keeps both the release choice and the Canvas binding explicit.',
+      'Review the Canvas, Moodle, and Sakai deployment slots for this reviewed app. Lantern keeps each release pin and exact LMS binding explicit so one install does not overwrite another.',
     breadcrumbs: [
       { label: 'Packages', href: '/admin/packages' },
       {
@@ -95,22 +188,15 @@ export function renderDeploymentDetailPage(input: {
     body: `${renderControlPlaneStatusSection(controlPlaneDetail)}
     ${renderPilotUsageSection(controlPlaneDetail)}
     ${renderDiagnosticsSection(input.appId, controlPlaneDetail)}
-    ${renderCurrentPinSection({
-      deployment: input.deployment,
-      activeDeployment,
-      launchReady,
-      installStatusHeading,
-    })}
-    ${renderCanvasInstallSection({
+    ${renderManagedDeploymentSections({
       appId: input.appId,
-      activeDeployment,
+      slots,
       nrpsVerification,
-      rosterVerificationHeading,
       canvasConfigUrl,
       supportedCanvasEnvironments,
       approvedVersions,
       history: input.history,
     })}
-    ${renderVersionHistorySection(input.history, activeDeployment)}`,
+    ${renderVersionHistorySection(input.history, primaryDeployment)}`,
   });
 }

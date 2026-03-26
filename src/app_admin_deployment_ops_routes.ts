@@ -20,21 +20,22 @@ export function registerAdminDeploymentOpsRoutes(app: Hono, services: AppService
 
     try {
       const detail = await loadDeploymentDetailState(repository, appId);
+      const canvasDeployment = detail.canvasDeployment;
 
-      if (detail.deployment === null) {
+      if (canvasDeployment === null) {
         throw new Error(
           'Save the Canvas binding and exact deployment before verifying roster access.',
         );
       }
 
-      if (detail.deployment.binding === null) {
+      if (canvasDeployment.binding === null || canvasDeployment.binding.lms !== 'canvas') {
         throw new Error(
           'Canvas deployment binding is required before roster verification can run.',
         );
       }
 
       const latestSession = await repository.getLatestRuntimeSessionByDeploymentId(
-        detail.deployment.id,
+        canvasDeployment.id,
       );
 
       if (latestSession === null) {
@@ -46,8 +47,8 @@ export function registerAdminDeploymentOpsRoutes(app: Hono, services: AppService
       }
 
       const token = await requestCanvasServiceAccessToken({
-        issuer: detail.deployment.binding.issuer,
-        clientId: detail.deployment.binding.clientId,
+        issuer: canvasDeployment.binding.issuer,
+        clientId: canvasDeployment.binding.clientId,
         scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
       });
       const members = await readContextMemberships({
@@ -59,8 +60,8 @@ export function registerAdminDeploymentOpsRoutes(app: Hono, services: AppService
         eventType: 'deployment.nrps_verified',
         actorType: 'system',
         actorId: null,
-        deploymentRecordId: detail.deployment.id,
-        packageVersionId: detail.deployment.enabledPackageVersionId,
+        deploymentRecordId: canvasDeployment.id,
+        packageVersionId: canvasDeployment.enabledPackageVersionId,
         attemptId: latestSession.attemptId,
         lineItemBindingId: null,
         status: 'succeeded',
@@ -75,14 +76,15 @@ export function registerAdminDeploymentOpsRoutes(app: Hono, services: AppService
       return context.redirect(`/admin/packages/${appId}/deployment`, 303);
     } catch (error) {
       const detail = await loadDeploymentDetailStateSafe(repository, appId);
+      const canvasDeployment = detail.canvasDeployment;
 
-      if (detail.deployment !== null) {
+      if (canvasDeployment !== null) {
         await repository.recordAuditEvent({
           eventType: 'deployment.nrps_verified',
           actorType: 'system',
           actorId: null,
-          deploymentRecordId: detail.deployment.id,
-          packageVersionId: detail.deployment.enabledPackageVersionId,
+          deploymentRecordId: canvasDeployment.id,
+          packageVersionId: canvasDeployment.enabledPackageVersionId,
           attemptId: null,
           lineItemBindingId: null,
           status: 'failed',
@@ -94,9 +96,9 @@ export function registerAdminDeploymentOpsRoutes(app: Hono, services: AppService
         });
       }
       const nrpsVerification =
-        detail.deployment === null
+        canvasDeployment === null
           ? detail.nrpsVerification
-          : await getLatestNrpsVerification(repository, detail.deployment.id);
+          : await getLatestNrpsVerification(repository, canvasDeployment.id);
 
       if (detail.history.length === 0) {
         return context.html(
@@ -113,7 +115,7 @@ export function registerAdminDeploymentOpsRoutes(app: Hono, services: AppService
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
-          deployment: detail.deployment,
+          deployments: detail.deployments,
           nrpsVerification,
           canvasConfigUrl: detail.canvasConfigUrl.url,
           supportedCanvasEnvironments: listCanvasEnvironments(),

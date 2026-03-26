@@ -21,10 +21,12 @@ Deno.test('renderDeploymentDetailPage shows semver history with strong status ba
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [pending, approved],
-    deployment: buildDeploymentRecord({
-      enabledPackageVersionId: 7,
-      enabledPackageVersion: '0.1.0',
-    }),
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 7,
+        enabledPackageVersion: '0.1.0',
+      }),
+    ],
   });
 
   assertStringIncludes(body, 'Pinned to version 0.1.0.');
@@ -49,7 +51,7 @@ Deno.test('renderDeploymentDetailPage only offers approved versions in the picke
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [pending, approved],
-    deployment: null,
+    deployments: [],
   });
 
   assertStringIncludes(body, 'option value="7"');
