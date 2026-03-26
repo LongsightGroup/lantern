@@ -1,4 +1,4 @@
-export const SUPPORTED_BROKER_SCOPE = 'canvasLti13LaunchAgsNrps';
+export const SUPPORTED_BROKER_SCOPE = "canvasLti13LaunchAgsNrps";
 
 export const INVENTORY_BASE_QUERY = `
   SELECT

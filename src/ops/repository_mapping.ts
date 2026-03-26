@@ -1,5 +1,9 @@
-import type { CanvasEnvironment, DeploymentBinding, LmsType } from '../lti/types.ts';
-import { deriveDeploymentHealth, formatDiagnosticItem } from './service.ts';
+import type {
+  CanvasEnvironment,
+  DeploymentBinding,
+  LmsType,
+} from "../lti/types.ts";
+import { deriveDeploymentHealth, formatDiagnosticItem } from "./service.ts";
 import type {
   BrokerVerificationStatus,
   ControlPlaneActivityStatus,
@@ -7,7 +11,7 @@ import type {
   ControlPlaneDiagnosticItem,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
-} from './types.ts';
+} from "./types.ts";
 import type {
   DiagnosticRow,
   GradePublicationSnapshotRow,
@@ -15,7 +19,7 @@ import type {
   InventoryQueryRow,
   OfficialBrokerVerificationRow,
   RecordBrokerVerificationRunInput,
-} from './repository_types.ts';
+} from "./repository_types.ts";
 
 export function mapInventoryRow(
   row: InventoryQueryRow,
@@ -76,8 +80,8 @@ export function mapInventoryRow(
       lastNrpsReadStatus: row.lastNrpsReadStatus,
       lastNrpsReadAt: normalizeOptionalTimestamp(row.lastNrpsReadAt),
       brokerVerificationStatus: brokerVerification?.internal?.status ?? null,
-      brokerCheckedAt:
-        brokerVerification?.internal?.checkedAt ?? brokerVerification?.official.checkedAt ?? null,
+      brokerCheckedAt: brokerVerification?.internal?.checkedAt ??
+        brokerVerification?.official.checkedAt ?? null,
     }),
     brokerVerification,
   };
@@ -96,7 +100,7 @@ export function mapActivitySnapshotRow(row: {
     occurredAt: normalizeTimestamp(row.occurredAt),
     summary: row.summary,
     attemptId: row.attemptId,
-    contextId: readStringDetail(row.detail, 'contextId'),
+    contextId: readStringDetail(row.detail, "contextId"),
     detail: row.detail,
   };
 }
@@ -134,7 +138,7 @@ export function mapDiagnosticRows(
         status: row.status,
         deploymentRecordId: row.deploymentRecordId,
         attemptId: row.attemptId,
-        code: readStringDetail(row.detail, 'code'),
+        code: readStringDetail(row.detail, "code"),
         summary: row.summary,
         operatorSummary: row.summary,
         retryable: false,
@@ -144,7 +148,7 @@ export function mapDiagnosticRows(
       {
         retryableAttemptId,
       },
-    ),
+    )
   );
 }
 
@@ -160,52 +164,56 @@ export function mapBrokerVerificationStatusRows(
 
   return {
     supportedPath,
-    internal:
-      internalRow === null
-        ? null
-        : {
-            source: internalRow.source,
-            status: internalRow.status,
-            checkedAt: normalizeTimestamp(internalRow.checkedAt),
-            summary: internalRow.summary,
-            evidenceUrl: internalRow.detailUrl,
-          },
-    official:
-      officialRow === null
-        ? {
-            state: 'notCertified',
-            checkedAt: null,
-            directoryUrl: null,
-          }
-        : {
-            state: officialRow.certificationState ?? 'notCertified',
-            checkedAt: normalizeTimestamp(officialRow.checkedAt),
-            directoryUrl: officialRow.detailUrl,
-          },
+    internal: internalRow === null ? null : {
+      source: internalRow.source,
+      status: internalRow.status,
+      checkedAt: normalizeTimestamp(internalRow.checkedAt),
+      summary: internalRow.summary,
+      evidenceUrl: internalRow.detailUrl,
+    },
+    official: officialRow === null
+      ? {
+        state: "notCertified",
+        checkedAt: null,
+        directoryUrl: null,
+      }
+      : {
+        state: officialRow.certificationState ?? "notCertified",
+        checkedAt: normalizeTimestamp(officialRow.checkedAt),
+        directoryUrl: officialRow.detailUrl,
+      },
   };
 }
 
-export function assertBrokerVerificationRunInput(input: RecordBrokerVerificationRunInput): void {
-  if (input.source === '1edtech') {
-    if (input.status === 'notCertified' && input.certificationState !== null) {
+export function assertBrokerVerificationRunInput(
+  input: RecordBrokerVerificationRunInput,
+): void {
+  if (input.source === "1edtech") {
+    if (input.status === "notCertified" && input.certificationState !== null) {
       throw new Error(
-        'Official not-certified verification runs cannot carry a certification state.',
+        "Official not-certified verification runs cannot carry a certification state.",
       );
     }
 
-    if (input.status === 'passed' && input.certificationState === null) {
-      throw new Error('Official passed verification runs require an explicit certification state.');
+    if (input.status === "passed" && input.certificationState === null) {
+      throw new Error(
+        "Official passed verification runs require an explicit certification state.",
+      );
     }
 
     return;
   }
 
-  if (input.status === 'notCertified') {
-    throw new Error('Only official 1EdTech verification runs can use the notCertified status.');
+  if (input.status === "notCertified") {
+    throw new Error(
+      "Only official 1EdTech verification runs can use the notCertified status.",
+    );
   }
 
   if (input.certificationState !== null) {
-    throw new Error('Internal verification runs cannot carry an official certification state.');
+    throw new Error(
+      "Internal verification runs cannot carry an official certification state.",
+    );
   }
 }
 
@@ -222,26 +230,30 @@ export function mapDeploymentBinding(input: {
   sakaiAccessTokenUrl?: string | null;
   sakaiJwksUrl?: string | null;
 }): DeploymentBinding | null {
-  if (input.issuer === null || input.clientId === null || input.deploymentId === null) {
+  if (
+    input.issuer === null || input.clientId === null ||
+    input.deploymentId === null
+  ) {
     return null;
   }
 
-  const lmsType = input.lmsType ?? (input.canvasEnvironment === null ? null : 'canvas');
+  const lmsType = input.lmsType ??
+    (input.canvasEnvironment === null ? null : "canvas");
 
   switch (lmsType) {
-    case 'canvas':
+    case "canvas":
       if (input.canvasEnvironment === null) {
         return null;
       }
 
       return {
-        lms: 'canvas',
+        lms: "canvas",
         canvasEnvironment: input.canvasEnvironment as CanvasEnvironment,
         issuer: input.issuer,
         clientId: input.clientId,
         deploymentId: input.deploymentId,
       };
-    case 'moodle':
+    case "moodle":
       if (
         input.moodleAuthenticationRequestUrl === null ||
         input.moodleAuthenticationRequestUrl === undefined ||
@@ -254,7 +266,7 @@ export function mapDeploymentBinding(input: {
       }
 
       return {
-        lms: 'moodle',
+        lms: "moodle",
         issuer: input.issuer,
         clientId: input.clientId,
         deploymentId: input.deploymentId,
@@ -262,7 +274,7 @@ export function mapDeploymentBinding(input: {
         accessTokenUrl: input.moodleAccessTokenUrl,
         jwksUrl: input.moodleJwksUrl,
       };
-    case 'sakai':
+    case "sakai":
       if (
         input.sakaiOidcAuthenticationUrl === null ||
         input.sakaiOidcAuthenticationUrl === undefined ||
@@ -275,7 +287,7 @@ export function mapDeploymentBinding(input: {
       }
 
       return {
-        lms: 'sakai',
+        lms: "sakai",
         issuer: input.issuer,
         clientId: input.clientId,
         deploymentId: input.deploymentId,
@@ -294,13 +306,15 @@ export function normalizeTimestamp(value: Date | string | null): string {
   }
 
   if (value === null) {
-    throw new Error('Expected a timestamp value.');
+    throw new Error("Expected a timestamp value.");
   }
 
   return value;
 }
 
-export function normalizeOptionalTimestamp(value: Date | string | null): string | null {
+export function normalizeOptionalTimestamp(
+  value: Date | string | null,
+): string | null {
   if (value === null) {
     return null;
   }
@@ -309,42 +323,50 @@ export function normalizeOptionalTimestamp(value: Date | string | null): string 
 }
 
 export function normalizeNumeric(value: number | string): number {
-  return typeof value === 'number' ? value : Number(value);
+  return typeof value === "number" ? value : Number(value);
 }
 
-function mapAuditActivityStatus(eventType: string, status: string): ControlPlaneActivityStatus {
-  if (eventType === 'launch.rejected' || status === 'failed') {
-    return 'failed';
+function mapAuditActivityStatus(
+  eventType: string,
+  status: string,
+): ControlPlaneActivityStatus {
+  if (eventType === "launch.rejected" || status === "failed") {
+    return "failed";
   }
 
-  if (status === 'accepted' || status === 'succeeded') {
-    return 'succeeded';
+  if (status === "accepted" || status === "succeeded") {
+    return "succeeded";
   }
 
-  return 'pending';
+  return "pending";
 }
 
-function mapDiagnosticKind(eventType: string): ControlPlaneDiagnosticItem['kind'] {
-  if (eventType.startsWith('launch.')) {
-    return 'launch';
+function mapDiagnosticKind(
+  eventType: string,
+): ControlPlaneDiagnosticItem["kind"] {
+  if (eventType.startsWith("launch.")) {
+    return "launch";
   }
 
-  if (eventType === 'deployment.nrps_verified') {
-    return 'nrps';
+  if (eventType === "deployment.nrps_verified") {
+    return "nrps";
   }
 
-  if (eventType.startsWith('broker_verification.')) {
-    return 'brokerVerification';
+  if (eventType.startsWith("broker_verification.")) {
+    return "brokerVerification";
   }
 
-  if (eventType.startsWith('reviewer.')) {
-    return 'reviewer';
+  if (eventType.startsWith("reviewer.")) {
+    return "reviewer";
   }
 
-  return 'gradePublication';
+  return "gradePublication";
 }
 
-function readStringDetail(detail: Record<string, unknown>, key: string): string | null {
+function readStringDetail(
+  detail: Record<string, unknown>,
+  key: string,
+): string | null {
   const value = detail[key];
-  return typeof value === 'string' ? value : null;
+  return typeof value === "string" ? value : null;
 }

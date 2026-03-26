@@ -1,90 +1,105 @@
-import { assertEquals, assertExists } from '@std/assert';
-import { buildAuditEventRecord } from '../test_helpers/package_review.ts';
+import { assertEquals, assertExists } from "@std/assert";
+import { buildAuditEventRecord } from "../test_helpers/package_review.ts";
 import {
   bootstrapPackageReviewSchema,
   resetPackageReviewTables,
   withPackageReviewTestDatabase,
-} from '../test_helpers/postgres.ts';
-import { mapInventoryRow } from './repository_mapping.ts';
-import type { InventoryQueryRow } from './repository_types.ts';
-import { createOpsRepositoryForTest, insertAuditEvent } from './repository_test_core_support.ts';
-import { seedOpsRepositoryFixtures } from './repository_test_seed.ts';
+} from "../test_helpers/postgres.ts";
+import { mapInventoryRow } from "./repository_mapping.ts";
+import type { InventoryQueryRow } from "./repository_types.ts";
+import {
+  createOpsRepositoryForTest,
+  insertAuditEvent,
+} from "./repository_test_core_support.ts";
+import { seedOpsRepositoryFixtures } from "./repository_test_seed.ts";
 
-Deno.test('ops inventory mapping keeps exact Canvas, Moodle, and Sakai bindings legible in shared control-plane rows', () => {
+Deno.test("ops inventory mapping keeps exact Canvas, Moodle, and Sakai bindings legible in shared control-plane rows", () => {
   const canvasInventory = mapInventoryRow(
     buildInventoryQueryRow({
-      bindingLmsType: 'canvas',
-      bindingCanvasEnvironment: 'production',
-      bindingIssuer: 'https://canvas.instructure.com',
-      bindingClientId: '10000000000001',
-      bindingDeploymentId: 'canvas-deployment-123',
+      bindingLmsType: "canvas",
+      bindingCanvasEnvironment: "production",
+      bindingIssuer: "https://canvas.instructure.com",
+      bindingClientId: "10000000000001",
+      bindingDeploymentId: "canvas-deployment-123",
     }),
     null,
   );
   const moodleInventory = mapInventoryRow(
     buildInventoryQueryRow({
       deploymentId: 2,
-      deploymentSlug: 'chapter-4-asteroids-moodle',
-      deploymentLabel: 'Chapter 4 Asteroids Moodle Deployment',
-      bindingLmsType: 'moodle',
+      deploymentSlug: "chapter-4-asteroids-moodle",
+      deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
+      bindingLmsType: "moodle",
       bindingCanvasEnvironment: null,
-      bindingIssuer: 'https://moodle.example',
-      bindingClientId: 'moodle-client-123',
-      bindingDeploymentId: 'moodle-deployment-123',
-      bindingMoodleAuthenticationRequestUrl: 'https://moodle.example/mod/lti/auth.php',
-      bindingMoodleAccessTokenUrl: 'https://moodle.example/mod/lti/token.php',
-      bindingMoodleJwksUrl: 'https://moodle.example/mod/lti/certs.php',
+      bindingIssuer: "https://moodle.example",
+      bindingClientId: "moodle-client-123",
+      bindingDeploymentId: "moodle-deployment-123",
+      bindingMoodleAuthenticationRequestUrl:
+        "https://moodle.example/mod/lti/auth.php",
+      bindingMoodleAccessTokenUrl: "https://moodle.example/mod/lti/token.php",
+      bindingMoodleJwksUrl: "https://moodle.example/mod/lti/certs.php",
     }),
     null,
   );
   const sakaiInventory = mapInventoryRow(
     buildInventoryQueryRow({
       deploymentId: 3,
-      deploymentSlug: 'chapter-4-asteroids-sakai',
-      deploymentLabel: 'Chapter 4 Asteroids Sakai Deployment',
-      bindingLmsType: 'sakai',
+      deploymentSlug: "chapter-4-asteroids-sakai",
+      deploymentLabel: "Chapter 4 Asteroids Sakai Deployment",
+      bindingLmsType: "sakai",
       bindingCanvasEnvironment: null,
-      bindingIssuer: 'https://sakai.example',
-      bindingClientId: 'sakai-client-123',
-      bindingDeploymentId: 'sakai-deployment-123',
-      bindingSakaiOidcAuthenticationUrl: 'https://sakai.example/imsti/sakai_oidc_login',
-      bindingSakaiAccessTokenUrl: 'https://sakai.example/imsti/sakai_access_token',
-      bindingSakaiJwksUrl: 'https://sakai.example/imsti/sakai_jwks',
+      bindingIssuer: "https://sakai.example",
+      bindingClientId: "sakai-client-123",
+      bindingDeploymentId: "sakai-deployment-123",
+      bindingSakaiOidcAuthenticationUrl:
+        "https://sakai.example/imsti/sakai_oidc_login",
+      bindingSakaiAccessTokenUrl:
+        "https://sakai.example/imsti/sakai_access_token",
+      bindingSakaiJwksUrl: "https://sakai.example/imsti/sakai_jwks",
     }),
     null,
   );
 
   assertEquals(canvasInventory.binding, {
-    lms: 'canvas',
-    canvasEnvironment: 'production',
-    issuer: 'https://canvas.instructure.com',
-    clientId: '10000000000001',
-    deploymentId: 'canvas-deployment-123',
+    lms: "canvas",
+    canvasEnvironment: "production",
+    issuer: "https://canvas.instructure.com",
+    clientId: "10000000000001",
+    deploymentId: "canvas-deployment-123",
   });
   assertEquals(moodleInventory.binding, {
-    lms: 'moodle',
-    issuer: 'https://moodle.example',
-    clientId: 'moodle-client-123',
-    deploymentId: 'moodle-deployment-123',
-    authenticationRequestUrl: 'https://moodle.example/mod/lti/auth.php',
-    accessTokenUrl: 'https://moodle.example/mod/lti/token.php',
-    jwksUrl: 'https://moodle.example/mod/lti/certs.php',
+    lms: "moodle",
+    issuer: "https://moodle.example",
+    clientId: "moodle-client-123",
+    deploymentId: "moodle-deployment-123",
+    authenticationRequestUrl: "https://moodle.example/mod/lti/auth.php",
+    accessTokenUrl: "https://moodle.example/mod/lti/token.php",
+    jwksUrl: "https://moodle.example/mod/lti/certs.php",
   });
   assertEquals(sakaiInventory.binding, {
-    lms: 'sakai',
-    issuer: 'https://sakai.example',
-    clientId: 'sakai-client-123',
-    deploymentId: 'sakai-deployment-123',
-    oidcAuthenticationUrl: 'https://sakai.example/imsti/sakai_oidc_login',
-    accessTokenUrl: 'https://sakai.example/imsti/sakai_access_token',
-    jwksUrl: 'https://sakai.example/imsti/sakai_jwks',
+    lms: "sakai",
+    issuer: "https://sakai.example",
+    clientId: "sakai-client-123",
+    deploymentId: "sakai-deployment-123",
+    oidcAuthenticationUrl: "https://sakai.example/imsti/sakai_oidc_login",
+    accessTokenUrl: "https://sakai.example/imsti/sakai_access_token",
+    jwksUrl: "https://sakai.example/imsti/sakai_jwks",
   });
-  assertEquals(canvasInventory.health.dimensions.enablement.summary, 'Deployment pin and Canvas binding are present.');
-  assertEquals(moodleInventory.health.dimensions.enablement.summary, 'Deployment pin and Moodle binding are present.');
-  assertEquals(sakaiInventory.health.dimensions.enablement.summary, 'Deployment pin and Sakai binding are present.');
+  assertEquals(
+    canvasInventory.health.dimensions.enablement.summary,
+    "Deployment pin and Canvas binding are present.",
+  );
+  assertEquals(
+    moodleInventory.health.dimensions.enablement.summary,
+    "Deployment pin and Moodle binding are present.",
+  );
+  assertEquals(
+    sakaiInventory.health.dimensions.enablement.summary,
+    "Deployment pin and Sakai binding are present.",
+  );
 });
 
-Deno.test('ops repository lists deployment-centric inventory rows with owner, version, usage metrics, and current health inputs', async () => {
+Deno.test("ops repository lists deployment-centric inventory rows with owner, version, usage metrics, and current health inputs", async () => {
   await withPackageReviewTestDatabase(async (pool) => {
     await bootstrapPackageReviewSchema(pool);
     await resetPackageReviewTables(pool);
@@ -92,19 +107,19 @@ Deno.test('ops repository lists deployment-centric inventory rows with owner, ve
 
     const repository = await createOpsRepositoryForTest(pool);
     const rows = await repository.listControlPlaneDeployments();
-    const canvasRow = rows.find((row) => row.binding?.lms === 'canvas');
+    const canvasRow = rows.find((row) => row.binding?.lms === "canvas");
 
     assertEquals(rows.length, 3);
     assertExists(canvasRow);
-    assertEquals(canvasRow.deploymentSlug, 'chapter-4-asteroids-pilot');
-    assertEquals(canvasRow.ownerId, 'instructor_123');
-    assertEquals(canvasRow.enabledPackageVersion, '0.1.0');
+    assertEquals(canvasRow.deploymentSlug, "chapter-4-asteroids-pilot");
+    assertEquals(canvasRow.ownerId, "instructor_123");
+    assertEquals(canvasRow.enabledPackageVersion, "0.1.0");
     assertEquals(canvasRow.pilotUsage.attemptsCompleted, 1);
-    assertEquals(canvasRow.lastGradePublishStatus, 'failed');
+    assertEquals(canvasRow.lastGradePublishStatus, "failed");
   });
 });
 
-Deno.test('ops repository keeps one app readable across canvas, moodle, and sakai deployment rows', async () => {
+Deno.test("ops repository keeps one app readable across canvas, moodle, and sakai deployment rows", async () => {
   await withPackageReviewTestDatabase(async (pool) => {
     await bootstrapPackageReviewSchema(pool);
     await resetPackageReviewTables(pool);
@@ -113,20 +128,38 @@ Deno.test('ops repository keeps one app readable across canvas, moodle, and saka
     const repository = await createOpsRepositoryForTest(pool);
     const rows = await repository.listControlPlaneDeployments();
     const rowsByLms = new Map(
-      rows.map((row) => [row.binding?.lms ?? 'missing', row] as const),
+      rows.map((row) => [row.binding?.lms ?? "missing", row] as const),
     );
 
     assertEquals(rows.length, 3);
-    assertEquals(rows.every((row) => row.appId === 'chapter-4-asteroids'), true);
-    assertEquals(rowsByLms.get('canvas')?.deploymentSlug, 'chapter-4-asteroids-pilot');
-    assertEquals(rowsByLms.get('moodle')?.deploymentSlug, 'chapter-4-asteroids-moodle');
-    assertEquals(rowsByLms.get('sakai')?.deploymentSlug, 'chapter-4-asteroids-sakai');
-    assertEquals(rowsByLms.get('moodle')?.health.dimensions.enablement.summary, 'Deployment pin and Moodle binding are present.');
-    assertEquals(rowsByLms.get('sakai')?.health.dimensions.enablement.summary, 'Deployment pin and Sakai binding are present.');
+    assertEquals(
+      rows.every((row) => row.appId === "chapter-4-asteroids"),
+      true,
+    );
+    assertEquals(
+      rowsByLms.get("canvas")?.deploymentSlug,
+      "chapter-4-asteroids-pilot",
+    );
+    assertEquals(
+      rowsByLms.get("moodle")?.deploymentSlug,
+      "chapter-4-asteroids-moodle",
+    );
+    assertEquals(
+      rowsByLms.get("sakai")?.deploymentSlug,
+      "chapter-4-asteroids-sakai",
+    );
+    assertEquals(
+      rowsByLms.get("moodle")?.health.dimensions.enablement.summary,
+      "Deployment pin and Moodle binding are present.",
+    );
+    assertEquals(
+      rowsByLms.get("sakai")?.health.dimensions.enablement.summary,
+      "Deployment pin and Sakai binding are present.",
+    );
   });
 });
 
-Deno.test('ops repository returns deployment detail snapshots with the latest launch, NRPS read, AGS publish, and diagnostics feed', async () => {
+Deno.test("ops repository returns deployment detail snapshots with the latest launch, NRPS read, AGS publish, and diagnostics feed", async () => {
   await withPackageReviewTestDatabase(async (pool) => {
     await bootstrapPackageReviewSchema(pool);
     await resetPackageReviewTables(pool);
@@ -136,15 +169,15 @@ Deno.test('ops repository returns deployment detail snapshots with the latest la
     const detail = await repository.getControlPlaneDeploymentDetail(1);
 
     assertExists(detail);
-    assertEquals(detail.inventory.deploymentSlug, 'chapter-4-asteroids-pilot');
-    assertEquals(detail.latestLaunch?.attemptId, 'attempt-123');
-    assertEquals(detail.latestNrpsRead?.status, 'succeeded');
-    assertEquals(detail.latestGradePublish?.errorCode, 'canvas_score_rejected');
+    assertEquals(detail.inventory.deploymentSlug, "chapter-4-asteroids-pilot");
+    assertEquals(detail.latestLaunch?.attemptId, "attempt-123");
+    assertEquals(detail.latestNrpsRead?.status, "succeeded");
+    assertEquals(detail.latestGradePublish?.errorCode, "canvas_score_rejected");
     assertEquals(detail.diagnostics.length, 3);
   });
 });
 
-Deno.test('ops repository diagnostics include reviewer events while keeping launch, NRPS, and AGS diagnostics intact', async () => {
+Deno.test("ops repository diagnostics include reviewer events while keeping launch, NRPS, and AGS diagnostics intact", async () => {
   await withPackageReviewTestDatabase(async (pool) => {
     await bootstrapPackageReviewSchema(pool);
     await resetPackageReviewTables(pool);
@@ -156,13 +189,13 @@ Deno.test('ops repository diagnostics include reviewer events while keeping laun
         client,
         buildAuditEventRecord({
           id: 4,
-          eventType: 'reviewer.preview_viewed',
-          actorType: 'user',
-          actorId: 'reviewer-123',
-          status: 'succeeded',
-          summary: 'Reviewer opened placement evidence.',
-          detail: { placementId: 'placement-ops-123' },
-          occurredAt: '2026-03-24T12:36:00Z',
+          eventType: "reviewer.preview_viewed",
+          actorType: "user",
+          actorId: "reviewer-123",
+          status: "succeeded",
+          summary: "Reviewer opened placement evidence.",
+          detail: { placementId: "placement-ops-123" },
+          occurredAt: "2026-03-24T12:36:00Z",
         }),
       );
     } finally {
@@ -175,24 +208,32 @@ Deno.test('ops repository diagnostics include reviewer events while keeping laun
     assertExists(detail);
     assertEquals(detail.diagnostics.length, 4);
     assertEquals(
-      detail.diagnostics.some((item) => item.eventType === 'launch.accepted'),
+      detail.diagnostics.some((item) => item.eventType === "launch.accepted"),
       true,
     );
     assertEquals(
-      detail.diagnostics.some((item) => item.eventType === 'deployment.nrps_verified'),
+      detail.diagnostics.some((item) =>
+        item.eventType === "deployment.nrps_verified"
+      ),
       true,
     );
     assertEquals(
-      detail.diagnostics.some((item) => item.eventType === 'grade_publish.failed'),
+      detail.diagnostics.some((item) =>
+        item.eventType === "grade_publish.failed"
+      ),
       true,
     );
     assertEquals(
-      detail.diagnostics.some((item) => item.eventType === 'reviewer.preview_viewed'),
+      detail.diagnostics.some((item) =>
+        item.eventType === "reviewer.preview_viewed"
+      ),
       true,
     );
     assertEquals(
-      detail.diagnostics.find((item) => item.eventType === 'reviewer.preview_viewed')?.kind,
-      'reviewer',
+      detail.diagnostics.find((item) =>
+        item.eventType === "reviewer.preview_viewed"
+      )?.kind,
+      "reviewer",
     );
   });
 });
@@ -202,21 +243,22 @@ function buildInventoryQueryRow(
 ): InventoryQueryRow {
   return {
     deploymentId: overrides.deploymentId ?? 1,
-    deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
-    deploymentLabel:
-      overrides.deploymentLabel ?? 'Chapter 4 Asteroids Pilot Deployment',
-    appId: overrides.appId ?? 'chapter-4-asteroids',
-    appTitle: overrides.appTitle ?? 'Chapter 4 Asteroids',
-    ownerId: overrides.ownerId ?? 'instructor_123',
+    deploymentSlug: overrides.deploymentSlug ?? "chapter-4-asteroids-pilot",
+    deploymentLabel: overrides.deploymentLabel ??
+      "Chapter 4 Asteroids Pilot Deployment",
+    appId: overrides.appId ?? "chapter-4-asteroids",
+    appTitle: overrides.appTitle ?? "Chapter 4 Asteroids",
+    ownerId: overrides.ownerId ?? "instructor_123",
     enabledPackageVersionId: overrides.enabledPackageVersionId ?? 1,
-    enabledPackageVersion: overrides.enabledPackageVersion ?? '0.1.0',
-    approvalStatus: overrides.approvalStatus ?? 'approved',
-    reviewedAt: overrides.reviewedAt ?? '2026-03-23T18:05:00Z',
-    bindingLmsType: overrides.bindingLmsType ?? 'canvas',
-    bindingCanvasEnvironment: overrides.bindingCanvasEnvironment ?? 'production',
-    bindingIssuer: overrides.bindingIssuer ?? 'https://canvas.instructure.com',
-    bindingClientId: overrides.bindingClientId ?? '10000000000001',
-    bindingDeploymentId: overrides.bindingDeploymentId ?? 'deployment-123',
+    enabledPackageVersion: overrides.enabledPackageVersion ?? "0.1.0",
+    approvalStatus: overrides.approvalStatus ?? "approved",
+    reviewedAt: overrides.reviewedAt ?? "2026-03-23T18:05:00Z",
+    bindingLmsType: overrides.bindingLmsType ?? "canvas",
+    bindingCanvasEnvironment: overrides.bindingCanvasEnvironment ??
+      "production",
+    bindingIssuer: overrides.bindingIssuer ?? "https://canvas.instructure.com",
+    bindingClientId: overrides.bindingClientId ?? "10000000000001",
+    bindingDeploymentId: overrides.bindingDeploymentId ?? "deployment-123",
     bindingMoodleAuthenticationRequestUrl:
       overrides.bindingMoodleAuthenticationRequestUrl ?? null,
     bindingMoodleAccessTokenUrl: overrides.bindingMoodleAccessTokenUrl ?? null,
@@ -225,20 +267,20 @@ function buildInventoryQueryRow(
       overrides.bindingSakaiOidcAuthenticationUrl ?? null,
     bindingSakaiAccessTokenUrl: overrides.bindingSakaiAccessTokenUrl ?? null,
     bindingSakaiJwksUrl: overrides.bindingSakaiJwksUrl ?? null,
-    updatedAt: overrides.updatedAt ?? '2026-03-24T12:30:00Z',
-    lastLaunchAt: overrides.lastLaunchAt ?? '2026-03-24T12:30:00Z',
-    lastLaunchStatus: overrides.lastLaunchStatus ?? 'succeeded',
-    lastNrpsReadAt: overrides.lastNrpsReadAt ?? '2026-03-24T12:33:00Z',
-    lastNrpsReadStatus: overrides.lastNrpsReadStatus ?? 'succeeded',
-    lastGradePublishAt: overrides.lastGradePublishAt ?? '2026-03-24T12:35:00Z',
-    lastGradePublishStatus: overrides.lastGradePublishStatus ?? 'failed',
+    updatedAt: overrides.updatedAt ?? "2026-03-24T12:30:00Z",
+    lastLaunchAt: overrides.lastLaunchAt ?? "2026-03-24T12:30:00Z",
+    lastLaunchStatus: overrides.lastLaunchStatus ?? "succeeded",
+    lastNrpsReadAt: overrides.lastNrpsReadAt ?? "2026-03-24T12:33:00Z",
+    lastNrpsReadStatus: overrides.lastNrpsReadStatus ?? "succeeded",
+    lastGradePublishAt: overrides.lastGradePublishAt ?? "2026-03-24T12:35:00Z",
+    lastGradePublishStatus: overrides.lastGradePublishStatus ?? "failed",
     totalLaunches: overrides.totalLaunches ?? 1,
     attemptsStarted: overrides.attemptsStarted ?? 1,
     attemptsCompleted: overrides.attemptsCompleted ?? 1,
     gradePublishesSucceeded: overrides.gradePublishesSucceeded ?? 0,
     gradePublishesFailed: overrides.gradePublishesFailed ?? 1,
     recentActiveUsers: overrides.recentActiveUsers ?? 1,
-    usageLastLaunchAt: overrides.usageLastLaunchAt ?? '2026-03-24T12:30:00Z',
-    measuredAt: overrides.measuredAt ?? '2026-03-24T12:50:00Z',
+    usageLastLaunchAt: overrides.usageLastLaunchAt ?? "2026-03-24T12:30:00Z",
+    measuredAt: overrides.measuredAt ?? "2026-03-24T12:50:00Z",
   };
 }

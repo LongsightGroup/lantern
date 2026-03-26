@@ -1,38 +1,50 @@
-import type { DeploymentBinding, LaunchServiceClaims } from '../lti/types.ts';
+import type { DeploymentBinding, LaunchServiceClaims } from "../lti/types.ts";
 import type {
   ApprovalStatus,
   AuditActorType,
   AuditEventStatus,
   GradePublicationRecord,
   GradePublicationStatus,
-} from '../package_review/types.ts';
+} from "../package_review/types.ts";
 
-export type ControlPlaneHealthStatus = 'healthy' | 'attention' | 'failed' | 'unknown';
+export type ControlPlaneHealthStatus =
+  | "healthy"
+  | "attention"
+  | "failed"
+  | "unknown";
 
 export type ControlPlaneHealthDimensionName =
-  | 'review'
-  | 'enablement'
-  | 'launch'
-  | 'gradePublication'
-  | 'nrps'
-  | 'brokerVerification';
+  | "review"
+  | "enablement"
+  | "launch"
+  | "gradePublication"
+  | "nrps"
+  | "brokerVerification";
 
-export type ControlPlaneActivityStatus = 'succeeded' | 'failed' | 'pending' | 'notRun';
+export type ControlPlaneActivityStatus =
+  | "succeeded"
+  | "failed"
+  | "pending"
+  | "notRun";
 
 export type ControlPlaneDiagnosticKind =
-  | 'launch'
-  | 'nrps'
-  | 'gradePublication'
-  | 'brokerVerification'
-  | 'reviewer';
+  | "launch"
+  | "nrps"
+  | "gradePublication"
+  | "brokerVerification"
+  | "reviewer";
 
-export type BrokerVerificationSource = 'manual' | 'ci' | '1edtech';
-export type BrokerVerificationRunStatus = 'passed' | 'failed' | 'pending' | 'notRun';
+export type BrokerVerificationSource = "manual" | "ci" | "1edtech";
+export type BrokerVerificationRunStatus =
+  | "passed"
+  | "failed"
+  | "pending"
+  | "notRun";
 export type OfficialCertificationState =
-  | 'notCertified'
-  | 'ltiAdvantageCertified'
-  | 'ltiAdvantageComplete';
-export type BrokerVerificationSupportedPath = 'canvasLti13LaunchAgsNrps';
+  | "notCertified"
+  | "ltiAdvantageCertified"
+  | "ltiAdvantageComplete";
+export type BrokerVerificationSupportedPath = "canvasLti13LaunchAgsNrps";
 
 export interface ControlPlaneHealthDimension {
   name: ControlPlaneHealthDimensionName;
@@ -84,8 +96,8 @@ export interface DeploymentGradePublicationSnapshot {
   canvasUserId: string;
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: GradePublicationRecord['activityProgress'];
-  gradingProgress: GradePublicationRecord['gradingProgress'];
+  activityProgress: GradePublicationRecord["activityProgress"];
+  gradingProgress: GradePublicationRecord["gradingProgress"];
   publishedAt: string | null;
   updatedAt: string;
   errorCode: string | null;
