@@ -41,6 +41,7 @@ Deno.test('POST /admin/packages/:appId/deployment/install saves the Canvas bindi
     const app = createApp({ getRepository: () => repository });
     const formData = new FormData();
 
+    formData.set('lms', 'canvas');
     formData.set('canvasEnvironment', 'production');
     formData.set('clientId', '10000000000001');
     formData.set('deploymentId', 'deployment-123');
@@ -67,12 +68,13 @@ Deno.test('POST /admin/packages/:appId/deployment/install saves the Canvas bindi
     const auditEvents = await repository.listAuditEventsByEventType('deployment.binding_saved');
     assertEquals(auditEvents.length, 1);
     assertEquals(auditEvents[0]?.deploymentRecordId, 3);
+    assertEquals(auditEvents[0]?.detail.lms, 'canvas');
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
   }
 });
 
-Deno.test('GET /admin/packages/:appId/deployment renders the Canvas install sequence and saved binding', async () => {
+Deno.test('GET /admin/packages/:appId/deployment renders the Canvas, Moodle, and Sakai deployment cards', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
   Deno.env.set('APP_ORIGIN', 'http://localhost:8000');
 
@@ -133,8 +135,14 @@ Deno.test('GET /admin/packages/:appId/deployment renders the Canvas install sequ
     assertEquals(response.status, 200);
     const body = await response.text();
 
-    assertStringIncludes(body, 'One supported setup path');
+    assertStringIncludes(body, 'Managed LMS deployment');
+    assertStringIncludes(body, 'Canvas deployment');
+    assertStringIncludes(body, 'Moodle deployment');
+    assertStringIncludes(body, 'Sakai deployment');
     assertStringIncludes(body, 'Config URL');
+    assertStringIncludes(body, 'Authentication request URL');
+    assertStringIncludes(body, 'OIDC authentication URL');
+    assertStringIncludes(body, 'Public keyset URL');
     assertStringIncludes(body, 'Canvas Client ID');
     assertStringIncludes(body, 'Launch-ready configuration saved');
     assertStringIncludes(body, 'Current status');
@@ -143,7 +151,9 @@ Deno.test('GET /admin/packages/:appId/deployment renders the Canvas install sequ
     assertStringIncludes(body, 'Last NRPS read');
     assertStringIncludes(body, 'Pilot usage');
     assertStringIncludes(body, 'Grade publishes');
-    assertStringIncludes(body, 'Version picker');
+    assertStringIncludes(body, 'Save exact Moodle binding');
+    assertStringIncludes(body, 'Save exact Sakai binding');
+    assertStringIncludes(body, 'Save exact version pin');
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
   }
