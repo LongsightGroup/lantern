@@ -92,13 +92,15 @@ Deno.test('ops repository lists deployment-centric inventory rows with owner, ve
 
     const repository = await createOpsRepositoryForTest(pool);
     const rows = await repository.listControlPlaneDeployments();
+    const canvasRow = rows.find((row) => row.binding?.lms === 'canvas');
 
-    assertEquals(rows.length, 1);
-    assertEquals(rows[0]?.deploymentSlug, 'chapter-4-asteroids-pilot');
-    assertEquals(rows[0]?.ownerId, 'instructor_123');
-    assertEquals(rows[0]?.enabledPackageVersion, '0.1.0');
-    assertEquals(rows[0]?.pilotUsage.attemptsCompleted, 1);
-    assertEquals(rows[0]?.lastGradePublishStatus, 'failed');
+    assertEquals(rows.length, 3);
+    assertExists(canvasRow);
+    assertEquals(canvasRow.deploymentSlug, 'chapter-4-asteroids-pilot');
+    assertEquals(canvasRow.ownerId, 'instructor_123');
+    assertEquals(canvasRow.enabledPackageVersion, '0.1.0');
+    assertEquals(canvasRow.pilotUsage.attemptsCompleted, 1);
+    assertEquals(canvasRow.lastGradePublishStatus, 'failed');
   });
 });
 

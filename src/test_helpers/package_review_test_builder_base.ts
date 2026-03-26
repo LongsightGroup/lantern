@@ -85,17 +85,37 @@ export function buildImportedPackageVersion(
 }
 
 export function buildDeploymentRecord(overrides: Partial<DeploymentRecord> = {}): DeploymentRecord {
+  const appId = overrides.appId ?? 'chapter-4-asteroids';
+  const binding = overrides.binding ?? null;
+  const defaultDeploymentIdentity =
+    binding === null || binding.lms === 'canvas'
+      ? {
+          slug: `${appId}-pilot`,
+          label: 'Pilot Deployment',
+        }
+      : {
+          slug: `${appId}-${binding.lms}`,
+          label: `${capitalizeSegment(binding.lms)} Deployment`,
+        };
+
   return {
     id: 1,
-    slug: 'chapter-4-asteroids-pilot',
-    label: 'Chapter 4 Asteroids Pilot Deployment',
-    appId: 'chapter-4-asteroids',
+    slug: defaultDeploymentIdentity.slug,
+    label: `${appId.replaceAll('-', ' ')} ${defaultDeploymentIdentity.label}`
+      .split(' ')
+      .map((segment) => segment[0] ? `${segment[0].toUpperCase()}${segment.slice(1)}` : segment)
+      .join(' '),
+    appId,
     enabledPackageVersionId: 1,
     enabledPackageVersion: '0.1.0',
-    binding: null,
+    binding,
     updatedAt: DEFAULT_UPDATED_AT,
     ...overrides,
   };
+}
+
+function capitalizeSegment(value: string): string {
+  return value.length === 0 ? value : `${value[0]!.toUpperCase()}${value.slice(1)}`;
 }
 
 export function buildAttemptRecord(overrides: Partial<AttemptRecord> = {}): AttemptRecord {

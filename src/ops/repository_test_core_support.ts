@@ -1,12 +1,14 @@
 import type { Pool } from '@db/postgres';
-import type { CanvasDeploymentBinding, RuntimeSessionRecord } from '../lti/types.ts';
+import type { DeploymentBinding, RuntimeSessionRecord } from '../lti/types.ts';
 import type {
   AttemptRecord,
   AuditEventRecord,
   CanvasLineItemBindingRecord,
+  DeploymentRecord,
   GradePublicationRecord,
   PackageVersionRecord,
 } from '../package_review/types.ts';
+import { buildDeploymentRecord } from '../test_helpers/package_review.ts';
 
 type TestClient = Awaited<ReturnType<Pool['connect']>>;
 
@@ -83,21 +85,40 @@ export async function insertDeployment(
   client: TestClient,
   appId: string,
   enabledPackageVersionId: number,
-  binding: CanvasDeploymentBinding,
+  binding: DeploymentBinding,
+  overrides: Partial<Pick<DeploymentRecord, 'id' | 'slug' | 'label' | 'updatedAt'>> = {},
 ): Promise<void> {
+  const record = buildDeploymentRecord({
+    id: overrides.id ?? 1,
+    appId,
+    enabledPackageVersionId,
+    binding,
+    ...(overrides.slug === undefined ? {} : { slug: overrides.slug }),
+    ...(overrides.label === undefined ? {} : { label: overrides.label }),
+    ...(overrides.updatedAt === undefined ? {} : { updatedAt: overrides.updatedAt }),
+  });
+
   await client.queryArray({
-    text: 'INSERT INTO deployments (id, slug, label, app_id, enabled_package_version_id, canvas_environment, issuer, client_id, deployment_id, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+    text:
+      'INSERT INTO deployments (id, slug, label, app_id, enabled_package_version_id, lms_type, canvas_environment, issuer, client_id, deployment_id, moodle_authentication_request_url, moodle_access_token_url, moodle_jwks_url, sakai_oidc_authentication_url, sakai_access_token_url, sakai_jwks_url, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)',
     args: [
-      1,
-      'chapter-4-asteroids-pilot',
-      'Chapter 4 Asteroids Pilot Deployment',
-      appId,
-      enabledPackageVersionId,
-      binding.canvasEnvironment,
+      record.id,
+      record.slug,
+      record.label,
+      record.appId,
+      record.enabledPackageVersionId,
+      binding.lms,
+      binding.lms === 'canvas' ? binding.canvasEnvironment : null,
       binding.issuer,
       binding.clientId,
       binding.deploymentId,
-      '2026-03-24T12:30:00Z',
+      binding.lms === 'moodle' ? binding.authenticationRequestUrl : null,
+      binding.lms === 'moodle' ? binding.accessTokenUrl : null,
+      binding.lms === 'moodle' ? binding.jwksUrl : null,
+      binding.lms === 'sakai' ? binding.oidcAuthenticationUrl : null,
+      binding.lms === 'sakai' ? binding.accessTokenUrl : null,
+      binding.lms === 'sakai' ? binding.jwksUrl : null,
+      record.updatedAt,
     ],
   });
 }

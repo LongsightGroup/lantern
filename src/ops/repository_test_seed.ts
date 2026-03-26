@@ -6,7 +6,12 @@ import {
   buildGradePublicationRecord,
   buildPackageVersionRecord,
 } from '../test_helpers/package_review.ts';
-import { buildDeploymentBinding, buildRuntimeSessionRecord } from '../test_helpers/lti.ts';
+import {
+  buildCanvasDeploymentBinding,
+  buildMoodleDeploymentBinding,
+  buildRuntimeSessionRecord,
+  buildSakaiDeploymentBinding,
+} from '../test_helpers/lti.ts';
 import {
   insertAttempt,
   insertAuditEvent,
@@ -33,7 +38,37 @@ export async function seedOpsRepositoryFixtures(pool: Pool): Promise<void> {
       client,
       packageVersion.appId,
       packageVersion.id,
-      buildDeploymentBinding(),
+      buildCanvasDeploymentBinding(),
+      {
+        id: 1,
+        slug: 'chapter-4-asteroids-pilot',
+        label: 'Chapter 4 Asteroids Pilot Deployment',
+        updatedAt: '2026-03-24T12:30:00Z',
+      },
+    );
+    await insertDeployment(
+      client,
+      packageVersion.appId,
+      packageVersion.id,
+      buildMoodleDeploymentBinding(),
+      {
+        id: 2,
+        slug: 'chapter-4-asteroids-moodle',
+        label: 'Chapter 4 Asteroids Moodle Deployment',
+        updatedAt: '2026-03-24T12:20:00Z',
+      },
+    );
+    await insertDeployment(
+      client,
+      packageVersion.appId,
+      packageVersion.id,
+      buildSakaiDeploymentBinding(),
+      {
+        id: 3,
+        slug: 'chapter-4-asteroids-sakai',
+        label: 'Chapter 4 Asteroids Sakai Deployment',
+        updatedAt: '2026-03-24T12:10:00Z',
+      },
     );
     await insertAttempt(
       client,
