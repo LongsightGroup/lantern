@@ -1,6 +1,6 @@
 import type {
+  CanvasDeploymentBinding,
   DeepLinkingSessionRecord,
-  DeploymentBinding,
   RuntimeSessionRecord,
   ValidatedDeepLinkingRequest,
   ValidatedLaunch,
@@ -13,7 +13,7 @@ import {
 } from './lti_identity_builders.ts';
 
 export function buildValidatedLaunch(overrides: Partial<ValidatedLaunch> = {}): ValidatedLaunch {
-  const bindingOverrides: Partial<DeploymentBinding> = {};
+  const bindingOverrides: Partial<CanvasDeploymentBinding> = {};
   if (overrides.canvasEnvironment !== undefined) {
     bindingOverrides.canvasEnvironment = overrides.canvasEnvironment;
   }
@@ -75,7 +75,7 @@ export function buildDeepLinkingSettingsClaimValue(
 export function buildValidatedDeepLinkingRequest(
   overrides: Partial<ValidatedDeepLinkingRequest> = {},
 ): ValidatedDeepLinkingRequest {
-  const bindingOverrides: Partial<DeploymentBinding> = {};
+  const bindingOverrides: Partial<CanvasDeploymentBinding> = {};
   if (overrides.canvasEnvironment !== undefined) {
     bindingOverrides.canvasEnvironment = overrides.canvasEnvironment;
   }

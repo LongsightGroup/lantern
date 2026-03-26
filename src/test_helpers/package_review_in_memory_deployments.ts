@@ -7,6 +7,7 @@ import { buildDeploymentRecord } from './package_review_test_builder_base.ts';
 type DeploymentRepository = Pick<
   PackageReviewRepository,
   | 'getDeploymentBySlug'
+  | 'listDeploymentsByApp'
   | 'getDeploymentByBinding'
   | 'saveDeploymentBinding'
   | 'pinDeploymentVersion'
@@ -21,9 +22,18 @@ export function createInMemoryDeploymentRepository(
       return Promise.resolve(deployment ? cloneRecord(deployment) : null);
     },
 
+    listDeploymentsByApp(appId) {
+      return Promise.resolve(
+        state.deployments
+          .filter((candidate) => candidate.appId === appId)
+          .map((deployment) => cloneRecord(deployment)),
+      );
+    },
+
     getDeploymentByBinding(binding) {
       const deployment = state.deployments.find(
         (candidate) =>
+          candidate.binding?.lms === binding.lms &&
           candidate.binding?.issuer === binding.issuer &&
           candidate.binding?.clientId === binding.clientId &&
           candidate.binding?.deploymentId === binding.deploymentId,

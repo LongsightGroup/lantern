@@ -182,6 +182,7 @@ export function buildRetryableGradePublicationLookup(
     deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
     publication: overrides.publication ?? buildDeploymentGradePublicationSnapshot(),
     binding: overrides.binding ?? {
+      lms: 'canvas',
       canvasEnvironment: 'production',
       issuer: 'https://canvas.instructure.com',
       clientId: '10000000000001',
@@ -239,6 +240,7 @@ export function buildControlPlaneDeploymentInventoryRow(
     enabledPackageVersion: overrides.enabledPackageVersion ?? '0.1.0',
     approvalStatus: overrides.approvalStatus ?? 'approved',
     binding: overrides.binding ?? {
+      lms: 'canvas',
       canvasEnvironment: 'production',
       issuer: 'https://canvas.instructure.com',
       clientId: '10000000000001',

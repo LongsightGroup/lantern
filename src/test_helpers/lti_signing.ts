@@ -1,5 +1,5 @@
 import { importJWK, SignJWT } from 'jose';
-import type { DeploymentBinding } from '../lti/types.ts';
+import type { CanvasDeploymentBinding } from '../lti/types.ts';
 import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE as DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from '../lti/types.ts';
 import {
   type AgsShape,
@@ -36,7 +36,7 @@ export const TEST_CANVAS_PRIVATE_JWK = {
 } as const;
 
 export interface CanvasLaunchTokenInput {
-  deploymentBinding?: Partial<DeploymentBinding>;
+  deploymentBinding?: Partial<CanvasDeploymentBinding>;
   audience?: string;
   nonce?: string;
   subject?: string | null;

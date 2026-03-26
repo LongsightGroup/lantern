@@ -1,7 +1,7 @@
 import type {
   CanvasEnvironment,
+  CanvasDeploymentBinding,
   CanvasPlatformConfig,
-  DeploymentBinding,
   LaunchAssignmentAndGradeServices,
   LaunchNamesAndRolesService,
   LaunchServiceClaims,
@@ -46,13 +46,14 @@ export interface CanvasLoginRequest {
 
 export type AgsShape = 'lineitem' | 'lineitems' | 'both' | 'none';
 
-export function buildDeploymentBinding(
-  overrides: Partial<DeploymentBinding> = {},
-): DeploymentBinding {
+export function buildCanvasDeploymentBinding(
+  overrides: Partial<CanvasDeploymentBinding> = {},
+): CanvasDeploymentBinding {
   const canvasEnvironment = overrides.canvasEnvironment ?? 'production';
   const platform = TEST_CANVAS_PLATFORMS[canvasEnvironment];
 
   return {
+    lms: 'canvas',
     canvasEnvironment,
     issuer: overrides.issuer ?? platform.issuer,
     clientId: overrides.clientId ?? '10000000000001',
@@ -60,10 +61,62 @@ export function buildDeploymentBinding(
   };
 }
 
+export function buildMoodleDeploymentBinding(
+  overrides: Partial<{
+    issuer: string;
+    clientId: string;
+    deploymentId: string;
+    authenticationRequestUrl: string;
+    accessTokenUrl: string;
+    jwksUrl: string;
+  }> = {},
+) {
+  return {
+    lms: 'moodle' as const,
+    issuer: overrides.issuer ?? 'https://moodle.example',
+    clientId: overrides.clientId ?? 'moodle-client-123',
+    deploymentId: overrides.deploymentId ?? 'moodle-deployment-123',
+    authenticationRequestUrl:
+      overrides.authenticationRequestUrl ?? 'https://moodle.example/mod/lti/auth.php',
+    accessTokenUrl: overrides.accessTokenUrl ?? 'https://moodle.example/mod/lti/token.php',
+    jwksUrl: overrides.jwksUrl ?? 'https://moodle.example/mod/lti/certs.php',
+  };
+}
+
+export function buildSakaiDeploymentBinding(
+  overrides: Partial<{
+    issuer: string;
+    clientId: string;
+    deploymentId: string;
+    oidcAuthenticationUrl: string;
+    accessTokenUrl: string;
+    jwksUrl: string;
+  }> = {},
+) {
+  return {
+    lms: 'sakai' as const,
+    issuer: overrides.issuer ?? 'https://sakai.example',
+    clientId: overrides.clientId ?? 'sakai-client-123',
+    deploymentId: overrides.deploymentId ?? 'sakai-deployment-123',
+    oidcAuthenticationUrl:
+      overrides.oidcAuthenticationUrl ??
+      'https://sakai.example/imsti/sakai_oidc_login',
+    accessTokenUrl:
+      overrides.accessTokenUrl ?? 'https://sakai.example/imsti/sakai_access_token',
+    jwksUrl: overrides.jwksUrl ?? 'https://sakai.example/imsti/sakai_jwks',
+  };
+}
+
+export function buildDeploymentBinding(
+  overrides: Partial<CanvasDeploymentBinding> = {},
+): CanvasDeploymentBinding {
+  return buildCanvasDeploymentBinding(overrides);
+}
+
 export function buildCanvasLoginRequest(
   overrides: Partial<CanvasLoginRequest> = {},
 ): CanvasLoginRequest {
-  const bindingOverrides: Partial<DeploymentBinding> = {};
+  const bindingOverrides: Partial<CanvasDeploymentBinding> = {};
   if (overrides.iss !== undefined) {
     bindingOverrides.issuer = overrides.iss;
   }
@@ -73,7 +126,7 @@ export function buildCanvasLoginRequest(
   if (overrides.deploymentId !== undefined) {
     bindingOverrides.deploymentId = overrides.deploymentId;
   }
-  const binding = buildDeploymentBinding(bindingOverrides);
+  const binding = buildCanvasDeploymentBinding(bindingOverrides);
 
   return {
     iss: binding.issuer,
@@ -86,7 +139,7 @@ export function buildCanvasLoginRequest(
 }
 
 export function buildLoginStateRecord(overrides: Partial<LoginStateRecord> = {}): LoginStateRecord {
-  const bindingOverrides: Partial<DeploymentBinding> = {};
+  const bindingOverrides: Partial<CanvasDeploymentBinding> = {};
   if (overrides.canvasEnvironment !== undefined) {
     bindingOverrides.canvasEnvironment = overrides.canvasEnvironment;
   }
@@ -99,7 +152,7 @@ export function buildLoginStateRecord(overrides: Partial<LoginStateRecord> = {})
   if (overrides.deploymentId !== undefined) {
     bindingOverrides.deploymentId = overrides.deploymentId;
   }
-  const binding = buildDeploymentBinding(bindingOverrides);
+  const binding = buildCanvasDeploymentBinding(bindingOverrides);
 
   return {
     state: overrides.state ?? 'state-123',
