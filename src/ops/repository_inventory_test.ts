@@ -102,6 +102,28 @@ Deno.test('ops repository lists deployment-centric inventory rows with owner, ve
   });
 });
 
+Deno.test('ops repository keeps one app readable across canvas, moodle, and sakai deployment rows', async () => {
+  await withPackageReviewTestDatabase(async (pool) => {
+    await bootstrapPackageReviewSchema(pool);
+    await resetPackageReviewTables(pool);
+    await seedOpsRepositoryFixtures(pool);
+
+    const repository = await createOpsRepositoryForTest(pool);
+    const rows = await repository.listControlPlaneDeployments();
+    const rowsByLms = new Map(
+      rows.map((row) => [row.binding?.lms ?? 'missing', row] as const),
+    );
+
+    assertEquals(rows.length, 3);
+    assertEquals(rows.every((row) => row.appId === 'chapter-4-asteroids'), true);
+    assertEquals(rowsByLms.get('canvas')?.deploymentSlug, 'chapter-4-asteroids-pilot');
+    assertEquals(rowsByLms.get('moodle')?.deploymentSlug, 'chapter-4-asteroids-moodle');
+    assertEquals(rowsByLms.get('sakai')?.deploymentSlug, 'chapter-4-asteroids-sakai');
+    assertEquals(rowsByLms.get('moodle')?.health.dimensions.enablement.summary, 'Deployment pin and Moodle binding are present.');
+    assertEquals(rowsByLms.get('sakai')?.health.dimensions.enablement.summary, 'Deployment pin and Sakai binding are present.');
+  });
+});
+
 Deno.test('ops repository returns deployment detail snapshots with the latest launch, NRPS read, AGS publish, and diagnostics feed', async () => {
   await withPackageReviewTestDatabase(async (pool) => {
     await bootstrapPackageReviewSchema(pool);
