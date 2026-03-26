@@ -1,25 +1,25 @@
-import type { Pool } from '@db/postgres';
-import { withClient, withTransaction } from './repository_core.ts';
+import type { Pool } from "@db/postgres";
+import { withClient, withTransaction } from "./repository_core.ts";
 import {
   mapLoginStateRow,
   mapOptionalDeployment,
   mapOptionalLoginState,
-} from './repository_mappers_package.ts';
-import { DEPLOYMENT_SELECT } from './repository_query_fragments.ts';
-import type { DeploymentRow, LoginStateRow } from './repository_row_types.ts';
-import { isUniqueViolation } from './repository_value_support.ts';
-import type { PackageReviewRepository } from './repository.ts';
+} from "./repository_mappers_package.ts";
+import { DEPLOYMENT_SELECT } from "./repository_query_fragments.ts";
+import type { DeploymentRow, LoginStateRow } from "./repository_row_types.ts";
+import { isUniqueViolation } from "./repository_value_support.ts";
+import type { PackageReviewRepository } from "./repository.ts";
 
 export function createDeploymentLoginRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | 'getDeploymentBySlug'
-  | 'listDeploymentsByApp'
-  | 'getDeploymentByBinding'
-  | 'createLoginState'
-  | 'getLoginStateByState'
-  | 'consumeLoginState'
+  | "getDeploymentBySlug"
+  | "listDeploymentsByApp"
+  | "getDeploymentByBinding"
+  | "createLoginState"
+  | "getLoginStateByState"
+  | "consumeLoginState"
 > {
   return {
     async getDeploymentBySlug(slug) {
@@ -46,7 +46,9 @@ export function createDeploymentLoginRepositoryMethods(
           camelCase: true,
         });
 
-        return result.rows.map((row) => mapOptionalDeployment(row)).filter((row) => row !== null);
+        return result.rows.map((row) => mapOptionalDeployment(row)).filter((
+          row,
+        ) => row !== null);
       });
     },
 
@@ -60,7 +62,12 @@ export function createDeploymentLoginRepositoryMethods(
               AND deployments.client_id = $3
               AND deployments.deployment_id = $4
           `,
-          args: [binding.lms, binding.issuer, binding.clientId, binding.deploymentId],
+          args: [
+            binding.lms,
+            binding.issuer,
+            binding.clientId,
+            binding.deploymentId,
+          ],
           camelCase: true,
         });
 
@@ -123,7 +130,9 @@ export function createDeploymentLoginRepositoryMethods(
           return mapLoginStateRow(result.rows[0]);
         } catch (error) {
           if (isUniqueViolation(error)) {
-            throw new Error(`Login state ${record.state} already exists and cannot be reused.`);
+            throw new Error(
+              `Login state ${record.state} already exists and cannot be reused.`,
+            );
           }
 
           throw error;
@@ -161,9 +170,12 @@ export function createDeploymentLoginRepositoryMethods(
 
     async consumeLoginState(input) {
       return await withClient(pool, async (client) => {
-        return await withTransaction(client, 'consume_login_state', async (transaction) => {
-          const updated = await transaction.queryObject<LoginStateRow>({
-            text: `
+        return await withTransaction(
+          client,
+          "consume_login_state",
+          async (transaction) => {
+            const updated = await transaction.queryObject<LoginStateRow>({
+              text: `
                 UPDATE lti_login_states
                 SET used_at = $2
                 WHERE state = $1
@@ -182,18 +194,18 @@ export function createDeploymentLoginRepositoryMethods(
                   expires_at,
                   used_at
               `,
-            args: [input.state, input.usedAt],
-            camelCase: true,
-          });
+              args: [input.state, input.usedAt],
+              camelCase: true,
+            });
 
-          const consumed = updated.rows[0];
+            const consumed = updated.rows[0];
 
-          if (consumed) {
-            return mapLoginStateRow(consumed);
-          }
+            if (consumed) {
+              return mapLoginStateRow(consumed);
+            }
 
-          const existing = await transaction.queryObject<LoginStateRow>({
-            text: `
+            const existing = await transaction.queryObject<LoginStateRow>({
+              text: `
                 SELECT
                   state,
                   canvas_environment,
@@ -210,21 +222,26 @@ export function createDeploymentLoginRepositoryMethods(
                 FROM lti_login_states
                 WHERE state = $1
               `,
-            args: [input.state],
-            camelCase: true,
-          });
-          const row = existing.rows[0];
+              args: [input.state],
+              camelCase: true,
+            });
+            const row = existing.rows[0];
 
-          if (!row) {
-            throw new Error(`Login state ${input.state} was not found.`);
-          }
+            if (!row) {
+              throw new Error(`Login state ${input.state} was not found.`);
+            }
 
-          if (row.usedAt !== null) {
-            throw new Error(`Login state ${input.state} has already been used.`);
-          }
+            if (row.usedAt !== null) {
+              throw new Error(
+                `Login state ${input.state} has already been used.`,
+              );
+            }
 
-          throw new Error(`Login state ${input.state} could not be consumed.`);
-        });
+            throw new Error(
+              `Login state ${input.state} could not be consumed.`,
+            );
+          },
+        );
       });
     },
   };

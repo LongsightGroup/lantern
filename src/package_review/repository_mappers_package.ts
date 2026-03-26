@@ -1,7 +1,14 @@
-import type { DeploymentBinding, LoginStateRecord } from '../lti/types.ts';
-import type { DeploymentRecord, PackageVersionRecord } from './types.ts';
-import type { DeploymentRow, LoginStateRow, PackageVersionRow } from './repository_row_types.ts';
-import { normalizeOptionalTimestamp, normalizeTimestamp } from './repository_value_support.ts';
+import type { DeploymentBinding, LoginStateRecord } from "../lti/types.ts";
+import type { DeploymentRecord, PackageVersionRecord } from "./types.ts";
+import type {
+  DeploymentRow,
+  LoginStateRow,
+  PackageVersionRow,
+} from "./repository_row_types.ts";
+import {
+  normalizeOptionalTimestamp,
+  normalizeTimestamp,
+} from "./repository_value_support.ts";
 
 export function mapOptionalPackageVersion(
   row: PackageVersionRow | undefined,
@@ -13,9 +20,11 @@ export function mapOptionalPackageVersion(
   return mapPackageVersionRow(row);
 }
 
-export function mapPackageVersionRow(row: PackageVersionRow | undefined): PackageVersionRecord {
+export function mapPackageVersionRow(
+  row: PackageVersionRow | undefined,
+): PackageVersionRecord {
   if (!row) {
-    throw new Error('Expected a package version row.');
+    throw new Error("Expected a package version row.");
   }
 
   return {
@@ -52,7 +61,9 @@ export function mapPackageVersionRow(row: PackageVersionRow | undefined): Packag
   };
 }
 
-export function mapOptionalDeployment(row: DeploymentRow | undefined): DeploymentRecord | null {
+export function mapOptionalDeployment(
+  row: DeploymentRow | undefined,
+): DeploymentRecord | null {
   if (!row) {
     return null;
   }
@@ -60,9 +71,11 @@ export function mapOptionalDeployment(row: DeploymentRow | undefined): Deploymen
   return mapDeploymentRow(row);
 }
 
-export function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentRecord {
+export function mapDeploymentRow(
+  row: DeploymentRow | undefined,
+): DeploymentRecord {
   if (!row) {
-    throw new Error('Expected a deployment row.');
+    throw new Error("Expected a deployment row.");
   }
 
   return {
@@ -77,25 +90,29 @@ export function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentReco
   };
 }
 
-export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | null {
-  if (row.issuer === null || row.clientId === null || row.deploymentId === null) {
+export function mapDeploymentBinding(
+  row: DeploymentRow,
+): DeploymentBinding | null {
+  if (
+    row.issuer === null || row.clientId === null || row.deploymentId === null
+  ) {
     return null;
   }
 
   switch (row.lmsType) {
-    case 'canvas':
+    case "canvas":
       if (row.canvasEnvironment === null) {
         return null;
       }
 
       return {
-        lms: 'canvas',
+        lms: "canvas",
         canvasEnvironment: row.canvasEnvironment,
         issuer: row.issuer,
         clientId: row.clientId,
         deploymentId: row.deploymentId,
       };
-    case 'moodle':
+    case "moodle":
       if (
         row.moodleAuthenticationRequestUrl === null ||
         row.moodleAccessTokenUrl === null ||
@@ -105,7 +122,7 @@ export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | nu
       }
 
       return {
-        lms: 'moodle',
+        lms: "moodle",
         issuer: row.issuer,
         clientId: row.clientId,
         deploymentId: row.deploymentId,
@@ -113,7 +130,7 @@ export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | nu
         accessTokenUrl: row.moodleAccessTokenUrl,
         jwksUrl: row.moodleJwksUrl,
       };
-    case 'sakai':
+    case "sakai":
       if (
         row.sakaiOidcAuthenticationUrl === null ||
         row.sakaiAccessTokenUrl === null ||
@@ -123,7 +140,7 @@ export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | nu
       }
 
       return {
-        lms: 'sakai',
+        lms: "sakai",
         issuer: row.issuer,
         clientId: row.clientId,
         deploymentId: row.deploymentId,
@@ -131,10 +148,12 @@ export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | nu
         accessTokenUrl: row.sakaiAccessTokenUrl,
         jwksUrl: row.sakaiJwksUrl,
       };
-  };
+  }
 }
 
-export function mapOptionalLoginState(row: LoginStateRow | undefined): LoginStateRecord | null {
+export function mapOptionalLoginState(
+  row: LoginStateRow | undefined,
+): LoginStateRecord | null {
   if (!row) {
     return null;
   }
@@ -142,13 +161,15 @@ export function mapOptionalLoginState(row: LoginStateRow | undefined): LoginStat
   return mapLoginStateRow(row);
 }
 
-export function mapLoginStateRow(row: LoginStateRow | undefined): LoginStateRecord {
+export function mapLoginStateRow(
+  row: LoginStateRow | undefined,
+): LoginStateRecord {
   if (!row) {
-    throw new Error('Expected a login state row.');
+    throw new Error("Expected a login state row.");
   }
 
   return {
-    lms: 'canvas',
+    lms: "canvas",
     state: row.state,
     canvasEnvironment: row.canvasEnvironment,
     issuer: row.issuer,
