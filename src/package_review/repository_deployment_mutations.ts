@@ -6,17 +6,23 @@ import type { DeploymentRow, PackageVersionRow } from './repository_row_types.ts
 import { isUniqueViolation } from './repository_value_support.ts';
 import type { PackageReviewRepository } from './repository.ts';
 
+interface QueryObjectResult<Row> {
+  rows: Row[];
+}
+
+interface QueryableTransaction {
+  queryObject<Row>(query: {
+    text: string;
+    args?: unknown[];
+    camelCase?: boolean;
+  }): Promise<QueryObjectResult<Row>>;
+}
+
 export function createDeploymentMutationRepositoryMethods(
   pool: Pool,
 ): Pick<PackageReviewRepository, 'saveDeploymentBinding' | 'pinDeploymentVersion'> {
   return {
     async saveDeploymentBinding(input) {
-      if (input.binding.lms !== 'canvas') {
-        throw new Error(`Saving ${input.binding.lms} bindings is not implemented yet.`);
-      }
-
-      const binding = input.binding;
-
       return await withClient(pool, async (client) => {
         return await withTransaction(client, 'save_deployment_binding', async (transaction) => {
           const existingDeploymentResult = await transaction.queryObject<DeploymentRow>({
@@ -34,15 +40,38 @@ export function createDeploymentMutationRepositoryMethods(
             throw new Error(`Deployment ${input.slug} belongs to app ${existingDeployment.appId}.`);
           }
 
+          if (existingDeployment && existingDeployment.lmsType !== input.binding.lms) {
+            throw new Error(
+              `Deployment ${input.slug} is already bound as ${existingDeployment.lmsType} and cannot change to ${input.binding.lms}.`,
+            );
+          }
+
+          const existingAppSlotResult = await transaction.queryObject<DeploymentRow>({
+            text: `
+                ${DEPLOYMENT_SELECT}
+                WHERE deployments.app_id = $1
+                  AND deployments.lms_type = $2
+                  AND deployments.slug <> $3
+              `,
+            args: [input.appId, input.binding.lms, input.slug],
+            camelCase: true,
+          });
+
+          if (existingAppSlotResult.rows[0]) {
+            throw new Error(`App ${input.appId} already has a ${input.binding.lms} deployment.`);
+          }
+
           const conflictingBindingResult = await transaction.queryObject<DeploymentRow>({
             text: `
                 ${DEPLOYMENT_SELECT}
-                WHERE deployments.issuer = $1
-                  AND deployments.client_id = $2
-                  AND deployments.deployment_id = $3
-                  AND deployments.slug <> $4
+                WHERE deployments.lms_type = $1
+                  AND deployments.issuer = $2
+                  AND deployments.client_id = $3
+                  AND deployments.deployment_id = $4
+                  AND deployments.slug <> $5
               `,
             args: [
+              input.binding.lms,
               input.binding.issuer,
               input.binding.clientId,
               input.binding.deploymentId,
@@ -53,65 +82,78 @@ export function createDeploymentMutationRepositoryMethods(
 
           if (conflictingBindingResult.rows[0]) {
             throw new Error(
-              `Canvas binding ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+              `${formatBindingLabel(input.binding.lms)} ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
             );
           }
 
+          const columns = bindingColumns(input.binding);
+
           try {
-            const upsertResult = await transaction.queryObject<DeploymentRow>({
+            await transaction.queryArray(
+              `
+                INSERT INTO deployments (
+                  slug,
+                  label,
+                  app_id,
+                  lms_type,
+                  canvas_environment,
+                  issuer,
+                  client_id,
+                  deployment_id,
+                  moodle_authentication_request_url,
+                  moodle_access_token_url,
+                  moodle_jwks_url,
+                  sakai_oidc_authentication_url,
+                  sakai_access_token_url,
+                  sakai_jwks_url
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                ON CONFLICT (slug) DO UPDATE SET
+                  label = EXCLUDED.label,
+                  app_id = EXCLUDED.app_id,
+                  lms_type = EXCLUDED.lms_type,
+                  canvas_environment = EXCLUDED.canvas_environment,
+                  issuer = EXCLUDED.issuer,
+                  client_id = EXCLUDED.client_id,
+                  deployment_id = EXCLUDED.deployment_id,
+                  moodle_authentication_request_url = EXCLUDED.moodle_authentication_request_url,
+                  moodle_access_token_url = EXCLUDED.moodle_access_token_url,
+                  moodle_jwks_url = EXCLUDED.moodle_jwks_url,
+                  sakai_oidc_authentication_url = EXCLUDED.sakai_oidc_authentication_url,
+                  sakai_access_token_url = EXCLUDED.sakai_access_token_url,
+                  sakai_jwks_url = EXCLUDED.sakai_jwks_url,
+                  updated_at = now()
+              `,
+              [
+                input.slug,
+                input.label,
+                input.appId,
+                input.binding.lms,
+                columns.canvasEnvironment,
+                input.binding.issuer,
+                input.binding.clientId,
+                input.binding.deploymentId,
+                columns.moodleAuthenticationRequestUrl,
+                columns.moodleAccessTokenUrl,
+                columns.moodleJwksUrl,
+                columns.sakaiOidcAuthenticationUrl,
+                columns.sakaiAccessTokenUrl,
+                columns.sakaiJwksUrl,
+              ],
+            );
+
+            const savedDeploymentResult = await transaction.queryObject<DeploymentRow>({
               text: `
-                  INSERT INTO deployments (
-                    slug,
-                    label,
-                    app_id,
-                    canvas_environment,
-                    issuer,
-                    client_id,
-                    deployment_id
-                  ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-                  ON CONFLICT (slug) DO UPDATE SET
-                    label = EXCLUDED.label,
-                    app_id = EXCLUDED.app_id,
-                    canvas_environment = EXCLUDED.canvas_environment,
-                    issuer = EXCLUDED.issuer,
-                    client_id = EXCLUDED.client_id,
-                    deployment_id = EXCLUDED.deployment_id,
-                    updated_at = now()
-                  RETURNING
-                    deployments.id,
-                    deployments.slug,
-                    deployments.label,
-                    deployments.app_id,
-                    deployments.enabled_package_version_id,
-                    deployments.canvas_environment,
-                    deployments.issuer,
-                    deployments.client_id,
-                    deployments.deployment_id,
-                    (
-                      SELECT version
-                      FROM package_versions
-                      WHERE id = deployments.enabled_package_version_id
-                    ) AS enabled_package_version,
-                    deployments.updated_at
-                `,
-            args: [
-              input.slug,
-              input.label,
-              input.appId,
-              binding.canvasEnvironment,
-              binding.issuer,
-              binding.clientId,
-              binding.deploymentId,
-            ],
+                ${DEPLOYMENT_SELECT}
+                WHERE deployments.slug = $1
+              `,
+              args: [input.slug],
               camelCase: true,
             });
 
-            return mapDeploymentRow(upsertResult.rows[0]);
+            return mapDeploymentRow(savedDeploymentResult.rows[0]);
           } catch (error) {
             if (isUniqueViolation(error)) {
-              throw new Error(
-                `Canvas binding ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
-              );
+              throw await resolveSaveDeploymentBindingConflict(transaction, input);
             }
 
             throw error;
@@ -167,42 +209,109 @@ export function createDeploymentMutationRepositoryMethods(
             );
           }
 
-          const upsertResult = await transaction.queryObject<DeploymentRow>({
+          await transaction.queryArray(
+            `
+              INSERT INTO deployments (
+                slug,
+                label,
+                app_id,
+                enabled_package_version_id
+              ) VALUES ($1, $2, $3, $4)
+              ON CONFLICT (slug) DO UPDATE SET
+                label = EXCLUDED.label,
+                enabled_package_version_id = EXCLUDED.enabled_package_version_id,
+                updated_at = now()
+            `,
+            [input.slug, input.label, deploymentAppId, packageVersion.id],
+          );
+
+          const savedDeploymentResult = await transaction.queryObject<DeploymentRow>({
             text: `
-                INSERT INTO deployments (
-                  slug,
-                  label,
-                  app_id,
-                  enabled_package_version_id
-                ) VALUES ($1, $2, $3, $4)
-                ON CONFLICT (slug) DO UPDATE SET
-                  label = EXCLUDED.label,
-                  enabled_package_version_id = EXCLUDED.enabled_package_version_id,
-                  updated_at = now()
-                RETURNING
-                  deployments.id,
-                  deployments.slug,
-                  deployments.label,
-                  deployments.app_id,
-                  deployments.enabled_package_version_id,
-                  deployments.canvas_environment,
-                  deployments.issuer,
-                  deployments.client_id,
-                  deployments.deployment_id,
-                  (
-                    SELECT version
-                    FROM package_versions
-                    WHERE id = deployments.enabled_package_version_id
-                  ) AS enabled_package_version,
-                  deployments.updated_at
-              `,
-            args: [input.slug, input.label, deploymentAppId, packageVersion.id],
+              ${DEPLOYMENT_SELECT}
+              WHERE deployments.slug = $1
+            `,
+            args: [input.slug],
             camelCase: true,
           });
 
-          return mapDeploymentRow(upsertResult.rows[0]);
+          return mapDeploymentRow(savedDeploymentResult.rows[0]);
         });
       });
     },
   };
+}
+
+function bindingColumns(
+  binding: Parameters<PackageReviewRepository['saveDeploymentBinding']>[0]['binding'],
+): {
+  canvasEnvironment: DeploymentRow['canvasEnvironment'];
+  moodleAuthenticationRequestUrl: DeploymentRow['moodleAuthenticationRequestUrl'];
+  moodleAccessTokenUrl: DeploymentRow['moodleAccessTokenUrl'];
+  moodleJwksUrl: DeploymentRow['moodleJwksUrl'];
+  sakaiOidcAuthenticationUrl: DeploymentRow['sakaiOidcAuthenticationUrl'];
+  sakaiAccessTokenUrl: DeploymentRow['sakaiAccessTokenUrl'];
+  sakaiJwksUrl: DeploymentRow['sakaiJwksUrl'];
+} {
+  switch (binding.lms) {
+    case 'canvas':
+      return {
+        canvasEnvironment: binding.canvasEnvironment,
+        moodleAuthenticationRequestUrl: null,
+        moodleAccessTokenUrl: null,
+        moodleJwksUrl: null,
+        sakaiOidcAuthenticationUrl: null,
+        sakaiAccessTokenUrl: null,
+        sakaiJwksUrl: null,
+      };
+    case 'moodle':
+      return {
+        canvasEnvironment: null,
+        moodleAuthenticationRequestUrl: binding.authenticationRequestUrl,
+        moodleAccessTokenUrl: binding.accessTokenUrl,
+        moodleJwksUrl: binding.jwksUrl,
+        sakaiOidcAuthenticationUrl: null,
+        sakaiAccessTokenUrl: null,
+        sakaiJwksUrl: null,
+      };
+    case 'sakai':
+      return {
+        canvasEnvironment: null,
+        moodleAuthenticationRequestUrl: null,
+        moodleAccessTokenUrl: null,
+        moodleJwksUrl: null,
+        sakaiOidcAuthenticationUrl: binding.oidcAuthenticationUrl,
+        sakaiAccessTokenUrl: binding.accessTokenUrl,
+        sakaiJwksUrl: binding.jwksUrl,
+      };
+  }
+}
+
+async function resolveSaveDeploymentBindingConflict(
+  transaction: QueryableTransaction,
+  input: Parameters<PackageReviewRepository['saveDeploymentBinding']>[0],
+): Promise<Error> {
+  const appSlotConflict = await transaction.queryObject<{ slug: string }>({
+    text: `
+      SELECT slug
+      FROM deployments
+      WHERE app_id = $1
+        AND lms_type = $2
+        AND slug <> $3
+      LIMIT 1
+    `,
+    args: [input.appId, input.binding.lms, input.slug],
+    camelCase: true,
+  });
+
+  if (appSlotConflict.rows[0]) {
+    return new Error(`App ${input.appId} already has a ${input.binding.lms} deployment.`);
+  }
+
+  return new Error(
+    `${formatBindingLabel(input.binding.lms)} ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+  );
+}
+
+function formatBindingLabel(lms: Parameters<PackageReviewRepository['saveDeploymentBinding']>[0]['binding']['lms']): string {
+  return `${lms[0]?.toUpperCase() ?? ''}${lms.slice(1)} binding`;
 }

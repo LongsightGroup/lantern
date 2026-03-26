@@ -43,9 +43,16 @@ export function createInMemoryDeploymentRepository(
 
     saveDeploymentBinding(input) {
       const existing = state.deployments.find((candidate) => candidate.slug === input.slug);
+      const existingAppSlot = state.deployments.find(
+        (candidate) =>
+          candidate.slug !== input.slug &&
+          candidate.appId === input.appId &&
+          candidate.binding?.lms === input.binding.lms,
+      );
       const conflicting = state.deployments.find(
         (candidate) =>
           candidate.slug !== input.slug &&
+          candidate.binding?.lms === input.binding.lms &&
           candidate.binding?.issuer === input.binding.issuer &&
           candidate.binding?.clientId === input.binding.clientId &&
           candidate.binding?.deploymentId === input.binding.deploymentId,
@@ -53,12 +60,22 @@ export function createInMemoryDeploymentRepository(
 
       if (conflicting) {
         throw new Error(
-          `Canvas binding ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+          `${formatBindingLabel(input.binding.lms)} ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
         );
       }
 
       if (existing && existing.appId !== input.appId) {
         throw new Error(`Deployment ${input.slug} belongs to app ${existing.appId}.`);
+      }
+
+      if (existing && existing.binding !== null && existing.binding.lms !== input.binding.lms) {
+        throw new Error(
+          `Deployment ${input.slug} is already bound as ${existing.binding.lms} and cannot change to ${input.binding.lms}.`,
+        );
+      }
+
+      if (existingAppSlot) {
+        throw new Error(`App ${input.appId} already has a ${input.binding.lms} deployment.`);
       }
 
       const nextDeployment = buildDeploymentRecord({
@@ -128,4 +145,8 @@ export function createInMemoryDeploymentRepository(
       return Promise.resolve(cloneRecord(nextDeployment));
     },
   };
+}
+
+function formatBindingLabel(lms: 'canvas' | 'moodle' | 'sakai'): string {
+  return `${lms.slice(0, 1).toUpperCase()}${lms.slice(1)} binding`;
 }

@@ -150,9 +150,6 @@ export interface PackageReviewRepository {
 export function createPackageReviewRepository(pool: Pool): PackageReviewRepository {
   return {
     ...createPackageVersionRepositoryMethods(pool),
-    listDeploymentsByApp() {
-      throw new Error('listDeploymentsByApp is not implemented yet.');
-    },
     ...createDeploymentLoginRepositoryMethods(pool),
     ...createRuntimeSessionRepositoryMethods(pool),
     ...createDeepLinkingSessionRepositoryMethods(pool),

@@ -15,6 +15,7 @@ export function createDeploymentLoginRepositoryMethods(
 ): Pick<
   PackageReviewRepository,
   | 'getDeploymentBySlug'
+  | 'listDeploymentsByApp'
   | 'getDeploymentByBinding'
   | 'createLoginState'
   | 'getLoginStateByState'
@@ -33,16 +34,33 @@ export function createDeploymentLoginRepositoryMethods(
       });
     },
 
+    async listDeploymentsByApp(appId) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<DeploymentRow>({
+          text: `
+            ${DEPLOYMENT_SELECT}
+            WHERE deployments.app_id = $1
+            ORDER BY deployments.lms_type ASC, deployments.slug ASC
+          `,
+          args: [appId],
+          camelCase: true,
+        });
+
+        return result.rows.map((row) => mapOptionalDeployment(row)).filter((row) => row !== null);
+      });
+    },
+
     async getDeploymentByBinding(binding) {
       return await withClient(pool, async (client) => {
         const result = await client.queryObject<DeploymentRow>({
           text: `
             ${DEPLOYMENT_SELECT}
-            WHERE deployments.issuer = $1
-              AND deployments.client_id = $2
-              AND deployments.deployment_id = $3
+            WHERE deployments.lms_type = $1
+              AND deployments.issuer = $2
+              AND deployments.client_id = $3
+              AND deployments.deployment_id = $4
           `,
-          args: [binding.issuer, binding.clientId, binding.deploymentId],
+          args: [binding.lms, binding.issuer, binding.clientId, binding.deploymentId],
           camelCase: true,
         });
 

@@ -28,26 +28,29 @@ export async function createLoginRedirect(input: {
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const loginRequest = normalizeLoginRequest(input.loginRequest);
   const deployment = await input.repository.getDeploymentByBinding({
+    lms: 'canvas',
     issuer: loginRequest.iss,
     clientId: loginRequest.clientId,
     deploymentId: loginRequest.deploymentId,
   });
 
-  if (!deployment?.binding) {
+  if (!deployment?.binding || deployment.binding.lms !== 'canvas') {
     throw new Error(
       `Canvas deployment ${loginRequest.clientId} / ${loginRequest.deploymentId} was not found for issuer ${loginRequest.iss}.`,
     );
   }
 
+  const binding = deployment.binding;
   const platform = resolveCanvasPlatform(loginRequest.iss);
   const createdAt = now();
   const loginState = await input.repository.createLoginState({
+    lms: 'canvas',
     state: createOpaqueToken(),
     nonce: createOpaqueToken(),
-    canvasEnvironment: deployment.binding.canvasEnvironment,
-    issuer: deployment.binding.issuer,
-    clientId: deployment.binding.clientId,
-    deploymentId: deployment.binding.deploymentId,
+    canvasEnvironment: binding.canvasEnvironment,
+    issuer: binding.issuer,
+    clientId: binding.clientId,
+    deploymentId: binding.deploymentId,
     loginHint: loginRequest.loginHint,
     targetLinkUri: loginRequest.targetLinkUri,
     ltiMessageHint: loginRequest.ltiMessageHint,

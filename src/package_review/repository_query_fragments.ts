@@ -32,10 +32,17 @@ export const DEPLOYMENT_SELECT = `
     deployments.label,
     deployments.app_id,
     deployments.enabled_package_version_id,
+    deployments.lms_type,
     deployments.canvas_environment,
     deployments.issuer,
     deployments.client_id,
     deployments.deployment_id,
+    deployments.moodle_authentication_request_url,
+    deployments.moodle_access_token_url,
+    deployments.moodle_jwks_url,
+    deployments.sakai_oidc_authentication_url,
+    deployments.sakai_access_token_url,
+    deployments.sakai_jwks_url,
     package_versions.version AS enabled_package_version,
     deployments.updated_at
   FROM deployments
