@@ -1,6 +1,12 @@
 import type { Context } from "@hono/hono";
-import { renderControlPlanePage } from "./admin/control_plane.ts";
-import { renderDeploymentDetailPage } from "./admin/deployment_detail.ts";
+import {
+  renderDeploymentsPage as renderAdminDeploymentsPage,
+  renderVerificationPage as renderAdminVerificationPage,
+} from "./admin/control_plane.ts";
+import {
+  type DeploymentEditorState,
+  renderDeploymentDetailPage,
+} from "./admin/deployment_detail.ts";
 import type { AdminNotice } from "./admin/layout.ts";
 import { listCanvasEnvironments } from "./lti/config.ts";
 import {
@@ -100,23 +106,50 @@ export async function renderPackagesPage(
 ) {
   const versions = await services.getRepository().listPackageVersions();
 
-  if (versions.length === 0) {
-    return context.html(
-      renderPackageIndexPage({
-        versions,
-        notice: input.notice ?? null,
-      }),
-      input.status ?? 200,
-    );
-  }
+  return context.html(
+    renderPackageIndexPage({
+      versions,
+      notice: input.notice ?? null,
+    }),
+    input.status ?? 200,
+  );
+}
 
+export async function renderDeploymentsPage(
+  context: Context,
+  services: AppServices,
+  input: {
+    notice?: AdminNotice | null;
+    status?: 200 | 400 | 500;
+  } = {},
+) {
+  const deployments = await services.getOpsRepository()
+    .listControlPlaneDeployments();
+
+  return context.html(
+    renderAdminDeploymentsPage({
+      deployments,
+      notice: input.notice ?? null,
+    }),
+    input.status ?? 200,
+  );
+}
+
+export async function renderVerificationPage(
+  context: Context,
+  services: AppServices,
+  input: {
+    notice?: AdminNotice | null;
+    status?: 200 | 400 | 500;
+  } = {},
+) {
   const [deployments, latestBrokerVerification] = await Promise.all([
     services.getOpsRepository().listControlPlaneDeployments(),
     services.getOpsRepository().getLatestBrokerVerificationStatus(),
   ]);
 
   return context.html(
-    renderControlPlanePage({
+    renderAdminVerificationPage({
       deployments,
       latestBrokerVerification,
       notice: input.notice ?? null,
@@ -175,6 +208,10 @@ export async function renderDeploymentError(
   appId: string,
   title: string,
   error: unknown,
+  input: {
+    selectedLms?: "canvas" | "moodle" | "sakai" | null;
+    editorState?: DeploymentEditorState | null;
+  } = {},
 ) {
   try {
     const repository = services.getRepository();
@@ -200,12 +237,16 @@ export async function renderDeploymentError(
         appTitle,
         history,
         deployments,
+        selectedLms: input.selectedLms ?? null,
+        editorState: input.editorState ?? null,
         canvasConfigUrl: canvasConfigUrl.url,
         supportedCanvasEnvironments: listCanvasEnvironments(),
-        notice: combineNotices(
-          canvasConfigUrl.notice,
-          createErrorNotice(title, error),
-        ),
+        notice: input.editorState === undefined || input.editorState === null
+          ? combineNotices(
+            canvasConfigUrl.notice,
+            createErrorNotice(title, error),
+          )
+          : canvasConfigUrl.notice,
       }),
       statusForError(error),
     );

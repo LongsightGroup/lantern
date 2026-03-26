@@ -1,5 +1,7 @@
 import type { Hono } from "@hono/hono";
 import {
+  type DeploymentEditorField,
+  type DeploymentEditorState,
   getManagedDeploymentSlot,
   renderDeploymentDetailPage,
 } from "./admin/deployment_detail.ts";
@@ -14,7 +16,7 @@ import {
 } from "./lti/config.ts";
 import type { DeploymentBinding, LmsType } from "./lti/types.ts";
 import { requireTrimmedFormValue } from "./app_request_support.ts";
-import { statusForError } from "./app_status_support.ts";
+import { errorMessage, statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 
 export function registerAdminDeploymentDetailRoutes(
@@ -23,6 +25,9 @@ export function registerAdminDeploymentDetailRoutes(
 ): void {
   app.get("/admin/packages/:appId/deployment", async (context) => {
     try {
+      const selectedLms = parseOptionalManagedDeploymentLms(
+        new URL(context.req.url).searchParams.get("lms"),
+      );
       const repository = services.getRepository();
       const detail = await loadDeploymentDetailState(
         repository,
@@ -40,6 +45,7 @@ export function registerAdminDeploymentDetailRoutes(
           appTitle: detail.appTitle,
           history: detail.history,
           deployments: detail.deployments,
+          selectedLms,
           nrpsVerification: detail.nrpsVerification,
           controlPlaneDetail,
           canvasConfigUrl: detail.canvasConfigUrl.url,
@@ -61,10 +67,11 @@ export function registerAdminDeploymentDetailRoutes(
   app.post("/admin/packages/:appId/deployment/pin", async (context) => {
     const appId = context.req.param("appId");
     let lms: LmsType | null = null;
+    let formData: FormData | null = null;
 
     try {
       const repository = services.getRepository();
-      const formData = await context.req.formData();
+      formData = await context.req.formData();
       lms = parseManagedDeploymentLms(formData);
       const history = await repository.listPackageVersionsByApp(appId);
 
@@ -84,14 +91,22 @@ export function registerAdminDeploymentDetailRoutes(
         );
       }
 
-      const selectedId = Number(formData.get("packageVersionId"));
       const detail = await loadDeploymentDetailState(repository, appId);
       const slot = getManagedDeploymentSlot(detail.slots, lms);
+
+      if (slot.deployment.binding?.lms !== lms) {
+        throw new Error(
+          `Save the ${formatLmsLabel(lms)} binding before you pin a version.`,
+        );
+      }
+
+      const selectedId = parseRequiredPackageVersionId(formData);
 
       const deployment = await repository.pinDeploymentVersion({
         slug: slot.deployment.slug,
         label: slot.deployment.label,
         appId,
+        lmsType: lms,
         packageVersionId: selectedId,
       });
       await repository.recordAuditEvent({
@@ -115,7 +130,10 @@ export function registerAdminDeploymentDetailRoutes(
         occurredAt: new Date().toISOString(),
       });
 
-      return context.redirect(`/admin/packages/${appId}/deployment`, 303);
+      return context.redirect(
+        `/admin/packages/${appId}/deployment?lms=${lms}#slot-panel`,
+        303,
+      );
     } catch (error) {
       return await import("./app_admin_support.ts").then((
         { renderDeploymentError },
@@ -128,6 +146,17 @@ export function registerAdminDeploymentDetailRoutes(
             ? "Version pin blocked"
             : `${formatLmsLabel(lms)} version pin blocked`,
           error,
+          {
+            selectedLms: lms,
+            editorState: buildPinEditorState(
+              lms,
+              formData,
+              lms === null
+                ? "Version pin blocked"
+                : `${formatLmsLabel(lms)} version pin blocked`,
+              error,
+            ),
+          },
         )
       );
     }
@@ -136,10 +165,11 @@ export function registerAdminDeploymentDetailRoutes(
   app.post("/admin/packages/:appId/deployment/install", async (context) => {
     const appId = context.req.param("appId");
     let lms: LmsType | null = null;
+    let formData: FormData | null = null;
 
     try {
       const repository = services.getRepository();
-      const formData = await context.req.formData();
+      formData = await context.req.formData();
       lms = parseManagedDeploymentLms(formData);
       const history = await repository.listPackageVersionsByApp(appId);
 
@@ -186,7 +216,10 @@ export function registerAdminDeploymentDetailRoutes(
         occurredAt: new Date().toISOString(),
       });
 
-      return context.redirect(`/admin/packages/${appId}/deployment`, 303);
+      return context.redirect(
+        `/admin/packages/${appId}/deployment?lms=${lms}#slot-panel`,
+        303,
+      );
     } catch (error) {
       return await import("./app_admin_support.ts").then((
         { renderDeploymentError },
@@ -199,10 +232,211 @@ export function registerAdminDeploymentDetailRoutes(
             ? "Deployment install blocked"
             : `${formatLmsLabel(lms)} install blocked`,
           error,
+          {
+            selectedLms: lms,
+            editorState: buildInstallEditorState(
+              lms,
+              formData,
+              lms === null
+                ? "Deployment install blocked"
+                : `${formatLmsLabel(lms)} install blocked`,
+              error,
+            ),
+          },
         )
       );
     }
   });
+}
+
+function buildInstallEditorState(
+  lms: LmsType | null,
+  formData: FormData | null,
+  title: string,
+  error: unknown,
+): DeploymentEditorState | null {
+  if (lms === null) {
+    return null;
+  }
+
+  return {
+    lms,
+    focusSection: "install",
+    notice: createErrorNotice(title, error),
+    fieldErrors: buildFieldErrors(lms, errorMessage(error)),
+    installValues: collectInstallValues(lms, formData),
+    pinPackageVersionId: null,
+  };
+}
+
+function buildPinEditorState(
+  lms: LmsType | null,
+  formData: FormData | null,
+  title: string,
+  error: unknown,
+): DeploymentEditorState | null {
+  if (lms === null) {
+    return null;
+  }
+
+  return {
+    lms,
+    focusSection: "pin",
+    notice: createErrorNotice(title, error),
+    fieldErrors: buildFieldErrors(lms, errorMessage(error)),
+    installValues: collectInstallValues(lms, formData),
+    pinPackageVersionId: formValueString(formData, "packageVersionId"),
+  };
+}
+
+function collectInstallValues(
+  lms: LmsType,
+  formData: FormData | null,
+): Partial<Record<DeploymentEditorField, string>> {
+  switch (lms) {
+    case "canvas":
+      return collectFieldValues(formData, [
+        "canvasEnvironment",
+        "clientId",
+        "deploymentId",
+      ]);
+    case "moodle":
+      return collectFieldValues(formData, [
+        "issuer",
+        "clientId",
+        "deploymentId",
+        "authenticationRequestUrl",
+        "accessTokenUrl",
+        "jwksUrl",
+      ]);
+    case "sakai":
+      return collectFieldValues(formData, [
+        "issuer",
+        "clientId",
+        "deploymentId",
+        "oidcAuthenticationUrl",
+        "accessTokenUrl",
+        "jwksUrl",
+      ]);
+  }
+}
+
+function collectFieldValues(
+  formData: FormData | null,
+  fields: DeploymentEditorField[],
+): Partial<Record<DeploymentEditorField, string>> {
+  const values: Partial<Record<DeploymentEditorField, string>> = {};
+
+  for (const field of fields) {
+    const value = formValueString(formData, field);
+
+    if (value !== null) {
+      values[field] = value;
+    }
+  }
+
+  return values;
+}
+
+function buildFieldErrors(
+  lms: LmsType,
+  message: string,
+): Partial<Record<DeploymentEditorField, string>> {
+  const field = resolveFieldError(lms, message);
+
+  return field === null ? {} : { [field]: message };
+}
+
+function resolveFieldError(
+  lms: LmsType,
+  message: string,
+): DeploymentEditorField | null {
+  switch (lms) {
+    case "canvas":
+      switch (message) {
+        case "Canvas Client ID is required.":
+          return "clientId";
+        case "Canvas Deployment ID is required.":
+          return "deploymentId";
+        case "Choose an approved version.":
+          return "packageVersionId";
+        default:
+          return null;
+      }
+    case "moodle":
+      switch (message) {
+        case "Moodle Platform ID is required.":
+          return "issuer";
+        case "Moodle Client ID is required.":
+          return "clientId";
+        case "Moodle Deployment ID is required.":
+          return "deploymentId";
+        case "Moodle Authentication request URL is required.":
+          return "authenticationRequestUrl";
+        case "Moodle Access token URL is required.":
+          return "accessTokenUrl";
+        case "Moodle Public keyset URL is required.":
+          return "jwksUrl";
+        case "Choose an approved version.":
+          return "packageVersionId";
+        default:
+          return null;
+      }
+    case "sakai":
+      switch (message) {
+        case "Sakai Platform ID is required.":
+          return "issuer";
+        case "Sakai Client ID is required.":
+          return "clientId";
+        case "Sakai Deployment ID is required.":
+          return "deploymentId";
+        case "Sakai OIDC authentication URL is required.":
+          return "oidcAuthenticationUrl";
+        case "Sakai Access token URL is required.":
+          return "accessTokenUrl";
+        case "Sakai Public keyset URL is required.":
+          return "jwksUrl";
+        case "Choose an approved version.":
+          return "packageVersionId";
+        default:
+          return null;
+      }
+  }
+}
+
+function parseRequiredPackageVersionId(formData: FormData): number {
+  const rawValue = requireTrimmedFormValue(
+    formData.get("packageVersionId"),
+    "Choose an approved version.",
+  );
+  const value = Number(rawValue);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error("Choose an approved version.");
+  }
+
+  return value;
+}
+
+function formValueString(
+  formData: FormData | null,
+  field: string,
+): string | null {
+  const value = formData?.get(field);
+  return typeof value === "string" ? value : null;
+}
+
+function parseOptionalManagedDeploymentLms(
+  value: string | null,
+): LmsType | null {
+  switch (value) {
+    case "canvas":
+    case "moodle":
+    case "sakai":
+      return value;
+    default:
+      return null;
+  }
 }
 
 function parseManagedDeploymentLms(formData: FormData): LmsType {

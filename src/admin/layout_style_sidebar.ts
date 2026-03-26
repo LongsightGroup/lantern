@@ -93,6 +93,18 @@ export const ADMIN_LAYOUT_STYLE_SIDEBAR = `
         border-bottom: 1px solid var(--line);
       }
 
+      .page-header-bar {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: flex-start;
+      }
+
+      .page-header-copy {
+        flex: 1;
+        min-width: 0;
+      }
+
       .breadcrumbs {
         display: flex;
         flex-wrap: wrap;
@@ -143,5 +155,32 @@ export const ADMIN_LAYOUT_STYLE_SIDEBAR = `
         font-size: 14px;
         color: var(--secondary);
         line-height: 1.55;
+      }
+
+      .operator-chip {
+        display: grid;
+        gap: 2px;
+        justify-items: end;
+        min-width: 132px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--bg);
+        text-align: right;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+      }
+
+      .operator-chip-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .operator-chip-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ink);
       }
 `;

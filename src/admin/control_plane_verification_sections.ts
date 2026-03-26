@@ -128,7 +128,7 @@ function renderBrokerVerificationFacts(
 }
 
 function renderBrokerVerificationForm(): string {
-  return `<form method="post" action="/admin/packages/verification" class="stack">
+  return `<form method="post" action="/admin/verification" class="stack">
     <div class="field">
       <label for="verification-source">Evidence source</label>
       <select id="verification-source" name="source">

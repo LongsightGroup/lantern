@@ -58,7 +58,7 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas bindi
     assertEquals(response.status, 303);
     assertEquals(
       response.headers.get("location"),
-      "/admin/packages/chapter-4-asteroids/deployment",
+      "/admin/packages/chapter-4-asteroids/deployment?lms=canvas#slot-panel",
     );
 
     const deployment = await repository.getDeploymentBySlug(
@@ -81,7 +81,7 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas bindi
   }
 });
 
-Deno.test("GET /admin/packages/:appId/deployment renders the Canvas, Moodle, and Sakai deployment cards", async () => {
+Deno.test("GET /admin/packages/:appId/deployment renders an LMS tab strip with one focused editor", async () => {
   const previousOrigin = Deno.env.get("APP_ORIGIN");
   Deno.env.set("APP_ORIGIN", "http://localhost:8417");
 
@@ -138,31 +138,46 @@ Deno.test("GET /admin/packages/:appId/deployment renders the Canvas, Moodle, and
           ],
         }),
     }).request(
-      "http://localhost/admin/packages/chapter-4-asteroids/deployment",
+      "http://localhost/admin/packages/chapter-4-asteroids/deployment?lms=moodle",
     );
 
     assertEquals(response.status, 200);
     const body = await response.text();
 
     assertStringIncludes(body, "Managed LMS deployment");
-    assertStringIncludes(body, "Canvas deployment");
-    assertStringIncludes(body, "Moodle deployment");
-    assertStringIncludes(body, "Sakai deployment");
-    assertStringIncludes(body, "Config URL");
+    assertStringIncludes(body, "Open one LMS slot at a time.");
+    assertStringIncludes(body, 'class="deployment-tab ');
+    assertStringIncludes(body, 'deployment-tab-label">Canvas</span>');
+    assertStringIncludes(body, 'deployment-tab-label">Moodle</span>');
+    assertStringIncludes(body, 'deployment-tab-label">Sakai</span>');
+    assertStringIncludes(
+      body,
+      'href="/admin/packages/chapter-4-asteroids/deployment?lms=moodle#slot-panel" aria-current="page"',
+    );
+    assertStringIncludes(
+      body,
+      'id="slot-panel" class="deployment-tab-panel stack"',
+    );
+    assertStringIncludes(body, "Moodle setup");
+    assertStringIncludes(body, "Moodle editor");
+    assertStringIncludes(body, "Platform ID");
     assertStringIncludes(body, "Authentication request URL");
-    assertStringIncludes(body, "OIDC authentication URL");
     assertStringIncludes(body, "Public keyset URL");
-    assertStringIncludes(body, "Canvas Client ID");
-    assertStringIncludes(body, "Launch-ready configuration saved");
+    assertStringIncludes(body, "Moodle binding not saved yet");
     assertStringIncludes(body, "Current status");
     assertStringIncludes(body, "Last launch");
     assertStringIncludes(body, "Last AGS write");
     assertStringIncludes(body, "Last NRPS read");
     assertStringIncludes(body, "Pilot usage");
     assertStringIncludes(body, "Grade publishes");
-    assertStringIncludes(body, "Save exact Moodle binding");
-    assertStringIncludes(body, "Save exact Sakai binding");
-    assertStringIncludes(body, "Save exact version pin");
+    assertStringIncludes(
+      body,
+      "Operational evidence stays available, but secondary.",
+    );
+    assertStringIncludes(body, "Show launch, grading, and diagnostic detail");
+    assertStringIncludes(body, "Save Moodle");
+    assertStringIncludes(body, "Save release pin");
+    assertStringIncludes(body, "Save the binding first");
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
   }

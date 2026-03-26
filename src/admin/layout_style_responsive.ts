@@ -3,6 +3,21 @@ export const ADMIN_LAYOUT_STYLE_RESPONSIVE = `
         .two-column {
           grid-template-columns: 1fr;
         }
+
+        .page-header-bar {
+          flex-direction: column;
+        }
+
+        .operator-chip {
+          justify-items: start;
+          min-width: 0;
+          border-radius: var(--radius);
+          text-align: left;
+        }
+
+        .deployment-tab-strip {
+          flex-direction: column;
+        }
       }
 
       @media (max-width: 768px) {

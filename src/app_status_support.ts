@@ -22,6 +22,7 @@ export function statusForError(error: unknown): 409 | 500 {
     error.message.includes("does not belong") ||
     error.message.includes("not found") ||
     error.message.includes("required") ||
+    error.message.includes("Choose ") ||
     error.message.includes("belongs to another deployment") ||
     error.message.includes("Choose one supported Canvas environment") ||
     error.message.includes("Choose one supported LMS deployment") ||

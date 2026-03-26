@@ -13,10 +13,11 @@ import {
 import {
   buildCanvasDeploymentBinding,
   buildDeploymentBinding,
+  buildSakaiDeploymentBinding,
 } from "../test_helpers/lti.ts";
 import { renderDeploymentDetailPage } from "./deployment_detail.ts";
 
-Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai instructions separately", () => {
+Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai setup into tabs", () => {
   const binding = buildCanvasDeploymentBinding();
   const html = renderDeploymentDetailPage({
     appId: "chapter-4-asteroids",
@@ -46,6 +47,11 @@ Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodl
   });
 
   assertStringIncludes(html, "Managed LMS deployment");
+  assertStringIncludes(html, "Open one LMS slot at a time.");
+  assertStringIncludes(html, "deployment-tab-strip");
+  assertStringIncludes(html, "Canvas editor");
+  assertStringIncludes(html, 'deployment-tab-label">Moodle</span>');
+  assertStringIncludes(html, 'deployment-tab-label">Sakai</span>');
   assertFalse(
     html.includes(
       "Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path.",
@@ -53,11 +59,53 @@ Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodl
   );
   assertStringIncludes(html, "Config URL");
   assertStringIncludes(html, "Canvas environment");
-  assertStringIncludes(html, "Platform ID");
-  assertStringIncludes(html, "Authentication request URL");
+  assertStringIncludes(html, binding.issuer);
+  assertStringIncludes(
+    html,
+    "Operational evidence stays available, but secondary.",
+  );
+  assertStringIncludes(html, "Show launch, grading, and diagnostic detail");
+});
+
+Deno.test("deployment page renders the selected Sakai tab without leaking the Canvas form", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    selectedLms: "sakai",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildSakaiDeploymentBinding(),
+        lmsType: "sakai",
+      }),
+    ],
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(
+    html,
+    'href="/admin/packages/chapter-4-asteroids/deployment?lms=sakai#slot-panel" aria-current="page"',
+  );
+  assertStringIncludes(html, "Sakai setup");
   assertStringIncludes(html, "OIDC authentication URL");
   assertStringIncludes(html, "Public keyset URL");
-  assertStringIncludes(html, binding.issuer);
+  assertFalse(html.includes("Canvas environment"));
+  assertFalse(html.includes("Config URL"));
 });
 
 Deno.test("deployment page shows the latest roster verification summary and action", () => {
@@ -94,9 +142,9 @@ Deno.test("deployment page shows the latest roster verification summary and acti
     ],
   });
 
-  assertStringIncludes(html, "Roster access proof");
-  assertStringIncludes(html, "Latest roster read succeeded");
-  assertStringIncludes(html, "Verify roster access");
+  assertStringIncludes(html, "Canvas service check");
+  assertStringIncludes(html, "Succeeded");
+  assertStringIncludes(html, "Run roster check");
   assertStringIncludes(html, "course-42");
   assertStringIncludes(html, "2");
 });
@@ -159,8 +207,9 @@ Deno.test("deployment page shows status panels and pilot usage without dropping 
   assertStringIncludes(html, "Attempts completed");
   assertStringIncludes(html, "Grade publishes");
   assertStringIncludes(html, "Recent active users");
-  assertStringIncludes(html, "Canvas deployment");
-  assertStringIncludes(html, "Save exact version pin");
+  assertStringIncludes(html, "Diagnostics");
+  assertStringIncludes(html, "Canvas slot");
+  assertStringIncludes(html, "Save release pin");
 });
 
 Deno.test("deployment page shows diagnostics and an explicit retry action for retryable AGS failures", () => {

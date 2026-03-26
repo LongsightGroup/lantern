@@ -8,9 +8,7 @@ import type {
 import { renderManagedDeploymentSections } from "./deployment_detail_release_sections.ts";
 import { renderVersionHistorySection } from "./deployment_detail_history_section.ts";
 import {
-  renderControlPlaneStatusSection,
-  renderDiagnosticsSection,
-  renderPilotUsageSection,
+  renderOperationalEvidenceSection,
 } from "./deployment_detail_ops_sections.ts";
 import { type AdminNotice, renderAdminLayout } from "./layout.ts";
 
@@ -25,6 +23,26 @@ export interface ManagedDeploymentSlot {
   lms: LmsType;
   deployment: DeploymentRecord;
   persisted: boolean;
+}
+
+export type DeploymentEditorField =
+  | "canvasEnvironment"
+  | "issuer"
+  | "clientId"
+  | "deploymentId"
+  | "authenticationRequestUrl"
+  | "oidcAuthenticationUrl"
+  | "accessTokenUrl"
+  | "jwksUrl"
+  | "packageVersionId";
+
+export interface DeploymentEditorState {
+  lms: LmsType;
+  focusSection: "install" | "pin";
+  notice: AdminNotice;
+  fieldErrors: Partial<Record<DeploymentEditorField, string>>;
+  installValues: Partial<Record<DeploymentEditorField, string>>;
+  pinPackageVersionId: string | null;
 }
 
 export function buildDefaultDeploymentSeed(
@@ -160,6 +178,8 @@ export function renderDeploymentDetailPage(input: {
   appTitle: string;
   history: PackageVersionRecord[];
   deployments: DeploymentRecord[];
+  selectedLms?: LmsType | null;
+  editorState?: DeploymentEditorState | null;
   nrpsVerification?: DeploymentNrpsVerificationSummary | null;
   controlPlaneDetail?: ControlPlaneDeploymentDetailSnapshot | null;
   canvasConfigUrl?: string | null;
@@ -187,6 +207,7 @@ export function renderDeploymentDetailPage(input: {
     heading: `${input.appTitle} Deployment`,
     intro:
       "Review the Canvas, Moodle, and Sakai deployment slots for this reviewed app. Lantern keeps each release pin and exact LMS binding explicit so one install does not overwrite another.",
+    activePath: "/admin/deployments",
     breadcrumbs: [
       { label: "Packages", href: "/admin/packages" },
       {
@@ -198,13 +219,12 @@ export function renderDeploymentDetailPage(input: {
       { label: "Deployment" },
     ],
     notice: input.notice ?? null,
-    body: `${renderControlPlaneStatusSection(controlPlaneDetail)}
-    ${renderPilotUsageSection(controlPlaneDetail)}
-    ${renderDiagnosticsSection(input.appId, controlPlaneDetail)}
-    ${
+    body: `${
       renderManagedDeploymentSections({
         appId: input.appId,
         slots,
+        selectedLms: input.selectedLms ?? null,
+        editorState: input.editorState ?? null,
         nrpsVerification,
         canvasConfigUrl,
         supportedCanvasEnvironments,
@@ -212,6 +232,7 @@ export function renderDeploymentDetailPage(input: {
         history: input.history,
       })
     }
-    ${renderVersionHistorySection(input.history, primaryDeployment)}`,
+    ${renderVersionHistorySection(input.history, primaryDeployment)}
+    ${renderOperationalEvidenceSection(input.appId, controlPlaneDetail)}`,
   });
 }

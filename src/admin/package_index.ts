@@ -11,26 +11,33 @@ import {
   renderAdminLayout,
 } from "./layout.ts";
 
+interface PackageLibraryEntry {
+  appId: string;
+  title: string;
+  description: string | null;
+  ownerId: string;
+  latestVersion: string;
+  latestApprovalStatus: PackageVersionRecord["approvalStatus"];
+  latestImportedAt: string;
+  versionCount: number;
+  approvedVersionCount: number;
+}
+
 export function renderPackageIndexPage(input: {
   versions: PackageVersionRecord[];
   notice?: AdminNotice | null;
 }): string {
-  const packageCount =
-    new Set(input.versions.map((version) => version.appId)).size;
-  const approvedCount = input.versions.filter(
-    (version) => version.approvalStatus === "approved",
-  ).length;
-
   const body = input.versions.length === 0
     ? renderEmptyState()
-    : renderInventoryState(input.versions, packageCount, approvedCount);
+    : renderPackageLibrary(input.versions);
 
   return renderAdminLayout({
     title: "Lantern Admin Packages",
-    eyebrow: "Package Intake",
-    heading: "Bring one reviewed package into view before you wire an LMS.",
+    eyebrow: "Package Home",
+    heading: "Open a package and continue from its dossier.",
     intro:
-      "Start with the demo app, then move through the same review surface institutions will use for every governed deployment.",
+      "Use this page to find a package, review its exact version, and hand off deployment or verification work to the dedicated admin pages.",
+    activePath: "/admin/packages",
     notice: input.notice ?? null,
     body,
   });
@@ -38,112 +45,144 @@ export function renderPackageIndexPage(input: {
 
 function renderEmptyState(): string {
   return `<section class="panel">
-    <div class="panel-body empty-state">
-      <p class="section-label">Guided first step</p>
-      <h2>Import the demo learning game and open its review dossier.</h2>
-      <p>
-        Lantern starts with one known-good package so administrators can see the full review, approval,
-        and deployment flow before any custom LMS wiring begins.
-      </p>
-      <div class="facts">
-        <div class="fact">
-          <span class="fact-label">Demo app</span>
-          <span class="fact-value">Chapter 4 Asteroids</span>
-        </div>
-        <div class="fact">
-          <span class="fact-label">What arrives</span>
-          <span class="fact-value">Manifest, files, and review metadata</span>
-        </div>
-        <div class="fact">
-          <span class="fact-label">Why first</span>
-          <span class="fact-value">Lets the institution see the whole operator path in one session</span>
-        </div>
+    <div class="panel-body two-column">
+      <div class="stack">
+        <p class="section-label">Guided first step</p>
+        <h2>Import the demo app.</h2>
+        <p>
+          Start with one known-good package so the review, approval, preview, and deployment flow is visible end to end.
+        </p>
+        <p class="micro muted">
+          Deployments, verification, and placement audits stay in their own admin pages once the package is in view.
+        </p>
       </div>
-      <form method="post" action="/admin/packages/import-demo" class="button-row">
-        <button type="submit" class="button-primary">Start with the demo app</button>
-        <span class="micro muted">The import snapshots the reviewed bytes into Lantern-managed storage.</span>
-      </form>
-      <section class="callout">
-        <h3>What the operator sees next</h3>
-        <ul>
-          <li>Status, version, owner, and requested capabilities at the top of the dossier</li>
-          <li>Plain-language validation evidence instead of schema jargon</li>
-          <li>An exact-version deployment picker instead of a floating latest release</li>
-        </ul>
-      </section>
+      <div class="stack">
+        <section class="fact">
+          <span class="fact-label">Demo package</span>
+          <strong class="fact-value">Chapter 4 Asteroids</strong>
+          <p class="micro muted">Playable arcade demo with review metadata and governed preview fixtures.</p>
+        </section>
+        <form method="post" action="/admin/packages/import-demo" class="button-row">
+          <button type="submit" class="button-primary">Start with the demo app</button>
+        </form>
+        <p class="micro muted">Lantern snapshots the reviewed bytes into Lantern-managed storage.</p>
+      </div>
     </div>
   </section>`;
 }
 
-function renderInventoryState(
+function renderPackageLibrary(
   versions: PackageVersionRecord[],
-  packageCount: number,
-  approvedCount: number,
 ): string {
+  const entries = buildPackageLibraryEntries(versions);
+
   return `<section class="panel">
-    <div class="panel-body stack">
-      <div class="facts">
-        <div class="fact">
-          <span class="fact-label">Imported packages</span>
-          <span class="fact-value">${escapeHtml(String(packageCount))}</span>
-        </div>
-        <div class="fact">
-          <span class="fact-label">Reviewed versions</span>
-          <span class="fact-value">${escapeHtml(String(versions.length))}</span>
-        </div>
-        <div class="fact">
-          <span class="fact-label">Approved now</span>
-          <span class="fact-value">${escapeHtml(String(approvedCount))}</span>
-        </div>
+    <div class="panel-body two-column">
+      <div class="stack">
+        <p class="section-label">Package library</p>
+        <h2>Pick one package to review or deploy.</h2>
+        <p>
+          Open the latest dossier for a package, then move into deployment, preview, or review from that single source of truth.
+        </p>
       </div>
-      <div class="button-row">
+      <div class="stack">
         <form method="post" action="/admin/packages/import-demo">
           <button type="submit" class="button-secondary">Open the demo dossier</button>
         </form>
-        <span class="micro muted">Exact versions stay immutable. If the demo is already present, Lantern reopens its existing dossier.</span>
+        <p class="micro muted">
+          If the demo already exists, Lantern reopens the exact dossier instead of importing it again.
+        </p>
       </div>
+    </div>
+  </section>
+  <section class="panel">
+    <div class="panel-body stack">
       <div class="table-list">
-        ${versions.map(renderInventoryRow).join("")}
+        ${entries.map(renderPackageEntry).join("")}
       </div>
     </div>
   </section>`;
 }
 
-function renderInventoryRow(version: PackageVersionRecord): string {
+function buildPackageLibraryEntries(
+  versions: PackageVersionRecord[],
+): PackageLibraryEntry[] {
+  const entries = new Map<string, PackageLibraryEntry>();
+
+  for (const version of versions) {
+    const existing = entries.get(version.appId);
+
+    if (!existing) {
+      entries.set(version.appId, {
+        appId: version.appId,
+        title: version.title,
+        description: version.description,
+        ownerId: version.owner.id,
+        latestVersion: version.version,
+        latestApprovalStatus: version.approvalStatus,
+        latestImportedAt: version.importedAt,
+        versionCount: 1,
+        approvedVersionCount: version.approvalStatus === "approved" ? 1 : 0,
+      });
+      continue;
+    }
+
+    existing.versionCount += 1;
+    if (version.approvalStatus === "approved") {
+      existing.approvedVersionCount += 1;
+    }
+  }
+
+  return [...entries.values()];
+}
+
+function renderPackageEntry(entry: PackageLibraryEntry): string {
   return `<article class="table-row">
     <div class="table-row-top">
       <div class="stack">
         <p class="line-title">
-          <span>${escapeHtml(version.title)}</span>
-          <span class="${approvalStatusClass(version.approvalStatus)}">${
+          <span>${escapeHtml(entry.title)}</span>
+          <span class="${approvalStatusClass(entry.latestApprovalStatus)}">${
     escapeHtml(
-      approvalStatusLabel(version.approvalStatus),
+      approvalStatusLabel(entry.latestApprovalStatus),
     )
   }</span>
         </p>
         <p class="line-copy">${
-    escapeHtml(approvalStatusDetail(version.approvalStatus))
+    escapeHtml(
+      entry.description ?? approvalStatusDetail(entry.latestApprovalStatus),
+    )
   }</p>
       </div>
       <div class="button-row">
         <a class="button-ghost" href="/admin/packages/${
+    escapeHtml(entry.appId)
+  }/versions/${
     escapeHtml(
-      version.appId,
+      entry.latestVersion,
     )
-  }/versions/${escapeHtml(version.version)}">Open dossier</a>
+  }">Open latest dossier</a>
         <a class="button-secondary" href="/admin/packages/${
     escapeHtml(
-      version.appId,
+      entry.appId,
     )
-  }/deployment">Version picker</a>
+  }/deployment">Open deployments</a>
       </div>
     </div>
     <div class="table-row-meta">
-      <span><strong>Version</strong> ${escapeHtml(version.version)}</span>
-      <span><strong>Owner</strong> ${escapeHtml(version.owner.id)}</span>
-      <span><strong>App ID</strong> ${escapeHtml(version.appId)}</span>
+      <span><strong>Latest version</strong> ${
+    escapeHtml(entry.latestVersion)
+  }</span>
+      <span><strong>Versions</strong> ${
+    escapeHtml(String(entry.versionCount))
+  }</span>
+      <span><strong>Approved</strong> ${
+    escapeHtml(String(entry.approvedVersionCount))
+  }</span>
+      <span><strong>Owner</strong> ${escapeHtml(entry.ownerId)}</span>
+      <span><strong>App ID</strong> ${escapeHtml(entry.appId)}</span>
       <span><strong>Imported</strong> ${
-    escapeHtml(formatDateTime(version.importedAt))
+    escapeHtml(formatDateTime(entry.latestImportedAt))
   }</span>
     </div>
   </article>`;

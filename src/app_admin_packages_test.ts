@@ -9,6 +9,7 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
+import { buildCanvasDeploymentBinding } from "./test_helpers/lti.ts";
 
 Deno.test("GET / serves the public capability story page from renderHomePage", async () => {
   const response = await createApp({
@@ -46,10 +47,11 @@ Deno.test("GET /admin/packages renders the demo-first zero state when no version
 
   assertStringIncludes(body, "Start with the demo app");
   assertStringIncludes(body, "Chapter 4 Asteroids");
-  assertStringIncludes(body, "Import the demo learning game");
+  assertStringIncludes(body, "Import the demo app.");
+  assertStringIncludes(body, "Package Home");
 });
 
-Deno.test("GET /admin/packages renders the SSR control-plane inventory when package data exists", async () => {
+Deno.test("GET /admin/packages renders the package home when package data exists", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -76,15 +78,17 @@ Deno.test("GET /admin/packages renders the SSR control-plane inventory when pack
   assertEquals(response.status, 200);
   const body = await response.text();
 
-  assertStringIncludes(body, "Operator control plane");
-  assertStringIncludes(body, "Chapter 4 Asteroids Pilot Deployment");
-  assertStringIncludes(body, "Pilot usage");
-  assertStringIncludes(body, "Broker verification");
-  assertStringIncludes(body, "Retry required");
-  assertStringIncludes(body, "Open dossier");
-  assertStringIncludes(body, "Open deployment");
-  assertStringIncludes(body, "Record verification evidence");
-  assertStringIncludes(body, 'action="/admin/packages/verification"');
+  assertStringIncludes(body, "Package Home");
+  assertStringIncludes(body, "Pick one package to review or deploy.");
+  assertStringIncludes(body, "Open latest dossier");
+  assertStringIncludes(body, "Open deployments");
+  assertStringIncludes(body, "Signed in");
+  assertStringIncludes(body, 'href="/admin/deployments"');
+  assertStringIncludes(body, 'href="/admin/verification"');
+  assertStringIncludes(body, 'href="/admin/placements"');
+  assertEquals(body.includes("Pilot usage"), false);
+  assertEquals(body.includes("Broker verification"), false);
+  assertEquals(body.includes("Record verification evidence"), false);
 });
 
 Deno.test("POST /admin/packages/import-demo imports the demo package and redirects to the dossier", async () => {
@@ -263,12 +267,14 @@ Deno.test("POST /admin/packages/:appId/deployment/pin stores the exact approved 
         label: "Chapter 4 Asteroids Pilot Deployment",
         enabledPackageVersionId: 5,
         enabledPackageVersion: "0.1.0",
+        binding: buildCanvasDeploymentBinding(),
       }),
     ],
   });
   const app = createApp({ getRepository: () => seededRepository });
   const formData = new FormData();
 
+  formData.set("lms", "canvas");
   formData.set("packageVersionId", "5");
 
   const response = await app.request(
@@ -283,7 +289,7 @@ Deno.test("POST /admin/packages/:appId/deployment/pin stores the exact approved 
   assertEquals(response.status, 303);
   assertEquals(
     response.headers.get("location"),
-    "/admin/packages/chapter-4-asteroids/deployment",
+    "/admin/packages/chapter-4-asteroids/deployment?lms=canvas#slot-panel",
   );
 
   const deployment = await seededRepository.getDeploymentBySlug(

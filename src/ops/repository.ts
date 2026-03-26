@@ -1,5 +1,5 @@
-import type { Pool, PoolClient } from '@db/postgres';
-import { createPackageReviewRepository } from '../package_review/repository.ts';
+import type { Pool, PoolClient } from "@db/postgres";
+import { createPackageReviewRepository } from "../package_review/repository.ts";
 import type {
   BrokerVerificationStatus,
   ControlPlaneDeploymentInventoryRow,
@@ -7,7 +7,7 @@ import type {
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   RetryableGradePublicationLookup,
-} from './types.ts';
+} from "./types.ts";
 import {
   DIAGNOSTICS_QUERY,
   INSERT_BROKER_VERIFICATION_RUN_QUERY,
@@ -20,18 +20,18 @@ import {
   LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
   RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY,
   SUPPORTED_BROKER_SCOPE,
-} from './repository_queries.ts';
+} from "./repository_queries.ts";
 import type {
   ActivitySnapshotRow,
   DiagnosticRow,
   GradePublicationSnapshotRow,
   InternalBrokerVerificationRow,
   InventoryQueryRow,
-  OpsRepository,
   OfficialBrokerVerificationRow,
+  OpsRepository,
   RecordBrokerVerificationRunInput,
   RetryLookupRow,
-} from './repository_types.ts';
+} from "./repository_types.ts";
 import {
   assertBrokerVerificationRunInput,
   mapActivitySnapshotRow,
@@ -39,10 +39,13 @@ import {
   mapDiagnosticRows,
   mapGradePublicationSnapshotRow,
   mapInventoryRow,
-} from './repository_mapping.ts';
-import { mapRetryLookupRow } from './repository_retry_mapping.ts';
+} from "./repository_mapping.ts";
+import { mapRetryLookupRow } from "./repository_retry_mapping.ts";
 
-export type { OpsRepository, RecordBrokerVerificationRunInput } from './repository_types.ts';
+export type {
+  OpsRepository,
+  RecordBrokerVerificationRunInput,
+} from "./repository_types.ts";
 
 export function createOpsRepository(pool: Pool): OpsRepository {
   const packageReviewRepository = createPackageReviewRepository(pool);
@@ -58,30 +61,42 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           getLatestBrokerVerificationStatusForClient(client),
         ]);
 
-        return result.rows.map((row) => mapInventoryRow(row, brokerVerification));
+        return result.rows.map((row) =>
+          mapInventoryRow(row, brokerVerification)
+        );
       });
     },
 
     async getControlPlaneDeploymentDetail(deploymentRecordId) {
       return await withClient(pool, async (client) => {
-        const brokerVerification = await getLatestBrokerVerificationStatusForClient(client);
-        const inventory = await getInventoryRow(client, deploymentRecordId, brokerVerification);
+        const brokerVerification =
+          await getLatestBrokerVerificationStatusForClient(client);
+        const inventory = await getInventoryRow(
+          client,
+          deploymentRecordId,
+          brokerVerification,
+        );
 
         if (inventory === null) {
           return null;
         }
 
-        const [latestLaunch, latestNrpsRead, latestGradePublish] = await Promise.all([
-          getActivitySnapshot(client, LATEST_LAUNCH_QUERY, deploymentRecordId),
-          getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
-          getLatestGradePublication(client, deploymentRecordId),
-        ]);
+        const [latestLaunch, latestNrpsRead, latestGradePublish] = await Promise
+          .all([
+            getActivitySnapshot(
+              client,
+              LATEST_LAUNCH_QUERY,
+              deploymentRecordId,
+            ),
+            getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
+            getLatestGradePublication(client, deploymentRecordId),
+          ]);
         const retryableGradePublication =
-          latestGradePublish?.status === 'failed'
+          latestGradePublish?.status === "failed"
             ? await getRetryableGradePublicationLookupForClient(
-                client,
-                latestGradePublish.attemptId,
-              )
+              client,
+              latestGradePublish.attemptId,
+            )
             : null;
         const diagnostics = await listDiagnostics(
           client,
@@ -109,26 +124,31 @@ export function createOpsRepository(pool: Pool): OpsRepository {
     async getLatestBrokerVerificationStatus() {
       return await withClient(
         pool,
-        async (client) => await getLatestBrokerVerificationStatusForClient(client),
+        async (client) =>
+          await getLatestBrokerVerificationStatusForClient(client),
       );
     },
 
     async recordBrokerVerificationRun(input) {
       return await withClient(
         pool,
-        async (client) => await recordBrokerVerificationRunForClient(client, input),
+        async (client) =>
+          await recordBrokerVerificationRunForClient(client, input),
       );
     },
 
     async getRetryableGradePublicationLookup(attemptId) {
       return await withClient(
         pool,
-        async (client) => await getRetryableGradePublicationLookupForClient(client, attemptId),
+        async (client) =>
+          await getRetryableGradePublicationLookupForClient(client, attemptId),
       );
     },
 
     async getPlacementAuditSnapshot(placementId) {
-      return await packageReviewRepository.requirePlacementAuditSnapshotById(placementId);
+      return await packageReviewRepository.requirePlacementAuditSnapshotById(
+        placementId,
+      );
     },
   };
 }
@@ -140,13 +160,15 @@ async function getInventoryRow(
 ): Promise<ControlPlaneDeploymentInventoryRow | null> {
   const result = await client.queryObject<InventoryQueryRow>({
     text: `${INVENTORY_BASE_QUERY}
-      WHERE deployments.id = $1
+      AND deployments.id = $1
       ${INVENTORY_ORDER_BY}`,
     args: [deploymentRecordId],
     camelCase: true,
   });
 
-  return result.rows[0] ? mapInventoryRow(result.rows[0], brokerVerification) : null;
+  return result.rows[0]
+    ? mapInventoryRow(result.rows[0], brokerVerification)
+    : null;
 }
 
 async function getActivitySnapshot(
@@ -248,7 +270,10 @@ async function getRetryableGradePublicationLookupForClient(
   return row ? mapRetryLookupRow(row) : null;
 }
 
-async function withClient<T>(pool: Pool, run: (client: PoolClient) => Promise<T>): Promise<T> {
+async function withClient<T>(
+  pool: Pool,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
   const client = await pool.connect();
 
   try {

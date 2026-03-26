@@ -50,7 +50,7 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves one exact Canvas
     assertEquals(response.status, 303);
     assertEquals(
       response.headers.get("location"),
-      "/admin/packages/chapter-4-asteroids/deployment",
+      "/admin/packages/chapter-4-asteroids/deployment?lms=canvas#slot-panel",
     );
 
     const deployment = await repository.getDeploymentBySlug(
@@ -148,10 +148,16 @@ Deno.test("POST /admin/packages/:appId/deployment/install requires the exact Moo
   );
 
   assertEquals(response.status, 409);
-  assertStringIncludes(
-    await response.text(),
-    "Moodle Authentication request URL is required.",
-  );
+  const body = await response.text();
+
+  assertStringIncludes(body, "Moodle install blocked");
+  assertStringIncludes(body, "Moodle setup");
+  assertStringIncludes(body, "Moodle Authentication request URL is required.");
+  assertStringIncludes(body, 'value="https://moodle.example"');
+  assertStringIncludes(body, 'value="moodle-client-123"');
+  assertStringIncludes(body, 'value="moodle-deployment-123"');
+  assertStringIncludes(body, 'name="authenticationRequestUrl"');
+  assertStringIncludes(body, 'aria-invalid="true"');
   assertEquals(
     await repository.getDeploymentBySlug("chapter-4-asteroids-moodle"),
     null,

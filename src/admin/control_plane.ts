@@ -10,7 +10,6 @@ import {
   renderDeploymentInventorySection,
   renderInventorySummarySection,
   renderPilotUsageSection,
-  renderPlacementAuditSection,
 } from "./control_plane_sections.ts";
 import {
   renderBrokerVerificationSection,
@@ -18,7 +17,27 @@ import {
 } from "./control_plane_verification_sections.ts";
 import { type AdminNotice, renderAdminLayout } from "./layout.ts";
 
-export function renderControlPlanePage(input: {
+export function renderDeploymentsPage(input: {
+  deployments: ControlPlaneDeploymentInventoryRow[];
+  notice?: AdminNotice | null;
+}): string {
+  const aggregateUsage = aggregatePilotUsage(input.deployments);
+
+  return renderAdminLayout({
+    title: "Lantern Admin Deployments",
+    eyebrow: "Deployments",
+    heading: "Deployments",
+    intro:
+      "See each governed deployment, its current health, and the latest pilot evidence without mixing that work into the package library.",
+    activePath: "/admin/deployments",
+    notice: input.notice ?? null,
+    body: `${renderInventorySummarySection(input.deployments)}
+    ${renderPilotUsageSection(aggregateUsage)}
+    ${renderDeploymentInventorySection(input.deployments)}`,
+  });
+}
+
+export function renderVerificationPage(input: {
   deployments: ControlPlaneDeploymentInventoryRow[];
   latestBrokerVerification: BrokerVerificationStatus | null;
   notice?: AdminNotice | null;
@@ -27,39 +46,16 @@ export function renderControlPlanePage(input: {
     input.latestBrokerVerification,
     input.deployments,
   );
-  const aggregateUsage = aggregatePilotUsage(input.deployments);
 
   return renderAdminLayout({
-    title: "Lantern Admin Packages",
-    eyebrow: "Operator control plane",
-    heading: "Operator control plane",
+    title: "Lantern Admin Verification",
+    eyebrow: "Verification",
+    heading: "Verification",
     intro:
-      "Use the existing packages surface to see what is enabled, what is healthy, and what has fresh pilot evidence without leaving Lantern's governed admin flow.",
+      "Keep broker verification evidence separate from package picking and deployment inventory. Record exactly what the latest proof shows.",
+    activePath: "/admin/verification",
     notice: input.notice ?? null,
-    body: `${renderDemoActionSection()}
-    ${renderInventorySummarySection(input.deployments)}
-    ${renderPilotUsageSection(aggregateUsage)}
-    ${renderPlacementAuditSection()}
-    ${renderBrokerVerificationSection(latestBrokerVerification)}
-    ${renderVerificationUpdateSection()}
-    ${renderDeploymentInventorySection(input.deployments)}`,
+    body: `${renderBrokerVerificationSection(latestBrokerVerification)}
+    ${renderVerificationUpdateSection()}`,
   });
-}
-
-function renderDemoActionSection(): string {
-  return `<section class="panel">
-    <div class="panel-body two-column">
-      <div class="stack">
-        <p class="section-label">Demo app</p>
-        <h2>Open the Chapter 4 Asteroids dossier</h2>
-        <p>Use the same demo action from the intake flow. If the demo package is already present, Lantern reopens the exact dossier instead of re-importing bytes.</p>
-      </div>
-      <div class="stack">
-        <form method="post" action="/admin/packages/import-demo">
-          <button type="submit" class="button-secondary">Open the demo dossier</button>
-        </form>
-        <p class="micro muted">This action is idempotent. Lantern restores the dossier if the database row is missing and the stored snapshot already exists.</p>
-      </div>
-    </div>
-  </section>`;
 }

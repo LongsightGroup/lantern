@@ -5,11 +5,7 @@ import {
   renderPackagesPage,
 } from "./app_admin_support.ts";
 import { createErrorNotice, packageDetailPath } from "./app_notice_support.ts";
-import { parseBrokerVerificationRunForm } from "./app_request_support.ts";
-import {
-  statusForError,
-  statusForVerificationError,
-} from "./app_status_support.ts";
+import { statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
 import { renderPackageIndexPage } from "./admin/package_index.ts";
@@ -30,25 +26,6 @@ export function registerAdminInventoryRoutes(
         }),
         statusForError(error),
       );
-    }
-  });
-
-  app.post("/admin/packages/verification", async (context) => {
-    try {
-      const verificationRun = parseBrokerVerificationRunForm(
-        await context.req.formData(),
-      );
-
-      await services.getOpsRepository().recordBrokerVerificationRun(
-        verificationRun,
-      );
-
-      return context.redirect("/admin/packages", 303);
-    } catch (error) {
-      return await renderPackagesPage(context, services, {
-        notice: createErrorNotice("Verification update blocked", error),
-        status: statusForVerificationError(error),
-      });
     }
   });
 
