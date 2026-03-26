@@ -83,8 +83,9 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
   `,
   `
     CREATE TABLE IF NOT EXISTS lti_login_states (
+      lms_type text NOT NULL CHECK (lms_type IN ('canvas', 'moodle', 'sakai')),
       state text PRIMARY KEY,
-      canvas_environment text NOT NULL,
+      canvas_environment text,
       issuer text NOT NULL,
       client_id text NOT NULL,
       deployment_id text NOT NULL,
@@ -94,7 +95,11 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
       lti_message_hint text,
       created_at timestamptz NOT NULL,
       expires_at timestamptz NOT NULL,
-      used_at timestamptz
+      used_at timestamptz,
+      CHECK (
+        (lms_type = 'canvas' AND canvas_environment IN ('production', 'beta', 'test'))
+        OR (lms_type IN ('moodle', 'sakai') AND canvas_environment IS NULL)
+      )
     )
   `,
   `

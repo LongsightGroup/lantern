@@ -69,6 +69,10 @@ export async function validateDeepLinkingRequest(input: {
     throw new Error(`Login state ${state} has expired.`);
   }
 
+  if (loginState.lms !== "canvas" || loginState.canvasEnvironment === null) {
+    throw new Error("Deep Linking is only supported for Canvas deployments.");
+  }
+
   const platform = resolveCanvasPlatform(loginState.issuer);
   const jwks = await loadDeepLinkingJwks(platform.jwksUrl);
   let payload: Awaited<ReturnType<typeof jwtVerify>>["payload"];
@@ -187,7 +191,7 @@ export async function validateDeepLinkingRequest(input: {
       acceptLineItem: settings.acceptLineItem,
     },
     issuedAt: now().toISOString(),
-    canvasEnvironment: consumedState.canvasEnvironment,
+    canvasEnvironment: loginState.canvasEnvironment,
     issuer: consumedState.issuer,
     clientId: consumedState.clientId,
     deploymentId: consumedState.deploymentId,

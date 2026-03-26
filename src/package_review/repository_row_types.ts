@@ -64,8 +64,9 @@ export interface DeploymentRow {
 }
 
 export interface LoginStateRow {
+  lmsType: LmsType;
   state: string;
-  canvasEnvironment: CanvasDeploymentBinding["canvasEnvironment"];
+  canvasEnvironment: CanvasDeploymentBinding["canvasEnvironment"] | null;
   issuer: CanvasDeploymentBinding["issuer"];
   clientId: CanvasDeploymentBinding["clientId"];
   deploymentId: CanvasDeploymentBinding["deploymentId"];

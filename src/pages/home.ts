@@ -1,8 +1,8 @@
-import { renderLayout } from './layout.ts';
+import { renderLayout } from "./layout.ts";
 
 export function renderHomePage(): string {
   return renderLayout(
-    'Lantern',
+    "Lantern",
     `<main class="home">
       <section class="home-hero">
         <p class="eyebrow">Lantern</p>
@@ -38,7 +38,7 @@ export function renderHomePage(): string {
           <ol>
             <li>Review and approve one exact package version.</li>
             <li>Bind the approved version to deployment and placement records.</li>
-            <li>Inspect runtime, grading, and reviewer evidence from SSR operator pages.</li>
+            <li>Inspect runtime, grading, and reviewer evidence from Lantern's operator pages.</li>
           </ol>
         </article>
 

@@ -136,13 +136,13 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves the Sakai bindin
   formData.set("deploymentId", "sakai-deployment-999");
   formData.set(
     "oidcAuthenticationUrl",
-    "https://sakai.example/imsti/sakai_oidc_login",
+    "https://sakai.example/imsoidc/lti13/oidc_auth",
   );
   formData.set(
     "accessTokenUrl",
-    "https://sakai.example/imsti/sakai_access_token",
+    "https://sakai.example/imsblis/lti13/token/3",
   );
-  formData.set("jwksUrl", "https://sakai.example/imsti/sakai_jwks");
+  formData.set("jwksUrl", "https://sakai.example/imsblis/lti13/keyset");
 
   const response = await app.request(
     "http://localhost/admin/packages/chapter-4-asteroids/deployment/install",
@@ -173,7 +173,7 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves the Sakai bindin
     sakai?.binding?.lms === "sakai"
       ? sakai.binding.oidcAuthenticationUrl
       : null,
-    "https://sakai.example/imsti/sakai_oidc_login",
+    "https://sakai.example/imsoidc/lti13/oidc_auth",
   );
 
   const auditEvents = await repository.listAuditEventsByEventType(

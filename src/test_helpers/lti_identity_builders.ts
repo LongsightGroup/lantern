@@ -5,8 +5,10 @@ import type {
   LaunchAssignmentAndGradeServices,
   LaunchNamesAndRolesService,
   LaunchServiceClaims,
+  LmsType,
   LoginStateRecord,
 } from "../lti/types.ts";
+import type { LoginRequest } from "../lti/login.ts";
 import {
   LTI_AGS_LINEITEM_SCOPE as DEFAULT_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE as DEFAULT_AGS_SCORE_SCOPE,
@@ -40,15 +42,6 @@ export const TEST_CANVAS_PLATFORMS: Record<
     jwksUrl: "https://sso.test.canvaslms.com/api/lti/security/jwks",
   },
 };
-
-export interface CanvasLoginRequest {
-  iss: string;
-  loginHint: string;
-  targetLinkUri: string;
-  clientId: string;
-  deploymentId: string;
-  ltiMessageHint: string | null;
-}
 
 export type AgsShape = "lineitem" | "lineitems" | "both" | "none";
 
@@ -106,10 +99,10 @@ export function buildSakaiDeploymentBinding(
     clientId: overrides.clientId ?? "sakai-client-123",
     deploymentId: overrides.deploymentId ?? "sakai-deployment-123",
     oidcAuthenticationUrl: overrides.oidcAuthenticationUrl ??
-      "https://sakai.example/imsti/sakai_oidc_login",
+      "https://sakai.example/imsoidc/lti13/oidc_auth",
     accessTokenUrl: overrides.accessTokenUrl ??
-      "https://sakai.example/imsti/sakai_access_token",
-    jwksUrl: overrides.jwksUrl ?? "https://sakai.example/imsti/sakai_jwks",
+      "https://sakai.example/imsblis/lti13/token/3",
+    jwksUrl: overrides.jwksUrl ?? "https://sakai.example/imsblis/lti13/keyset",
   };
 }
 
@@ -119,28 +112,129 @@ export function buildDeploymentBinding(
   return buildCanvasDeploymentBinding(overrides);
 }
 
+export function buildPlatformIdentity(overrides: Partial<{
+  lms: LmsType;
+  canvasEnvironment: CanvasEnvironment | null;
+  issuer: string;
+  clientId: string;
+  deploymentId: string;
+}> = {}): Pick<
+  LoginStateRecord,
+  "lms" | "canvasEnvironment" | "issuer" | "clientId" | "deploymentId"
+> {
+  const lms = overrides.lms ?? "canvas";
+
+  switch (lms) {
+    case "canvas": {
+      const binding = buildCanvasDeploymentBinding({
+        ...(overrides.canvasEnvironment === undefined ||
+            overrides.canvasEnvironment === null
+          ? {}
+          : { canvasEnvironment: overrides.canvasEnvironment }),
+        ...(overrides.issuer === undefined ? {} : { issuer: overrides.issuer }),
+        ...(overrides.clientId === undefined
+          ? {}
+          : { clientId: overrides.clientId }),
+        ...(overrides.deploymentId === undefined
+          ? {}
+          : { deploymentId: overrides.deploymentId }),
+      });
+
+      return {
+        lms: binding.lms,
+        canvasEnvironment: binding.canvasEnvironment,
+        issuer: binding.issuer,
+        clientId: binding.clientId,
+        deploymentId: binding.deploymentId,
+      };
+    }
+    case "moodle": {
+      const binding = buildMoodleDeploymentBinding({
+        ...(overrides.issuer === undefined ? {} : { issuer: overrides.issuer }),
+        ...(overrides.clientId === undefined
+          ? {}
+          : { clientId: overrides.clientId }),
+        ...(overrides.deploymentId === undefined
+          ? {}
+          : { deploymentId: overrides.deploymentId }),
+      });
+
+      return {
+        lms: binding.lms,
+        canvasEnvironment: null,
+        issuer: binding.issuer,
+        clientId: binding.clientId,
+        deploymentId: binding.deploymentId,
+      };
+    }
+    case "sakai": {
+      const binding = buildSakaiDeploymentBinding({
+        ...(overrides.issuer === undefined ? {} : { issuer: overrides.issuer }),
+        ...(overrides.clientId === undefined
+          ? {}
+          : { clientId: overrides.clientId }),
+        ...(overrides.deploymentId === undefined
+          ? {}
+          : { deploymentId: overrides.deploymentId }),
+      });
+
+      return {
+        lms: binding.lms,
+        canvasEnvironment: null,
+        issuer: binding.issuer,
+        clientId: binding.clientId,
+        deploymentId: binding.deploymentId,
+      };
+    }
+  }
+}
+
 export function buildCanvasLoginRequest(
-  overrides: Partial<CanvasLoginRequest> = {},
-): CanvasLoginRequest {
-  const bindingOverrides: Partial<CanvasDeploymentBinding> = {};
-  if (overrides.iss !== undefined) {
-    bindingOverrides.issuer = overrides.iss;
-  }
-  if (overrides.clientId !== undefined) {
-    bindingOverrides.clientId = overrides.clientId;
-  }
-  if (overrides.deploymentId !== undefined) {
-    bindingOverrides.deploymentId = overrides.deploymentId;
-  }
-  const binding = buildCanvasDeploymentBinding(bindingOverrides);
+  overrides: Partial<LoginRequest> = {},
+): LoginRequest {
+  const identity = buildPlatformIdentity({
+    lms: "canvas",
+    ...(overrides.iss === undefined ? {} : { issuer: overrides.iss }),
+    ...(overrides.clientId === undefined
+      ? {}
+      : { clientId: overrides.clientId }),
+    ...(overrides.deploymentId === undefined
+      ? {}
+      : { deploymentId: overrides.deploymentId }),
+  });
 
   return {
-    iss: binding.issuer,
+    iss: identity.issuer,
     loginHint: overrides.loginHint ?? "opaque-login-hint",
     targetLinkUri: overrides.targetLinkUri ??
-      "http://localhost:8000/lti/launch",
-    clientId: overrides.clientId ?? binding.clientId,
-    deploymentId: overrides.deploymentId ?? binding.deploymentId,
+      "http://localhost:8417/lti/launch",
+    clientId: identity.clientId,
+    deploymentId: identity.deploymentId,
+    ltiMessageHint: overrides.ltiMessageHint ?? "message-hint-123",
+  };
+}
+
+export function buildSakaiLoginRequest(
+  overrides: Partial<LoginRequest> = {},
+): LoginRequest {
+  const identity = buildPlatformIdentity({
+    lms: "sakai",
+    ...(overrides.iss === undefined ? {} : { issuer: overrides.iss }),
+    ...(overrides.clientId === undefined
+      ? {}
+      : { clientId: overrides.clientId }),
+    ...(overrides.deploymentId === undefined
+      ? {}
+      : { deploymentId: overrides.deploymentId }),
+  });
+
+  return {
+    iss: identity.issuer,
+    loginHint: overrides.loginHint ?? "opaque-login-hint",
+    targetLinkUri: overrides.targetLinkUri ??
+      "http://localhost:8417/lti/launch",
+    clientId: identity.clientId,
+    deploymentId: identity.deploymentId,
     ltiMessageHint: overrides.ltiMessageHint ?? "message-hint-123",
   };
 }
@@ -148,32 +242,31 @@ export function buildCanvasLoginRequest(
 export function buildLoginStateRecord(
   overrides: Partial<LoginStateRecord> = {},
 ): LoginStateRecord {
-  const bindingOverrides: Partial<CanvasDeploymentBinding> = {};
-  if (overrides.canvasEnvironment !== undefined) {
-    bindingOverrides.canvasEnvironment = overrides.canvasEnvironment;
-  }
-  if (overrides.issuer !== undefined) {
-    bindingOverrides.issuer = overrides.issuer;
-  }
-  if (overrides.clientId !== undefined) {
-    bindingOverrides.clientId = overrides.clientId;
-  }
-  if (overrides.deploymentId !== undefined) {
-    bindingOverrides.deploymentId = overrides.deploymentId;
-  }
-  const binding = buildCanvasDeploymentBinding(bindingOverrides);
+  const identity = buildPlatformIdentity({
+    ...(overrides.lms === undefined ? {} : { lms: overrides.lms }),
+    ...(overrides.canvasEnvironment === undefined
+      ? {}
+      : { canvasEnvironment: overrides.canvasEnvironment }),
+    ...(overrides.issuer === undefined ? {} : { issuer: overrides.issuer }),
+    ...(overrides.clientId === undefined
+      ? {}
+      : { clientId: overrides.clientId }),
+    ...(overrides.deploymentId === undefined
+      ? {}
+      : { deploymentId: overrides.deploymentId }),
+  });
 
   return {
     state: overrides.state ?? "state-123",
     nonce: overrides.nonce ?? "nonce-123",
     loginHint: overrides.loginHint ?? "opaque-login-hint",
     targetLinkUri: overrides.targetLinkUri ??
-      "http://localhost:8000/lti/launch",
+      "http://localhost:8417/lti/launch",
     ltiMessageHint: overrides.ltiMessageHint ?? "message-hint-123",
     createdAt: overrides.createdAt ?? TEST_NOW,
     expiresAt: overrides.expiresAt ?? "2026-03-23T22:50:00Z",
     usedAt: overrides.usedAt ?? null,
-    ...binding,
+    ...identity,
   };
 }
 

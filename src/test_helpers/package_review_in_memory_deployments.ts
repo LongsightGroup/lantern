@@ -9,6 +9,7 @@ type DeploymentRepository = Pick<
   | "getDeploymentBySlug"
   | "listDeploymentsByApp"
   | "getDeploymentByBinding"
+  | "getDeploymentByPlatformIdentity"
   | "saveDeploymentBinding"
   | "pinDeploymentVersion"
 >;
@@ -41,6 +42,33 @@ export function createInMemoryDeploymentRepository(
           candidate.binding?.deploymentId === binding.deploymentId,
       );
       return Promise.resolve(deployment ? cloneRecord(deployment) : null);
+    },
+
+    getDeploymentByPlatformIdentity(input) {
+      const deployments = state.deployments.filter(
+        (candidate) =>
+          candidate.binding?.issuer === input.issuer &&
+          candidate.binding?.clientId === input.clientId &&
+          candidate.binding?.deploymentId === input.deploymentId,
+      );
+
+      if (deployments.length === 0) {
+        return Promise.resolve(null);
+      }
+
+      if (deployments.length > 1) {
+        throw new Error(
+          `Multiple deployments matched issuer ${input.issuer} with client ${input.clientId} and deployment ${input.deploymentId}. Resolve the duplicate LMS bindings before login can continue.`,
+        );
+      }
+
+      const deployment = deployments[0];
+
+      if (!deployment) {
+        return Promise.resolve(null);
+      }
+
+      return Promise.resolve(cloneRecord(deployment));
     },
 
     saveDeploymentBinding(input) {

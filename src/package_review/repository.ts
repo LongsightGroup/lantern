@@ -61,6 +61,11 @@ export interface PackageReviewRepository {
       "lms" | "issuer" | "clientId" | "deploymentId"
     >,
   ): Promise<DeploymentRecord | null>;
+  getDeploymentByPlatformIdentity(input: {
+    issuer: string;
+    clientId: string;
+    deploymentId: string;
+  }): Promise<DeploymentRecord | null>;
   createLoginState(record: LoginStateRecord): Promise<LoginStateRecord>;
   getLoginStateByState(state: string): Promise<LoginStateRecord | null>;
   consumeLoginState(

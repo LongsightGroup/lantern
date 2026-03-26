@@ -1,11 +1,11 @@
-import type { BootstrapPayload } from '../../sdk/app-sdk.ts';
-import type { RuntimeSessionRecord } from '../lti/types.ts';
+import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
+import type { RuntimeSessionRecord } from "../lti/types.ts";
 import {
   assertPathInsideSnapshot,
   joinSnapshotPath,
   requireRelativeSnapshotPath,
   toRelativeSnapshotPath,
-} from '../package_review/snapshot_path.ts';
+} from "../package_review/snapshot_path.ts";
 
 export function authorizeRuntimeSession(input: {
   token: string;
@@ -15,50 +15,60 @@ export function authorizeRuntimeSession(input: {
   const now = input.now ?? (() => new Date());
   const token = input.token.trim();
 
-  if (token === '') {
-    throw new Error('Runtime session token is required.');
+  if (token === "") {
+    throw new Error("Runtime session token is required.");
   }
 
   if (token !== input.expected.sessionToken) {
-    throw new Error('Runtime session token did not match the requested session.');
+    throw new Error(
+      "Runtime session token did not match the requested session.",
+    );
   }
 
   if (Date.parse(input.expected.expiresAt) <= now().getTime()) {
-    throw new Error('Runtime session has expired.');
+    throw new Error("Runtime session has expired.");
   }
 
   return input.expected;
 }
 
-export async function renderRuntimeSessionPage(session: RuntimeSessionRecord): Promise<string> {
-  const entrypointHtml = new TextDecoder().decode(await loadRuntimeEntrypointBytes(session));
+export async function renderRuntimeSessionPage(
+  session: RuntimeSessionRecord,
+): Promise<string> {
+  const entrypointHtml = new TextDecoder().decode(
+    await loadRuntimeEntrypointBytes(session),
+  );
   const runtimeBasePath = `/runtime/sessions/${session.sessionId}`;
   const entrypointDirectory = entrypointDirectoryPath(session);
-  const assetBaseUrl = `${runtimeBasePath}/files/${entrypointDirectory}?token=${encodeURIComponent(
-    session.sessionToken,
-  )}`;
+  const assetBaseUrl = `${runtimeBasePath}/files/__token__/${
+    encodeURIComponent(session.sessionToken)
+  }/${entrypointDirectory}`;
   const bootstrap = buildBootstrapPayload(session);
   const headInjection = `<base href="${escapeHtmlAttribute(assetBaseUrl)}">`;
-  const bodyInjection = `<script>${buildRuntimeBootstrapScript({
-    bootstrap,
-    runtimeBasePath,
-    previewSessionId: session.preview?.previewSessionId ?? null,
-  })}</script>`;
+  const bodyInjection = `<script>${
+    buildRuntimeBootstrapScript({
+      bootstrap,
+      runtimeBasePath,
+      previewSessionId: session.preview?.previewSessionId ?? null,
+    })
+  }</script>`;
 
   return injectBeforeClosingTag(
-    injectBeforeClosingTag(entrypointHtml, 'head', headInjection),
-    'body',
+    injectBeforeClosingTag(entrypointHtml, "head", headInjection),
+    "body",
     bodyInjection,
   );
 }
 
-export async function loadRuntimeActivityContent(session: RuntimeSessionRecord): Promise<unknown> {
+export async function loadRuntimeActivityContent(
+  session: RuntimeSessionRecord,
+): Promise<unknown> {
   const bytes = await readRuntimeBytes(
     session,
     toRelativeSnapshotPath(
       session.snapshotRoot,
       session.contentPath,
-      'Runtime file is outside the reviewed snapshot.',
+      "Runtime file is outside the reviewed snapshot.",
     ),
   );
 
@@ -73,50 +83,52 @@ export async function loadRuntimeAssetBytes(
     session,
     requireRelativeSnapshotPath(
       relativePath,
-      'Runtime file path must stay inside the reviewed snapshot.',
+      "Runtime file path must stay inside the reviewed snapshot.",
     ),
   );
 }
 
 export function contentTypeForRuntimePath(path: string): string {
-  if (path.endsWith('.html')) {
-    return 'text/html; charset=UTF-8';
+  if (path.endsWith(".html")) {
+    return "text/html; charset=UTF-8";
   }
 
-  if (path.endsWith('.js')) {
-    return 'application/javascript; charset=UTF-8';
+  if (path.endsWith(".js")) {
+    return "application/javascript; charset=UTF-8";
   }
 
-  if (path.endsWith('.css')) {
-    return 'text/css; charset=UTF-8';
+  if (path.endsWith(".css")) {
+    return "text/css; charset=UTF-8";
   }
 
-  if (path.endsWith('.json')) {
-    return 'application/json';
+  if (path.endsWith(".json")) {
+    return "application/json";
   }
 
-  if (path.endsWith('.svg')) {
-    return 'image/svg+xml';
+  if (path.endsWith(".svg")) {
+    return "image/svg+xml";
   }
 
-  if (path.endsWith('.png')) {
-    return 'image/png';
+  if (path.endsWith(".png")) {
+    return "image/png";
   }
 
-  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
-    return 'image/jpeg';
+  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+    return "image/jpeg";
   }
 
-  return 'application/octet-stream';
+  return "application/octet-stream";
 }
 
-async function loadRuntimeEntrypointBytes(session: RuntimeSessionRecord): Promise<Uint8Array> {
+async function loadRuntimeEntrypointBytes(
+  session: RuntimeSessionRecord,
+): Promise<Uint8Array> {
   return await readRuntimeBytes(
     session,
     toRelativeSnapshotPath(
       session.snapshotRoot,
       session.entrypointPath,
-      'Runtime file is outside the reviewed snapshot.',
+      "Runtime file is outside the reviewed snapshot.",
     ),
   );
 }
@@ -128,19 +140,21 @@ async function readRuntimeBytes(
   const absolutePath = joinSnapshotPath(
     session.snapshotRoot,
     relativePath,
-    'Runtime file is outside the reviewed snapshot.',
+    "Runtime file is outside the reviewed snapshot.",
   );
 
   assertPathInsideSnapshot(
     session.snapshotRoot,
     absolutePath,
-    'Runtime file is outside the reviewed snapshot.',
+    "Runtime file is outside the reviewed snapshot.",
   );
 
   return await Deno.readFile(absolutePath);
 }
 
-function buildBootstrapPayload(session: RuntimeSessionRecord): BootstrapPayload {
+function buildBootstrapPayload(
+  session: RuntimeSessionRecord,
+): BootstrapPayload {
   return {
     launch: {
       user_role: session.launch.userRole,
@@ -168,15 +182,19 @@ function buildRuntimeBootstrapScript(input: {
   previewSessionId: string | null;
 }): string {
   const bootstrapJson = serializeForInlineScript(input.bootstrap);
-  const contentUrl = serializeForInlineScript(`${input.runtimeBasePath}/content`);
-  const attemptEventsUrl = serializeForInlineScript(`${input.runtimeBasePath}/attempt-events`);
-  const finalizeUrl = serializeForInlineScript(`${input.runtimeBasePath}/finalize`);
+  const contentUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/content`,
+  );
+  const attemptEventsUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/attempt-events`,
+  );
+  const finalizeUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/finalize`,
+  );
   const previewJson = serializeForInlineScript(
-    input.previewSessionId === null
-      ? null
-      : {
-          previewSessionId: input.previewSessionId,
-        },
+    input.previewSessionId === null ? null : {
+      previewSessionId: input.previewSessionId,
+    },
   );
 
   return `window.GatewayBootstrap = ${bootstrapJson};
@@ -242,18 +260,22 @@ function entrypointDirectoryPath(session: RuntimeSessionRecord): string {
   const relativeEntrypoint = toRelativeSnapshotPath(
     session.snapshotRoot,
     session.entrypointPath,
-    'Runtime file is outside the reviewed snapshot.',
+    "Runtime file is outside the reviewed snapshot.",
   );
-  const index = relativeEntrypoint.lastIndexOf('/');
+  const index = relativeEntrypoint.lastIndexOf("/");
 
   if (index < 0) {
-    return '';
+    return "";
   }
 
   return `${relativeEntrypoint.slice(0, index + 1)}`;
 }
 
-function injectBeforeClosingTag(html: string, tagName: 'head' | 'body', injection: string): string {
+function injectBeforeClosingTag(
+  html: string,
+  tagName: "head" | "body",
+  injection: string,
+): string {
   const closingTag = `</${tagName}>`;
   const index = html.lastIndexOf(closingTag);
 
@@ -266,17 +288,17 @@ function injectBeforeClosingTag(html: string, tagName: 'head' | 'body', injectio
 
 function serializeForInlineScript(value: unknown): string {
   return JSON.stringify(value)
-    .replaceAll('<', '\\u003c')
-    .replaceAll('>', '\\u003e')
-    .replaceAll('&', '\\u0026')
-    .replaceAll('\u2028', '\\u2028')
-    .replaceAll('\u2029', '\\u2029');
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("&", "\\u0026")
+    .replaceAll("\u2028", "\\u2028")
+    .replaceAll("\u2029", "\\u2029");
 }
 
 function escapeHtmlAttribute(value: string): string {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }

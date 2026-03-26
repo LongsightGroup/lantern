@@ -27,7 +27,7 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves one exact Canvas
   const previousOrigin = Deno.env.get("APP_ORIGIN");
   const formData = new FormData();
 
-  Deno.env.set("APP_ORIGIN", "http://localhost:8000");
+  Deno.env.set("APP_ORIGIN", "http://localhost:8417");
   formData.set("lms", "canvas");
   formData.set("canvasEnvironment", "production");
   formData.set("clientId", "10000000000001");
@@ -67,7 +67,7 @@ Deno.test("duplicate issuer, client_id, and deployment_id bindings are rejected 
   const previousOrigin = Deno.env.get("APP_ORIGIN");
   const formData = new FormData();
 
-  Deno.env.set("APP_ORIGIN", "http://localhost:8000");
+  Deno.env.set("APP_ORIGIN", "http://localhost:8417");
   formData.set("lms", "canvas");
   formData.set("canvasEnvironment", "production");
   formData.set("clientId", "10000000000001");
@@ -167,9 +167,9 @@ Deno.test("POST /admin/packages/:appId/deployment/install requires the exact Sak
   formData.set("deploymentId", "sakai-deployment-123");
   formData.set(
     "accessTokenUrl",
-    "https://sakai.example/imsti/sakai_access_token",
+    "https://sakai.example/imsblis/lti13/token/3",
   );
-  formData.set("jwksUrl", "https://sakai.example/imsti/sakai_jwks");
+  formData.set("jwksUrl", "https://sakai.example/imsblis/lti13/keyset");
 
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [

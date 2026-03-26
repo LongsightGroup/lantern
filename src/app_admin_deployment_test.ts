@@ -16,7 +16,7 @@ import { restoreEnv } from "./app_test_support.ts";
 
 Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas binding and redirects back to deployment detail", async () => {
   const previousOrigin = Deno.env.get("APP_ORIGIN");
-  Deno.env.set("APP_ORIGIN", "http://localhost:8000");
+  Deno.env.set("APP_ORIGIN", "http://localhost:8417");
 
   try {
     const repository = createInMemoryPackageReviewRepository({
@@ -83,7 +83,7 @@ Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas bindi
 
 Deno.test("GET /admin/packages/:appId/deployment renders the Canvas, Moodle, and Sakai deployment cards", async () => {
   const previousOrigin = Deno.env.get("APP_ORIGIN");
-  Deno.env.set("APP_ORIGIN", "http://localhost:8000");
+  Deno.env.set("APP_ORIGIN", "http://localhost:8417");
 
   try {
     const response = await createApp({

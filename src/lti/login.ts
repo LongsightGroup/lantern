@@ -1,10 +1,10 @@
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type { LoginStateRecord } from "./types.ts";
-import { resolveCanvasPlatform } from "./canvas_platform.ts";
+import { resolveAuthorizationEndpoint } from "./platform_binding.ts";
 
 const LOGIN_STATE_TTL_MS = 5 * 60 * 1000;
 
-export interface CanvasLoginRequest {
+export interface LoginRequest {
   iss: string;
   loginHint: string;
   targetLinkUri: string;
@@ -20,34 +20,34 @@ export interface LoginRedirectResult {
 
 export async function createLoginRedirect(input: {
   repository: PackageReviewRepository;
-  loginRequest: CanvasLoginRequest;
+  loginRequest: LoginRequest;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<LoginRedirectResult> {
   const now = input.now ?? (() => new Date());
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const loginRequest = normalizeLoginRequest(input.loginRequest);
-  const deployment = await input.repository.getDeploymentByBinding({
-    lms: "canvas",
+  const deployment = await input.repository.getDeploymentByPlatformIdentity({
     issuer: loginRequest.iss,
     clientId: loginRequest.clientId,
     deploymentId: loginRequest.deploymentId,
   });
 
-  if (!deployment?.binding || deployment.binding.lms !== "canvas") {
+  if (!deployment?.binding) {
     throw new Error(
-      `Canvas deployment ${loginRequest.clientId} / ${loginRequest.deploymentId} was not found for issuer ${loginRequest.iss}.`,
+      `Deployment ${loginRequest.clientId} / ${loginRequest.deploymentId} was not found for issuer ${loginRequest.iss}.`,
     );
   }
 
   const binding = deployment.binding;
-  const platform = resolveCanvasPlatform(loginRequest.iss);
   const createdAt = now();
   const loginState = await input.repository.createLoginState({
-    lms: "canvas",
+    lms: binding.lms,
     state: createOpaqueToken(),
     nonce: createOpaqueToken(),
-    canvasEnvironment: binding.canvasEnvironment,
+    canvasEnvironment: binding.lms === "canvas"
+      ? binding.canvasEnvironment
+      : null,
     issuer: binding.issuer,
     clientId: binding.clientId,
     deploymentId: binding.deploymentId,
@@ -58,7 +58,7 @@ export async function createLoginRedirect(input: {
     expiresAt: new Date(createdAt.getTime() + LOGIN_STATE_TTL_MS).toISOString(),
     usedAt: null,
   });
-  const location = new URL(platform.authorizationEndpoint);
+  const location = new URL(resolveAuthorizationEndpoint(binding));
 
   location.searchParams.set("client_id", loginState.clientId);
   location.searchParams.set("login_hint", loginState.loginHint);
@@ -80,25 +80,25 @@ export async function createLoginRedirect(input: {
 }
 
 function normalizeLoginRequest(
-  request: CanvasLoginRequest,
-): CanvasLoginRequest {
+  request: LoginRequest,
+): LoginRequest {
   return {
-    iss: requireTrimmedValue(request.iss, "Canvas issuer is required."),
+    iss: requireTrimmedValue(request.iss, "LTI issuer is required."),
     loginHint: requireTrimmedValue(
       request.loginHint,
-      "Canvas login_hint is required.",
+      "LTI login_hint is required.",
     ),
     targetLinkUri: requireTrimmedValue(
       request.targetLinkUri,
-      "Canvas target_link_uri is required.",
+      "LTI target_link_uri is required.",
     ),
     clientId: requireTrimmedValue(
       request.clientId,
-      "Canvas client_id is required.",
+      "LTI client_id is required.",
     ),
     deploymentId: requireTrimmedValue(
       request.deploymentId,
-      "Canvas deployment_id is required.",
+      "LTI deployment_id is required.",
     ),
     ltiMessageHint: normalizeOptionalValue(request.ltiMessageHint),
   };

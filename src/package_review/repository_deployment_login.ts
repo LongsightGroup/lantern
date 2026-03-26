@@ -17,6 +17,7 @@ export function createDeploymentLoginRepositoryMethods(
   | "getDeploymentBySlug"
   | "listDeploymentsByApp"
   | "getDeploymentByBinding"
+  | "getDeploymentByPlatformIdentity"
   | "createLoginState"
   | "getLoginStateByState"
   | "consumeLoginState"
@@ -75,12 +76,45 @@ export function createDeploymentLoginRepositoryMethods(
       });
     },
 
+    async getDeploymentByPlatformIdentity(input) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<DeploymentRow>({
+          text: `
+            ${DEPLOYMENT_SELECT}
+            WHERE deployments.issuer = $1
+              AND deployments.client_id = $2
+              AND deployments.deployment_id = $3
+            ORDER BY deployments.lms_type ASC, deployments.id ASC
+          `,
+          args: [
+            input.issuer,
+            input.clientId,
+            input.deploymentId,
+          ],
+          camelCase: true,
+        });
+
+        if (result.rows.length === 0) {
+          return null;
+        }
+
+        if (result.rows.length > 1) {
+          throw new Error(
+            `Multiple deployments matched issuer ${input.issuer} with client ${input.clientId} and deployment ${input.deploymentId}. Resolve the duplicate LMS bindings before login can continue.`,
+          );
+        }
+
+        return mapOptionalDeployment(result.rows[0]);
+      });
+    },
+
     async createLoginState(record) {
       return await withClient(pool, async (client) => {
         try {
           const result = await client.queryObject<LoginStateRow>({
             text: `
               INSERT INTO lti_login_states (
+                lms_type,
                 state,
                 canvas_environment,
                 issuer,
@@ -94,9 +128,10 @@ export function createDeploymentLoginRepositoryMethods(
                 expires_at,
                 used_at
               ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
               )
               RETURNING
+                lms_type,
                 state,
                 canvas_environment,
                 issuer,
@@ -111,6 +146,7 @@ export function createDeploymentLoginRepositoryMethods(
                 used_at
             `,
             args: [
+              record.lms,
               record.state,
               record.canvasEnvironment,
               record.issuer,
@@ -145,6 +181,7 @@ export function createDeploymentLoginRepositoryMethods(
         const result = await client.queryObject<LoginStateRow>({
           text: `
             SELECT
+              lms_type,
               state,
               canvas_environment,
               issuer,
@@ -181,6 +218,7 @@ export function createDeploymentLoginRepositoryMethods(
                 WHERE state = $1
                   AND used_at IS NULL
                 RETURNING
+                  lms_type,
                   state,
                   canvas_environment,
                   issuer,
@@ -207,6 +245,7 @@ export function createDeploymentLoginRepositoryMethods(
             const existing = await transaction.queryObject<LoginStateRow>({
               text: `
                 SELECT
+                  lms_type,
                   state,
                   canvas_environment,
                   issuer,

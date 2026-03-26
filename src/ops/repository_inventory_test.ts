@@ -52,10 +52,10 @@ Deno.test("ops inventory mapping keeps exact Canvas, Moodle, and Sakai bindings 
       bindingClientId: "sakai-client-123",
       bindingDeploymentId: "sakai-deployment-123",
       bindingSakaiOidcAuthenticationUrl:
-        "https://sakai.example/imsti/sakai_oidc_login",
+        "https://sakai.example/imsoidc/lti13/oidc_auth",
       bindingSakaiAccessTokenUrl:
-        "https://sakai.example/imsti/sakai_access_token",
-      bindingSakaiJwksUrl: "https://sakai.example/imsti/sakai_jwks",
+        "https://sakai.example/imsblis/lti13/token/3",
+      bindingSakaiJwksUrl: "https://sakai.example/imsblis/lti13/keyset",
     }),
     null,
   );
@@ -81,9 +81,9 @@ Deno.test("ops inventory mapping keeps exact Canvas, Moodle, and Sakai bindings 
     issuer: "https://sakai.example",
     clientId: "sakai-client-123",
     deploymentId: "sakai-deployment-123",
-    oidcAuthenticationUrl: "https://sakai.example/imsti/sakai_oidc_login",
-    accessTokenUrl: "https://sakai.example/imsti/sakai_access_token",
-    jwksUrl: "https://sakai.example/imsti/sakai_jwks",
+    oidcAuthenticationUrl: "https://sakai.example/imsoidc/lti13/oidc_auth",
+    accessTokenUrl: "https://sakai.example/imsblis/lti13/token/3",
+    jwksUrl: "https://sakai.example/imsblis/lti13/keyset",
   });
   assertEquals(
     canvasInventory.health.dimensions.enablement.summary,

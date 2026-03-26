@@ -55,7 +55,7 @@ Deno.test("deployment page renders separate Canvas, Moodle, and Sakai cards for 
         binding: buildSakaiDeploymentBinding(),
       }),
     ],
-    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
         id: "production",

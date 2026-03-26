@@ -35,7 +35,7 @@ Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodl
         binding,
       }),
     ],
-    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
         id: "production",
@@ -84,7 +84,7 @@ Deno.test("deployment page shows the latest roster verification summary and acti
       contextId: "course-42",
       memberCount: 2,
     },
-    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
         id: "production",
@@ -140,7 +140,7 @@ Deno.test("deployment page shows status panels and pilot usage without dropping 
         recentActiveUsers: 3,
       }),
     }),
-    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
         id: "production",
@@ -218,7 +218,7 @@ Deno.test("deployment page shows diagnostics and an explicit retry action for re
         attemptId: "attempt-123",
       }),
     }),
-    canvasConfigUrl: "http://localhost:8000/lti/canvas/config.json",
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
     supportedCanvasEnvironments: [
       {
         id: "production",

@@ -9,9 +9,9 @@ import {
   resolveUserRole,
   validateLtiAudience,
 } from "./claim_support.ts";
-import { resolveCanvasPlatform } from "./canvas_platform.ts";
 import { parseLaunchServiceClaims } from "./launch_service_claims.ts";
 import { resolveLaunchTarget } from "./launch_target_resolution.ts";
+import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
 import { createOpaqueToken, loadJwks } from "./token_support.ts";
 import type { ValidatedLaunch } from "./types.ts";
 
@@ -60,8 +60,22 @@ export async function validateLaunchRequest(input: {
     throw new Error(`Login state ${state} has expired.`);
   }
 
-  const platform = resolveCanvasPlatform(loginState.issuer);
-  const jwks = await loadLaunchJwks(platform.jwksUrl);
+  const deployment = await input.repository.getDeploymentByBinding({
+    lms: loginState.lms,
+    issuer: loginState.issuer,
+    clientId: loginState.clientId,
+    deploymentId: loginState.deploymentId,
+  });
+
+  if (!deployment?.binding) {
+    throw new Error(
+      `${
+        formatLmsLabel(loginState.lms)
+      } deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
+    );
+  }
+
+  const jwks = await loadLaunchJwks(resolveBindingJwksUrl(deployment.binding));
   let payload: Awaited<ReturnType<typeof jwtVerify>>["payload"];
 
   try {
@@ -125,16 +139,9 @@ export async function validateLaunchRequest(input: {
     throw new Error(`Unsupported LTI version ${version}.`);
   }
 
-  const deployment = await input.repository.getDeploymentByBinding({
-    lms: "canvas",
-    issuer: loginState.issuer,
-    clientId: loginState.clientId,
-    deploymentId,
-  });
-
-  if (!deployment?.binding) {
+  if (deploymentId !== deployment.binding.deploymentId) {
     throw new Error(
-      `Canvas deployment ${loginState.clientId} / ${deploymentId} was not found for issuer ${loginState.issuer}.`,
+      `Launch deployment_id did not match the saved ${deployment.binding.lms} deployment binding.`,
     );
   }
 
@@ -173,7 +180,7 @@ export async function validateLaunchRequest(input: {
   const userId = requireStringClaim(payload.sub, "Launch subject is required.");
 
   return {
-    lms: "canvas",
+    lms: deployment.binding.lms,
     internalDeploymentId: deployment.id,
     internalDeploymentSlug: deployment.slug,
     appId: resolvedLaunch.packageVersion.appId,

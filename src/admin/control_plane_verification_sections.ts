@@ -1,10 +1,13 @@
-import type { BrokerVerificationStatus, OfficialCertificationState } from '../ops/types.ts';
-import { escapeHtml, formatDateTime } from './layout.ts';
+import type {
+  BrokerVerificationStatus,
+  OfficialCertificationState,
+} from "../ops/types.ts";
+import { escapeHtml, formatDateTime } from "./layout.ts";
 import {
   describeBrokerRunStatus,
   describeOfficialCertificationState,
   describeSupportedPath,
-} from './control_plane_support.ts';
+} from "./control_plane_support.ts";
 
 export function renderBrokerVerificationSection(
   latestBrokerVerification: BrokerVerificationStatus | null,
@@ -17,11 +20,13 @@ export function renderBrokerVerificationSection(
           <p>Lantern keeps internal proof of the supported broker path separate from any official directory status so operators can see evidence, not marketing shorthand.</p>
           <div class="fact">
             <span class="fact-label">Supported path</span>
-            <span class="fact-value">${escapeHtml(
-              latestBrokerVerification === null
-                ? 'Canvas LTI 1.3 launch, AGS, and NRPS'
-                : describeSupportedPath(latestBrokerVerification.supportedPath),
-            )}</span>
+            <span class="fact-value">${
+    escapeHtml(
+      latestBrokerVerification === null
+        ? "Canvas LTI 1.3 launch, AGS, and NRPS"
+        : describeSupportedPath(latestBrokerVerification.supportedPath),
+    )
+  }</span>
           </div>
         </div>
         <section class="stack">
@@ -37,70 +42,88 @@ export function renderVerificationUpdateSection(): string {
         <div class="stack">
           <p class="section-label">Verification updates</p>
           <h2>Record verification evidence</h2>
-          <p>Use one explicit SSR action to record the latest internal proof or official 1EdTech directory result. Lantern stores exactly what you enter here and does not infer certification claims from local tests.</p>
+          <p>Use this form to record the latest internal proof or official 1EdTech directory result. Lantern stores exactly what you enter here and does not infer certification claims from local tests.</p>
         </div>
         ${renderBrokerVerificationForm()}
       </div>
     </section>`;
 }
 
-function renderBrokerVerificationFacts(verification: BrokerVerificationStatus | null): string {
+function renderBrokerVerificationFacts(
+  verification: BrokerVerificationStatus | null,
+): string {
   const internal = verification?.internal ?? null;
   const hasOfficialRecord = verification?.official.checkedAt !== null;
   const official = verification?.official ?? {
-    state: 'notCertified' as OfficialCertificationState,
+    state: "notCertified" as OfficialCertificationState,
     checkedAt: null,
     directoryUrl: null,
   };
 
   return `<div class="fact">
       <span class="fact-label">Internal verification</span>
-      <span class="fact-value">${escapeHtml(
-        describeBrokerRunStatus(internal?.status ?? 'notRun'),
-      )}</span>
-      <p class="micro muted">${escapeHtml(
-        internal?.summary ??
-          'No internal verification evidence has been recorded for the supported broker path yet.',
-      )}</p>
-      <p class="micro muted">${escapeHtml(
-        internal?.checkedAt === undefined || internal?.checkedAt === null
-          ? 'Checked at Not recorded yet'
-          : `Checked ${formatDateTime(internal.checkedAt)}`,
-      )}</p>
+      <span class="fact-value">${
+    escapeHtml(
+      describeBrokerRunStatus(internal?.status ?? "notRun"),
+    )
+  }</span>
+      <p class="micro muted">${
+    escapeHtml(
+      internal?.summary ??
+        "No internal verification evidence has been recorded for the supported broker path yet.",
+    )
+  }</p>
+      <p class="micro muted">${
+    escapeHtml(
+      internal?.checkedAt === undefined || internal?.checkedAt === null
+        ? "Checked at Not recorded yet"
+        : `Checked ${formatDateTime(internal.checkedAt)}`,
+    )
+  }</p>
       ${
-        internal?.evidenceUrl
-          ? `<a class="button-ghost" href="${escapeHtml(internal.evidenceUrl)}">${escapeHtml(
-              internal.evidenceUrl,
-            )}</a>`
-          : ''
-      }
+    internal?.evidenceUrl
+      ? `<a class="button-ghost" href="${escapeHtml(internal.evidenceUrl)}">${
+        escapeHtml(
+          internal.evidenceUrl,
+        )
+      }</a>`
+      : ""
+  }
     </div>
     <div class="fact">
       <span class="fact-label">Official certification</span>
-      <span class="fact-value">${escapeHtml(
-        hasOfficialRecord
-          ? describeOfficialCertificationState(official.state)
-          : 'No official claim recorded',
-      )}</span>
-      <p class="micro muted">${escapeHtml(
-        hasOfficialRecord
-          ? official.state === 'notCertified'
-            ? 'Latest recorded 1EdTech evidence does not show a certification listing.'
-            : 'Latest recorded 1EdTech evidence shows the listed certification state.'
-          : 'Lantern has no recorded 1EdTech directory evidence for the supported broker path yet.',
-      )}</p>
-      <p class="micro muted">${escapeHtml(
-        official.checkedAt === null
-          ? 'Checked at Not recorded yet'
-          : `Checked ${formatDateTime(official.checkedAt)}`,
-      )}</p>
+      <span class="fact-value">${
+    escapeHtml(
+      hasOfficialRecord
+        ? describeOfficialCertificationState(official.state)
+        : "No official claim recorded",
+    )
+  }</span>
+      <p class="micro muted">${
+    escapeHtml(
+      hasOfficialRecord
+        ? official.state === "notCertified"
+          ? "Latest recorded 1EdTech evidence does not show a certification listing."
+          : "Latest recorded 1EdTech evidence shows the listed certification state."
+        : "Lantern has no recorded 1EdTech directory evidence for the supported broker path yet.",
+    )
+  }</p>
+      <p class="micro muted">${
+    escapeHtml(
+      official.checkedAt === null
+        ? "Checked at Not recorded yet"
+        : `Checked ${formatDateTime(official.checkedAt)}`,
+    )
+  }</p>
       ${
-        official.directoryUrl
-          ? `<a class="button-ghost" href="${escapeHtml(official.directoryUrl)}">${escapeHtml(
-              official.directoryUrl,
-            )}</a>`
-          : ''
-      }
+    official.directoryUrl
+      ? `<a class="button-ghost" href="${escapeHtml(official.directoryUrl)}">${
+        escapeHtml(
+          official.directoryUrl,
+        )
+      }</a>`
+      : ""
+  }
     </div>`;
 }
 

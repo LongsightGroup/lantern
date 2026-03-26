@@ -69,7 +69,12 @@ export interface CanvasPlatformConfig {
   jwksUrl: string;
 }
 
-export interface LoginStateRecord extends CanvasDeploymentBinding {
+export interface LoginStateRecord {
+  lms: LmsType;
+  canvasEnvironment: CanvasEnvironment | null;
+  issuer: string;
+  clientId: string;
+  deploymentId: string;
   state: string;
   nonce: string;
   loginHint: string;
@@ -96,7 +101,12 @@ export interface LaunchServiceClaims {
   nrps: LaunchNamesAndRolesService | null;
 }
 
-export interface ValidatedLaunch extends CanvasDeploymentBinding {
+export interface ValidatedLaunch {
+  lms: LmsType;
+  canvasEnvironment: CanvasEnvironment | null;
+  issuer: string;
+  clientId: string;
+  deploymentId: string;
   internalDeploymentId: number;
   internalDeploymentSlug: string;
   appId: string;

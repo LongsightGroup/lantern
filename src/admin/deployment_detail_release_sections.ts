@@ -374,7 +374,7 @@ function renderSakaiInstallForm(input: {
             name="oidcAuthenticationUrl"
             type="text"
             value="${escapeHtml(binding?.oidcAuthenticationUrl ?? "")}"
-            placeholder="https://sakai.example/imsti/sakai_oidc_login"
+            placeholder="https://sakai.example/imsoidc/lti13/oidc_auth"
           />
         </div>
         <div class="field">
@@ -384,7 +384,7 @@ function renderSakaiInstallForm(input: {
             name="accessTokenUrl"
             type="text"
             value="${escapeHtml(binding?.accessTokenUrl ?? "")}"
-            placeholder="https://sakai.example/imsti/sakai_access_token"
+            placeholder="https://sakai.example/imsblis/lti13/token/3"
           />
         </div>
         <div class="field">
@@ -394,7 +394,7 @@ function renderSakaiInstallForm(input: {
             name="jwksUrl"
             type="text"
             value="${escapeHtml(binding?.jwksUrl ?? "")}"
-            placeholder="https://sakai.example/imsti/sakai_jwks"
+            placeholder="https://sakai.example/imsblis/lti13/keyset"
           />
         </div>
         <div class="button-row">

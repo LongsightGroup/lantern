@@ -4,7 +4,7 @@ export async function loadJwks(url: string): Promise<JSONWebKeySet> {
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Canvas JWKS fetch failed for ${url}.`);
+    throw new Error(`LTI JWKS fetch failed for ${url}.`);
   }
 
   return await response.json();

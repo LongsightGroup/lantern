@@ -1,6 +1,6 @@
 import type { Context } from "@hono/hono";
 import { createLoginRedirect } from "./lti/login.ts";
-import { readCanvasLoginRequest } from "./app_request_support.ts";
+import { readLoginRequest } from "./app_request_support.ts";
 import {
   errorMessage,
   normalizeLaunchRejectedCode,
@@ -14,7 +14,7 @@ export async function handleLoginInitiation(
   services: AppServices,
 ) {
   try {
-    const loginRequest = await readCanvasLoginRequest(context);
+    const loginRequest = await readLoginRequest(context);
     const result = await createLoginRedirect({
       repository: services.getRepository(),
       loginRequest,
@@ -38,7 +38,7 @@ export async function recordRejectedLaunchAudit(input: {
     );
   const deployment = loginState === null ? null : await input.repository
     .getDeploymentByBinding({
-      lms: "canvas",
+      lms: loginState.lms,
       issuer: loginState.issuer,
       clientId: loginState.clientId,
       deploymentId: loginState.deploymentId,
@@ -54,8 +54,9 @@ export async function recordRejectedLaunchAudit(input: {
     attemptId: null,
     lineItemBindingId: null,
     status: "failed",
-    summary: "Rejected the Canvas launch before runtime handoff.",
+    summary: "Rejected the governed LTI launch before runtime handoff.",
     detail: {
+      lms: loginState?.lms ?? null,
       code: normalizeLaunchRejectedCode(input.error),
       message: errorMessage(input.error),
       issuer: loginState?.issuer ?? null,

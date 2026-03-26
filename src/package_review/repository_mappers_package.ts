@@ -168,8 +168,18 @@ export function mapLoginStateRow(
     throw new Error("Expected a login state row.");
   }
 
+  if (row.lmsType === "canvas" && row.canvasEnvironment === null) {
+    throw new Error("Canvas login state rows must include canvas_environment.");
+  }
+
+  if (row.lmsType !== "canvas" && row.canvasEnvironment !== null) {
+    throw new Error(
+      `${row.lmsType} login state rows cannot include canvas_environment.`,
+    );
+  }
+
   return {
-    lms: "canvas",
+    lms: row.lmsType,
     state: row.state,
     canvasEnvironment: row.canvasEnvironment,
     issuer: row.issuer,
