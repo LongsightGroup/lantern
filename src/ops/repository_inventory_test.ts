@@ -7,6 +7,7 @@ import {
 } from "../test_helpers/postgres.ts";
 import { mapInventoryRow } from "./repository_mapping.ts";
 import type { InventoryQueryRow } from "./repository_types.ts";
+import type { DeploymentActivitySnapshot } from "./types.ts";
 import {
   createOpsRepositoryForTest,
   insertAuditEvent,
@@ -159,6 +160,128 @@ Deno.test("ops repository keeps one app readable across canvas, moodle, and saka
   });
 });
 
+Deno.test("ops repository surfaces latest deployment binding evidence per deployment in inventory and detail snapshots", async () => {
+  await withPackageReviewTestDatabase(async (pool) => {
+    await bootstrapPackageReviewSchema(pool);
+    await resetPackageReviewTables(pool);
+    await seedOpsRepositoryFixtures(pool);
+    const client = await pool.connect();
+
+    try {
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 10,
+          deploymentRecordId: 1,
+          eventType: "deployment.binding_saved",
+          status: "succeeded",
+          summary: "Saved Canvas deployment binding.",
+          detail: {
+            lms: "canvas",
+            deploymentId: "canvas-deployment-123",
+          },
+          occurredAt: "2026-03-24T12:11:00Z",
+        }),
+      );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 11,
+          deploymentRecordId: 2,
+          eventType: "deployment.binding_saved",
+          status: "succeeded",
+          summary: "Saved Moodle deployment binding.",
+          detail: {
+            lms: "moodle",
+            deploymentId: "moodle-deployment-123",
+          },
+          occurredAt: "2026-03-24T12:21:00Z",
+        }),
+      );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 12,
+          deploymentRecordId: 3,
+          eventType: "deployment.binding_saved",
+          status: "succeeded",
+          summary: "Saved Sakai deployment binding.",
+          detail: {
+            lms: "sakai",
+            deploymentId: "sakai-deployment-123",
+          },
+          occurredAt: "2026-03-24T12:31:00Z",
+        }),
+      );
+    } finally {
+      client.release();
+    }
+
+    const repository = await createOpsRepositoryForTest(pool);
+    const rows = await repository.listControlPlaneDeployments();
+    const rowsByLms = new Map(
+      rows.map((row) => [row.binding?.lms ?? "missing", row] as const),
+    );
+    const canvasInstallEvidence = readInventoryInstallEvidence(
+      rowsByLms.get("canvas"),
+    );
+    const moodleInstallEvidence = readInventoryInstallEvidence(
+      rowsByLms.get("moodle"),
+    );
+    const sakaiInstallEvidence = readInventoryInstallEvidence(
+      rowsByLms.get("sakai"),
+    );
+    const moodleDetail = await repository.getControlPlaneDeploymentDetail(2);
+
+    assertExists(canvasInstallEvidence);
+    assertEquals(
+      canvasInstallEvidence.occurredAt,
+      "2026-03-24T12:11:00.000Z",
+    );
+    assertEquals(
+      canvasInstallEvidence.summary,
+      "Saved Canvas deployment binding.",
+    );
+    assertEquals(canvasInstallEvidence.detail.lms, "canvas");
+
+    assertExists(moodleInstallEvidence);
+    assertEquals(
+      moodleInstallEvidence.occurredAt,
+      "2026-03-24T12:21:00.000Z",
+    );
+    assertEquals(
+      moodleInstallEvidence.summary,
+      "Saved Moodle deployment binding.",
+    );
+    assertEquals(moodleInstallEvidence.detail.lms, "moodle");
+    assertEquals(
+      rowsByLms.get("moodle")?.updatedAt === moodleInstallEvidence.occurredAt,
+      false,
+    );
+
+    assertExists(sakaiInstallEvidence);
+    assertEquals(
+      sakaiInstallEvidence.occurredAt,
+      "2026-03-24T12:31:00.000Z",
+    );
+    assertEquals(
+      sakaiInstallEvidence.summary,
+      "Saved Sakai deployment binding.",
+    );
+    assertEquals(sakaiInstallEvidence.detail.lms, "sakai");
+
+    assertExists(moodleDetail);
+    assertEquals(
+      readDetailInstallEvidence(moodleDetail)?.summary,
+      "Saved Moodle deployment binding.",
+    );
+    assertEquals(
+      readDetailInstallEvidence(moodleDetail)?.detail.deploymentId,
+      "moodle-deployment-123",
+    );
+  });
+});
+
 Deno.test("ops repository returns deployment detail snapshots with the latest launch, NRPS read, AGS publish, and diagnostics feed", async () => {
   await withPackageReviewTestDatabase(async (pool) => {
     await bootstrapPackageReviewSchema(pool);
@@ -283,4 +406,21 @@ function buildInventoryQueryRow(
     usageLastLaunchAt: overrides.usageLastLaunchAt ?? "2026-03-24T12:30:00Z",
     measuredAt: overrides.measuredAt ?? "2026-03-24T12:50:00Z",
   };
+}
+
+function readInventoryInstallEvidence(
+  row: unknown,
+): DeploymentActivitySnapshot | null {
+  return (
+    row as { installEvidence?: DeploymentActivitySnapshot | null } | undefined
+  )?.installEvidence ?? null;
+}
+
+function readDetailInstallEvidence(
+  detail: unknown,
+): DeploymentActivitySnapshot | null {
+  return (
+    detail as { latestInstallEvidence?: DeploymentActivitySnapshot | null } |
+      undefined
+  )?.latestInstallEvidence ?? null;
 }

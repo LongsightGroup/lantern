@@ -5,6 +5,10 @@ import {
   withPackageReviewTestDatabase,
 } from '../test_helpers/postgres.ts';
 import { createOpsRepositoryForTest } from './repository_test_core_support.ts';
+import { seedOpsRepositoryFixtures } from './repository_test_seed.ts';
+
+const MOODLE_SUPPORTED_SCOPE = 'moodleLti13LaunchAgsScore';
+const SAKAI_SUPPORTED_SCOPE = 'sakaiLti13LaunchAgsScore';
 
 Deno.test('ops repository records broker verification runs and returns the latest internal result separately from the latest official certification result', async () => {
   await withPackageReviewTestDatabase(async (pool) => {
@@ -100,6 +104,99 @@ Deno.test('ops repository keeps internal verification evidence distinct from an 
       verification.official.directoryUrl,
       'https://example.test/verification/1edtech-directory',
     );
+  });
+});
+
+Deno.test('ops repository keeps broker verification scoped to the exact deployment and supported path', async () => {
+  await withPackageReviewTestDatabase(async (pool) => {
+    await bootstrapPackageReviewSchema(pool);
+    await resetPackageReviewTables(pool);
+    await seedOpsRepositoryFixtures(pool);
+    const repository = await createOpsRepositoryForTest(pool);
+
+    await repository.recordBrokerVerificationRun({
+      deploymentRecordId: 2,
+      source: 'manual',
+      scope: MOODLE_SUPPORTED_SCOPE,
+      status: 'passed',
+      certificationState: null,
+      summary: 'Moodle launch and AGS smoke verification passed.',
+      detailUrl: 'https://example.test/verification/moodle-manual-pass',
+      checkedAt: '2026-03-24T13:05:00Z',
+    } as Parameters<typeof repository.recordBrokerVerificationRun>[0]);
+    await repository.recordBrokerVerificationRun({
+      deploymentRecordId: 2,
+      source: 'ci',
+      scope: MOODLE_SUPPORTED_SCOPE,
+      status: 'failed',
+      certificationState: null,
+      summary: 'Latest Moodle CI verification failed on the AGS score publish.',
+      detailUrl: 'https://example.test/verification/moodle-ci-failure',
+      checkedAt: '2026-03-24T13:10:00Z',
+    } as Parameters<typeof repository.recordBrokerVerificationRun>[0]);
+    await repository.recordBrokerVerificationRun({
+      deploymentRecordId: null,
+      source: '1edtech',
+      scope: MOODLE_SUPPORTED_SCOPE,
+      status: 'notCertified',
+      certificationState: null,
+      summary: '1EdTech does not list Lantern for the Moodle verification path.',
+      detailUrl: 'https://example.test/verification/moodle-directory',
+      checkedAt: '2026-03-24T13:15:00Z',
+    } as Parameters<typeof repository.recordBrokerVerificationRun>[0]);
+    await repository.recordBrokerVerificationRun({
+      deploymentRecordId: 3,
+      source: 'manual',
+      scope: SAKAI_SUPPORTED_SCOPE,
+      status: 'pending',
+      certificationState: null,
+      summary: 'Sakai launch and AGS smoke verification is pending follow-up.',
+      detailUrl: 'https://example.test/verification/sakai-pending',
+      checkedAt: '2026-03-24T13:20:00Z',
+    } as Parameters<typeof repository.recordBrokerVerificationRun>[0]);
+
+    const rows = await repository.listControlPlaneDeployments();
+    const rowsByDeployment = new Map(
+      rows.map((row) => [row.deploymentId, row] as const),
+    );
+    const moodleDetail = await repository.getControlPlaneDeploymentDetail(2);
+    const sakaiDetail = await repository.getControlPlaneDeploymentDetail(3);
+
+    assertEquals(
+      rowsByDeployment.get(1)?.brokerVerification?.supportedPath,
+      'canvasLti13LaunchAgsNrps',
+    );
+    assertEquals(
+      rowsByDeployment.get(2)?.brokerVerification?.supportedPath,
+      MOODLE_SUPPORTED_SCOPE,
+    );
+    assertEquals(rowsByDeployment.get(2)?.brokerVerification?.internal?.source, 'ci');
+    assertEquals(
+      rowsByDeployment.get(2)?.brokerVerification?.official.state,
+      'notCertified',
+    );
+    assertEquals(
+      rowsByDeployment.get(3)?.brokerVerification?.supportedPath,
+      SAKAI_SUPPORTED_SCOPE,
+    );
+    assertEquals(
+      rowsByDeployment.get(3)?.brokerVerification?.internal?.status,
+      'pending',
+    );
+
+    assertExists(moodleDetail);
+    assertEquals(moodleDetail.brokerVerification?.supportedPath, MOODLE_SUPPORTED_SCOPE);
+    assertEquals(moodleDetail.brokerVerification?.internal?.source, 'ci');
+    assertEquals(moodleDetail.brokerVerification?.official.state, 'notCertified');
+    assertEquals(
+      moodleDetail.brokerVerification?.official.directoryUrl,
+      'https://example.test/verification/moodle-directory',
+    );
+
+    assertExists(sakaiDetail);
+    assertEquals(sakaiDetail.brokerVerification?.supportedPath, SAKAI_SUPPORTED_SCOPE);
+    assertEquals(sakaiDetail.brokerVerification?.internal?.status, 'pending');
+    assertEquals(sakaiDetail.brokerVerification?.official.state, 'notCertified');
   });
 });
 
