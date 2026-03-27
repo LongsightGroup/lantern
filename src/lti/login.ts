@@ -27,11 +27,26 @@ export async function createLoginRedirect(input: {
   const now = input.now ?? (() => new Date());
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const loginRequest = normalizeLoginRequest(input.loginRequest);
-  const deployment = await input.repository.getDeploymentByPlatformIdentity({
-    issuer: loginRequest.iss,
-    clientId: loginRequest.clientId,
-    deploymentId: loginRequest.deploymentId,
-  });
+  let deployment;
+
+  try {
+    deployment = await input.repository.getDeploymentByPlatformIdentity({
+      issuer: loginRequest.iss,
+      clientId: loginRequest.clientId,
+      deploymentId: loginRequest.deploymentId,
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("Multiple deployments matched issuer")
+    ) {
+      throw new Error(
+        "Choose one supported LMS deployment. Resolve the duplicate LMS bindings before login can continue.",
+      );
+    }
+
+    throw error;
+  }
 
   if (!deployment?.binding) {
     throw new Error(
