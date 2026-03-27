@@ -17,6 +17,8 @@ import {
 } from "./test_helpers/lti.ts";
 import {
   buildAttemptRecord,
+  buildControlPlaneDeploymentDetailSnapshot,
+  buildControlPlaneDeploymentInventoryRow,
   buildDeploymentRecord,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
@@ -691,6 +693,162 @@ Deno.test(
             JSON.stringify(auditEvents[0]?.detail ?? {}).includes("final-grade"),
             false,
           );
+        },
+      );
+    } finally {
+      restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+    }
+  },
+);
+
+Deno.test(
+  "deployment smoke verification renders the latest Moodle result back on the existing deployment detail page",
+  async () => {
+    const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+    const fixture = buildSmokeRouteFixture("moodle");
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 1,
+          approvalStatus: "approved",
+          reviewedAt: "2026-03-23T18:05:00Z",
+        }),
+      ],
+      deployments: [
+        buildDeploymentRecord({
+          id: fixture.deploymentId,
+          slug: fixture.deploymentSlug,
+          enabledPackageVersionId: 1,
+          enabledPackageVersion: "0.1.0",
+          lmsType: fixture.binding.lms,
+          binding: fixture.binding,
+        }),
+      ],
+      attempts: [
+        buildAttemptRecord({
+          attemptId: fixture.attemptId,
+          deploymentRecordId: fixture.deploymentId,
+          deploymentSlug: fixture.deploymentSlug,
+          userId: fixture.userId,
+          contextId: fixture.session.launch.courseId,
+          activityId: fixture.session.launch.activityId,
+        }),
+      ],
+      runtimeSessions: [fixture.session],
+      controlPlaneDeploymentDetails: [
+        buildControlPlaneDeploymentDetailSnapshot({
+          inventory: buildControlPlaneDeploymentInventoryRow({
+            deploymentId: fixture.deploymentId,
+            deploymentSlug: fixture.deploymentSlug,
+            binding: fixture.binding,
+            enabledPackageVersionId: 1,
+            enabledPackageVersion: "0.1.0",
+          }),
+          latestAgsSmoke: null,
+        }),
+      ],
+    });
+    const formData = new FormData();
+
+    formData.set("lms", "moodle");
+    formData.set("deploymentRecordId", String(fixture.deploymentId));
+    Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+    try {
+      await withFetchStub(
+        (input, init) => {
+          const url = String(input);
+
+          if (url === fixture.binding.accessTokenUrl) {
+            return new Response(
+              JSON.stringify({
+                access_token: "moodle-access-token",
+                token_type: "bearer",
+              }),
+              {
+                status: 200,
+                headers: {
+                  "content-type": "application/json",
+                },
+              },
+            );
+          }
+
+          if (
+            url === fixture.session.services.ags?.lineitemsUrl &&
+            (init?.method ?? "GET") === "GET"
+          ) {
+            return new Response(JSON.stringify([]), {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            });
+          }
+
+          if (
+            url === fixture.session.services.ags?.lineitemsUrl &&
+            init?.method === "POST"
+          ) {
+            return new Response(
+              JSON.stringify({
+                id: fixture.smokeLineItemUrl,
+                label: fixture.expectedSmokeLineItem.label,
+                scoreMaximum: fixture.expectedSmokeLineItem.scoreMaximum,
+              }),
+              {
+                status: 201,
+                headers: {
+                  "content-type": "application/json",
+                },
+              },
+            );
+          }
+
+          if (
+            url === `${fixture.smokeLineItemUrl}/scores` &&
+            init?.method === "POST"
+          ) {
+            return new Response("{}", {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            });
+          }
+
+          throw new Error(
+            `Unexpected smoke request ${init?.method ?? "GET"} ${url}`,
+          );
+        },
+        async () => {
+          const postResponse = await createApp({
+            getRepository: () => repository,
+          }).request(
+            "http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-grade-smoke",
+            {
+              method: "POST",
+              headers: {
+                Origin: "http://localhost",
+              },
+              body: formData,
+            },
+          );
+
+          assertEquals(postResponse.status, 303);
+
+          const getResponse = await createApp({
+            getRepository: () => repository,
+          }).request(
+            "http://localhost/admin/packages/chapter-4-asteroids/deployment?lms=moodle",
+          );
+          const body = await getResponse.text();
+
+          assertEquals(getResponse.status, 200);
+          assertStringIncludes(body, "Latest grade smoke verification");
+          assertStringIncludes(body, "AGS capability");
+          assertStringIncludes(body, fixture.smokeLineItemUrl);
+          assertStringIncludes(body, "Run grade smoke check");
         },
       );
     } finally {
