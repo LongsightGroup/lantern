@@ -144,8 +144,7 @@ Deno.test("ops inventory health keeps broker verification wording deployment-sco
       bindingDeploymentId: "sakai-deployment-123",
       bindingSakaiOidcAuthenticationUrl:
         "https://sakai.example/imsoidc/lti13/oidc_auth",
-      bindingSakaiAccessTokenUrl:
-        "https://sakai.example/imsblis/lti13/token/3",
+      bindingSakaiAccessTokenUrl: "https://sakai.example/imsblis/lti13/token/3",
       bindingSakaiJwksUrl: "https://sakai.example/imsblis/lti13/keyset",
       internalBrokerVerificationScope: "sakaiLti13LaunchAgsScore",
       internalBrokerVerificationSource: "manual",

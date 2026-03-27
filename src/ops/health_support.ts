@@ -179,21 +179,21 @@ export function buildBrokerVerificationDimension(
       return {
         name: "brokerVerification",
         status: "healthy",
-        summary: "Latest broker verification evidence passed.",
+        summary: "Latest deployment-scoped broker verification passed.",
         checkedAt,
       };
     case "failed":
       return {
         name: "brokerVerification",
         status: "failed",
-        summary: "Latest broker verification evidence failed.",
+        summary: "Latest deployment-scoped broker verification failed.",
         checkedAt,
       };
     case "pending":
       return {
         name: "brokerVerification",
         status: "attention",
-        summary: "Broker verification is still pending.",
+        summary: "Deployment-scoped broker verification is still pending.",
         checkedAt,
       };
     case "notRun":
@@ -201,7 +201,8 @@ export function buildBrokerVerificationDimension(
       return {
         name: "brokerVerification",
         status: "unknown",
-        summary: "No broker verification evidence has been recorded yet.",
+        summary:
+          "No deployment-scoped broker verification evidence has been recorded yet.",
         checkedAt,
       };
   }

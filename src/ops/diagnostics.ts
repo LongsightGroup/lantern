@@ -56,9 +56,11 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
   }
 
   if (item.kind === "brokerVerification") {
+    const savedDeployment = describeSavedDeploymentPath(item.detail);
+
     return item.status === "failed"
-      ? "Broker verification failed for the supported Canvas path."
-      : "Broker verification evidence was recorded for the supported Canvas path.";
+      ? `Broker verification failed for ${savedDeployment} path.`
+      : `Broker verification evidence was recorded for ${savedDeployment} path.`;
   }
 
   if (item.kind === "reviewer") {
@@ -68,7 +70,9 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
   }
 
   if (item.code === "token_request_failed") {
-    return "Lantern could not get a Canvas service token for this attempt from the control plane.";
+    return `Lantern could not get a service token for ${
+      describeSavedDeploymentPath(item.detail)
+    } from the control plane.`;
   }
 
   return item.status === "failed"
@@ -77,7 +81,7 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
 }
 
 function buildLaunchOperatorSummary(item: ControlPlaneDiagnosticItem): string {
-  const savedDeployment = describeSavedLaunchDeployment(item.detail);
+  const savedDeployment = describeSavedDeploymentPath(item.detail);
 
   switch (item.code) {
     case "deployment_binding_missing":
@@ -165,7 +169,7 @@ function sanitizeDetailValue(value: unknown): unknown {
   return value;
 }
 
-function describeSavedLaunchDeployment(
+function describeSavedDeploymentPath(
   detail: Record<string, unknown>,
 ): string {
   const lms = readStringDetail(detail, "lms");
