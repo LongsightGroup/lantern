@@ -369,6 +369,93 @@ Deno.test("ops repository returns deployment detail snapshots with the latest la
   });
 });
 
+Deno.test("ops repository returns the latest deployment-scoped AGS smoke verification result for the viewed deployment", async () => {
+  await withPackageReviewTestDatabase(async (pool) => {
+    await bootstrapPackageReviewSchema(pool);
+    await resetPackageReviewTables(pool);
+    await seedOpsRepositoryFixtures(pool);
+    const client = await pool.connect();
+
+    try {
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 30,
+          deploymentRecordId: 2,
+          eventType: "deployment.ags_smoke_verified",
+          status: "failed",
+          summary: "Moodle AGS smoke verification failed.",
+          detail: {
+            lms: "moodle",
+            agsCapable: true,
+            publicationStatus: "failed",
+            lineItemUrl:
+              "https://moodle.example/mod/lti/services.php/2/lineitems/9",
+            error: {
+              code: "score_publish_failed",
+              message: "Moodle score publish failed with status 500.",
+            },
+          },
+          occurredAt: "2026-03-24T12:38:00Z",
+        }),
+      );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 31,
+          deploymentRecordId: 3,
+          eventType: "deployment.ags_smoke_verified",
+          status: "succeeded",
+          summary: "Sakai AGS smoke verification succeeded.",
+          detail: {
+            lms: "sakai",
+            agsCapable: true,
+            publicationStatus: "succeeded",
+            lineItemUrl:
+              "https://sakai.example/direct/lti/lineitems/course-42/items/9",
+          },
+          occurredAt: "2026-03-24T12:39:00Z",
+        }),
+      );
+    } finally {
+      client.release();
+    }
+
+    const repository = await createOpsRepositoryForTest(pool);
+    const moodleDetail = await repository.getControlPlaneDeploymentDetail(2);
+    const sakaiDetail = await repository.getControlPlaneDeploymentDetail(3);
+
+    assertExists(moodleDetail);
+    assertEquals(moodleDetail.latestAgsSmoke?.status, "failed");
+    assertEquals(
+      moodleDetail.latestAgsSmoke?.summary,
+      "Moodle AGS smoke verification failed.",
+    );
+    assertEquals(moodleDetail.latestAgsSmoke?.detail.lms, "moodle");
+    assertEquals(moodleDetail.latestAgsSmoke?.detail.agsCapable, true);
+    assertEquals(
+      moodleDetail.latestAgsSmoke?.detail.publicationStatus,
+      "failed",
+    );
+    assertEquals(
+      moodleDetail.latestAgsSmoke?.detail.lineItemUrl,
+      "https://moodle.example/mod/lti/services.php/2/lineitems/9",
+    );
+
+    assertExists(sakaiDetail);
+    assertEquals(sakaiDetail.latestAgsSmoke?.status, "succeeded");
+    assertEquals(
+      sakaiDetail.latestAgsSmoke?.summary,
+      "Sakai AGS smoke verification succeeded.",
+    );
+    assertEquals(sakaiDetail.latestAgsSmoke?.detail.lms, "sakai");
+    assertEquals(
+      sakaiDetail.latestAgsSmoke?.detail.publicationStatus,
+      "succeeded",
+    );
+  });
+});
+
 Deno.test("ops repository diagnostics include reviewer events while keeping launch, NRPS, and AGS diagnostics intact", async () => {
   await withPackageReviewTestDatabase(async (pool) => {
     await bootstrapPackageReviewSchema(pool);
