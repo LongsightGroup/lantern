@@ -189,6 +189,34 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         id: nextId(state.auditEvents),
       });
       state.auditEvents.push(nextRecord);
+
+      if (
+        nextRecord.eventType === "deployment.ags_smoke_verified" &&
+        nextRecord.deploymentRecordId !== null
+      ) {
+        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails
+          .map((detail) =>
+            detail.inventory.deploymentId === nextRecord.deploymentRecordId
+              ? {
+                ...detail,
+                latestAgsSmoke: {
+                  status: nextRecord.status === "succeeded"
+                    ? "succeeded"
+                    : "failed",
+                  occurredAt: nextRecord.occurredAt,
+                  summary: nextRecord.summary,
+                  attemptId: nextRecord.attemptId,
+                  contextId:
+                    typeof nextRecord.detail.contextId === "string"
+                      ? nextRecord.detail.contextId
+                      : null,
+                  detail: cloneRecord(nextRecord.detail),
+                },
+              }
+              : detail
+          );
+      }
+
       return Promise.resolve(cloneRecord(nextRecord));
     },
 

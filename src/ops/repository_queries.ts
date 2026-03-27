@@ -242,6 +242,20 @@ export const LATEST_NRPS_QUERY = `
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
   LIMIT 1
 `;
+export const LATEST_AGS_SMOKE_QUERY = `
+  SELECT
+    audit_events.event_type,
+    audit_events.status,
+    audit_events.summary,
+    audit_events.attempt_id,
+    audit_events.detail,
+    audit_events.occurred_at
+  FROM audit_events
+  WHERE audit_events.deployment_record_id = $1
+    AND audit_events.event_type = 'deployment.ags_smoke_verified'
+  ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
+  LIMIT 1
+`;
 export const LATEST_GRADE_PUBLICATION_QUERY = `
   SELECT
     grade_publications.attempt_id,

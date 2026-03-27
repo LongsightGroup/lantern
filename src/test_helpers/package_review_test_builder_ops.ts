@@ -276,6 +276,7 @@ export function buildControlPlaneDeploymentDetailSnapshot(
       buildDeploymentActivitySnapshot({
         summary: "Latest launch completed and reached the runtime handoff.",
       }),
+    latestAgsSmoke: overrides.latestAgsSmoke ?? null,
     latestNrpsRead: overrides.latestNrpsRead ??
       buildDeploymentActivitySnapshot({
         summary: "Latest roster verification succeeded.",

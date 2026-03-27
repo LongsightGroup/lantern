@@ -193,6 +193,7 @@ export interface ControlPlaneDeploymentDetailSnapshot {
   inventory: ControlPlaneDeploymentInventoryRow;
   latestInstallEvidence: DeploymentActivitySnapshot | null;
   latestLaunch: DeploymentActivitySnapshot | null;
+  latestAgsSmoke: DeploymentActivitySnapshot | null;
   latestNrpsRead: DeploymentActivitySnapshot | null;
   latestGradePublish: DeploymentGradePublicationSnapshot | null;
   pilotUsage: PilotUsageMetrics;

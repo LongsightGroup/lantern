@@ -10,6 +10,7 @@ import type {
 } from "./types.ts";
 import {
   DIAGNOSTICS_QUERY,
+  LATEST_AGS_SMOKE_QUERY,
   INSERT_BROKER_VERIFICATION_RUN_QUERY,
   INVENTORY_BASE_QUERY,
   INVENTORY_ORDER_BY,
@@ -70,11 +71,20 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           return null;
         }
 
-        const [latestLaunch, latestNrpsRead, latestGradePublish] = await Promise
-          .all([
+        const [
+          latestLaunch,
+          latestAgsSmoke,
+          latestNrpsRead,
+          latestGradePublish,
+        ] = await Promise.all([
             getActivitySnapshot(
               client,
               LATEST_LAUNCH_QUERY,
+              deploymentRecordId,
+            ),
+            getActivitySnapshot(
+              client,
+              LATEST_AGS_SMOKE_QUERY,
               deploymentRecordId,
             ),
             getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
@@ -97,6 +107,7 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           inventory,
           latestInstallEvidence: inventory.installEvidence,
           latestLaunch,
+          latestAgsSmoke,
           latestNrpsRead,
           latestGradePublish,
           pilotUsage: inventory.pilotUsage,
