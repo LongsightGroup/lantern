@@ -326,7 +326,7 @@ Deno.test("POST /lti/launch rejects Sakai authoring-mode requests and never crea
       assertEquals(response.status, 409);
       assertStringIncludes(
         body,
-        "Unsupported LTI message type LtiDeepLinkingRequest.",
+        "Launch rejected because /lti/launch only accepts LtiResourceLinkRequest for the governed runtime baseline.",
       );
       assertEquals(savedState?.usedAt, null);
       assertEquals(runtimeSession, null);

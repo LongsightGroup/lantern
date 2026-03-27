@@ -1,11 +1,8 @@
 import type { Context } from "@hono/hono";
 import { createLoginRedirect } from "./lti/login.ts";
+import { isLaunchRejectionError } from "./lti/launch_support_matrix.ts";
 import { readLoginRequest } from "./app_request_support.ts";
-import {
-  errorMessage,
-  normalizeLaunchRejectedCode,
-  statusForError,
-} from "./app_status_support.ts";
+import { errorMessage, statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 import type { PackageReviewRepository } from "./package_review/repository.ts";
 
@@ -44,6 +41,7 @@ export async function recordRejectedLaunchAudit(input: {
       deploymentId: loginState.deploymentId,
     })
     .catch(() => null);
+  const rejection = readLaunchRejection(input.error);
 
   await input.repository.recordAuditEvent({
     eventType: "launch.rejected",
@@ -57,8 +55,9 @@ export async function recordRejectedLaunchAudit(input: {
     summary: "Rejected the governed LTI launch before runtime handoff.",
     detail: {
       lms: loginState?.lms ?? null,
-      code: normalizeLaunchRejectedCode(input.error),
-      message: errorMessage(input.error),
+      code: rejection?.code ?? "launch_validation_failed",
+      message: rejection?.message ?? errorMessage(input.error),
+      ...rejection?.detail,
       issuer: loginState?.issuer ?? null,
       clientId: loginState?.clientId ?? null,
       deploymentId: loginState?.deploymentId ?? null,
@@ -68,4 +67,20 @@ export async function recordRejectedLaunchAudit(input: {
     },
     occurredAt: new Date().toISOString(),
   });
+}
+
+function readLaunchRejection(input: unknown): {
+  code: string;
+  message: string;
+  detail: Record<string, string | null>;
+} | null {
+  if (!isLaunchRejectionError(input)) {
+    return null;
+  }
+
+  return {
+    code: input.code,
+    message: input.message,
+    detail: input.detail,
+  };
 }

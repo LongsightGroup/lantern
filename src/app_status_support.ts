@@ -1,3 +1,5 @@
+import { isLaunchRejectionError } from "./lti/launch_support_matrix.ts";
+
 export function deepLinkingReturnErrorMessage(error: unknown): string {
   const message = errorMessage(error);
 
@@ -11,6 +13,10 @@ export function deepLinkingReturnErrorMessage(error: unknown): string {
 }
 
 export function statusForError(error: unknown): 409 | 500 {
+  if (isLaunchRejectionError(error)) {
+    return 409;
+  }
+
   if (!(error instanceof Error)) {
     return 500;
   }

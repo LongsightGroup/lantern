@@ -5,7 +5,12 @@ export const SUPPORTED_LTI_LAUNCH_PATH = "/lti/launch";
 export const SUPPORTED_LTI_VERSION = "1.3.0";
 
 export type LaunchRejectionCode =
+  | "deployment_binding_missing"
+  | "deployment_mismatch"
   | "launch_package_version_missing"
+  | "login_state_expired"
+  | "login_state_missing"
+  | "login_state_used"
   | "missing_baseline_claim"
   | "missing_pinned_package_version"
   | "package_not_approved"
@@ -13,6 +18,7 @@ export type LaunchRejectionCode =
   | "reviewed_placement_deployment_mismatch"
   | "reviewed_placement_not_found"
   | "reviewed_placement_resource_link_conflict"
+  | "signature_validation_failed"
   | "unsupported_lti_version"
   | "unsupported_message_type";
 
@@ -101,6 +107,76 @@ export function requireBaselineStringClaim(
   }
 
   return value.trim();
+}
+
+export function rejectLoginStateMissing(state: string): never {
+  rejectLaunch({
+    code: "login_state_missing",
+    message: `Login state ${state} was not found.`,
+    detail: buildDetailRecord({
+      state,
+    }),
+  });
+}
+
+export function rejectLoginStateUsed(state: string): never {
+  rejectLaunch({
+    code: "login_state_used",
+    message: `Login state ${state} has already been used.`,
+    detail: buildDetailRecord({
+      state,
+    }),
+  });
+}
+
+export function rejectLoginStateExpired(state: string): never {
+  rejectLaunch({
+    code: "login_state_expired",
+    message: `Login state ${state} has expired.`,
+    detail: buildDetailRecord({
+      state,
+    }),
+  });
+}
+
+export function rejectDeploymentBindingMissing(input: {
+  lmsLabel: string;
+  clientId: string;
+  deploymentId: string;
+  issuer: string;
+}): never {
+  rejectLaunch({
+    code: "deployment_binding_missing",
+    message:
+      `${input.lmsLabel} deployment ${input.clientId} / ${input.deploymentId} was not found for issuer ${input.issuer}.`,
+    detail: buildDetailRecord({
+      issuer: input.issuer,
+      clientId: input.clientId,
+      deploymentId: input.deploymentId,
+    }),
+  });
+}
+
+export function rejectSignatureValidationFailed(): never {
+  rejectLaunch({
+    code: "signature_validation_failed",
+    message: "Launch id_token signature or issuer validation failed.",
+    detail: buildDetailRecord({}),
+  });
+}
+
+export function rejectDeploymentMismatch(input: {
+  field: string;
+  target: string;
+}): never {
+  rejectLaunch({
+    code: "deployment_mismatch",
+    message: `Launch ${input.field} did not match the ${input.target}.`,
+    detail: buildDetailRecord({
+      field: input.field,
+      target: input.target,
+    }),
+  });
 }
 
 export function rejectReviewedPlacementNotFound(placementId: string): never {

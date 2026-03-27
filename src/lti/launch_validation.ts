@@ -13,6 +13,12 @@ import { parseLaunchServiceClaims } from "./launch_service_claims.ts";
 import {
   assertSupportedLaunchMessageType,
   assertSupportedLaunchVersion,
+  rejectDeploymentBindingMissing,
+  rejectDeploymentMismatch,
+  rejectLoginStateExpired,
+  rejectLoginStateMissing,
+  rejectLoginStateUsed,
+  rejectSignatureValidationFailed,
   requireBaselineStringClaim,
 } from "./launch_support_matrix.ts";
 import { resolveLaunchTarget } from "./launch_target_resolution.ts";
@@ -54,15 +60,15 @@ export async function validateLaunchRequest(input: {
   const loginState = await input.repository.getLoginStateByState(state);
 
   if (!loginState) {
-    throw new Error(`Login state ${state} was not found.`);
+    rejectLoginStateMissing(state);
   }
 
   if (loginState.usedAt !== null) {
-    throw new Error(`Login state ${state} has already been used.`);
+    rejectLoginStateUsed(state);
   }
 
   if (Date.parse(loginState.expiresAt) <= now().getTime()) {
-    throw new Error(`Login state ${state} has expired.`);
+    rejectLoginStateExpired(state);
   }
 
   const deployment = await input.repository.getDeploymentByBinding({
@@ -73,11 +79,12 @@ export async function validateLaunchRequest(input: {
   });
 
   if (!deployment?.binding) {
-    throw new Error(
-      `${
-        formatLmsLabel(loginState.lms)
-      } deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
-    );
+    rejectDeploymentBindingMissing({
+      lmsLabel: formatLmsLabel(loginState.lms),
+      issuer: loginState.issuer,
+      clientId: loginState.clientId,
+      deploymentId: loginState.deploymentId,
+    });
   }
 
   const jwks = await loadLaunchJwks(resolveBindingJwksUrl(deployment.binding));
@@ -92,7 +99,7 @@ export async function validateLaunchRequest(input: {
 
     payload = verified.payload;
   } catch {
-    throw new Error("Launch id_token signature or issuer validation failed.");
+    rejectSignatureValidationFailed();
   }
 
   validateLtiAudience({
@@ -121,28 +128,34 @@ export async function validateLaunchRequest(input: {
   );
 
   if (deploymentId !== loginState.deploymentId) {
-    throw new Error(
-      "Launch deployment_id did not match the saved login state.",
-    );
+    rejectDeploymentMismatch({
+      field: "deployment_id",
+      target: "saved login state",
+    });
   }
 
   if (targetLinkUri !== loginState.targetLinkUri) {
-    throw new Error(
-      "Launch target_link_uri did not match the saved login state.",
-    );
+    rejectDeploymentMismatch({
+      field: "target_link_uri",
+      target: "saved login state",
+    });
   }
 
   if (nonce !== loginState.nonce) {
-    throw new Error("Launch nonce did not match the saved login state.");
+    rejectDeploymentMismatch({
+      field: "nonce",
+      target: "saved login state",
+    });
   }
 
   assertSupportedLaunchMessageType(messageType);
   assertSupportedLaunchVersion(version);
 
   if (deploymentId !== deployment.binding.deploymentId) {
-    throw new Error(
-      `Launch deployment_id did not match the saved ${deployment.binding.lms} deployment binding.`,
-    );
+    rejectDeploymentMismatch({
+      field: "deployment_id",
+      target: `saved ${deployment.binding.lms} deployment binding`,
+    });
   }
 
   const resourceLink = requireRecordClaim(
