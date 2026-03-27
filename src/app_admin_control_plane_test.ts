@@ -2,10 +2,16 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import type { OpsRepository } from "./ops/repository.ts";
 import {
+  buildBrokerVerificationStatus,
   buildControlPlaneDeploymentInventoryRow,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
+import {
+  buildCanvasDeploymentBinding,
+  buildMoodleDeploymentBinding,
+  buildSakaiDeploymentBinding,
+} from "./test_helpers/lti.ts";
 
 function createFailingOpsRepository(message: string): OpsRepository {
   return {
@@ -71,7 +77,53 @@ Deno.test("GET /admin/verification renders verification on a dedicated page", as
       }),
     ],
     controlPlaneDeployments: [
-      buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 }),
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 1,
+        deploymentSlug: "chapter-4-asteroids-pilot",
+        deploymentLabel: "Chapter 4 Asteroids Pilot Deployment",
+        binding: buildCanvasDeploymentBinding(),
+        brokerVerification: buildBrokerVerificationStatus({
+          internal: {
+            source: "manual",
+            status: "passed",
+            checkedAt: "2026-03-24T12:50:00Z",
+            summary: "Canvas deployment verification passed.",
+            evidenceUrl: "https://example.test/internal-proof",
+          },
+        }),
+      }),
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 2,
+        deploymentSlug: "chapter-4-asteroids-moodle",
+        deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
+        binding: buildMoodleDeploymentBinding(),
+        brokerVerification: buildBrokerVerificationStatus({
+          supportedPath: "moodleLti13LaunchAgsScore",
+          internal: {
+            source: "ci",
+            status: "failed",
+            checkedAt: "2026-03-24T12:40:00Z",
+            summary: "Moodle deployment verification failed.",
+            evidenceUrl: "https://example.test/moodle-proof",
+          },
+        }),
+      }),
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 3,
+        deploymentSlug: "chapter-4-asteroids-sakai",
+        deploymentLabel: "Chapter 4 Asteroids Sakai Deployment",
+        binding: buildSakaiDeploymentBinding(),
+      }),
+    ],
+    brokerVerifications: [
+      buildBrokerVerificationStatus({
+        supportedPath: "moodleLti13LaunchAgsScore",
+        official: {
+          state: "notCertified",
+          checkedAt: "2026-03-24T12:55:00Z",
+          directoryUrl: "https://example.test/official-directory",
+        },
+      }),
     ],
   });
 
@@ -84,10 +136,17 @@ Deno.test("GET /admin/verification renders verification on a dedicated page", as
   const body = await response.text();
 
   assertStringIncludes(body, "Verification");
-  assertStringIncludes(body, "Broker verification");
+  assertStringIncludes(body, "Deployment-scoped internal proof");
+  assertStringIncludes(body, "Official 1EdTech evidence");
+  assertStringIncludes(body, "Chapter 4 Asteroids Pilot Deployment");
+  assertStringIncludes(body, "Chapter 4 Asteroids Moodle Deployment");
+  assertStringIncludes(body, "Chapter 4 Asteroids Sakai Deployment");
   assertStringIncludes(body, "Record verification evidence");
   assertStringIncludes(body, 'action="/admin/verification"');
+  assertStringIncludes(body, 'name="deploymentRecordId"');
+  assertStringIncludes(body, 'name="scope"');
   assertEquals(body.includes("Deployment inventory"), false);
+  assertEquals(body.includes("Supported Canvas path"), false);
 });
 
 Deno.test("GET /admin/deployments keeps route failures inside the admin shell", async () => {
@@ -124,7 +183,7 @@ Deno.test("GET /admin/verification keeps route failures inside the admin shell",
   assertStringIncludes(body, 'href="/admin/verification"');
 });
 
-Deno.test("POST /admin/verification records a broker verification run and redirects back to verification", async () => {
+Deno.test("POST /admin/verification records deployment-scoped broker verification evidence and redirects back to verification", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -134,17 +193,30 @@ Deno.test("POST /admin/verification records a broker verification run and redire
       }),
     ],
     controlPlaneDeployments: [
-      buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 }),
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 1,
+        deploymentSlug: "chapter-4-asteroids-pilot",
+        deploymentLabel: "Chapter 4 Asteroids Pilot Deployment",
+        binding: buildCanvasDeploymentBinding(),
+      }),
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 2,
+        deploymentSlug: "chapter-4-asteroids-moodle",
+        deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
+        binding: buildMoodleDeploymentBinding(),
+      }),
     ],
   });
   const app = createApp({ getRepository: () => repository });
   const formData = new FormData();
 
   formData.set("source", "manual");
+  formData.set("deploymentRecordId", "2");
+  formData.set("scope", "moodleLti13LaunchAgsScore");
   formData.set("status", "passed");
   formData.set(
     "summary",
-    "Manual verification passed for the supported Canvas path.",
+    "Manual verification passed for the saved Moodle deployment.",
   );
   formData.set("detailUrl", "https://example.test/verification/manual-pass");
   formData.set("checkedAt", "2026-03-24T12:50:00Z");
@@ -159,17 +231,31 @@ Deno.test("POST /admin/verification records a broker verification run and redire
   assertEquals(response.headers.get("location"), "/admin/verification");
 
   const latestVerification = await repository.getLatestBrokerVerification();
+  const deployments = await repository.listControlPlaneDeployments();
+  const moodleVerification = deployments.find((deployment) =>
+    deployment.deploymentId === 2
+  )?.brokerVerification;
+  const canvasVerification = deployments.find((deployment) =>
+    deployment.deploymentId === 1
+  )?.brokerVerification;
 
+  assertEquals(latestVerification?.supportedPath, "moodleLti13LaunchAgsScore");
   assertEquals(latestVerification?.internal?.source, "manual");
   assertEquals(latestVerification?.internal?.status, "passed");
   assertEquals(
     latestVerification?.internal?.summary,
-    "Manual verification passed for the supported Canvas path.",
+    "Manual verification passed for the saved Moodle deployment.",
   );
   assertEquals(
     latestVerification?.internal?.evidenceUrl,
     "https://example.test/verification/manual-pass",
   );
+  assertEquals(moodleVerification?.internal?.status, "passed");
+  assertEquals(
+    moodleVerification?.internal?.summary,
+    "Manual verification passed for the saved Moodle deployment.",
+  );
+  assertEquals(canvasVerification?.internal?.summary, undefined);
   assertEquals(latestVerification?.official.state, "notCertified");
 });
 
@@ -183,13 +269,18 @@ Deno.test("POST /admin/verification rejects internal verification rows that incl
       }),
     ],
     controlPlaneDeployments: [
-      buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 }),
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 1,
+        binding: buildCanvasDeploymentBinding(),
+      }),
     ],
   });
   const app = createApp({ getRepository: () => repository });
   const formData = new FormData();
 
   formData.set("source", "manual");
+  formData.set("deploymentRecordId", "1");
+  formData.set("scope", "canvasLti13LaunchAgsNrps");
   formData.set("status", "passed");
   formData.set("certificationState", "ltiAdvantageCertified");
   formData.set("summary", "Manual verification passed.");
@@ -208,5 +299,48 @@ Deno.test("POST /admin/verification rejects internal verification rows that incl
   assertStringIncludes(
     body,
     "Internal verification runs cannot carry an official certification state.",
+  );
+});
+
+Deno.test("POST /admin/verification rejects internal verification rows without an explicit deployment", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    controlPlaneDeployments: [
+      buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 2,
+        deploymentSlug: "chapter-4-asteroids-moodle",
+        deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
+        binding: buildMoodleDeploymentBinding(),
+      }),
+    ],
+  });
+  const app = createApp({ getRepository: () => repository });
+  const formData = new FormData();
+
+  formData.set("source", "manual");
+  formData.set("scope", "moodleLti13LaunchAgsScore");
+  formData.set("status", "passed");
+  formData.set("summary", "Manual verification passed.");
+  formData.set("checkedAt", "2026-03-24T12:50:00Z");
+
+  const response = await app.request("http://localhost/admin/verification", {
+    method: "POST",
+    headers: { Origin: "http://localhost" },
+    body: formData,
+  });
+
+  assertEquals(response.status, 400);
+  const body = await response.text();
+
+  assertStringIncludes(body, "Verification update blocked");
+  assertStringIncludes(
+    body,
+    "Internal verification runs require an explicit deployment record id.",
   );
 });
