@@ -40,10 +40,13 @@ Deno.test('ops service formats launch, NRPS, and AGS diagnostics into operator-r
     buildControlPlaneDiagnosticItem({
       kind: 'launch',
       eventType: 'launch.rejected',
-      code: 'deployment_mismatch',
+      code: 'unsupported_message_type',
       summary: 'Rejected launch before runtime handoff.',
       detail: {
-        issuer: 'https://canvas.instructure.com',
+        lms: 'sakai',
+        messageType: 'LtiDeepLinkingRequest',
+        supportedMessageType: 'LtiResourceLinkRequest',
+        issuer: 'https://sakai.example',
         clientId: '10000000000001',
         deploymentId: 'deployment-999',
         idToken: 'secret-id-token',
@@ -52,7 +55,8 @@ Deno.test('ops service formats launch, NRPS, and AGS diagnostics into operator-r
   );
 
   assertEquals(formatted.kind, 'launch');
-  assertEquals(formatted.operatorSummary.includes('deployment'), true);
+  assertEquals(formatted.operatorSummary.includes('resource-link baseline'), true);
+  assertEquals(formatted.operatorSummary.includes('Canvas'), false);
   assertEquals(JSON.stringify(formatted.detail).includes('secret-id-token'), false);
 });
 

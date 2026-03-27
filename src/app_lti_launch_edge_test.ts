@@ -1,6 +1,9 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
-import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from "./lti/types.ts";
+import {
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+  LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
+} from "./lti/types.ts";
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -329,7 +332,19 @@ Deno.test("POST /lti/launch rejects Sakai authoring-mode requests and never crea
       assertEquals(runtimeSession, null);
       assertEquals(auditEvents.length, 1);
       assertEquals(auditEvents[0]?.detail.lms, "sakai");
-      assertEquals(auditEvents[0]?.detail.code, "launch_validation_failed");
+      assertEquals(auditEvents[0]?.detail.code, "unsupported_message_type");
+      assertEquals(
+        auditEvents[0]?.detail.message,
+        "Launch rejected because /lti/launch only accepts LtiResourceLinkRequest for the governed runtime baseline.",
+      );
+      assertEquals(
+        auditEvents[0]?.detail.messageType,
+        LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+      );
+      assertEquals(
+        auditEvents[0]?.detail.supportedMessageType,
+        LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
+      );
     },
   );
 });
