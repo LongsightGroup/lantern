@@ -1,7 +1,5 @@
 import { summarizePilotUsage } from "../ops/service.ts";
-import type {
-  ManagedDeploymentSlot,
-} from "./deployment_detail.ts";
+import type { ManagedDeploymentSlot } from "./deployment_detail.ts";
 import type {
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDiagnosticItem,
@@ -131,7 +129,9 @@ export function renderOperationalEvidenceSection(
         <div class="two-column">
           <div class="stack">
             <h2>Deployment-scoped operational evidence.</h2>
-            <p>Use the LMS slot in view first. Open the evidence drawer only when you need install, launch, verification, or failure detail for this ${escapeHtml(viewedDeploymentLabel)}.</p>
+            <p>Use the LMS slot in view first. Open the evidence drawer only when you need install, launch, verification, or failure detail for this ${
+    escapeHtml(viewedDeploymentLabel)
+  }.</p>
           </div>
           <div class="facts">
             ${
@@ -245,9 +245,9 @@ export function renderBrokerVerificationSection(
         ${
     internalVerification?.evidenceUrl
       ? `<div class="button-row">
-              <a class="button-ghost" href="${escapeHtml(internalVerification.evidenceUrl)}">${
+              <a class="button-ghost" href="${
         escapeHtml(internalVerification.evidenceUrl)
-      }</a>
+      }">${escapeHtml(internalVerification.evidenceUrl)}</a>
             </div>`
       : ""
   }

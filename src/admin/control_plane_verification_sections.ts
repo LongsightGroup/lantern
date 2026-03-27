@@ -96,9 +96,9 @@ function renderDeploymentVerificationRow(
       ${
     internal?.evidenceUrl
       ? `<div class="button-row">
-              <a class="button-ghost" href="${escapeHtml(internal.evidenceUrl)}">${
+              <a class="button-ghost" href="${
         escapeHtml(internal.evidenceUrl)
-      }</a>
+      }">${escapeHtml(internal.evidenceUrl)}</a>
             </div>`
       : ""
   }
@@ -159,9 +159,9 @@ function renderOfficialEvidenceSection(
       ${
     official.directoryUrl
       ? `<div class="button-row">
-              <a class="button-ghost" href="${escapeHtml(official.directoryUrl)}">${
+              <a class="button-ghost" href="${
         escapeHtml(official.directoryUrl)
-      }</a>
+      }">${escapeHtml(official.directoryUrl)}</a>
             </div>`
       : ""
   }
@@ -249,9 +249,7 @@ function renderBrokerVerificationForm(
 function describeMissingInternalVerification(
   deployment: ControlPlaneDeploymentInventoryRow,
 ): string {
-  return `No internal verification evidence has been recorded for ${
-    deployment.deploymentLabel
-  } yet.`;
+  return `No internal verification evidence has been recorded for ${deployment.deploymentLabel} yet.`;
 }
 
 function describeDeploymentContext(

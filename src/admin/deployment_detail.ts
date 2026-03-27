@@ -258,6 +258,12 @@ export function renderDeploymentDetailPage(input: {
       })
     }
     ${renderVersionHistorySection(input.history, primaryDeployment)}
-    ${renderOperationalEvidenceSection(input.appId, selectedSlot, controlPlaneDetail)}`,
+    ${
+      renderOperationalEvidenceSection(
+        input.appId,
+        selectedSlot,
+        controlPlaneDetail,
+      )
+    }`,
   });
 }

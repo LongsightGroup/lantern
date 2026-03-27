@@ -54,10 +54,12 @@ export function renderVerificationPage(input: {
       "Review deployment-scoped broker proof for each saved deployment. Record internal checks and official 1EdTech evidence without merging them into one global status.",
     activePath: "/admin/verification",
     notice: input.notice ?? null,
-    body: `${renderBrokerVerificationSection({
-      deployments: input.deployments,
-      latestOfficialBrokerVerification,
-    })}
+    body: `${
+      renderBrokerVerificationSection({
+        deployments: input.deployments,
+        latestOfficialBrokerVerification,
+      })
+    }
     ${renderVerificationUpdateSection(input.deployments)}`,
   });
 }

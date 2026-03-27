@@ -95,7 +95,8 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
       slug: "chapter-4-asteroids-pilot",
       label: "Chapter 4 Asteroids Pilot Deployment",
       installSummary: "Saved the Canvas deployment binding.",
-      launchSummary: "Latest Canvas launch reached the governed runtime handoff.",
+      launchSummary:
+        "Latest Canvas launch reached the governed runtime handoff.",
       diagnosticSummary: "Canvas launch failed on the saved deployment path.",
       verificationSummary:
         "Latest internal proof passed for the saved Canvas deployment.",
@@ -108,7 +109,8 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
       slug: "chapter-4-asteroids-moodle",
       label: "Chapter 4 Asteroids Moodle Deployment",
       installSummary: "Saved the Moodle deployment binding.",
-      launchSummary: "Latest Moodle launch reached the governed runtime handoff.",
+      launchSummary:
+        "Latest Moodle launch reached the governed runtime handoff.",
       diagnosticSummary: "Moodle launch failed on the saved deployment path.",
       verificationSummary:
         "Latest internal proof passed for the saved Moodle deployment.",
@@ -121,7 +123,8 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
       slug: "chapter-4-asteroids-sakai",
       label: "Chapter 4 Asteroids Sakai Deployment",
       installSummary: "Saved the Sakai deployment binding.",
-      launchSummary: "Latest Sakai launch reached the governed runtime handoff.",
+      launchSummary:
+        "Latest Sakai launch reached the governed runtime handoff.",
       diagnosticSummary: "Sakai launch failed on the saved deployment path.",
       verificationSummary:
         "Latest internal proof passed for the saved Sakai deployment.",
@@ -220,7 +223,9 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
     assertStringIncludes(html, testCase.diagnosticSummary);
     assertStringIncludes(html, testCase.verificationSummary);
     assertFalse(
-      html.includes(`/admin/packages/chapter-4-asteroids/${testCase.lms}/deployment`),
+      html.includes(
+        `/admin/packages/chapter-4-asteroids/${testCase.lms}/deployment`,
+      ),
     );
   }
 });

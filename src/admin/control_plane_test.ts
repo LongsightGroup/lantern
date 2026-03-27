@@ -48,8 +48,7 @@ Deno.test("renderVerificationPage shows deployment-scoped verification facts whi
             source: "manual",
             status: "passed",
             checkedAt: "2026-03-24T12:50:00Z",
-            summary:
-              "Canvas deployment verification passed.",
+            summary: "Canvas deployment verification passed.",
             evidenceUrl: "https://example.test/internal-proof",
           },
         }),

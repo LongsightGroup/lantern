@@ -2,8 +2,8 @@ import type { Hono } from "@hono/hono";
 import {
   type DeploymentEditorField,
   type DeploymentEditorState,
-  getSelectedManagedDeploymentSlot,
   getManagedDeploymentSlot,
+  getSelectedManagedDeploymentSlot,
   renderDeploymentDetailPage,
 } from "./admin/deployment_detail.ts";
 import { renderPackageIndexPage } from "./admin/package_index.ts";
@@ -38,11 +38,9 @@ export function registerAdminDeploymentDetailRoutes(
         detail.slots,
         selectedLms,
       );
-      const controlPlaneDetail = !viewedSlot.persisted
-        ? null
-        : await services
-          .getOpsRepository()
-          .getControlPlaneDeploymentDetail(viewedSlot.deployment.id);
+      const controlPlaneDetail = !viewedSlot.persisted ? null : await services
+        .getOpsRepository()
+        .getControlPlaneDeploymentDetail(viewedSlot.deployment.id);
 
       return context.html(
         renderDeploymentDetailPage({
