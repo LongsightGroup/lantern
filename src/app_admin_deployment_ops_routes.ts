@@ -11,10 +11,10 @@ import { requireTrimmedFormValue } from "./app_request_support.ts";
 import { errorMessage, statusForNrpsError } from "./app_status_support.ts";
 import { listCanvasEnvironments } from "./lti/config.ts";
 import {
+  type DeploymentBinding,
   LTI_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE,
   LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE,
-  type DeploymentBinding,
   type RuntimeSessionRecord,
 } from "./lti/types.ts";
 import {
@@ -24,7 +24,10 @@ import {
 } from "./lti/services.ts";
 import type { AppServices } from "./app_services.ts";
 import type { PackageReviewRepository } from "./package_review/repository.ts";
-import type { AttemptRecord, DeploymentRecord } from "./package_review/types.ts";
+import type {
+  AttemptRecord,
+  DeploymentRecord,
+} from "./package_review/types.ts";
 import {
   buildSmokeVerificationLineItemSpec,
   ensureManagedLineItem,
@@ -207,17 +210,22 @@ export function registerAdminDeploymentOpsRoutes(
           deploymentRecordId,
         );
         const binding = requireGradeSmokeBinding(targetDeployment, smokeLms);
-        const latestSession = await repository.getLatestRuntimeSessionByDeploymentId(
-          targetDeployment.id,
-        );
+        const latestSession = await repository
+          .getLatestRuntimeSessionByDeploymentId(
+            targetDeployment.id,
+          );
 
         if (latestSession === null) {
           throw new Error(
-            `Launch the ${formatLmsLabel(smokeLms)} deployment once before running grade smoke verification.`,
+            `Launch the ${
+              formatLmsLabel(smokeLms)
+            } deployment once before running grade smoke verification.`,
           );
         }
 
-        const attempt = await repository.getAttemptById(latestSession.attemptId);
+        const attempt = await repository.getAttemptById(
+          latestSession.attemptId,
+        );
 
         if (attempt === null) {
           throw new Error(
@@ -371,7 +379,9 @@ function requireGradeSmokeBinding(
 ): Extract<DeploymentBinding, { lms: SupportedSmokeLms }> {
   if (deployment.binding === null || deployment.binding.lms !== lms) {
     throw new Error(
-      `Save the exact ${formatLmsLabel(lms)} binding before running grade smoke verification.`,
+      `Save the exact ${
+        formatLmsLabel(lms)
+      } binding before running grade smoke verification.`,
     );
   }
 
@@ -493,7 +503,9 @@ async function runGradeSmokeVerification(input: {
 
   return {
     status: "succeeded",
-    summary: `${formatLmsLabel(input.binding.lms)} AGS smoke verification succeeded.`,
+    summary: `${
+      formatLmsLabel(input.binding.lms)
+    } AGS smoke verification succeeded.`,
     attemptId: input.attempt.attemptId,
     detail: {
       lms: input.binding.lms,

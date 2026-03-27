@@ -10,10 +10,10 @@ import type {
 } from "./types.ts";
 import {
   DIAGNOSTICS_QUERY,
-  LATEST_AGS_SMOKE_QUERY,
   INSERT_BROKER_VERIFICATION_RUN_QUERY,
   INVENTORY_BASE_QUERY,
   INVENTORY_ORDER_BY,
+  LATEST_AGS_SMOKE_QUERY,
   LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY,
   LATEST_GLOBAL_OFFICIAL_BROKER_VERIFICATION_QUERY,
   LATEST_GRADE_PUBLICATION_QUERY,
@@ -77,19 +77,19 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           latestNrpsRead,
           latestGradePublish,
         ] = await Promise.all([
-            getActivitySnapshot(
-              client,
-              LATEST_LAUNCH_QUERY,
-              deploymentRecordId,
-            ),
-            getActivitySnapshot(
-              client,
-              LATEST_AGS_SMOKE_QUERY,
-              deploymentRecordId,
-            ),
-            getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
-            getLatestGradePublication(client, deploymentRecordId),
-          ]);
+          getActivitySnapshot(
+            client,
+            LATEST_LAUNCH_QUERY,
+            deploymentRecordId,
+          ),
+          getActivitySnapshot(
+            client,
+            LATEST_AGS_SMOKE_QUERY,
+            deploymentRecordId,
+          ),
+          getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
+          getLatestGradePublication(client, deploymentRecordId),
+        ]);
         const retryableGradePublication =
           latestGradePublish?.status === "failed"
             ? await getRetryableGradePublicationLookupForClient(

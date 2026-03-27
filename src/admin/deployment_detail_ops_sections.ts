@@ -272,7 +272,11 @@ export function renderAgsSmokeSection(
 ): string {
   const latestAgsSmoke = detail?.latestAgsSmoke ?? null;
   const lineItemUrl = readStringDetail(latestAgsSmoke?.detail, "lineItemUrl");
-  const errorCode = readNestedStringDetail(latestAgsSmoke?.detail, "error", "code");
+  const errorCode = readNestedStringDetail(
+    latestAgsSmoke?.detail,
+    "error",
+    "code",
+  );
   const errorText = readNestedStringDetail(
     latestAgsSmoke?.detail,
     "error",
@@ -284,8 +288,12 @@ export function renderAgsSmokeSection(
   const runCopy = slot.lms === "canvas"
     ? "Phase 11 keeps grade smoke verification limited to the blessed Moodle and Sakai deployment paths."
     : canRunSmoke
-    ? `Run the blessed ${formatLmsLabel(slot.lms)} smoke path from this deployment view. Lantern records only bounded AGS capability, publication, and line-item facts.`
-    : `Save the exact ${formatLmsLabel(slot.lms)} binding before running grade smoke verification.`;
+    ? `Run the blessed ${
+      formatLmsLabel(slot.lms)
+    } smoke path from this deployment view. Lantern records only bounded AGS capability, publication, and line-item facts.`
+    : `Save the exact ${
+      formatLmsLabel(slot.lms)
+    } binding before running grade smoke verification.`;
   const runAction = slot.lms === "canvas"
     ? ""
     : `<form method="post" action="/admin/packages/${
@@ -301,23 +309,19 @@ export function renderAgsSmokeSection(
     }>Run grade smoke check</button>
             </div>
           </form>`;
-  const lineItemFact = lineItemUrl === null
-    ? ""
-    : `<div class="fact">
+  const lineItemFact = lineItemUrl === null ? "" : `<div class="fact">
             <span class="fact-label">Smoke line item</span>
             <span class="fact-value">${escapeHtml(lineItemUrl)}</span>
             <p class="micro muted">Lantern keeps smoke verification on a dedicated line item instead of the learner final-grade path.</p>
           </div>`;
-  const failureCallout = errorText === null
-    ? ""
-    : `<div class="callout">
+  const failureCallout = errorText === null ? "" : `<div class="callout">
             <h3>Latest smoke failure</h3>
             <p>${escapeHtml(errorText)}</p>
             ${
-      errorCode === null
-        ? ""
-        : `<p class="micro muted">Code ${escapeHtml(errorCode)}</p>`
-    }
+    errorCode === null
+      ? ""
+      : `<p class="micro muted">Code ${escapeHtml(errorCode)}</p>`
+  }
           </div>`;
 
   return `<section class="panel">
@@ -535,7 +539,10 @@ function describeSmokeCapabilitySummary(
 function describeSmokePublication(
   snapshot: DeploymentActivitySnapshot | null | undefined,
 ): string {
-  const publicationStatus = readStringDetail(snapshot?.detail, "publicationStatus");
+  const publicationStatus = readStringDetail(
+    snapshot?.detail,
+    "publicationStatus",
+  );
 
   switch (publicationStatus) {
     case "succeeded":
@@ -552,7 +559,10 @@ function describeSmokePublication(
 function describeSmokePublicationSummary(
   snapshot: DeploymentActivitySnapshot | null | undefined,
 ): string {
-  const publicationStatus = readStringDetail(snapshot?.detail, "publicationStatus");
+  const publicationStatus = readStringDetail(
+    snapshot?.detail,
+    "publicationStatus",
+  );
 
   switch (publicationStatus) {
     case "succeeded":

@@ -425,7 +425,10 @@ Deno.test(
 
           assertEquals(auditEvents.length, 1);
           assertEquals(auditEvents[0]?.status, "succeeded");
-          assertEquals(auditEvents[0]?.deploymentRecordId, fixture.deploymentId);
+          assertEquals(
+            auditEvents[0]?.deploymentRecordId,
+            fixture.deploymentId,
+          );
           assertEquals(auditEvents[0]?.detail.lms, "moodle");
           assertEquals(auditEvents[0]?.detail.agsCapable, true);
           assertEquals(auditEvents[0]?.detail.publicationStatus, "succeeded");
@@ -434,7 +437,9 @@ Deno.test(
             fixture.smokeLineItemUrl,
           );
           assertEquals(
-            requestedUrls.includes(`POST ${fixture.finalGradeLineItemUrl}/scores`),
+            requestedUrls.includes(
+              `POST ${fixture.finalGradeLineItemUrl}/scores`,
+            ),
             false,
           );
         },
@@ -581,7 +586,10 @@ Deno.test(
 
           assertEquals(auditEvents.length, 1);
           assertEquals(auditEvents[0]?.status, "succeeded");
-          assertEquals(auditEvents[0]?.deploymentRecordId, fixture.deploymentId);
+          assertEquals(
+            auditEvents[0]?.deploymentRecordId,
+            fixture.deploymentId,
+          );
           assertEquals(auditEvents[0]?.detail.lms, "sakai");
           assertEquals(auditEvents[0]?.detail.agsCapable, true);
           assertEquals(auditEvents[0]?.detail.publicationStatus, "succeeded");
@@ -590,7 +598,9 @@ Deno.test(
             fixture.smokeLineItemUrl,
           );
           assertEquals(
-            requestedUrls.includes(`POST ${fixture.finalGradeLineItemUrl}/scores`),
+            requestedUrls.includes(
+              `POST ${fixture.finalGradeLineItemUrl}/scores`,
+            ),
             false,
           );
         },
@@ -690,7 +700,9 @@ Deno.test(
           assertEquals(errorDetail?.code, "token_request_failed");
           assertEquals(errorDetail?.message, "simulated token failure");
           assertEquals(
-            JSON.stringify(auditEvents[0]?.detail ?? {}).includes("final-grade"),
+            JSON.stringify(auditEvents[0]?.detail ?? {}).includes(
+              "final-grade",
+            ),
             false,
           );
         },
