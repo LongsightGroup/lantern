@@ -1,4 +1,5 @@
 import { resolveCanvasPlatform } from "./canvas_platform.ts";
+import { resolveCanvasTokenEndpoint } from "./service_support.ts";
 import type { DeploymentBinding, LmsType } from "./types.ts";
 
 export function resolveAuthorizationEndpoint(
@@ -21,6 +22,20 @@ export function resolveBindingJwksUrl(binding: DeploymentBinding): string {
     case "moodle":
     case "sakai":
       return binding.jwksUrl;
+  }
+}
+
+export function resolveServiceTokenEndpoint(
+  binding: DeploymentBinding,
+): string {
+  switch (binding.lms) {
+    case "canvas":
+      return resolveCanvasTokenEndpoint(
+        resolveCanvasPlatform(binding.issuer).authorizationEndpoint,
+      );
+    case "moodle":
+    case "sakai":
+      return binding.accessTokenUrl;
   }
 }
 
