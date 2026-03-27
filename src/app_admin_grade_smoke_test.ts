@@ -123,7 +123,7 @@ Deno.test(
         appTitle: moodleFixture.appTitle,
         lms: moodleFixture.binding.lms,
       }),
-      ensureLineItemFn: async (input: EnsureLineItemInput) => {
+      ensureLineItemFn: (input: EnsureLineItemInput) => {
         requests.push({
           resourceId: input.resourceId,
           tag: input.tag,
@@ -132,7 +132,7 @@ Deno.test(
           lineitemsUrl: input.lineitemsUrl,
         });
 
-        return {
+        return Promise.resolve({
           lineItemsUrl: input.lineitemsUrl!,
           lineItemUrl:
             "https://moodle.example/mod/lti/services.php/2/lineitems/9",
@@ -141,7 +141,7 @@ Deno.test(
           label: input.label,
           scoreMaximum: input.scoreMaximum,
           created: true,
-        };
+        });
       },
     });
 
@@ -154,7 +154,7 @@ Deno.test(
         appTitle: sakaiFixture.appTitle,
         lms: sakaiFixture.binding.lms,
       }),
-      ensureLineItemFn: async (input: EnsureLineItemInput) => {
+      ensureLineItemFn: (input: EnsureLineItemInput) => {
         requests.push({
           resourceId: input.resourceId,
           tag: input.tag,
@@ -163,7 +163,7 @@ Deno.test(
           lineitemsUrl: input.lineitemsUrl,
         });
 
-        return {
+        return Promise.resolve({
           lineItemsUrl: input.lineitemsUrl!,
           lineItemUrl:
             "https://sakai.example/direct/lti/lineitems/course-42/items/9",
@@ -172,7 +172,7 @@ Deno.test(
           label: input.label,
           scoreMaximum: input.scoreMaximum,
           created: false,
-        };
+        });
       },
     });
 
@@ -204,9 +204,7 @@ Deno.test(
       scope: fixture.session.services.ags!.scope,
       binding: fixture.binding,
       lineItemBinding: null,
-      requestToken: async () => {
-        throw new Error("simulated token failure");
-      },
+      requestToken: () => Promise.reject(new Error("simulated token failure")),
     });
 
     if (typeof result === "string") {
@@ -247,7 +245,7 @@ Deno.test(
         packageVersion,
         scoreMaximum: 100,
       }),
-      ensureLineItemFn: async (input: EnsureLineItemInput) => {
+      ensureLineItemFn: (input: EnsureLineItemInput) => {
         requests.push({
           resourceId: input.resourceId,
           tag: input.tag,
@@ -255,7 +253,7 @@ Deno.test(
           scoreMaximum: input.scoreMaximum,
         });
 
-        return {
+        return Promise.resolve({
           lineItemsUrl: input.lineitemsUrl!,
           lineItemUrl: input.lineitemUrl ??
             "https://canvas.example/api/lti/courses/42/line_items/9",
@@ -264,7 +262,7 @@ Deno.test(
           label: input.label,
           scoreMaximum: input.scoreMaximum,
           created: false,
-        };
+        });
       },
     });
 
