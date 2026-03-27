@@ -20,6 +20,7 @@ export function statusForError(error: unknown): 409 | 500 {
     error.message.includes("cannot change state") ||
     error.message.includes("Only approved") ||
     error.message.includes("does not belong") ||
+    error.message.includes("Unsupported LTI ") ||
     error.message.includes("not found") ||
     error.message.includes("required") ||
     error.message.includes("Choose ") ||
