@@ -1,8 +1,17 @@
-import type { PackageReviewRepository } from '../package_review/repository.ts';
-import type { PackageVersionRecord } from '../package_review/types.ts';
-import { ensureLeadingSlash } from '../package_review/snapshot_path.ts';
-import { requireRecordClaim, requireStringClaim } from './claim_support.ts';
-import { LANTERN_PLACEMENT_CUSTOM_KEY } from './types.ts';
+import type { PackageReviewRepository } from "../package_review/repository.ts";
+import type { PackageVersionRecord } from "../package_review/types.ts";
+import { ensureLeadingSlash } from "../package_review/snapshot_path.ts";
+import { requireRecordClaim, requireStringClaim } from "./claim_support.ts";
+import {
+  rejectLaunchPackageVersionMissing,
+  rejectMissingPinnedPackageVersion,
+  rejectPackageNotApproved,
+  rejectReviewedPlacementContextMismatch,
+  rejectReviewedPlacementDeploymentMismatch,
+  rejectReviewedPlacementNotFound,
+  rejectReviewedPlacementResourceLinkConflict,
+} from "./launch_support_matrix.ts";
+import { LANTERN_PLACEMENT_CUSTOM_KEY } from "./types.ts";
 
 export async function resolveLaunchTarget(input: {
   repository: PackageReviewRepository;
@@ -27,10 +36,12 @@ export async function resolveLaunchTarget(input: {
     return await resolvePinnedLaunchTarget(input);
   }
 
-  const placement = await input.repository.getReviewedPlacementById(placementId);
+  const placement = await input.repository.getReviewedPlacementById(
+    placementId,
+  );
 
   if (!placement) {
-    throw new Error(`Reviewed placement ${placementId} was not found.`);
+    rejectReviewedPlacementNotFound(placementId);
   }
 
   if (
@@ -38,22 +49,54 @@ export async function resolveLaunchTarget(input: {
     placement.deploymentSlug !== input.deployment.slug ||
     placement.appId !== input.deployment.appId
   ) {
-    throw new Error(
-      `Reviewed placement ${placementId} does not belong to deployment ${input.deployment.slug}.`,
-    );
+    rejectReviewedPlacementDeploymentMismatch({
+      placementId,
+      deploymentSlug: input.deployment.slug,
+      placementDeploymentSlug: placement.deploymentSlug,
+    });
   }
 
   if (placement.contextId !== input.contextId) {
-    throw new Error(
-      `Reviewed placement ${placementId} does not match Canvas context ${input.contextId}.`,
-    );
+    rejectReviewedPlacementContextMismatch({
+      placementId,
+      contextId: input.contextId,
+      placementContextId: placement.contextId,
+    });
   }
 
-  const boundPlacement = await input.repository.bindReviewedPlacementResourceLink({
-    placementId,
-    resourceLinkId: input.resourceLinkId,
-    boundAt: input.now().toISOString(),
-  });
+  if (
+    placement.resourceLinkId !== null &&
+    placement.resourceLinkId !== input.resourceLinkId
+  ) {
+    rejectReviewedPlacementResourceLinkConflict({
+      placementId,
+      resourceLinkId: input.resourceLinkId,
+      existingResourceLinkId: placement.resourceLinkId,
+    });
+  }
+
+  let boundPlacement;
+
+  try {
+    boundPlacement = await input.repository.bindReviewedPlacementResourceLink({
+      placementId,
+      resourceLinkId: input.resourceLinkId,
+      boundAt: input.now().toISOString(),
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("already bound to another reviewed placement")
+    ) {
+      rejectReviewedPlacementResourceLinkConflict({
+        placementId,
+        resourceLinkId: input.resourceLinkId,
+        deploymentSlug: placement.deploymentSlug,
+      });
+    }
+
+    throw error;
+  }
   const packageVersion = await requireApprovedLaunchPackageVersion({
     repository: input.repository,
     packageVersionId: boundPlacement.packageVersionId,
@@ -85,9 +128,7 @@ async function resolvePinnedLaunchTarget(input: {
   contentPath: string;
 }> {
   if (input.deployment.enabledPackageVersionId === null) {
-    throw new Error(
-      `Deployment ${input.deployment.slug} does not have an approved pinned package version.`,
-    );
+    rejectMissingPinnedPackageVersion(input.deployment.slug);
   }
 
   const packageVersion = await requireApprovedLaunchPackageVersion({
@@ -106,26 +147,29 @@ async function requireApprovedLaunchPackageVersion(input: {
   repository: PackageReviewRepository;
   packageVersionId: number;
 }): Promise<PackageVersionRecord> {
-  const packageVersion = await input.repository.getPackageVersionById(input.packageVersionId);
+  const packageVersion = await input.repository.getPackageVersionById(
+    input.packageVersionId,
+  );
 
   if (!packageVersion) {
-    throw new Error(`Launch package version id ${input.packageVersionId} was not found.`);
+    rejectLaunchPackageVersionMissing(input.packageVersionId);
   }
 
-  if (packageVersion.approvalStatus !== 'approved') {
-    throw new Error(
-      `Launch package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
-    );
+  if (packageVersion.approvalStatus !== "approved") {
+    rejectPackageNotApproved({
+      appId: packageVersion.appId,
+      packageVersion: packageVersion.version,
+    });
   }
 
   return packageVersion;
 }
 
 function readReviewedPlacementId(customClaim: unknown): string | null {
-  const custom =
-    customClaim === undefined
-      ? null
-      : requireRecordClaim(customClaim, 'Launch custom claim must be an object when provided.');
+  const custom = customClaim === undefined ? null : requireRecordClaim(
+    customClaim,
+    "Launch custom claim must be an object when provided.",
+  );
 
   if (!custom || custom[LANTERN_PLACEMENT_CUSTOM_KEY] === undefined) {
     return null;
@@ -137,14 +181,16 @@ function readReviewedPlacementId(customClaim: unknown): string | null {
   );
 }
 
-function resolveCanonicalContentPath(packageVersion: PackageVersionRecord): string {
+function resolveCanonicalContentPath(
+  packageVersion: PackageVersionRecord,
+): string {
   const contentFiles = Array.isArray(packageVersion.manifestJson.content_files)
     ? packageVersion.manifestJson.content_files
-        .filter((item): item is string => typeof item === 'string')
-        .map((item) => item.trim())
-        .filter((item) => item !== '')
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item !== "")
     : [];
   const firstContentFile = contentFiles[0];
 
-  return ensureLeadingSlash(firstContentFile ?? '/content/activity.json');
+  return ensureLeadingSlash(firstContentFile ?? "/content/activity.json");
 }

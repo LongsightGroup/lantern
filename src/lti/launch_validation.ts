@@ -10,6 +10,11 @@ import {
   validateLtiAudience,
 } from "./claim_support.ts";
 import { parseLaunchServiceClaims } from "./launch_service_claims.ts";
+import {
+  assertSupportedLaunchMessageType,
+  assertSupportedLaunchVersion,
+  requireBaselineStringClaim,
+} from "./launch_support_matrix.ts";
 import { resolveLaunchTarget } from "./launch_target_resolution.ts";
 import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
 import { createOpaqueToken, loadJwks } from "./token_support.ts";
@@ -131,13 +136,8 @@ export async function validateLaunchRequest(input: {
     throw new Error("Launch nonce did not match the saved login state.");
   }
 
-  if (messageType !== "LtiResourceLinkRequest") {
-    throw new Error(`Unsupported LTI message type ${messageType}.`);
-  }
-
-  if (version !== "1.3.0") {
-    throw new Error(`Unsupported LTI version ${version}.`);
-  }
+  assertSupportedLaunchMessageType(messageType);
+  assertSupportedLaunchVersion(version);
 
   if (deploymentId !== deployment.binding.deploymentId) {
     throw new Error(
@@ -153,14 +153,8 @@ export async function validateLaunchRequest(input: {
     resourceLink.id,
     "Launch resource_link.id is required.",
   );
-  const context = requireRecordClaim(
-    payload[CLAIM_CONTEXT],
-    "Launch context claim is required for the governed runtime.",
-  );
-  const contextId = requireStringClaim(
-    context.id,
-    "Launch context.id is required for the governed runtime.",
-  );
+  const context = readClaimRecord(payload[CLAIM_CONTEXT]);
+  const contextId = requireBaselineStringClaim(context?.id, "context.id");
   const resolvedLaunch = await resolveLaunchTarget({
     repository: input.repository,
     deployment,
@@ -193,7 +187,7 @@ export async function validateLaunchRequest(input: {
     resourceLinkId,
     resourceLinkTitle: optionalStringClaim(resourceLink.title),
     contextId,
-    contextTitle: optionalStringClaim(context.title),
+    contextTitle: optionalStringClaim(context?.title),
     targetLinkUri,
     returnUrl: optionalStringClaim(launchPresentation?.return_url),
     activityId: resolvedLaunch.activityId,
@@ -204,4 +198,12 @@ export async function validateLaunchRequest(input: {
     clientId: consumedState.clientId,
     deploymentId: consumedState.deploymentId,
   };
+}
+
+function readClaimRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
 }
