@@ -36,23 +36,16 @@ export function aggregatePilotUsage(deployments: ControlPlaneDeploymentInventory
   );
 }
 
-export function resolveBrokerVerification(
+export function resolveOfficialBrokerVerification(
   latestBrokerVerification: BrokerVerificationStatus | null,
-  deployments: ControlPlaneDeploymentInventoryRow[],
 ): BrokerVerificationStatus | null {
-  const deploymentVerification = pickLatestBrokerVerification(deployments);
-
   if (latestBrokerVerification === null) {
-    return deploymentVerification;
-  }
-
-  if (deploymentVerification === null) {
-    return latestBrokerVerification;
+    return null;
   }
 
   return {
-    supportedPath: deploymentVerification.supportedPath,
-    internal: deploymentVerification.internal,
+    supportedPath: latestBrokerVerification.supportedPath,
+    internal: null,
     official: latestBrokerVerification.official,
   };
 }
@@ -63,6 +56,29 @@ export function describeSupportedPath(
   switch (supportedPath) {
     case 'canvasLti13LaunchAgsNrps':
       return 'Canvas LTI 1.3 launch, AGS, and NRPS';
+    case 'moodleLti13LaunchAgsScore':
+      return 'Moodle LTI 1.3 launch and AGS score publish';
+    case 'sakaiLti13LaunchAgsScore':
+      return 'Sakai LTI 1.3 launch and AGS score publish';
+  }
+}
+
+export function resolveSupportedPathForDeployment(
+  deployment: ControlPlaneDeploymentInventoryRow,
+): BrokerVerificationStatus['supportedPath'] | null {
+  if (deployment.brokerVerification !== null) {
+    return deployment.brokerVerification.supportedPath;
+  }
+
+  switch (deployment.binding?.lms ?? null) {
+    case 'canvas':
+      return 'canvasLti13LaunchAgsNrps';
+    case 'moodle':
+      return 'moodleLti13LaunchAgsScore';
+    case 'sakai':
+      return 'sakaiLti13LaunchAgsScore';
+    case null:
+      return null;
   }
 }
 
@@ -178,23 +194,6 @@ export function describeHealthLabel(
     case 'unknown':
       return 'Not recorded';
   }
-}
-
-function pickLatestBrokerVerification(
-  deployments: ControlPlaneDeploymentInventoryRow[],
-): BrokerVerificationStatus | null {
-  return (
-    deployments
-      .map((deployment) => deployment.brokerVerification)
-      .filter((candidate): candidate is BrokerVerificationStatus => candidate !== null)
-      .sort((left, right) =>
-        newestVerificationTimestamp(right).localeCompare(newestVerificationTimestamp(left)),
-      )[0] ?? null
-  );
-}
-
-function newestVerificationTimestamp(verification: BrokerVerificationStatus): string {
-  return verification.internal?.checkedAt ?? verification.official.checkedAt ?? '';
 }
 
 function pickLatestTimestamp(left: string | null, right: string | null): string | null {

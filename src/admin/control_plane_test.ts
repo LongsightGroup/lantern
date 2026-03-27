@@ -83,6 +83,7 @@ Deno.test("renderVerificationPage shows deployment-scoped verification facts whi
     ],
     latestBrokerVerification: buildBrokerVerificationStatus({
       supportedPath: "moodleLti13LaunchAgsScore",
+      internal: null,
       official: buildOfficialBrokerCertificationStatus({
         state: "notCertified",
         checkedAt: "2026-03-24T12:55:00Z",

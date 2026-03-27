@@ -92,6 +92,15 @@ export function parseBrokerVerificationRunForm(
   const certificationState = parseBrokerCertificationState(
     normalizeOptionalString(formData.get("certificationState")),
   );
+  const deploymentRecordId = parseOptionalDeploymentRecordId(
+    normalizeOptionalString(formData.get("deploymentRecordId")),
+  );
+  const scope = parseBrokerVerificationScope(
+    requireTrimmedFormValue(
+      formData.get("scope"),
+      "Broker verification scope is required.",
+    ),
+  );
 
   if (source !== "1edtech" && certificationState !== null) {
     throw new Error(
@@ -106,8 +115,9 @@ export function parseBrokerVerificationRunForm(
   }
 
   return {
+    deploymentRecordId,
     source,
-    scope: "canvasLti13LaunchAgsNrps",
+    scope,
     status,
     certificationState,
     summary: requireTrimmedFormValue(
@@ -242,6 +252,19 @@ function parseBrokerVerificationSource(
   }
 }
 
+function parseBrokerVerificationScope(
+  value: string,
+): RecordBrokerVerificationRunInput["scope"] {
+  switch (value) {
+    case "canvasLti13LaunchAgsNrps":
+    case "moodleLti13LaunchAgsScore":
+    case "sakaiLti13LaunchAgsScore":
+      return value;
+    default:
+      throw new Error("Choose one supported broker verification scope.");
+  }
+}
+
 function parseBrokerVerificationStatus(
   value: string,
 ): RecordBrokerVerificationRunInput["status"] {
@@ -289,6 +312,22 @@ function parseOptionalAbsoluteUrl(
   } catch {
     throw new Error(message);
   }
+}
+
+function parseOptionalDeploymentRecordId(value: string | null): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new TypeError(
+      "Broker verification deployment record id must be a positive integer.",
+    );
+  }
+
+  return parsed;
 }
 
 function parseVerificationCheckedAt(value: string): string {

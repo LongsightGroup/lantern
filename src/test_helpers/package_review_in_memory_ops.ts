@@ -1,4 +1,11 @@
 import type {
+  BrokerVerificationStatus,
+  ControlPlaneDeploymentDetailSnapshot,
+  ControlPlaneDeploymentInventoryRow,
+  OfficialBrokerCertificationStatus,
+} from '../ops/types.ts';
+import { assertBrokerVerificationRunInput } from '../ops/repository_mapping.ts';
+import type {
   InMemoryOpsRepository,
   InMemoryRepositoryState,
 } from './package_review_in_memory_shared.ts';
@@ -76,35 +83,64 @@ export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryStat
     },
 
     recordBrokerVerificationRun(input) {
-      const latestRecord = getLatestBrokerVerificationRecord(state.brokerVerifications);
-      const nextRecord =
-        input.source === '1edtech'
-          ? buildBrokerVerificationStatus({
-              supportedPath: input.scope,
-              internal: latestRecord?.internal ?? null,
-              official: {
-                state: input.certificationState ?? 'notCertified',
-                checkedAt: input.checkedAt,
-                directoryUrl: input.detailUrl,
-              },
-            })
-          : buildBrokerVerificationStatus({
-              supportedPath: input.scope,
-              internal: {
-                source: input.source,
-                status: input.status as 'failed' | 'passed',
-                checkedAt: input.checkedAt,
-                summary: input.summary,
-                evidenceUrl: input.detailUrl,
-              },
-              official: latestRecord?.official ?? {
-                state: 'notCertified',
-                checkedAt: null,
-                directoryUrl: null,
-              },
-            });
+      assertBrokerVerificationRunInput(input);
+      const official: OfficialBrokerCertificationStatus = input.source === '1edtech'
+        ? {
+            state: input.certificationState ?? 'notCertified',
+            checkedAt: input.checkedAt,
+            directoryUrl: input.detailUrl,
+          }
+        : latestOfficialForScope(state, input.scope);
+      const nextRecord = input.source === '1edtech'
+        ? buildBrokerVerificationStatus({
+            supportedPath: input.scope,
+            internal: null,
+            official,
+          })
+        : buildBrokerVerificationStatus({
+            supportedPath: input.scope,
+            internal: {
+              source: input.source,
+              status: input.status as 'failed' | 'passed' | 'pending',
+              checkedAt: input.checkedAt,
+              summary: input.summary,
+              evidenceUrl: input.detailUrl,
+            },
+            official,
+          });
 
       state.brokerVerifications.push(cloneRecord(nextRecord));
+
+      if (input.source === '1edtech') {
+        state.controlPlaneDeployments = state.controlPlaneDeployments.map((deployment) =>
+          applyOfficialVerificationToDeployment(deployment, input.scope, official)
+        );
+        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
+          applyOfficialVerificationToDetail(detail, input.scope, official)
+        );
+      } else if (input.deploymentRecordId !== null) {
+        state.controlPlaneDeployments = state.controlPlaneDeployments.map((deployment) =>
+          deployment.deploymentId === input.deploymentRecordId
+            ? {
+                ...deployment,
+                brokerVerification: cloneRecord(nextRecord),
+              }
+            : deployment
+        );
+        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
+          detail.inventory.deploymentId === input.deploymentRecordId
+            ? {
+                ...detail,
+                inventory: {
+                  ...detail.inventory,
+                  brokerVerification: cloneRecord(nextRecord),
+                },
+                brokerVerification: cloneRecord(nextRecord),
+              }
+            : detail
+        );
+      }
+
       return Promise.resolve();
     },
 
@@ -171,4 +207,88 @@ export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryStat
       );
     },
   };
+}
+
+function latestOfficialForScope(
+  state: InMemoryRepositoryState,
+  scope: BrokerVerificationStatus['supportedPath'],
+): OfficialBrokerCertificationStatus {
+  const latestMatch = [...state.brokerVerifications]
+    .filter((candidate) => candidate.supportedPath === scope)
+    .sort((left, right) => {
+      const leftCheckedAt = left.official.checkedAt ?? '';
+      const rightCheckedAt = right.official.checkedAt ?? '';
+
+      return rightCheckedAt.localeCompare(leftCheckedAt);
+    })[0];
+
+  return latestMatch?.official ?? {
+    state: 'notCertified',
+    checkedAt: null,
+    directoryUrl: null,
+  };
+}
+
+function applyOfficialVerificationToDeployment(
+  deployment: ControlPlaneDeploymentInventoryRow,
+  scope: BrokerVerificationStatus['supportedPath'],
+  official: OfficialBrokerCertificationStatus,
+): ControlPlaneDeploymentInventoryRow {
+  if (resolveSupportedPathForDeployment(deployment) !== scope) {
+    return deployment;
+  }
+
+  return {
+    ...deployment,
+    brokerVerification: buildBrokerVerificationStatus({
+      supportedPath: scope,
+      internal: deployment.brokerVerification?.internal ?? null,
+      official,
+    }),
+  };
+}
+
+function applyOfficialVerificationToDetail(
+  detail: ControlPlaneDeploymentDetailSnapshot,
+  scope: BrokerVerificationStatus['supportedPath'],
+  official: OfficialBrokerCertificationStatus,
+): ControlPlaneDeploymentDetailSnapshot {
+  if (resolveSupportedPathForDeployment(detail.inventory) !== scope) {
+    return detail;
+  }
+
+  const brokerVerification = buildBrokerVerificationStatus({
+    supportedPath: scope,
+    internal: detail.brokerVerification?.internal ??
+      detail.inventory.brokerVerification?.internal ?? null,
+    official,
+  });
+
+  return {
+    ...detail,
+    inventory: {
+      ...detail.inventory,
+      brokerVerification,
+    },
+    brokerVerification,
+  };
+}
+
+function resolveSupportedPathForDeployment(
+  deployment: ControlPlaneDeploymentInventoryRow,
+): BrokerVerificationStatus['supportedPath'] | null {
+  if (deployment.brokerVerification !== null) {
+    return deployment.brokerVerification.supportedPath;
+  }
+
+  switch (deployment.binding?.lms ?? null) {
+    case 'canvas':
+      return 'canvasLti13LaunchAgsNrps';
+    case 'moodle':
+      return 'moodleLti13LaunchAgsScore';
+    case 'sakai':
+      return 'sakaiLti13LaunchAgsScore';
+    case null:
+      return null;
+  }
 }

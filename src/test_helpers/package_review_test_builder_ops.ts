@@ -260,8 +260,9 @@ export function buildControlPlaneDeploymentInventoryRow(
     lastNrpsReadStatus: overrides.lastNrpsReadStatus ?? "succeeded",
     pilotUsage: overrides.pilotUsage ?? buildPilotUsageMetrics(),
     health: overrides.health ?? buildControlPlaneDeploymentHealth(),
-    brokerVerification: overrides.brokerVerification ??
-      buildBrokerVerificationStatus(),
+    brokerVerification: overrides.brokerVerification === undefined
+      ? buildBrokerVerificationStatus()
+      : overrides.brokerVerification,
   };
 }
 
@@ -285,7 +286,8 @@ export function buildControlPlaneDeploymentDetailSnapshot(
     diagnostics: overrides.diagnostics ?? [buildControlPlaneDiagnosticItem()],
     retryableGradePublication: overrides.retryableGradePublication ??
       buildRetryableGradePublicationLookup(),
-    brokerVerification: overrides.brokerVerification ??
-      buildBrokerVerificationStatus(),
+    brokerVerification: overrides.brokerVerification === undefined
+      ? buildBrokerVerificationStatus()
+      : overrides.brokerVerification,
   };
 }

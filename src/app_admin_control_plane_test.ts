@@ -113,11 +113,13 @@ Deno.test("GET /admin/verification renders verification on a dedicated page", as
         deploymentSlug: "chapter-4-asteroids-sakai",
         deploymentLabel: "Chapter 4 Asteroids Sakai Deployment",
         binding: buildSakaiDeploymentBinding(),
+        brokerVerification: null,
       }),
     ],
     brokerVerifications: [
       buildBrokerVerificationStatus({
         supportedPath: "moodleLti13LaunchAgsScore",
+        internal: null,
         official: {
           state: "notCertified",
           checkedAt: "2026-03-24T12:55:00Z",
@@ -198,6 +200,7 @@ Deno.test("POST /admin/verification records deployment-scoped broker verificatio
         deploymentSlug: "chapter-4-asteroids-pilot",
         deploymentLabel: "Chapter 4 Asteroids Pilot Deployment",
         binding: buildCanvasDeploymentBinding(),
+        brokerVerification: null,
       }),
       buildControlPlaneDeploymentInventoryRow({
         deploymentId: 2,

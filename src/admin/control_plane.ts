@@ -4,7 +4,7 @@ import type {
 } from "../ops/types.ts";
 import {
   aggregatePilotUsage,
-  resolveBrokerVerification,
+  resolveOfficialBrokerVerification,
 } from "./control_plane_support.ts";
 import {
   renderDeploymentInventorySection,
@@ -42,9 +42,8 @@ export function renderVerificationPage(input: {
   latestBrokerVerification: BrokerVerificationStatus | null;
   notice?: AdminNotice | null;
 }): string {
-  const latestBrokerVerification = resolveBrokerVerification(
+  const latestOfficialBrokerVerification = resolveOfficialBrokerVerification(
     input.latestBrokerVerification,
-    input.deployments,
   );
 
   return renderAdminLayout({
@@ -52,10 +51,13 @@ export function renderVerificationPage(input: {
     eyebrow: "Verification",
     heading: "Verification",
     intro:
-      "Keep broker verification evidence separate from package picking and deployment inventory. Record exactly what the latest proof shows.",
+      "Review deployment-scoped broker proof for each saved deployment. Record internal checks and official 1EdTech evidence without merging them into one global status.",
     activePath: "/admin/verification",
     notice: input.notice ?? null,
-    body: `${renderBrokerVerificationSection(latestBrokerVerification)}
-    ${renderVerificationUpdateSection()}`,
+    body: `${renderBrokerVerificationSection({
+      deployments: input.deployments,
+      latestOfficialBrokerVerification,
+    })}
+    ${renderVerificationUpdateSection(input.deployments)}`,
   });
 }

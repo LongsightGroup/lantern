@@ -40,6 +40,7 @@ export interface InMemoryOpsRepository {
   getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
   getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
   recordBrokerVerificationRun(input: {
+    deploymentRecordId: number | null;
     source: BrokerVerificationSource;
     scope: BrokerVerificationStatus['supportedPath'];
     status: BrokerVerificationRunStatus | 'notCertified';
