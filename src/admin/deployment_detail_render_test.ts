@@ -1,7 +1,9 @@
 import { assertFalse, assertStringIncludes } from "@std/assert";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
+  buildBrokerVerificationStatus,
   buildControlPlaneDeploymentDetailSnapshot,
+  buildControlPlaneDeploymentInventoryRow,
   buildControlPlaneDiagnosticItem,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
@@ -13,6 +15,7 @@ import {
 import {
   buildCanvasDeploymentBinding,
   buildDeploymentBinding,
+  buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
 } from "../test_helpers/lti.ts";
 import { renderDeploymentDetailPage } from "./deployment_detail.ts";
@@ -292,4 +295,80 @@ Deno.test("deployment page shows diagnostics and an explicit retry action for re
   );
   assertStringIncludes(html, "retry-grade-publish");
   assertStringIncludes(html, "Retry grade publish");
+});
+
+Deno.test("deployment page shows the latest internal verification fact for the viewed deployment without official certification copy", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    selectedLms: "moodle",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 4,
+        slug: "chapter-4-asteroids-moodle",
+        label: "Chapter 4 Asteroids Moodle Deployment",
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        lmsType: "moodle",
+        binding: buildMoodleDeploymentBinding(),
+      }),
+    ],
+    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
+      inventory: buildControlPlaneDeploymentInventoryRow({
+        deploymentId: 4,
+        deploymentSlug: "chapter-4-asteroids-moodle",
+        deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
+        binding: buildMoodleDeploymentBinding(),
+        brokerVerification: buildBrokerVerificationStatus({
+          supportedPath: "moodleLti13LaunchAgsScore",
+          internal: {
+            source: "ci",
+            status: "passed",
+            checkedAt: "2026-03-24T12:50:00Z",
+            summary:
+              "Latest internal proof passed for the saved Moodle deployment.",
+            evidenceUrl: "https://example.test/verification/moodle-ci-pass",
+          },
+        }),
+      }),
+      brokerVerification: buildBrokerVerificationStatus({
+        supportedPath: "moodleLti13LaunchAgsScore",
+        internal: {
+          source: "ci",
+          status: "passed",
+          checkedAt: "2026-03-24T12:50:00Z",
+          summary:
+            "Latest internal proof passed for the saved Moodle deployment.",
+          evidenceUrl: "https://example.test/verification/moodle-ci-pass",
+        },
+      }),
+    }),
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, "Latest internal verification");
+  assertStringIncludes(
+    html,
+    "Latest internal proof passed for the saved Moodle deployment.",
+  );
+  assertStringIncludes(
+    html,
+    "https://example.test/verification/moodle-ci-pass",
+  );
+  assertFalse(html.includes("Official certification"));
+  assertFalse(html.includes("Supported Canvas path"));
 });
