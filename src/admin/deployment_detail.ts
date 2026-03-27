@@ -136,6 +136,27 @@ export function getManagedDeploymentSlot(
   return slot;
 }
 
+export function resolveSelectedManagedDeploymentLms(
+  slots: ManagedDeploymentSlot[],
+  selectedLms: LmsType | null,
+): LmsType {
+  if (selectedLms !== null && slots.some((slot) => slot.lms === selectedLms)) {
+    return selectedLms;
+  }
+
+  return slots.find((slot) => slot.persisted)?.lms ?? "canvas";
+}
+
+export function getSelectedManagedDeploymentSlot(
+  slots: ManagedDeploymentSlot[],
+  selectedLms: LmsType | null,
+): ManagedDeploymentSlot {
+  return getManagedDeploymentSlot(
+    slots,
+    resolveSelectedManagedDeploymentLms(slots, selectedLms),
+  );
+}
+
 export function getPrimaryManagedDeployment(
   slots: ManagedDeploymentSlot[],
 ): DeploymentRecord | null {
@@ -194,6 +215,10 @@ export function renderDeploymentDetailPage(input: {
   const approvedVersions = input.history.filter((version) =>
     version.approvalStatus === "approved"
   );
+  const selectedSlot = getSelectedManagedDeploymentSlot(
+    slots,
+    input.selectedLms ?? null,
+  );
   const primaryDeployment = getPrimaryManagedDeployment(slots) ??
     buildEmptyDeploymentRecord(input.appId, input.appTitle);
   const canvasConfigUrl = input.canvasConfigUrl ?? null;
@@ -233,6 +258,6 @@ export function renderDeploymentDetailPage(input: {
       })
     }
     ${renderVersionHistorySection(input.history, primaryDeployment)}
-    ${renderOperationalEvidenceSection(input.appId, controlPlaneDetail)}`,
+    ${renderOperationalEvidenceSection(input.appId, selectedSlot, controlPlaneDetail)}`,
   });
 }

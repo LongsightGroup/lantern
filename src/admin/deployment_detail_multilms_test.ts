@@ -16,7 +16,7 @@ import {
 } from "../test_helpers/lti.ts";
 import { renderDeploymentDetailPage } from "./deployment_detail.ts";
 
-Deno.test("deployment page renders separate Canvas, Moodle, and Sakai cards for one app", () => {
+Deno.test("deployment page keeps separate Canvas, Moodle, and Sakai slots for one app", () => {
   const html = renderDeploymentDetailPage({
     appId: "chapter-4-asteroids",
     appTitle: "Chapter 4 Asteroids",
@@ -70,18 +70,20 @@ Deno.test("deployment page renders separate Canvas, Moodle, and Sakai cards for 
     ],
   });
 
-  assertStringIncludes(html, "Canvas deployment");
-  assertStringIncludes(html, "Moodle deployment");
-  assertStringIncludes(html, "Sakai deployment");
+  assertStringIncludes(html, 'deployment-tab-label">Canvas</span>');
+  assertStringIncludes(html, 'deployment-tab-label">Moodle</span>');
+  assertStringIncludes(html, 'deployment-tab-label">Sakai</span>');
   assertStringIncludes(html, "chapter-4-asteroids-pilot");
-  assertStringIncludes(html, "chapter-4-asteroids-moodle");
-  assertStringIncludes(html, "chapter-4-asteroids-sakai");
   assertStringIncludes(html, "Pinned to version 0.1.0.");
-  assertStringIncludes(html, "Pinned to version 0.2.0.");
-  assertStringIncludes(html, "No reviewed version is pinned yet.");
+  assertStringIncludes(
+    html,
+    'href="/admin/packages/chapter-4-asteroids/deployment?lms=moodle#slot-panel"',
+  );
+  assertStringIncludes(
+    html,
+    'href="/admin/packages/chapter-4-asteroids/deployment?lms=sakai#slot-panel"',
+  );
   assertStringIncludes(html, 'name="lms" value="canvas"');
-  assertStringIncludes(html, 'name="lms" value="moodle"');
-  assertStringIncludes(html, 'name="lms" value="sakai"');
 });
 
 Deno.test("deployment page keeps one deployment route while rendering install, launch, failure, and verification evidence for each LMS slot", () => {
@@ -170,6 +172,16 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
               evidenceUrl: "https://example.test/verification/internal-proof",
             },
           }),
+        }),
+        brokerVerification: buildBrokerVerificationStatus({
+          supportedPath: testCase.supportedPath,
+          internal: {
+            source: "manual",
+            status: "passed",
+            checkedAt: "2026-03-24T12:50:00Z",
+            summary: testCase.verificationSummary,
+            evidenceUrl: "https://example.test/verification/internal-proof",
+          },
         }),
         latestInstallEvidence: buildDeploymentActivitySnapshot({
           summary: testCase.installSummary,

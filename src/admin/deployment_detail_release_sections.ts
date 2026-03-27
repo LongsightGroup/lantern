@@ -7,6 +7,10 @@ import type {
 import type { PackageVersionRecord } from "../package_review/types.ts";
 import type { AdminNotice } from "./layout.ts";
 import { escapeHtml, formatDateTime } from "./layout.ts";
+import {
+  getSelectedManagedDeploymentSlot,
+  resolveSelectedManagedDeploymentLms,
+} from "./deployment_detail.ts";
 import type {
   DeploymentEditorField,
   DeploymentEditorState,
@@ -25,8 +29,14 @@ export function renderManagedDeploymentSections(input: {
   approvedVersions: PackageVersionRecord[];
   history: PackageVersionRecord[];
 }): string {
-  const selectedLms = resolveSelectedEditorLms(input.slots, input.selectedLms);
-  const selectedSlot = getSelectedSlot(input.slots, selectedLms);
+  const selectedLms = resolveSelectedManagedDeploymentLms(
+    input.slots,
+    input.selectedLms,
+  );
+  const selectedSlot = getSelectedManagedDeploymentSlot(
+    input.slots,
+    input.selectedLms,
+  );
 
   return `<section class="panel">
       <div class="panel-body stack">
@@ -856,30 +866,6 @@ function describeManagedSlotIntro(lms: ManagedDeploymentSlot["lms"]): string {
     case "sakai":
       return "Save the exact Sakai binding values here and keep the admin-facing deployment_id guidance explicit.";
   }
-}
-
-function resolveSelectedEditorLms(
-  slots: ManagedDeploymentSlot[],
-  selectedLms: ManagedDeploymentSlot["lms"] | null,
-): ManagedDeploymentSlot["lms"] {
-  if (selectedLms !== null && slots.some((slot) => slot.lms === selectedLms)) {
-    return selectedLms;
-  }
-
-  return slots.find((slot) => slot.persisted)?.lms ?? "canvas";
-}
-
-function getSelectedSlot(
-  slots: ManagedDeploymentSlot[],
-  selectedLms: ManagedDeploymentSlot["lms"],
-): ManagedDeploymentSlot {
-  const slot = slots.find((candidate) => candidate.lms === selectedLms);
-
-  if (!slot) {
-    throw new Error(`Managed deployment slot ${selectedLms} is required.`);
-  }
-
-  return slot;
 }
 
 function formatLmsLabel(lms: ManagedDeploymentSlot["lms"]): string {

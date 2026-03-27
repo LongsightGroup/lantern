@@ -172,9 +172,12 @@ Deno.test("GET /admin/packages/:appId/deployment renders an LMS tab strip with o
     assertStringIncludes(body, "Grade publishes");
     assertStringIncludes(
       body,
-      "Operational evidence stays available, but secondary.",
+      "Deployment-scoped operational evidence.",
     );
-    assertStringIncludes(body, "Show launch, grading, and diagnostic detail");
+    assertStringIncludes(
+      body,
+      "Show install, launch, verification, and diagnostic detail",
+    );
     assertStringIncludes(body, "Save Moodle");
     assertStringIncludes(body, "Save release pin");
     assertStringIncludes(body, "Save the binding first");

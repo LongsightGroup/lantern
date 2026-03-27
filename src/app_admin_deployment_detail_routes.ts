@@ -2,6 +2,7 @@ import type { Hono } from "@hono/hono";
 import {
   type DeploymentEditorField,
   type DeploymentEditorState,
+  getSelectedManagedDeploymentSlot,
   getManagedDeploymentSlot,
   renderDeploymentDetailPage,
 } from "./admin/deployment_detail.ts";
@@ -33,11 +34,15 @@ export function registerAdminDeploymentDetailRoutes(
         repository,
         context.req.param("appId"),
       );
-      const controlPlaneDetail = detail.primaryDeployment === null
+      const viewedSlot = getSelectedManagedDeploymentSlot(
+        detail.slots,
+        selectedLms,
+      );
+      const controlPlaneDetail = !viewedSlot.persisted
         ? null
         : await services
           .getOpsRepository()
-          .getControlPlaneDeploymentDetail(detail.primaryDeployment.id);
+          .getControlPlaneDeploymentDetail(viewedSlot.deployment.id);
 
       return context.html(
         renderDeploymentDetailPage({

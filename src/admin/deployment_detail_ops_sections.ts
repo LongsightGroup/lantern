@@ -1,11 +1,15 @@
 import { summarizePilotUsage } from "../ops/service.ts";
 import type {
+  ManagedDeploymentSlot,
+} from "./deployment_detail.ts";
+import type {
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDiagnosticItem,
   ControlPlaneHealthDimension,
   ControlPlaneHealthStatus,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
+  InternalBrokerVerificationStatus,
 } from "../ops/types.ts";
 import { escapeHtml, formatDateTime } from "./layout.ts";
 
@@ -111,26 +115,31 @@ export function renderPilotUsageSection(
 
 export function renderOperationalEvidenceSection(
   appId: string,
+  slot: ManagedDeploymentSlot,
   detail: ControlPlaneDeploymentDetailSnapshot | null,
 ): string {
   const diagnostics = detail?.diagnostics ?? [];
   const retryableDiagnostics = diagnostics.filter((item) => item.retryable);
+  const internalVerification = detail?.brokerVerification?.internal ?? null;
+  const viewedDeploymentLabel = slot.persisted
+    ? `${formatLmsLabel(slot.lms)} deployment`
+    : `${formatLmsLabel(slot.lms)} slot`;
 
   return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Operations</p>
         <div class="two-column">
           <div class="stack">
-            <h2>Operational evidence stays available, but secondary.</h2>
-            <p>Use the LMS tabs and release pin first. Open the evidence drawer only when you need launch, grading, or diagnostic detail.</p>
+            <h2>Deployment-scoped operational evidence.</h2>
+            <p>Use the LMS slot in view first. Open the evidence drawer only when you need install, launch, verification, or failure detail for this ${escapeHtml(viewedDeploymentLabel)}.</p>
           </div>
           <div class="facts">
             ${
     renderActivityFact(
-      "Overall status",
-      describeOverallStatus(detail?.inventory.health.overallStatus ?? null),
-      detail?.inventory.health.summary ??
-        "No control-plane status has been recorded yet.",
+      "Install evidence",
+      formatActivityTimestamp(detail?.latestInstallEvidence),
+      detail?.latestInstallEvidence?.summary ??
+        "No install evidence has been recorded for this deployment yet.",
     )
   }
             ${
@@ -142,11 +151,10 @@ export function renderOperationalEvidenceSection(
   }
             ${
     renderActivityFact(
-      "Recent active users",
-      String(detail?.pilotUsage.recentActiveUsers ?? 0),
-      detail === null
-        ? "No pilot usage has been recorded yet."
-        : `${detail.pilotUsage.totalLaunches} launches recorded for this deployment.`,
+      "Latest internal verification",
+      formatBrokerVerificationTimestamp(internalVerification),
+      internalVerification?.summary ??
+        "No internal verification evidence has been recorded for this deployment yet.",
     )
   }
             ${
@@ -163,9 +171,10 @@ export function renderOperationalEvidenceSection(
           </div>
         </div>
         <details>
-          <summary>Show launch, grading, and diagnostic detail</summary>
+          <summary>Show install, launch, verification, and diagnostic detail</summary>
           <div class="detail-stack">
             ${renderControlPlaneStatusSection(detail)}
+            ${renderBrokerVerificationSection(detail)}
             ${renderPilotUsageSection(detail)}
             ${renderDiagnosticsSection(appId, detail)}
           </div>
@@ -199,6 +208,48 @@ export function renderDiagnosticsSection(
           .join("")
       }
             </div>`
+  }
+      </div>
+    </section>`;
+}
+
+export function renderBrokerVerificationSection(
+  detail: ControlPlaneDeploymentDetailSnapshot | null,
+): string {
+  const internalVerification = detail?.brokerVerification?.internal ?? null;
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Verification</p>
+        <h2>Latest internal verification</h2>
+        <p>Internal broker verification stays deployment-scoped here. Official 1EdTech evidence remains on the shared verification page.</p>
+        <div class="facts">
+          ${
+    renderActivityFact(
+      "Status",
+      describeBrokerVerificationStatus(internalVerification?.status ?? null),
+      internalVerification?.summary ??
+        "No internal verification evidence has been recorded for this deployment yet.",
+    )
+  }
+          ${
+    renderActivityFact(
+      "Checked at",
+      formatBrokerVerificationTimestamp(internalVerification),
+      internalVerification === null
+        ? "Record manual or CI proof from /admin/verification when this deployment has been checked."
+        : "Lantern keeps this proof scoped to the deployment in view.",
+    )
+  }
+        </div>
+        ${
+    internalVerification?.evidenceUrl
+      ? `<div class="button-row">
+              <a class="button-ghost" href="${escapeHtml(internalVerification.evidenceUrl)}">${
+        escapeHtml(internalVerification.evidenceUrl)
+      }</a>
+            </div>`
+      : ""
   }
       </div>
     </section>`;
@@ -308,6 +359,16 @@ function formatGradePublicationTimestamp(
   return formatDateTime(snapshot.publishedAt ?? snapshot.updatedAt);
 }
 
+function formatBrokerVerificationTimestamp(
+  verification: InternalBrokerVerificationStatus | null | undefined,
+): string {
+  if (verification === null || verification === undefined) {
+    return "Not recorded yet";
+  }
+
+  return formatDateTime(verification.checkedAt);
+}
+
 function describeGradePublication(
   snapshot: DeploymentGradePublicationSnapshot,
 ): string {
@@ -318,6 +379,33 @@ function describeGradePublication(
       return "Latest grade publish is still pending.";
     case "failed":
       return "Latest grade publish failed and may need retry.";
+  }
+}
+
+function describeBrokerVerificationStatus(
+  status: InternalBrokerVerificationStatus["status"] | null,
+): string {
+  switch (status) {
+    case "passed":
+      return "Passed";
+    case "failed":
+      return "Failed";
+    case "pending":
+      return "Pending";
+    case "notRun":
+    case null:
+      return "Not recorded yet";
+  }
+}
+
+function formatLmsLabel(lms: ManagedDeploymentSlot["lms"]): string {
+  switch (lms) {
+    case "canvas":
+      return "Canvas";
+    case "moodle":
+      return "Moodle";
+    case "sakai":
+      return "Sakai";
   }
 }
 

@@ -65,9 +65,12 @@ Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodl
   assertStringIncludes(html, binding.issuer);
   assertStringIncludes(
     html,
-    "Operational evidence stays available, but secondary.",
+    "Deployment-scoped operational evidence.",
   );
-  assertStringIncludes(html, "Show launch, grading, and diagnostic detail");
+  assertStringIncludes(
+    html,
+    "Show install, launch, verification, and diagnostic detail",
+  );
 });
 
 Deno.test("deployment page renders the selected Sakai tab without leaking the Canvas form", () => {
