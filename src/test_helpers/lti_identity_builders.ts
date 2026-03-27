@@ -2,6 +2,7 @@ import type {
   CanvasDeploymentBinding,
   CanvasEnvironment,
   CanvasPlatformConfig,
+  DeploymentBinding,
   LaunchAssignmentAndGradeServices,
   LaunchNamesAndRolesService,
   LaunchServiceClaims,
@@ -45,6 +46,55 @@ export const TEST_CANVAS_PLATFORMS: Record<
 
 export type AgsShape = "lineitem" | "lineitems" | "both" | "none";
 
+type MoodleDeploymentBinding = Extract<DeploymentBinding, { lms: "moodle" }>;
+type SakaiDeploymentBinding = Extract<DeploymentBinding, { lms: "sakai" }>;
+
+interface TestAgsLaunchServiceDefaults {
+  lineitemsUrl: string;
+  lineitemUrl: string;
+}
+
+const TEST_AGS_SERVICE_DEFAULTS: Record<LmsType, TestAgsLaunchServiceDefaults> =
+  {
+    canvas: {
+      lineitemsUrl: "https://canvas.example/api/lti/courses/42/line_items",
+      lineitemUrl: "https://canvas.example/api/lti/courses/42/line_items/9",
+    },
+    moodle: {
+      lineitemsUrl: "https://moodle.example/mod/lti/services.php/2/lineitems",
+      lineitemUrl: "https://moodle.example/mod/lti/services.php/2/lineitems/9",
+    },
+    sakai: {
+      lineitemsUrl:
+        "https://sakai.example/direct/lti/lineitems/course-42/items",
+      lineitemUrl:
+        "https://sakai.example/direct/lti/lineitems/course-42/items/9",
+    },
+  };
+
+const TEST_NRPS_SERVICE_DEFAULTS: Record<LmsType, string> = {
+  canvas: "https://canvas.example/api/lti/courses/42/names_and_roles",
+  moodle: "https://moodle.example/mod/lti/services.php/2/memberships",
+  sakai: "https://sakai.example/direct/lti/memberships/course-42",
+};
+
+export interface TestAgsLaunchServiceOverrides
+  extends Partial<LaunchAssignmentAndGradeServices> {
+  lms?: LmsType;
+}
+
+export interface TestNrpsLaunchServiceOverrides
+  extends Partial<LaunchNamesAndRolesService> {
+  lms?: LmsType;
+}
+
+export interface TestLaunchServiceClaimsOverrides {
+  lms?: LmsType;
+  agsShape?: AgsShape;
+  ags?: TestAgsLaunchServiceOverrides | null;
+  nrps?: TestNrpsLaunchServiceOverrides | null;
+}
+
 export function buildCanvasDeploymentBinding(
   overrides: Partial<CanvasDeploymentBinding> = {},
 ): CanvasDeploymentBinding {
@@ -61,15 +111,8 @@ export function buildCanvasDeploymentBinding(
 }
 
 export function buildMoodleDeploymentBinding(
-  overrides: Partial<{
-    issuer: string;
-    clientId: string;
-    deploymentId: string;
-    authenticationRequestUrl: string;
-    accessTokenUrl: string;
-    jwksUrl: string;
-  }> = {},
-) {
+  overrides: Partial<MoodleDeploymentBinding> = {},
+): MoodleDeploymentBinding {
   return {
     lms: "moodle" as const,
     issuer: overrides.issuer ?? "https://moodle.example",
@@ -84,15 +127,8 @@ export function buildMoodleDeploymentBinding(
 }
 
 export function buildSakaiDeploymentBinding(
-  overrides: Partial<{
-    issuer: string;
-    clientId: string;
-    deploymentId: string;
-    oidcAuthenticationUrl: string;
-    accessTokenUrl: string;
-    jwksUrl: string;
-  }> = {},
-) {
+  overrides: Partial<SakaiDeploymentBinding> = {},
+): SakaiDeploymentBinding {
   return {
     lms: "sakai" as const,
     issuer: overrides.issuer ?? "https://sakai.example",
@@ -271,50 +307,56 @@ export function buildLoginStateRecord(
 }
 
 export function buildAgsLaunchService(
-  overrides: Partial<LaunchAssignmentAndGradeServices> = {},
+  overrides: TestAgsLaunchServiceOverrides = {},
   shape: AgsShape = "both",
 ): LaunchAssignmentAndGradeServices {
+  const { lms = "canvas", ...serviceOverrides } = overrides;
+  const defaults = TEST_AGS_SERVICE_DEFAULTS[lms];
+
   return {
-    scope: overrides.scope ??
+    scope: serviceOverrides.scope ??
       [DEFAULT_AGS_SCORE_SCOPE, DEFAULT_AGS_LINEITEM_SCOPE],
     lineitemsUrl: shape === "lineitem" || shape === "none"
       ? null
-      : (overrides.lineitemsUrl ??
-        "https://canvas.example/api/lti/courses/42/line_items"),
+      : (serviceOverrides.lineitemsUrl ?? defaults.lineitemsUrl),
     lineitemUrl: shape === "lineitems" || shape === "none"
       ? null
-      : (overrides.lineitemUrl ??
-        "https://canvas.example/api/lti/courses/42/line_items/9"),
+      : (serviceOverrides.lineitemUrl ?? defaults.lineitemUrl),
   };
 }
 
 export function buildNrpsLaunchService(
-  overrides: Partial<LaunchNamesAndRolesService> = {},
+  overrides: TestNrpsLaunchServiceOverrides = {},
 ): LaunchNamesAndRolesService {
+  const { lms = "canvas", ...serviceOverrides } = overrides;
+
   return {
-    contextMembershipsUrl: overrides.contextMembershipsUrl ??
-      "https://canvas.example/api/lti/courses/42/names_and_roles",
-    serviceVersions: overrides.serviceVersions ?? ["2.0"],
+    contextMembershipsUrl: serviceOverrides.contextMembershipsUrl ??
+      TEST_NRPS_SERVICE_DEFAULTS[lms],
+    serviceVersions: serviceOverrides.serviceVersions ?? ["2.0"],
   };
 }
 
 export function buildLaunchServiceClaims(
-  overrides: Partial<LaunchServiceClaims> & {
-    agsShape?: AgsShape;
-  } = {},
+  overrides: TestLaunchServiceClaimsOverrides = {},
 ): LaunchServiceClaims {
   return {
-    ags: overrides.ags === null
-      ? null
-      : buildAgsLaunchService(overrides.ags ?? {}, overrides.agsShape),
-    nrps: overrides.nrps === null
-      ? null
-      : buildNrpsLaunchService(overrides.nrps ?? {}),
+    ags: overrides.ags === null ? null : buildAgsLaunchService(
+      {
+        ...(overrides.lms === undefined ? {} : { lms: overrides.lms }),
+        ...(overrides.ags ?? {}),
+      },
+      overrides.agsShape,
+    ),
+    nrps: overrides.nrps === null ? null : buildNrpsLaunchService({
+      ...(overrides.lms === undefined ? {} : { lms: overrides.lms }),
+      ...(overrides.nrps ?? {}),
+    }),
   };
 }
 
 export function buildAgsLaunchClaimValue(
-  overrides: Partial<LaunchAssignmentAndGradeServices> = {},
+  overrides: TestAgsLaunchServiceOverrides = {},
   shape: AgsShape = "both",
 ): Record<string, unknown> {
   const service = buildAgsLaunchService(overrides, shape);
@@ -329,7 +371,7 @@ export function buildAgsLaunchClaimValue(
 }
 
 export function buildNrpsLaunchClaimValue(
-  overrides: Partial<LaunchNamesAndRolesService> = {},
+  overrides: TestNrpsLaunchServiceOverrides = {},
 ): Record<string, unknown> {
   const service = buildNrpsLaunchService(overrides);
 

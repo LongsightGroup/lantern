@@ -1,6 +1,7 @@
 import type {
   CanvasDeploymentBinding,
   DeepLinkingSessionRecord,
+  LmsType,
   RuntimeSessionRecord,
   ValidatedDeepLinkingRequest,
   ValidatedLaunch,
@@ -49,7 +50,9 @@ export function buildValidatedLaunch(
       "http://localhost:8417/lti/launch",
     returnUrl: overrides.returnUrl ?? "https://canvas.example/return",
     activityId: overrides.activityId ?? "activity-123",
-    services: overrides.services ?? buildLaunchServiceClaims(),
+    services: overrides.services ?? buildLaunchServiceClaims({
+      lms: identity.lms,
+    }),
     issuedAt: overrides.issuedAt ?? TEST_NOW,
     ...identity,
   };
@@ -122,18 +125,21 @@ export function buildValidatedDeepLinkingRequest(
 }
 
 export function buildRuntimeSessionRecord(
-  overrides: Partial<RuntimeSessionRecord> = {},
+  overrides: Partial<RuntimeSessionRecord> & { servicesLms?: LmsType } = {},
 ): RuntimeSessionRecord {
+  const { servicesLms = "canvas", ...sessionOverrides } = overrides;
+
   return {
-    sessionId: overrides.sessionId ?? "runtime-session-123",
-    sessionToken: overrides.sessionToken ?? "runtime-token-123",
-    attemptId: overrides.attemptId ?? "attempt-123",
-    deploymentRecordId: overrides.deploymentRecordId ?? 1,
-    deploymentSlug: overrides.deploymentSlug ?? "chapter-4-asteroids-pilot",
-    appId: overrides.appId ?? "chapter-4-asteroids",
-    packageVersionId: overrides.packageVersionId ?? 1,
-    packageVersion: overrides.packageVersion ?? "0.1.0",
-    capabilities: overrides.capabilities ?? [
+    sessionId: sessionOverrides.sessionId ?? "runtime-session-123",
+    sessionToken: sessionOverrides.sessionToken ?? "runtime-token-123",
+    attemptId: sessionOverrides.attemptId ?? "attempt-123",
+    deploymentRecordId: sessionOverrides.deploymentRecordId ?? 1,
+    deploymentSlug: sessionOverrides.deploymentSlug ??
+      "chapter-4-asteroids-pilot",
+    appId: sessionOverrides.appId ?? "chapter-4-asteroids",
+    packageVersionId: sessionOverrides.packageVersionId ?? 1,
+    packageVersion: sessionOverrides.packageVersion ?? "0.1.0",
+    capabilities: sessionOverrides.capabilities ?? [
       "read_launch_context",
       "read_activity_content",
       "submit_attempt_event",
@@ -141,22 +147,26 @@ export function buildRuntimeSessionRecord(
       "read_local_state",
       "write_local_state",
     ],
-    snapshotRoot: overrides.snapshotRoot ??
+    snapshotRoot: sessionOverrides.snapshotRoot ??
       "var/packages/chapter-4-asteroids/0.1.0",
-    entrypointPath: overrides.entrypointPath ??
+    entrypointPath: sessionOverrides.entrypointPath ??
       "var/packages/chapter-4-asteroids/0.1.0/dist/index.html",
-    contentPath: overrides.contentPath ??
+    contentPath: sessionOverrides.contentPath ??
       "var/packages/chapter-4-asteroids/0.1.0/content/activity.json",
-    services: overrides.services ?? buildLaunchServiceClaims(),
-    launch: overrides.launch ?? {
+    services: sessionOverrides.services ?? buildLaunchServiceClaims({
+      lms: servicesLms,
+    }),
+    launch: sessionOverrides.launch ?? {
       userRole: "learner",
       courseId: "course-42",
       assignmentId: "assignment-9",
       activityId: "activity-123",
     },
-    ...(overrides.preview === undefined ? {} : { preview: overrides.preview }),
-    createdAt: overrides.createdAt ?? TEST_NOW,
-    expiresAt: overrides.expiresAt ?? "2026-03-26T22:47:00Z",
+    ...(sessionOverrides.preview === undefined
+      ? {}
+      : { preview: sessionOverrides.preview }),
+    createdAt: sessionOverrides.createdAt ?? TEST_NOW,
+    expiresAt: sessionOverrides.expiresAt ?? "2026-03-26T22:47:00Z",
   };
 }
 
