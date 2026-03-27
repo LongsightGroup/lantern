@@ -13,13 +13,13 @@ import {
   INSERT_BROKER_VERIFICATION_RUN_QUERY,
   INVENTORY_BASE_QUERY,
   INVENTORY_ORDER_BY,
+  LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY,
+  LATEST_GLOBAL_OFFICIAL_BROKER_VERIFICATION_QUERY,
   LATEST_GRADE_PUBLICATION_QUERY,
-  LATEST_INTERNAL_BROKER_VERIFICATION_QUERY,
   LATEST_LAUNCH_QUERY,
   LATEST_NRPS_QUERY,
   LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
   RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY,
-  SUPPORTED_BROKER_SCOPE,
 } from "./repository_queries.ts";
 import type {
   ActivitySnapshotRow,
@@ -53,29 +53,18 @@ export function createOpsRepository(pool: Pool): OpsRepository {
   return {
     async listControlPlaneDeployments() {
       return await withClient(pool, async (client) => {
-        const [result, brokerVerification] = await Promise.all([
-          client.queryObject<InventoryQueryRow>({
-            text: `${INVENTORY_BASE_QUERY}\n${INVENTORY_ORDER_BY}`,
-            camelCase: true,
-          }),
-          getLatestBrokerVerificationStatusForClient(client),
-        ]);
+        const result = await client.queryObject<InventoryQueryRow>({
+          text: `${INVENTORY_BASE_QUERY}\n${INVENTORY_ORDER_BY}`,
+          camelCase: true,
+        });
 
-        return result.rows.map((row) =>
-          mapInventoryRow(row, brokerVerification)
-        );
+        return result.rows.map((row) => mapInventoryRow(row));
       });
     },
 
     async getControlPlaneDeploymentDetail(deploymentRecordId) {
       return await withClient(pool, async (client) => {
-        const brokerVerification =
-          await getLatestBrokerVerificationStatusForClient(client);
-        const inventory = await getInventoryRow(
-          client,
-          deploymentRecordId,
-          brokerVerification,
-        );
+        const inventory = await getInventoryRow(client, deploymentRecordId);
 
         if (inventory === null) {
           return null;
@@ -106,6 +95,7 @@ export function createOpsRepository(pool: Pool): OpsRepository {
 
         return {
           inventory,
+          latestInstallEvidence: inventory.installEvidence,
           latestLaunch,
           latestNrpsRead,
           latestGradePublish,
@@ -156,7 +146,6 @@ export function createOpsRepository(pool: Pool): OpsRepository {
 async function getInventoryRow(
   client: PoolClient,
   deploymentRecordId: number,
-  brokerVerification: BrokerVerificationStatus | null,
 ): Promise<ControlPlaneDeploymentInventoryRow | null> {
   const result = await client.queryObject<InventoryQueryRow>({
     text: `${INVENTORY_BASE_QUERY}
@@ -166,9 +155,7 @@ async function getInventoryRow(
     camelCase: true,
   });
 
-  return result.rows[0]
-    ? mapInventoryRow(result.rows[0], brokerVerification)
-    : null;
+  return result.rows[0] ? mapInventoryRow(result.rows[0]) : null;
 }
 
 async function getActivitySnapshot(
@@ -217,21 +204,38 @@ async function listDiagnostics(
 async function getLatestBrokerVerificationStatusForClient(
   client: PoolClient,
 ): Promise<BrokerVerificationStatus | null> {
-  const [internalResult, officialResult] = await Promise.all([
-    client.queryObject<InternalBrokerVerificationRow>({
-      text: LATEST_INTERNAL_BROKER_VERIFICATION_QUERY,
-      args: [SUPPORTED_BROKER_SCOPE],
-      camelCase: true,
-    }),
-    client.queryObject<OfficialBrokerVerificationRow>({
+  const internalResult = await client.queryObject<
+    InternalBrokerVerificationRow
+  >({
+    text: LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY,
+    camelCase: true,
+  });
+  const internalRow = internalResult.rows[0] ?? null;
+
+  if (internalRow !== null) {
+    const officialResult = await client.queryObject<
+      OfficialBrokerVerificationRow
+    >({
       text: LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
-      args: [SUPPORTED_BROKER_SCOPE],
+      args: [internalRow.scope],
       camelCase: true,
-    }),
-  ]);
+    });
+
+    return mapBrokerVerificationStatusRows(
+      internalRow,
+      officialResult.rows[0] ?? null,
+    );
+  }
+
+  const officialResult = await client.queryObject<
+    OfficialBrokerVerificationRow
+  >({
+    text: LATEST_GLOBAL_OFFICIAL_BROKER_VERIFICATION_QUERY,
+    camelCase: true,
+  });
 
   return mapBrokerVerificationStatusRows(
-    internalResult.rows[0] ?? null,
+    null,
     officialResult.rows[0] ?? null,
   );
 }
@@ -244,7 +248,7 @@ async function recordBrokerVerificationRunForClient(
   await client.queryArray({
     text: INSERT_BROKER_VERIFICATION_RUN_QUERY,
     args: [
-      null,
+      input.deploymentRecordId,
       input.scope,
       input.source,
       input.status,

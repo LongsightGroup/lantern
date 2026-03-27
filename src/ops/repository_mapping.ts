@@ -23,7 +23,8 @@ import type {
 
 export function mapInventoryRow(
   row: InventoryQueryRow,
-  brokerVerification: BrokerVerificationStatus | null,
+  brokerVerification: BrokerVerificationStatus | null =
+    mapInventoryBrokerVerification(row),
 ): ControlPlaneDeploymentInventoryRow {
   const binding = mapDeploymentBinding({
     lmsType: row.bindingLmsType,
@@ -50,6 +51,7 @@ export function mapInventoryRow(
     enabledPackageVersion: row.enabledPackageVersion,
     approvalStatus: row.approvalStatus,
     binding,
+    installEvidence: mapInventoryInstallEvidence(row),
     updatedAt: normalizeTimestamp(row.updatedAt),
     lastLaunchAt: normalizeOptionalTimestamp(row.lastLaunchAt),
     lastLaunchStatus: row.lastLaunchStatus,
@@ -185,10 +187,70 @@ export function mapBrokerVerificationStatusRows(
   };
 }
 
+function mapInventoryInstallEvidence(
+  row: InventoryQueryRow,
+): DeploymentActivitySnapshot | null {
+  if (
+    row.installEvidenceStatus === null ||
+    row.installEvidenceSummary === null ||
+    row.installEvidenceDetail === null ||
+    row.installEvidenceOccurredAt === null
+  ) {
+    return null;
+  }
+
+  return mapActivitySnapshotRow({
+    eventType: "deployment.binding_saved",
+    status: row.installEvidenceStatus,
+    summary: row.installEvidenceSummary,
+    attemptId: null,
+    detail: row.installEvidenceDetail,
+    occurredAt: row.installEvidenceOccurredAt,
+  });
+}
+
+function mapInventoryBrokerVerification(
+  row: InventoryQueryRow,
+): BrokerVerificationStatus | null {
+  return mapBrokerVerificationStatusRows(
+    row.internalBrokerVerificationScope === null ||
+      row.internalBrokerVerificationSource === null ||
+      row.internalBrokerVerificationStatus === null ||
+      row.internalBrokerVerificationSummary === null ||
+      row.internalBrokerVerificationCheckedAt === null
+      ? null
+      : {
+        scope: row.internalBrokerVerificationScope,
+        source: row.internalBrokerVerificationSource,
+        status: row.internalBrokerVerificationStatus,
+        summary: row.internalBrokerVerificationSummary,
+        detailUrl: row.internalBrokerVerificationDetailUrl,
+        checkedAt: row.internalBrokerVerificationCheckedAt,
+      },
+    row.officialBrokerVerificationScope === null ||
+      row.officialBrokerVerificationStatus === null ||
+      row.officialBrokerVerificationCheckedAt === null
+      ? null
+      : {
+        scope: row.officialBrokerVerificationScope,
+        status: row.officialBrokerVerificationStatus,
+        certificationState: row.officialBrokerVerificationCertificationState,
+        detailUrl: row.officialBrokerVerificationDetailUrl,
+        checkedAt: row.officialBrokerVerificationCheckedAt,
+      },
+  );
+}
+
 export function assertBrokerVerificationRunInput(
   input: RecordBrokerVerificationRunInput,
 ): void {
   if (input.source === "1edtech") {
+    if (input.deploymentRecordId !== null) {
+      throw new Error(
+        "Official 1EdTech verification runs cannot be tied to one deployment.",
+      );
+    }
+
     if (input.status === "notCertified" && input.certificationState !== null) {
       throw new Error(
         "Official not-certified verification runs cannot carry a certification state.",
@@ -202,6 +264,12 @@ export function assertBrokerVerificationRunInput(
     }
 
     return;
+  }
+
+  if (input.deploymentRecordId === null) {
+    throw new Error(
+      "Internal verification runs require an explicit deployment record id.",
+    );
   }
 
   if (input.status === "notCertified") {

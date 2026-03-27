@@ -54,8 +54,7 @@ Deno.test("ops inventory mapping keeps exact Canvas, Moodle, and Sakai bindings 
       bindingDeploymentId: "sakai-deployment-123",
       bindingSakaiOidcAuthenticationUrl:
         "https://sakai.example/imsoidc/lti13/oidc_auth",
-      bindingSakaiAccessTokenUrl:
-        "https://sakai.example/imsblis/lti13/token/3",
+      bindingSakaiAccessTokenUrl: "https://sakai.example/imsblis/lti13/token/3",
       bindingSakaiJwksUrl: "https://sakai.example/imsblis/lti13/keyset",
     }),
     null,
@@ -377,6 +376,32 @@ function buildInventoryQueryRow(
     approvalStatus: overrides.approvalStatus ?? "approved",
     reviewedAt: overrides.reviewedAt ?? "2026-03-23T18:05:00Z",
     bindingLmsType: overrides.bindingLmsType ?? "canvas",
+    installEvidenceStatus: overrides.installEvidenceStatus ?? null,
+    installEvidenceSummary: overrides.installEvidenceSummary ?? null,
+    installEvidenceDetail: overrides.installEvidenceDetail ?? null,
+    installEvidenceOccurredAt: overrides.installEvidenceOccurredAt ?? null,
+    internalBrokerVerificationScope:
+      overrides.internalBrokerVerificationScope ?? null,
+    internalBrokerVerificationSource:
+      overrides.internalBrokerVerificationSource ?? null,
+    internalBrokerVerificationStatus:
+      overrides.internalBrokerVerificationStatus ?? null,
+    internalBrokerVerificationSummary:
+      overrides.internalBrokerVerificationSummary ?? null,
+    internalBrokerVerificationDetailUrl:
+      overrides.internalBrokerVerificationDetailUrl ?? null,
+    internalBrokerVerificationCheckedAt:
+      overrides.internalBrokerVerificationCheckedAt ?? null,
+    officialBrokerVerificationScope:
+      overrides.officialBrokerVerificationScope ?? null,
+    officialBrokerVerificationStatus:
+      overrides.officialBrokerVerificationStatus ?? null,
+    officialBrokerVerificationCertificationState:
+      overrides.officialBrokerVerificationCertificationState ?? null,
+    officialBrokerVerificationDetailUrl:
+      overrides.officialBrokerVerificationDetailUrl ?? null,
+    officialBrokerVerificationCheckedAt:
+      overrides.officialBrokerVerificationCheckedAt ?? null,
     bindingCanvasEnvironment: overrides.bindingCanvasEnvironment ??
       "production",
     bindingIssuer: overrides.bindingIssuer ?? "https://canvas.instructure.com",
@@ -420,7 +445,8 @@ function readDetailInstallEvidence(
   detail: unknown,
 ): DeploymentActivitySnapshot | null {
   return (
-    detail as { latestInstallEvidence?: DeploymentActivitySnapshot | null } |
-      undefined
+    detail as
+      | { latestInstallEvidence?: DeploymentActivitySnapshot | null }
+      | undefined
   )?.latestInstallEvidence ?? null;
 }

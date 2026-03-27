@@ -44,7 +44,10 @@ export type OfficialCertificationState =
   | "notCertified"
   | "ltiAdvantageCertified"
   | "ltiAdvantageComplete";
-export type BrokerVerificationSupportedPath = "canvasLti13LaunchAgsNrps";
+export type BrokerVerificationSupportedPath =
+  | "canvasLti13LaunchAgsNrps"
+  | "moodleLti13LaunchAgsScore"
+  | "sakaiLti13LaunchAgsScore";
 
 export interface ControlPlaneHealthDimension {
   name: ControlPlaneHealthDimensionName;
@@ -173,6 +176,7 @@ export interface ControlPlaneDeploymentInventoryRow {
   enabledPackageVersion: string | null;
   approvalStatus: ApprovalStatus | null;
   binding: DeploymentBinding | null;
+  installEvidence: DeploymentActivitySnapshot | null;
   updatedAt: string;
   lastLaunchAt: string | null;
   lastLaunchStatus: ControlPlaneActivityStatus | null;
@@ -187,6 +191,7 @@ export interface ControlPlaneDeploymentInventoryRow {
 
 export interface ControlPlaneDeploymentDetailSnapshot {
   inventory: ControlPlaneDeploymentInventoryRow;
+  latestInstallEvidence: DeploymentActivitySnapshot | null;
   latestLaunch: DeploymentActivitySnapshot | null;
   latestNrpsRead: DeploymentActivitySnapshot | null;
   latestGradePublish: DeploymentGradePublicationSnapshot | null;

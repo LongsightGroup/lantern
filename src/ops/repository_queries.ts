@@ -1,4 +1,17 @@
-export const SUPPORTED_BROKER_SCOPE = "canvasLti13LaunchAgsNrps";
+export const BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS = {
+  canvas: "canvasLti13LaunchAgsNrps",
+  moodle: "moodleLti13LaunchAgsScore",
+  sakai: "sakaiLti13LaunchAgsScore",
+} as const;
+
+const DEPLOYMENT_BROKER_SUPPORTED_PATH_SQL = `
+  CASE deployments.lms_type
+    WHEN 'canvas' THEN '${BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS.canvas}'
+    WHEN 'moodle' THEN '${BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS.moodle}'
+    WHEN 'sakai' THEN '${BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS.sakai}'
+    ELSE NULL
+  END
+`;
 
 export const INVENTORY_BASE_QUERY = `
   SELECT
@@ -13,6 +26,26 @@ export const INVENTORY_BASE_QUERY = `
     enabled_package.approval_status,
     enabled_package.reviewed_at,
     deployments.lms_type AS binding_lms_type,
+    install_evidence.status AS install_evidence_status,
+    install_evidence.summary AS install_evidence_summary,
+    install_evidence.detail AS install_evidence_detail,
+    install_evidence.occurred_at AS install_evidence_occurred_at,
+    internal_broker_verification.scope AS internal_broker_verification_scope,
+    internal_broker_verification.source AS internal_broker_verification_source,
+    internal_broker_verification.status AS internal_broker_verification_status,
+    internal_broker_verification.summary AS internal_broker_verification_summary,
+    internal_broker_verification.detail_url
+      AS internal_broker_verification_detail_url,
+    internal_broker_verification.checked_at
+      AS internal_broker_verification_checked_at,
+    official_broker_verification.scope AS official_broker_verification_scope,
+    official_broker_verification.status AS official_broker_verification_status,
+    official_broker_verification.certification_state
+      AS official_broker_verification_certification_state,
+    official_broker_verification.detail_url
+      AS official_broker_verification_detail_url,
+    official_broker_verification.checked_at
+      AS official_broker_verification_checked_at,
     deployments.canvas_environment AS binding_canvas_environment,
     deployments.issuer AS binding_issuer,
     deployments.client_id AS binding_client_id,
@@ -52,6 +85,46 @@ export const INVENTORY_BASE_QUERY = `
     ORDER BY package_versions.imported_at DESC, package_versions.id DESC
     LIMIT 1
   ) AS latest_package ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      audit_events.status,
+      audit_events.summary,
+      audit_events.detail,
+      audit_events.occurred_at
+    FROM audit_events
+    WHERE audit_events.deployment_record_id = deployments.id
+      AND audit_events.event_type = 'deployment.binding_saved'
+    ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
+    LIMIT 1
+  ) AS install_evidence ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      broker_verification_runs.scope,
+      broker_verification_runs.source,
+      broker_verification_runs.status,
+      broker_verification_runs.summary,
+      broker_verification_runs.detail_url,
+      broker_verification_runs.checked_at
+    FROM broker_verification_runs
+    WHERE broker_verification_runs.deployment_record_id = deployments.id
+      AND broker_verification_runs.scope = ${DEPLOYMENT_BROKER_SUPPORTED_PATH_SQL}
+      AND broker_verification_runs.source IN ('manual', 'ci')
+    ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
+    LIMIT 1
+  ) AS internal_broker_verification ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      broker_verification_runs.scope,
+      broker_verification_runs.status,
+      broker_verification_runs.certification_state,
+      broker_verification_runs.detail_url,
+      broker_verification_runs.checked_at
+    FROM broker_verification_runs
+    WHERE broker_verification_runs.scope = ${DEPLOYMENT_BROKER_SUPPORTED_PATH_SQL}
+      AND broker_verification_runs.source = '1edtech'
+    ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
+    LIMIT 1
+  ) AS official_broker_verification ON TRUE
   LEFT JOIN LATERAL (
     SELECT
       audit_events.occurred_at AS last_launch_at,
@@ -127,6 +200,20 @@ export const INVENTORY_BASE_QUERY = `
 export const INVENTORY_ORDER_BY = `
   ORDER BY deployments.updated_at DESC, deployments.id DESC
 `;
+export const LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY = `
+  SELECT
+    broker_verification_runs.scope,
+    broker_verification_runs.source,
+    broker_verification_runs.status,
+    broker_verification_runs.summary,
+    broker_verification_runs.detail_url,
+    broker_verification_runs.checked_at
+  FROM broker_verification_runs
+  WHERE broker_verification_runs.deployment_record_id IS NOT NULL
+    AND broker_verification_runs.source IN ('manual', 'ci')
+  ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
+  LIMIT 1
+`;
 export const LATEST_LAUNCH_QUERY = `
   SELECT
     audit_events.event_type,
@@ -200,32 +287,28 @@ export const DIAGNOSTICS_QUERY = `
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
 `;
 
-export const LATEST_INTERNAL_BROKER_VERIFICATION_QUERY = `
-  SELECT
-    broker_verification_runs.scope,
-    broker_verification_runs.source,
-    broker_verification_runs.status,
-    broker_verification_runs.summary,
-    broker_verification_runs.detail_url,
-    broker_verification_runs.checked_at
-  FROM broker_verification_runs
-  WHERE broker_verification_runs.scope = $1
-    AND broker_verification_runs.source IN ('manual', 'ci')
-  ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
-  LIMIT 1
-`;
-
 export const LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY = `
   SELECT
     broker_verification_runs.scope,
     broker_verification_runs.status,
     broker_verification_runs.certification_state,
-    broker_verification_runs.summary,
     broker_verification_runs.detail_url,
     broker_verification_runs.checked_at
   FROM broker_verification_runs
   WHERE broker_verification_runs.scope = $1
     AND broker_verification_runs.source = '1edtech'
+  ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
+  LIMIT 1
+`;
+export const LATEST_GLOBAL_OFFICIAL_BROKER_VERIFICATION_QUERY = `
+  SELECT
+    broker_verification_runs.scope,
+    broker_verification_runs.status,
+    broker_verification_runs.certification_state,
+    broker_verification_runs.detail_url,
+    broker_verification_runs.checked_at
+  FROM broker_verification_runs
+  WHERE broker_verification_runs.source = '1edtech'
   ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
   LIMIT 1
 `;
