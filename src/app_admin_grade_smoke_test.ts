@@ -1,11 +1,19 @@
 import { assertEquals } from "@std/assert";
+import type { EnsureLineItemInput } from "./lti/services.ts";
 import type { DeploymentBinding, RuntimeSessionRecord } from "./lti/types.ts";
+import {
+  buildFinalGradeLineItemSpec,
+  buildSmokeVerificationLineItemSpec,
+  ensureManagedLineItem,
+  requestAccessToken,
+} from "./runtime/gateway_publication_support.ts";
 import {
   buildLaunchServiceClaims,
   buildMoodleDeploymentBinding,
   buildRuntimeSessionRecord,
   buildSakaiDeploymentBinding,
 } from "./test_helpers/lti.ts";
+import { buildPackageVersionRecord } from "./test_helpers/package_review.ts";
 
 interface SmokeFixture {
   binding: Extract<DeploymentBinding, { lms: "moodle" | "sakai" }>;
@@ -93,12 +101,179 @@ Deno.test(
   },
 );
 
-Deno.test.ignore(
-  "grade smoke verification records a bounded token failure without reusing the learner final-grade line item",
-  () => {},
+Deno.test(
+  "grade smoke verification uses the shared AGS helper to create or reuse a dedicated smoke line item",
+  async () => {
+    const moodleFixture = buildSmokeFixture("moodle");
+    const sakaiFixture = buildSmokeFixture("sakai");
+    const requests: Array<{
+      resourceId: string;
+      tag: string;
+      label: string;
+      scoreMaximum: number;
+      lineitemsUrl: string | null;
+    }> = [];
+
+    const moodleResult = await ensureManagedLineItem({
+      accessToken: "moodle-access-token",
+      ags: moodleFixture.session.services.ags!,
+      resourceLinkId: "resource-link-123",
+      spec: buildSmokeVerificationLineItemSpec({
+        appId: "chapter-4-asteroids",
+        appTitle: moodleFixture.appTitle,
+        lms: moodleFixture.binding.lms,
+      }),
+      ensureLineItemFn: async (input: EnsureLineItemInput) => {
+        requests.push({
+          resourceId: input.resourceId,
+          tag: input.tag,
+          label: input.label,
+          scoreMaximum: input.scoreMaximum,
+          lineitemsUrl: input.lineitemsUrl,
+        });
+
+        return {
+          lineItemsUrl: input.lineitemsUrl!,
+          lineItemUrl:
+            "https://moodle.example/mod/lti/services.php/2/lineitems/9",
+          resourceId: input.resourceId,
+          tag: input.tag,
+          label: input.label,
+          scoreMaximum: input.scoreMaximum,
+          created: true,
+        };
+      },
+    });
+
+    const sakaiResult = await ensureManagedLineItem({
+      accessToken: "sakai-access-token",
+      ags: sakaiFixture.session.services.ags!,
+      resourceLinkId: "resource-link-123",
+      spec: buildSmokeVerificationLineItemSpec({
+        appId: "chapter-4-asteroids",
+        appTitle: sakaiFixture.appTitle,
+        lms: sakaiFixture.binding.lms,
+      }),
+      ensureLineItemFn: async (input: EnsureLineItemInput) => {
+        requests.push({
+          resourceId: input.resourceId,
+          tag: input.tag,
+          label: input.label,
+          scoreMaximum: input.scoreMaximum,
+          lineitemsUrl: input.lineitemsUrl,
+        });
+
+        return {
+          lineItemsUrl: input.lineitemsUrl!,
+          lineItemUrl:
+            "https://sakai.example/direct/lti/lineitems/course-42/items/9",
+          resourceId: input.resourceId,
+          tag: input.tag,
+          label: input.label,
+          scoreMaximum: input.scoreMaximum,
+          created: false,
+        };
+      },
+    });
+
+    assertEquals(moodleResult.created, true);
+    assertEquals(sakaiResult.created, false);
+    assertEquals(requests[0], {
+      resourceId: moodleFixture.expectedSmokeLineItem.resourceId,
+      tag: "smoke-verification",
+      label: "Chapter 4 Asteroids Smoke Verification",
+      scoreMaximum: 1,
+      lineitemsUrl: "https://moodle.example/mod/lti/services.php/2/lineitems",
+    });
+    assertEquals(requests[1], {
+      resourceId: sakaiFixture.expectedSmokeLineItem.resourceId,
+      tag: "smoke-verification",
+      label: "Chapter 4 Asteroids Smoke Verification",
+      scoreMaximum: 1,
+      lineitemsUrl:
+        "https://sakai.example/direct/lti/lineitems/course-42/items",
+    });
+  },
 );
 
-Deno.test.ignore(
-  "grade smoke verification records a bounded AGS publish failure for the saved deployment binding",
-  () => {},
+Deno.test(
+  "grade smoke verification records a bounded token failure without reusing the learner final-grade line item",
+  async () => {
+    const fixture = buildSmokeFixture("moodle");
+    const result = await requestAccessToken({
+      scope: fixture.session.services.ags!.scope,
+      binding: fixture.binding,
+      lineItemBinding: null,
+      requestToken: async () => {
+        throw new Error("simulated token failure");
+      },
+    });
+
+    if (typeof result === "string") {
+      throw new Error("Expected smoke token failure details.");
+    }
+
+    assertEquals(result.publishError?.code, "token_request_failed");
+    assertEquals(result.publishError?.detail.issuer, fixture.binding.issuer);
+    assertEquals(
+      result.publishError?.detail.deploymentId,
+      fixture.binding.deploymentId,
+    );
+    assertEquals(
+      JSON.stringify(result.publishError?.detail ?? {}).includes("final-grade"),
+      false,
+    );
+  },
+);
+
+Deno.test(
+  "runtime final-grade publication stays on the same shared managed line-item helper path",
+  async () => {
+    const session = buildRuntimeSessionRecord();
+    const packageVersion = buildPackageVersionRecord();
+    const requests: Array<{
+      resourceId: string;
+      tag: string;
+      label: string;
+      scoreMaximum: number;
+    }> = [];
+
+    const result = await ensureManagedLineItem({
+      accessToken: "canvas-access-token",
+      ags: session.services.ags!,
+      resourceLinkId: "resource-link-123",
+      spec: buildFinalGradeLineItemSpec({
+        session,
+        packageVersion,
+        scoreMaximum: 100,
+      }),
+      ensureLineItemFn: async (input: EnsureLineItemInput) => {
+        requests.push({
+          resourceId: input.resourceId,
+          tag: input.tag,
+          label: input.label,
+          scoreMaximum: input.scoreMaximum,
+        });
+
+        return {
+          lineItemsUrl: input.lineitemsUrl!,
+          lineItemUrl: input.lineitemUrl ??
+            "https://canvas.example/api/lti/courses/42/line_items/9",
+          resourceId: input.resourceId,
+          tag: input.tag,
+          label: input.label,
+          scoreMaximum: input.scoreMaximum,
+          created: false,
+        };
+      },
+    });
+
+    assertEquals(result.created, false);
+    assertEquals(requests, [{
+      resourceId: "lantern:chapter-4-asteroids:0.1.0:activity-123",
+      tag: "final-grade",
+      label: "Chapter 4 Asteroids Final Grade",
+      scoreMaximum: 100,
+    }]);
+  },
 );
