@@ -7,6 +7,8 @@ import {
 import {
   buildDeploymentBinding,
   buildLoginStateRecord,
+  buildMoodleDeploymentBinding,
+  buildSakaiDeploymentBinding,
   getTestCanvasJwks,
   signCanvasIdToken,
 } from "../test_helpers/lti.ts";
@@ -150,4 +152,89 @@ Deno.test("deep linking validator rejects unsupported content-item types without
   );
 
   assertEquals(savedState?.usedAt, null);
+});
+
+Deno.test("deep linking validator rejects non-Canvas Moodle and Sakai launches before authoring can start", async () => {
+  const cases = [
+    {
+      lms: "moodle" as const,
+      state: "state-deep-linking-moodle",
+      nonce: "nonce-deep-linking-moodle",
+      issuer: "https://moodle.example",
+      clientId: "moodle-client-123",
+      deploymentId: "moodle-deployment-123",
+    },
+    {
+      lms: "sakai" as const,
+      state: "state-deep-linking-sakai",
+      nonce: "nonce-deep-linking-sakai",
+      issuer: "https://sakai.example",
+      clientId: "sakai-client-123",
+      deploymentId: "sakai-deployment-123",
+    },
+  ];
+
+  for (const testCase of cases) {
+    const repository = createInMemoryPackageReviewRepository({
+      deployments: [
+        buildDeploymentRecord({
+          id: 7,
+          appId: "chapter-4-asteroids",
+          binding: testCase.lms === "moodle"
+            ? buildMoodleDeploymentBinding({
+              issuer: testCase.issuer,
+              clientId: testCase.clientId,
+              deploymentId: testCase.deploymentId,
+            })
+            : buildSakaiDeploymentBinding({
+              issuer: testCase.issuer,
+              clientId: testCase.clientId,
+              deploymentId: testCase.deploymentId,
+            }),
+        }),
+      ],
+      loginStates: [
+        buildLoginStateRecord({
+          lms: testCase.lms,
+          issuer: testCase.issuer,
+          clientId: testCase.clientId,
+          deploymentId: testCase.deploymentId,
+          state: testCase.state,
+          nonce: testCase.nonce,
+          targetLinkUri: "http://localhost:8417/lti/deep-linking",
+          createdAt: "2026-03-24T16:10:00Z",
+          expiresAt: "2026-03-24T16:20:00Z",
+        }),
+      ],
+    });
+    const idToken = await signCanvasIdToken({
+      deploymentBinding: {
+        issuer: testCase.issuer,
+        clientId: testCase.clientId,
+        deploymentId: testCase.deploymentId,
+      },
+      nonce: testCase.nonce,
+      audience: testCase.clientId,
+      subject: null,
+      messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+      targetLinkUri: "http://localhost:8417/lti/deep-linking",
+      deepLinkReturnUrl: `${testCase.issuer}/deep_link_return`,
+    });
+
+    await assertRejectsDeepLinking(
+      () =>
+        validateDeepLinkingRequest({
+          repository,
+          state: testCase.state,
+          idToken,
+          now: () => new Date("2026-03-24T16:15:00Z"),
+          loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+        }),
+      "Deep Linking is only supported for Canvas deployments.",
+    );
+
+    const savedState = await repository.getLoginStateByState(testCase.state);
+
+    assertEquals(savedState?.usedAt, null);
+  }
 });
