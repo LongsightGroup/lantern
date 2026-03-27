@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
@@ -8,6 +8,7 @@ import {
 import {
   buildCanvasLoginRequest,
   buildDeploymentBinding,
+  buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
   buildSakaiLoginRequest,
   getTestToolPrivateJwkEnvValue,
@@ -156,4 +157,82 @@ Deno.test("GET /lti/login accepts Sakai-style login initiation and redirects to 
   assertEquals(saved?.canvasEnvironment, null);
   assertEquals(saved?.clientId, loginRequest.clientId);
   assertEquals(saved?.deploymentId, loginRequest.deploymentId);
+});
+
+Deno.test("GET /lti/login accepts Moodle-style login initiation and redirects to the saved authentication endpoint", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [
+      buildDeploymentRecord({
+        binding: buildMoodleDeploymentBinding({
+          issuer: "https://moodle.example",
+          clientId: "moodle-client-123",
+          deploymentId: "moodle-deployment-123",
+        }),
+      }),
+    ],
+  });
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    "http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque-login-hint&target_link_uri=http%3A%2F%2Flocalhost%3A8417%2Flti%2Flaunch&client_id=moodle-client-123&deployment_id=moodle-deployment-123",
+  );
+
+  assertEquals(response.status, 302);
+
+  const location = response.headers.get("location");
+
+  if (!location) {
+    throw new Error("Expected Moodle authorization redirect location.");
+  }
+
+  const redirected = new URL(location);
+  const state = redirected.searchParams.get("state");
+
+  if (!state) {
+    throw new Error("Expected saved login state in the Moodle redirect.");
+  }
+
+  const saved = await repository.getLoginStateByState(state);
+
+  assertEquals(
+    redirected.origin + redirected.pathname,
+    "https://moodle.example/mod/lti/auth.php",
+  );
+  assertEquals(saved?.lms, "moodle");
+  assertEquals(saved?.canvasEnvironment, null);
+  assertEquals(saved?.clientId, "moodle-client-123");
+  assertEquals(saved?.deploymentId, "moodle-deployment-123");
+});
+
+Deno.test("GET /lti/login rejects ambiguous platform identity before redirecting", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [
+      buildDeploymentRecord({
+        slug: "shared-moodle",
+        binding: buildMoodleDeploymentBinding({
+          issuer: "https://shared.example",
+          clientId: "shared-client-123",
+          deploymentId: "shared-deployment-123",
+        }),
+      }),
+      buildDeploymentRecord({
+        slug: "shared-sakai",
+        binding: buildSakaiDeploymentBinding({
+          issuer: "https://shared.example",
+          clientId: "shared-client-123",
+          deploymentId: "shared-deployment-123",
+        }),
+      }),
+    ],
+  });
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    "http://localhost/lti/login?iss=https%3A%2F%2Fshared.example&login_hint=opaque-login-hint&target_link_uri=http%3A%2F%2Flocalhost%3A8417%2Flti%2Flaunch&client_id=shared-client-123&deployment_id=shared-deployment-123",
+  );
+  const body = await response.text();
+
+  assertEquals(response.status, 409);
+  assertEquals(response.headers.get("location"), null);
+  assertStringIncludes(body, "Resolve the duplicate LMS bindings");
 });
