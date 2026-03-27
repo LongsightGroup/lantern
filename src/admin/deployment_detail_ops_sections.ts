@@ -117,6 +117,7 @@ export function renderOperationalEvidenceSection(
   detail: ControlPlaneDeploymentDetailSnapshot | null,
 ): string {
   const diagnostics = detail?.diagnostics ?? [];
+  const latestAgsSmoke = detail?.latestAgsSmoke ?? null;
   const retryableDiagnostics = diagnostics.filter((item) => item.retryable);
   const internalVerification = detail?.brokerVerification?.internal ?? null;
   const viewedDeploymentLabel = slot.persisted
@@ -151,6 +152,14 @@ export function renderOperationalEvidenceSection(
   }
             ${
     renderActivityFact(
+      "Latest AGS smoke",
+      formatActivityTimestamp(latestAgsSmoke),
+      latestAgsSmoke?.summary ??
+        "No grade smoke verification has been recorded for this deployment yet.",
+    )
+  }
+            ${
+    renderActivityFact(
       "Latest internal verification",
       formatBrokerVerificationTimestamp(internalVerification),
       internalVerification?.summary ??
@@ -174,6 +183,7 @@ export function renderOperationalEvidenceSection(
           <summary>Show install, launch, verification, and diagnostic detail</summary>
           <div class="detail-stack">
             ${renderControlPlaneStatusSection(detail)}
+            ${renderAgsSmokeSection(appId, slot, detail)}
             ${renderBrokerVerificationSection(detail)}
             ${renderPilotUsageSection(detail)}
             ${renderDiagnosticsSection(appId, detail)}
@@ -251,6 +261,108 @@ export function renderBrokerVerificationSection(
             </div>`
       : ""
   }
+      </div>
+    </section>`;
+}
+
+export function renderAgsSmokeSection(
+  appId: string,
+  slot: ManagedDeploymentSlot,
+  detail: ControlPlaneDeploymentDetailSnapshot | null,
+): string {
+  const latestAgsSmoke = detail?.latestAgsSmoke ?? null;
+  const lineItemUrl = readStringDetail(latestAgsSmoke?.detail, "lineItemUrl");
+  const errorCode = readNestedStringDetail(latestAgsSmoke?.detail, "error", "code");
+  const errorText = readNestedStringDetail(
+    latestAgsSmoke?.detail,
+    "error",
+    "message",
+  );
+  const canRunSmoke = slot.persisted &&
+    (slot.lms === "moodle" || slot.lms === "sakai") &&
+    slot.deployment.binding?.lms === slot.lms;
+  const runCopy = slot.lms === "canvas"
+    ? "Phase 11 keeps grade smoke verification limited to the blessed Moodle and Sakai deployment paths."
+    : canRunSmoke
+    ? `Run the blessed ${formatLmsLabel(slot.lms)} smoke path from this deployment view. Lantern records only bounded AGS capability, publication, and line-item facts.`
+    : `Save the exact ${formatLmsLabel(slot.lms)} binding before running grade smoke verification.`;
+  const runAction = slot.lms === "canvas"
+    ? ""
+    : `<form method="post" action="/admin/packages/${
+      escapeHtml(appId)
+    }/deployment/verify-grade-smoke" class="stack">
+            <input type="hidden" name="lms" value="${escapeHtml(slot.lms)}" />
+            <input type="hidden" name="deploymentRecordId" value="${
+      escapeHtml(String(slot.deployment.id))
+    }" />
+            <div class="button-row">
+              <button type="submit" class="button-secondary" ${
+      canRunSmoke ? "" : "disabled"
+    }>Run grade smoke check</button>
+            </div>
+          </form>`;
+  const lineItemFact = lineItemUrl === null
+    ? ""
+    : `<div class="fact">
+            <span class="fact-label">Smoke line item</span>
+            <span class="fact-value">${escapeHtml(lineItemUrl)}</span>
+            <p class="micro muted">Lantern keeps smoke verification on a dedicated line item instead of the learner final-grade path.</p>
+          </div>`;
+  const failureCallout = errorText === null
+    ? ""
+    : `<div class="callout">
+            <h3>Latest smoke failure</h3>
+            <p>${escapeHtml(errorText)}</p>
+            ${
+      errorCode === null
+        ? ""
+        : `<p class="micro muted">Code ${escapeHtml(errorCode)}</p>`
+    }
+          </div>`;
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">AGS smoke</p>
+        <h2>Latest grade smoke verification</h2>
+        <p>${escapeHtml(runCopy)}</p>
+        <div class="facts">
+          ${
+    renderActivityFact(
+      "Status",
+      describeSmokeStatus(latestAgsSmoke),
+      latestAgsSmoke?.summary ??
+        "No grade smoke verification has been recorded for this deployment yet.",
+    )
+  }
+          ${
+    renderActivityFact(
+      "Checked at",
+      formatActivityTimestamp(latestAgsSmoke),
+      latestAgsSmoke === null
+        ? "Lantern has not recorded a grade smoke check for this deployment yet."
+        : `Lantern keeps this result scoped to the viewed ${
+          formatLmsLabel(slot.lms)
+        } deployment.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      "AGS capability",
+      describeSmokeCapability(latestAgsSmoke),
+      describeSmokeCapabilitySummary(latestAgsSmoke),
+    )
+  }
+          ${
+    renderActivityFact(
+      "Publication",
+      describeSmokePublication(latestAgsSmoke),
+      describeSmokePublicationSummary(latestAgsSmoke),
+    )
+  }
+        </div>
+        ${lineItemFact}
+        ${failureCallout}
+        ${runAction}
       </div>
     </section>`;
 }
@@ -369,6 +481,91 @@ function formatBrokerVerificationTimestamp(
   return formatDateTime(verification.checkedAt);
 }
 
+function describeSmokeStatus(
+  snapshot: DeploymentActivitySnapshot | null | undefined,
+): string {
+  if (snapshot === null || snapshot === undefined) {
+    return "Not run yet";
+  }
+
+  switch (snapshot.status) {
+    case "succeeded":
+      return "Succeeded";
+    case "failed":
+      return "Failed";
+    case "pending":
+      return "Pending";
+    case "notRun":
+      return "Not run yet";
+  }
+}
+
+function describeSmokeCapability(
+  snapshot: DeploymentActivitySnapshot | null | undefined,
+): string {
+  const agsCapable = readBooleanDetail(snapshot?.detail, "agsCapable");
+
+  if (agsCapable === true) {
+    return "Available";
+  }
+
+  if (agsCapable === false) {
+    return "Missing";
+  }
+
+  return "Not checked yet";
+}
+
+function describeSmokeCapabilitySummary(
+  snapshot: DeploymentActivitySnapshot | null | undefined,
+): string {
+  const agsCapable = readBooleanDetail(snapshot?.detail, "agsCapable");
+
+  if (agsCapable === true) {
+    return "Launch-scoped AGS context and scopes were available for the saved deployment.";
+  }
+
+  if (agsCapable === false) {
+    return "The saved deployment did not expose the AGS context Lantern needs for the blessed smoke path.";
+  }
+
+  return "Smoke verification has not checked the AGS launch claims for this deployment yet.";
+}
+
+function describeSmokePublication(
+  snapshot: DeploymentActivitySnapshot | null | undefined,
+): string {
+  const publicationStatus = readStringDetail(snapshot?.detail, "publicationStatus");
+
+  switch (publicationStatus) {
+    case "succeeded":
+      return "Succeeded";
+    case "failed":
+      return "Failed";
+    case "not_attempted":
+      return "Not attempted";
+    default:
+      return "Not checked yet";
+  }
+}
+
+function describeSmokePublicationSummary(
+  snapshot: DeploymentActivitySnapshot | null | undefined,
+): string {
+  const publicationStatus = readStringDetail(snapshot?.detail, "publicationStatus");
+
+  switch (publicationStatus) {
+    case "succeeded":
+      return "The dedicated smoke line item publish completed for this deployment.";
+    case "failed":
+      return "Lantern reached the dedicated smoke line item, but the AGS publish failed.";
+    case "not_attempted":
+      return "Lantern stopped before publishing to the dedicated smoke line item.";
+    default:
+      return "No smoke publication result has been recorded for this deployment yet.";
+  }
+}
+
 function describeGradePublication(
   snapshot: DeploymentGradePublicationSnapshot,
 ): string {
@@ -407,6 +604,54 @@ function formatLmsLabel(lms: ManagedDeploymentSlot["lms"]): string {
     case "sakai":
       return "Sakai";
   }
+}
+
+function readStringDetail(
+  detail: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  if (detail === null || detail === undefined) {
+    return null;
+  }
+
+  const value = detail[key];
+
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+}
+
+function readBooleanDetail(
+  detail: Record<string, unknown> | null | undefined,
+  key: string,
+): boolean | null {
+  if (detail === null || detail === undefined) {
+    return null;
+  }
+
+  const value = detail[key];
+
+  return typeof value === "boolean" ? value : null;
+}
+
+function readNestedStringDetail(
+  detail: Record<string, unknown> | null | undefined,
+  key: string,
+  nestedKey: string,
+): string | null {
+  if (detail === null || detail === undefined) {
+    return null;
+  }
+
+  const value = detail[key];
+
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const nestedValue = (value as Record<string, unknown>)[nestedKey];
+
+  return typeof nestedValue === "string" && nestedValue.trim() !== ""
+    ? nestedValue.trim()
+    : null;
 }
 
 function describeOverallStatus(
