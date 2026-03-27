@@ -312,9 +312,10 @@ Deno.test("POST /lti/launch rejects Sakai authoring-mode requests and never crea
       const savedState = await repository.getLoginStateByState(
         "state-sakai-authoring",
       );
-      const runtimeSession = await repository.getLatestRuntimeSessionByDeploymentId(
-        17,
-      );
+      const runtimeSession = await repository
+        .getLatestRuntimeSessionByDeploymentId(
+          17,
+        );
       const auditEvents = await repository.listAuditEventsByEventType(
         "launch.rejected",
       );
