@@ -1,6 +1,10 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { validateLaunchRequest } from "./launch.ts";
 import {
+  isLaunchRejectionError,
+  type LaunchRejection,
+} from "./launch_support_matrix.ts";
+import {
   buildDeploymentBinding,
   buildLoginStateRecord,
   buildMoodleDeploymentBinding,
@@ -159,7 +163,7 @@ Deno.test("validateLaunchRequest accepts a signed Moodle launch with matching st
   assertEquals(launch.appId, "chapter-4-asteroids");
 });
 
-Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_link_uri, and unsupported message types", async () => {
+Deno.test("validateLaunchRequest rejects invalid signatures and mismatched target_link_uri", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -182,10 +186,6 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
         state: "state-target",
         nonce: "nonce-target",
       }),
-      buildLoginStateRecord({
-        state: "state-message",
-        nonce: "nonce-message",
-      }),
     ],
   });
   const targetMismatchToken = await signCanvasIdToken({
@@ -194,10 +194,6 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
   });
   const invalidSignatureToken = await signCanvasIdToken({
     nonce: "nonce-123",
-  });
-  const messageMismatchToken = await signCanvasIdToken({
-    nonce: "nonce-message",
-    messageType: "LtiDeepLinkingRequest",
   });
 
   await assertRejects(
@@ -224,7 +220,37 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
     Error,
     "Launch target_link_uri did not match the saved login state.",
   );
-  await assertRejects(
+});
+
+Deno.test("validateLaunchRequest rejects unsupported message types with a stable support-matrix code", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-message",
+        nonce: "nonce-message",
+      }),
+    ],
+  });
+  const messageMismatchToken = await signCanvasIdToken({
+    nonce: "nonce-message",
+    messageType: "LtiDeepLinkingRequest",
+  });
+  const error = await assertRejects(
     () =>
       validateLaunchRequest({
         repository,
@@ -233,11 +259,63 @@ Deno.test("validateLaunchRequest rejects invalid signatures, mismatched target_l
         now: () => new Date("2026-03-23T22:45:00Z"),
         loadJwks: () => Promise.resolve(getTestCanvasJwks()),
       }),
-    Error,
-    "Unsupported LTI message type LtiDeepLinkingRequest.",
   );
+  const rejection = expectLaunchRejection(error);
+
+  assertEquals(rejection.code, "unsupported_message_type");
+  assertEquals(rejection.detail.messageType, "LtiDeepLinkingRequest");
+  assertEquals(rejection.detail.supportedMessageType, "LtiResourceLinkRequest");
 
   const preservedState = await repository.getLoginStateByState("state-message");
 
   assertEquals(preservedState?.usedAt, null);
 });
+
+Deno.test("validateLaunchRequest rejects missing context.id as an explicit governed baseline denial", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    loginStates: [buildLoginStateRecord()],
+  });
+  const idToken = await signCanvasIdToken({
+    nonce: "nonce-123",
+    audience: "10000000000001",
+    contextId: "",
+  });
+  const error = await assertRejects(
+    () =>
+      validateLaunchRequest({
+        repository,
+        state: "state-123",
+        idToken,
+        now: () => new Date("2026-03-23T22:45:00Z"),
+        loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+      }),
+  );
+  const rejection = expectLaunchRejection(error);
+
+  assertEquals(rejection.code, "missing_baseline_claim");
+  assertEquals(rejection.detail.claim, "context.id");
+  assertEquals(rejection.detail.rule, "governed_runtime_baseline");
+});
+
+function expectLaunchRejection(error: unknown): LaunchRejection {
+  if (!isLaunchRejectionError(error)) {
+    throw error;
+  }
+
+  return (error as { rejection: LaunchRejection }).rejection;
+}
