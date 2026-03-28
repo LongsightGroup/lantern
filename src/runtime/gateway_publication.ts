@@ -1,27 +1,24 @@
-import { type AttemptScoreResult } from "../grading/service.ts";
-import { publishFinalScore } from "../lti/services.ts";
+import { type AttemptScoreResult } from '../grading/service.ts';
+import { publishFinalScore } from '../lti/services.ts';
 import {
   LTI_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE,
   type RuntimeSessionRecord,
-} from "../lti/types.ts";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import type {
-  AttemptRecord,
-  PackageVersionRecord,
-} from "../package_review/types.ts";
-import { requireRuntimeDeployment } from "./gateway_context.ts";
-import { errorMessage } from "./gateway_errors.ts";
+} from '../lti/types.ts';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import type { AttemptRecord, PackageVersionRecord } from '../package_review/types.ts';
+import { requireRuntimeDeployment } from './gateway_context.ts';
+import { errorMessage } from './gateway_errors.ts';
 import {
   ensureLineItemBinding,
   requestAccessToken,
   resolveActivityProgress,
-} from "./gateway_publication_support.ts";
+} from './gateway_publication_support.ts';
 import type {
   FinalizeAttemptResult,
   GovernedGradePublicationInput,
   GovernedGradePublicationResult,
-} from "./gateway_types.ts";
+} from './gateway_types.ts';
 
 export async function publishGovernedGradePublication(
   input: GovernedGradePublicationInput,
@@ -33,18 +30,18 @@ export async function publishGovernedGradePublication(
     await publishScore({
       accessToken: input.accessToken,
       lineItemUrl: input.publication.lineItemUrl,
-      canvasUserId: input.publication.canvasUserId,
+      platformUserId: input.publication.platformUserId,
       scoreGiven: input.publication.scoreGiven,
       scoreMaximum: input.publication.scoreMaximum,
       activityProgress: input.publication.activityProgress,
-      gradingProgress: "FullyGraded",
+      gradingProgress: 'FullyGraded',
       timestamp,
     });
 
     return {
       gradePublication: await input.repository.updateGradePublication({
         attemptId: input.attemptId,
-        status: "published",
+        status: 'published',
         updatedAt: timestamp,
         publishedAt: timestamp,
         errorCode: null,
@@ -57,17 +54,17 @@ export async function publishGovernedGradePublication(
     return {
       gradePublication: await input.repository.updateGradePublication({
         attemptId: input.attemptId,
-        status: "failed",
+        status: 'failed',
         updatedAt: timestamp,
         publishedAt: null,
-        errorCode: "score_publish_failed",
+        errorCode: 'score_publish_failed',
         errorDetail: {
           message: errorMessage(error),
         },
       }),
       gradePublishedNow: false,
       publishError: {
-        code: "score_publish_failed",
+        code: 'score_publish_failed',
         message: errorMessage(error),
         detail: {
           lineItemUrl: input.publication.lineItemUrl,
@@ -87,16 +84,10 @@ export async function publishRuntimeAttemptScore(input: {
 }): Promise<
   Pick<
     FinalizeAttemptResult,
-    | "lineItemBinding"
-    | "gradePublication"
-    | "gradePublishedNow"
-    | "publishError"
+    'lineItemBinding' | 'gradePublication' | 'gradePublishedNow' | 'publishError'
   >
 > {
-  const deployment = await requireRuntimeDeployment(
-    input.repository,
-    input.session,
-  );
+  const deployment = await requireRuntimeDeployment(input.repository, input.session);
 
   if (deployment.binding === null) {
     return {
@@ -104,9 +95,8 @@ export async function publishRuntimeAttemptScore(input: {
       gradePublication: null,
       gradePublishedNow: false,
       publishError: {
-        code: "missing_binding",
-        message:
-          "Deployment binding is required before score publish can continue.",
+        code: 'missing_binding',
+        message: 'Deployment binding is required before score publish can continue.',
         detail: {
           deploymentSlug: deployment.slug,
         },
@@ -122,8 +112,8 @@ export async function publishRuntimeAttemptScore(input: {
       gradePublication: null,
       gradePublishedNow: false,
       publishError: {
-        code: "missing_ags_context",
-        message: "Launch did not provide AGS service context for this attempt.",
+        code: 'missing_ags_context',
+        message: 'Launch did not provide AGS service context for this attempt.',
         detail: {
           attemptId: input.attempt.attemptId,
         },
@@ -139,21 +129,16 @@ export async function publishRuntimeAttemptScore(input: {
     activityId: input.attempt.activityId,
   });
   const hasScoreScope = ags.scope.includes(LTI_AGS_SCORE_SCOPE);
-  const requiresLineitemScope = existingBinding === null &&
-    ags.lineitemUrl === null;
+  const requiresLineitemScope = existingBinding === null && ags.lineitemUrl === null;
 
-  if (
-    !hasScoreScope ||
-    (requiresLineitemScope && !ags.scope.includes(LTI_AGS_LINEITEM_SCOPE))
-  ) {
+  if (!hasScoreScope || (requiresLineitemScope && !ags.scope.includes(LTI_AGS_LINEITEM_SCOPE))) {
     return {
       lineItemBinding: existingBinding,
       gradePublication: null,
       gradePublishedNow: false,
       publishError: {
-        code: "missing_ags_scope",
-        message:
-          "Launch did not grant the AGS scopes Lantern needs to publish the final score.",
+        code: 'missing_ags_scope',
+        message: 'Launch did not grant the AGS scopes Lantern needs to publish the final score.',
         detail: {
           scopes: ags.scope,
         },
@@ -167,26 +152,21 @@ export async function publishRuntimeAttemptScore(input: {
     lineItemBinding: existingBinding,
   });
 
-  if (typeof accessToken !== "string") {
+  if (typeof accessToken !== 'string') {
     return accessToken;
   }
 
-  const lineItemBinding = await ensureLineItemBinding(
-    existingBinding,
-    accessToken,
-    input,
-  );
+  const lineItemBinding = await ensureLineItemBinding(existingBinding, accessToken, input);
 
-  if ("publishError" in lineItemBinding) {
+  if ('publishError' in lineItemBinding) {
     return lineItemBinding;
   }
 
-  const existingPublication = await input.repository
-    .getGradePublicationByAttemptId(
-      input.attempt.attemptId,
-    );
+  const existingPublication = await input.repository.getGradePublicationByAttemptId(
+    input.attempt.attemptId,
+  );
 
-  if (existingPublication?.status === "published") {
+  if (existingPublication?.status === 'published') {
     return {
       lineItemBinding,
       gradePublication: existingPublication,
@@ -195,17 +175,18 @@ export async function publishRuntimeAttemptScore(input: {
     };
   }
 
-  const gradePublication = existingPublication ??
+  const gradePublication =
+    existingPublication ??
     (await input.repository.createGradePublication({
       attemptId: input.attempt.attemptId,
       lineItemBindingId: lineItemBinding.id,
       lineItemUrl: lineItemBinding.lineItemUrl,
-      canvasUserId: input.attempt.userId,
+      platformUserId: input.attempt.userId,
       scoreGiven: input.score.scoreGiven,
       scoreMaximum: input.score.scoreMaximum,
       activityProgress: resolveActivityProgress(input.attempt),
-      gradingProgress: "Pending",
-      status: "pending",
+      gradingProgress: 'Pending',
+      status: 'pending',
       createdAt: input.now().toISOString(),
       updatedAt: input.now().toISOString(),
       publishedAt: null,

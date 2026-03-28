@@ -1,39 +1,39 @@
-import { assertEquals, assertRejects } from "@std/assert";
-import { resolveCanvasIssuer } from "./config.ts";
-import { createLoginRedirect } from "./login.ts";
+import { assertEquals, assertRejects } from '@std/assert';
+import { resolveCanvasIssuer } from './config.ts';
+import { createLoginRedirect } from './login.ts';
 import {
   buildCanvasDeploymentBinding,
   buildCanvasLoginRequest,
   buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
   buildSakaiLoginRequest,
-} from "../test_helpers/lti.ts";
+} from '../test_helpers/lti.ts';
 import {
   buildDeploymentRecord,
   createInMemoryPackageReviewRepository,
-} from "../test_helpers/package_review.ts";
+} from '../test_helpers/package_review.ts';
 
-Deno.test("createLoginRedirect rejects an ambiguous platform tuple shared across LMS slots", async () => {
-  const canvasIssuer = resolveCanvasIssuer("production");
+Deno.test('createLoginRedirect rejects an ambiguous platform tuple shared across LMS slots', async () => {
+  const canvasIssuer = resolveCanvasIssuer('production');
   const repository = createInMemoryPackageReviewRepository({
     deployments: [
       buildDeploymentRecord({
         id: 2,
-        slug: "chapter-4-asteroids-moodle",
+        slug: 'chapter-4-asteroids-moodle',
         binding: buildMoodleDeploymentBinding({
           issuer: canvasIssuer,
-          clientId: "shared-client-123",
-          deploymentId: "shared-deployment-123",
+          clientId: 'shared-client-123',
+          deploymentId: 'shared-deployment-123',
         }),
       }),
       buildDeploymentRecord({
         id: 1,
-        slug: "chapter-4-asteroids-canvas",
+        slug: 'chapter-4-asteroids-canvas',
         binding: buildCanvasDeploymentBinding({
-          canvasEnvironment: "production",
+          canvasEnvironment: 'production',
           issuer: canvasIssuer,
-          clientId: "shared-client-123",
-          deploymentId: "shared-deployment-123",
+          clientId: 'shared-client-123',
+          deploymentId: 'shared-deployment-123',
         }),
       }),
     ],
@@ -45,25 +45,25 @@ Deno.test("createLoginRedirect rejects an ambiguous platform tuple shared across
         repository,
         loginRequest: buildCanvasLoginRequest({
           iss: canvasIssuer,
-          clientId: "shared-client-123",
-          deploymentId: "shared-deployment-123",
+          clientId: 'shared-client-123',
+          deploymentId: 'shared-deployment-123',
         }),
       }),
     Error,
-    "Multiple deployments matched issuer",
+    'Choose one supported LMS deployment.',
   );
 });
 
-Deno.test("createLoginRedirect resolves a Sakai-only binding through shared platform identity lookup", async () => {
+Deno.test('createLoginRedirect resolves a Sakai-only binding through shared platform identity lookup', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deployments: [
       buildDeploymentRecord({
         id: 2,
-        slug: "chapter-4-asteroids-sakai",
+        slug: 'chapter-4-asteroids-sakai',
         binding: buildSakaiDeploymentBinding({
-          issuer: "https://sakai.example",
-          clientId: "sakai-client-123",
-          deploymentId: "1",
+          issuer: 'https://sakai.example',
+          clientId: 'sakai-client-123',
+          deploymentId: '1',
         }),
       }),
     ],
@@ -72,16 +72,16 @@ Deno.test("createLoginRedirect resolves a Sakai-only binding through shared plat
   const result = await createLoginRedirect({
     repository,
     loginRequest: buildSakaiLoginRequest({
-      iss: "https://sakai.example",
-      clientId: "sakai-client-123",
-      deploymentId: "1",
+      iss: 'https://sakai.example',
+      clientId: 'sakai-client-123',
+      deploymentId: '1',
     }),
   });
 
-  assertEquals(result.loginState.lms, "sakai");
+  assertEquals(result.loginState.lms, 'sakai');
   assertEquals(result.loginState.canvasEnvironment, null);
   assertEquals(
     new URL(result.location).origin + new URL(result.location).pathname,
-    "https://sakai.example/imsoidc/lti13/oidc_auth",
+    'https://sakai.example/imsoidc/lti13/oidc_auth',
   );
 });

@@ -1,5 +1,5 @@
-import { assertFalse, assertStringIncludes } from "@std/assert";
-import { resolveCanvasIssuer } from "../lti/config.ts";
+import { assertFalse, assertStringIncludes } from '@std/assert';
+import { resolveCanvasIssuer } from '../lti/config.ts';
 import {
   buildBrokerVerificationStatus,
   buildControlPlaneDeploymentDetailSnapshot,
@@ -8,64 +8,64 @@ import {
   buildDeploymentActivitySnapshot,
   buildDeploymentRecord,
   buildPackageVersionRecord,
-} from "../test_helpers/package_review.ts";
+} from '../test_helpers/package_review.ts';
 import {
   buildCanvasDeploymentBinding,
   buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
-} from "../test_helpers/lti.ts";
-import { renderDeploymentDetailPage } from "./deployment_detail.ts";
+} from '../test_helpers/lti.ts';
+import { renderDeploymentDetailPage } from './deployment_detail.ts';
 
-Deno.test("deployment page keeps separate Canvas, Moodle, and Sakai slots for one app", () => {
+Deno.test('deployment page keeps separate Canvas, Moodle, and Sakai slots for one app', () => {
   const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
+    appId: 'chapter-4-asteroids',
+    appTitle: 'Chapter 4 Asteroids',
     history: [
       buildPackageVersionRecord({
         id: 1,
-        version: "0.1.0",
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
+        version: '0.1.0',
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-23T18:05:00Z',
       }),
       buildPackageVersionRecord({
         id: 2,
-        version: "0.2.0",
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-24T18:05:00Z",
+        version: '0.2.0',
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-24T18:05:00Z',
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         id: 3,
-        slug: "chapter-4-asteroids-pilot",
-        label: "Chapter 4 Asteroids Pilot Deployment",
+        slug: 'chapter-4-asteroids-pilot',
+        label: 'Chapter 4 Asteroids Pilot Deployment',
         enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
+        enabledPackageVersion: '0.1.0',
         binding: buildCanvasDeploymentBinding(),
       }),
       buildDeploymentRecord({
         id: 4,
-        slug: "chapter-4-asteroids-moodle",
-        label: "Chapter 4 Asteroids Moodle Deployment",
+        slug: 'chapter-4-asteroids-moodle',
+        label: 'Chapter 4 Asteroids Moodle Deployment',
         enabledPackageVersionId: null,
         enabledPackageVersion: null,
         binding: buildMoodleDeploymentBinding(),
       }),
       buildDeploymentRecord({
         id: 5,
-        slug: "chapter-4-asteroids-sakai",
-        label: "Chapter 4 Asteroids Sakai Deployment",
+        slug: 'chapter-4-asteroids-sakai',
+        label: 'Chapter 4 Asteroids Sakai Deployment',
         enabledPackageVersionId: 2,
-        enabledPackageVersion: "0.2.0",
+        enabledPackageVersion: '0.2.0',
         binding: buildSakaiDeploymentBinding(),
       }),
     ],
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    canvasConfigUrl: 'http://localhost:8417/lti/canvas/config.json',
     supportedCanvasEnvironments: [
       {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
+        id: 'production',
+        label: 'Production Canvas',
+        issuer: resolveCanvasIssuer('production'),
       },
     ],
   });
@@ -73,8 +73,8 @@ Deno.test("deployment page keeps separate Canvas, Moodle, and Sakai slots for on
   assertStringIncludes(html, 'deployment-tab-label">Canvas</span>');
   assertStringIncludes(html, 'deployment-tab-label">Moodle</span>');
   assertStringIncludes(html, 'deployment-tab-label">Sakai</span>');
-  assertStringIncludes(html, "chapter-4-asteroids-pilot");
-  assertStringIncludes(html, "Pinned to version 0.1.0.");
+  assertStringIncludes(html, 'chapter-4-asteroids-pilot');
+  assertStringIncludes(html, 'Pinned to version 0.1.0.');
   assertStringIncludes(
     html,
     'href="/admin/packages/chapter-4-asteroids/deployment?lms=moodle#slot-panel"',
@@ -86,63 +86,57 @@ Deno.test("deployment page keeps separate Canvas, Moodle, and Sakai slots for on
   assertStringIncludes(html, 'name="lms" value="canvas"');
 });
 
-Deno.test("deployment page keeps one deployment route while rendering install, launch, failure, and verification evidence for each LMS slot", () => {
+Deno.test('deployment page keeps one deployment route while rendering install, launch, failure, and verification evidence for each LMS slot', () => {
   const cases = [
     {
-      lms: "canvas" as const,
+      lms: 'canvas' as const,
       binding: buildCanvasDeploymentBinding(),
       deploymentId: 3,
-      slug: "chapter-4-asteroids-pilot",
-      label: "Chapter 4 Asteroids Pilot Deployment",
-      installSummary: "Saved the Canvas deployment binding.",
-      launchSummary:
-        "Latest Canvas launch reached the governed runtime handoff.",
-      diagnosticSummary: "Canvas launch failed on the saved deployment path.",
-      verificationSummary:
-        "Latest internal proof passed for the saved Canvas deployment.",
-      supportedPath: "canvasLti13LaunchAgsNrps" as const,
+      slug: 'chapter-4-asteroids-pilot',
+      label: 'Chapter 4 Asteroids Pilot Deployment',
+      installSummary: 'Saved the Canvas deployment binding.',
+      launchSummary: 'Latest Canvas launch reached the governed runtime handoff.',
+      diagnosticSummary: 'Canvas launch failed on the saved deployment path.',
+      verificationSummary: 'Latest internal proof passed for the saved Canvas deployment.',
+      supportedPath: 'lti13LaunchAgsNrps' as const,
     },
     {
-      lms: "moodle" as const,
+      lms: 'moodle' as const,
       binding: buildMoodleDeploymentBinding(),
       deploymentId: 4,
-      slug: "chapter-4-asteroids-moodle",
-      label: "Chapter 4 Asteroids Moodle Deployment",
-      installSummary: "Saved the Moodle deployment binding.",
-      launchSummary:
-        "Latest Moodle launch reached the governed runtime handoff.",
-      diagnosticSummary: "Moodle launch failed on the saved deployment path.",
-      verificationSummary:
-        "Latest internal proof passed for the saved Moodle deployment.",
-      supportedPath: "moodleLti13LaunchAgsScore" as const,
+      slug: 'chapter-4-asteroids-moodle',
+      label: 'Chapter 4 Asteroids Moodle Deployment',
+      installSummary: 'Saved the Moodle deployment binding.',
+      launchSummary: 'Latest Moodle launch reached the governed runtime handoff.',
+      diagnosticSummary: 'Moodle launch failed on the saved deployment path.',
+      verificationSummary: 'Latest internal proof passed for the saved Moodle deployment.',
+      supportedPath: 'lti13LaunchAgsScore' as const,
     },
     {
-      lms: "sakai" as const,
+      lms: 'sakai' as const,
       binding: buildSakaiDeploymentBinding(),
       deploymentId: 5,
-      slug: "chapter-4-asteroids-sakai",
-      label: "Chapter 4 Asteroids Sakai Deployment",
-      installSummary: "Saved the Sakai deployment binding.",
-      launchSummary:
-        "Latest Sakai launch reached the governed runtime handoff.",
-      diagnosticSummary: "Sakai launch failed on the saved deployment path.",
-      verificationSummary:
-        "Latest internal proof passed for the saved Sakai deployment.",
-      supportedPath: "sakaiLti13LaunchAgsScore" as const,
+      slug: 'chapter-4-asteroids-sakai',
+      label: 'Chapter 4 Asteroids Sakai Deployment',
+      installSummary: 'Saved the Sakai deployment binding.',
+      launchSummary: 'Latest Sakai launch reached the governed runtime handoff.',
+      diagnosticSummary: 'Sakai launch failed on the saved deployment path.',
+      verificationSummary: 'Latest internal proof passed for the saved Sakai deployment.',
+      supportedPath: 'lti13LaunchAgsScore' as const,
     },
   ];
 
   for (const testCase of cases) {
     const html = renderDeploymentDetailPage({
-      appId: "chapter-4-asteroids",
-      appTitle: "Chapter 4 Asteroids",
+      appId: 'chapter-4-asteroids',
+      appTitle: 'Chapter 4 Asteroids',
       selectedLms: testCase.lms,
       history: [
         buildPackageVersionRecord({
           id: 1,
-          version: "0.1.0",
-          approvalStatus: "approved",
-          reviewedAt: "2026-03-23T18:05:00Z",
+          version: '0.1.0',
+          approvalStatus: 'approved',
+          reviewedAt: '2026-03-23T18:05:00Z',
         }),
       ],
       deployments: [
@@ -151,7 +145,7 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
           slug: testCase.slug,
           label: testCase.label,
           enabledPackageVersionId: 1,
-          enabledPackageVersion: "0.1.0",
+          enabledPackageVersion: '0.1.0',
           lmsType: testCase.lms,
           binding: testCase.binding,
         }),
@@ -168,22 +162,22 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
           brokerVerification: buildBrokerVerificationStatus({
             supportedPath: testCase.supportedPath,
             internal: {
-              source: "manual",
-              status: "passed",
-              checkedAt: "2026-03-24T12:50:00Z",
+              source: 'manual',
+              status: 'passed',
+              checkedAt: '2026-03-24T12:50:00Z',
               summary: testCase.verificationSummary,
-              evidenceUrl: "https://example.test/verification/internal-proof",
+              evidenceUrl: 'https://example.test/verification/internal-proof',
             },
           }),
         }),
         brokerVerification: buildBrokerVerificationStatus({
           supportedPath: testCase.supportedPath,
           internal: {
-            source: "manual",
-            status: "passed",
-            checkedAt: "2026-03-24T12:50:00Z",
+            source: 'manual',
+            status: 'passed',
+            checkedAt: '2026-03-24T12:50:00Z',
             summary: testCase.verificationSummary,
-            evidenceUrl: "https://example.test/verification/internal-proof",
+            evidenceUrl: 'https://example.test/verification/internal-proof',
           },
         }),
         latestInstallEvidence: buildDeploymentActivitySnapshot({
@@ -194,20 +188,20 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
         }),
         diagnostics: [
           buildControlPlaneDiagnosticItem({
-            kind: "launch",
-            eventType: "launch.rejected",
-            status: "failed",
+            kind: 'launch',
+            eventType: 'launch.rejected',
+            status: 'failed',
             summary: testCase.diagnosticSummary,
             operatorSummary: testCase.diagnosticSummary,
           }),
         ],
       }),
-      canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+      canvasConfigUrl: 'http://localhost:8417/lti/canvas/config.json',
       supportedCanvasEnvironments: [
         {
-          id: "production",
-          label: "Production Canvas",
-          issuer: resolveCanvasIssuer("production"),
+          id: 'production',
+          label: 'Production Canvas',
+          issuer: resolveCanvasIssuer('production'),
         },
       ],
     });
@@ -216,16 +210,12 @@ Deno.test("deployment page keeps one deployment route while rendering install, l
       html,
       `href="/admin/packages/chapter-4-asteroids/deployment?lms=${testCase.lms}#slot-panel" aria-current="page"`,
     );
-    assertStringIncludes(html, "Install evidence");
-    assertStringIncludes(html, "Latest internal verification");
+    assertStringIncludes(html, 'Install evidence');
+    assertStringIncludes(html, 'Latest internal verification');
     assertStringIncludes(html, testCase.installSummary);
     assertStringIncludes(html, testCase.launchSummary);
     assertStringIncludes(html, testCase.diagnosticSummary);
     assertStringIncludes(html, testCase.verificationSummary);
-    assertFalse(
-      html.includes(
-        `/admin/packages/chapter-4-asteroids/${testCase.lms}/deployment`,
-      ),
-    );
+    assertFalse(html.includes(`/admin/packages/chapter-4-asteroids/${testCase.lms}/deployment`));
   }
 });

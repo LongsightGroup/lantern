@@ -1,26 +1,23 @@
-import type { Pool } from "@db/postgres";
-import { withClient, withTransaction } from "./repository_core.ts";
-import {
-  mapLoginStateRow,
-  mapOptionalDeployment,
-  mapOptionalLoginState,
-} from "./repository_mappers_package.ts";
-import { DEPLOYMENT_SELECT } from "./repository_query_fragments.ts";
-import type { DeploymentRow, LoginStateRow } from "./repository_row_types.ts";
-import { isUniqueViolation } from "./repository_value_support.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+import type { Pool } from '@db/postgres';
+import { withClient, withTransaction } from './repository_core.ts';
+import { mapDeploymentRow, mapOptionalDeployment } from './repository_mappers_package.ts';
+import { DEPLOYMENT_SELECT } from './repository_query_fragments.ts';
+import type { DeploymentRow } from './repository_row_types.ts';
+import type { PackageReviewRepository } from './repository.ts';
+import { createLoginStateRepositoryMethods } from './repository_login_state_methods.ts';
 
 export function createDeploymentLoginRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | "getDeploymentBySlug"
-  | "listDeploymentsByApp"
-  | "getDeploymentByBinding"
-  | "getDeploymentByPlatformIdentity"
-  | "createLoginState"
-  | "getLoginStateByState"
-  | "consumeLoginState"
+  | 'getDeploymentBySlug'
+  | 'listDeploymentsByApp'
+  | 'getDeploymentByBinding'
+  | 'getDeploymentByPlatformIdentity'
+  | 'completePendingCanvasBinding'
+  | 'createLoginState'
+  | 'getLoginStateByState'
+  | 'consumeLoginState'
 > {
   return {
     async getDeploymentBySlug(slug) {
@@ -48,9 +45,7 @@ export function createDeploymentLoginRepositoryMethods(
           camelCase: true,
         });
 
-        return result.rows.map((row) => mapOptionalDeployment(row)).filter((
-          row,
-        ) => row !== null);
+        return result.rows.map((row) => mapOptionalDeployment(row)).filter((row) => row !== null);
       });
     },
 
@@ -64,12 +59,7 @@ export function createDeploymentLoginRepositoryMethods(
               AND deployments.client_id = $3
               AND deployments.deployment_id = $4
           `,
-          args: [
-            binding.lms,
-            binding.issuer,
-            binding.clientId,
-            binding.deploymentId,
-          ],
+          args: [binding.lms, binding.issuer, binding.clientId, binding.deploymentId],
           camelCase: true,
         });
 
@@ -87,11 +77,7 @@ export function createDeploymentLoginRepositoryMethods(
               AND deployments.deployment_id = $3
             ORDER BY deployments.lms_type ASC, deployments.id ASC
           `,
-          args: [
-            input.issuer,
-            input.clientId,
-            input.deploymentId,
-          ],
+          args: [input.issuer, input.clientId, input.deploymentId],
           camelCase: true,
         });
 
@@ -109,180 +95,77 @@ export function createDeploymentLoginRepositoryMethods(
       });
     },
 
-    async createLoginState(record) {
-      return await withClient(pool, async (client) => {
-        try {
-          const result = await client.queryObject<LoginStateRow>({
-            text: `
-              INSERT INTO lti_login_states (
-                lms_type,
-                state,
-                canvas_environment,
-                issuer,
-                client_id,
-                deployment_id,
-                nonce,
-                login_hint,
-                target_link_uri,
-                lti_message_hint,
-                created_at,
-                expires_at,
-                used_at
-              ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-              )
-              RETURNING
-                lms_type,
-                state,
-                canvas_environment,
-                issuer,
-                client_id,
-                deployment_id,
-                nonce,
-                login_hint,
-                target_link_uri,
-                lti_message_hint,
-                created_at,
-                expires_at,
-                used_at
-            `,
-            args: [
-              record.lms,
-              record.state,
-              record.canvasEnvironment,
-              record.issuer,
-              record.clientId,
-              record.deploymentId,
-              record.nonce,
-              record.loginHint,
-              record.targetLinkUri,
-              record.ltiMessageHint,
-              record.createdAt,
-              record.expiresAt,
-              record.usedAt,
-            ],
-            camelCase: true,
-          });
-
-          return mapLoginStateRow(result.rows[0]);
-        } catch (error) {
-          if (isUniqueViolation(error)) {
-            throw new Error(
-              `Login state ${record.state} already exists and cannot be reused.`,
-            );
-          }
-
-          throw error;
-        }
-      });
-    },
-
-    async getLoginStateByState(state) {
-      return await withClient(pool, async (client) => {
-        const result = await client.queryObject<LoginStateRow>({
-          text: `
-            SELECT
-              lms_type,
-              state,
-              canvas_environment,
-              issuer,
-              client_id,
-              deployment_id,
-              nonce,
-              login_hint,
-              target_link_uri,
-              lti_message_hint,
-              created_at,
-              expires_at,
-              used_at
-            FROM lti_login_states
-            WHERE state = $1
-          `,
-          args: [state],
-          camelCase: true,
-        });
-
-        return mapOptionalLoginState(result.rows[0]);
-      });
-    },
-
-    async consumeLoginState(input) {
+    async completePendingCanvasBinding(input) {
       return await withClient(pool, async (client) => {
         return await withTransaction(
           client,
-          "consume_login_state",
+          'complete_pending_canvas_binding',
           async (transaction) => {
-            const updated = await transaction.queryObject<LoginStateRow>({
+            const exactMatch = await transaction.queryObject<DeploymentRow>({
               text: `
-                UPDATE lti_login_states
-                SET used_at = $2
-                WHERE state = $1
-                  AND used_at IS NULL
-                RETURNING
-                  lms_type,
-                  state,
-                  canvas_environment,
-                  issuer,
-                  client_id,
-                  deployment_id,
-                  nonce,
-                  login_hint,
-                  target_link_uri,
-                  lti_message_hint,
-                  created_at,
-                  expires_at,
-                  used_at
+                ${DEPLOYMENT_SELECT}
+                WHERE deployments.lms_type = 'canvas'
+                  AND deployments.issuer = $1
+                  AND deployments.client_id = $2
+                  AND deployments.deployment_id = $3
+                ORDER BY deployments.id ASC
               `,
-              args: [input.state, input.usedAt],
+              args: [input.issuer, input.clientId, input.deploymentId],
               camelCase: true,
             });
 
-            const consumed = updated.rows[0];
-
-            if (consumed) {
-              return mapLoginStateRow(consumed);
+            if (exactMatch.rows[0]) {
+              return mapDeploymentRow(exactMatch.rows[0]);
             }
 
-            const existing = await transaction.queryObject<LoginStateRow>({
+            const pendingResult = await transaction.queryObject<DeploymentRow>({
               text: `
-                SELECT
-                  lms_type,
-                  state,
-                  canvas_environment,
-                  issuer,
-                  client_id,
-                  deployment_id,
-                  nonce,
-                  login_hint,
-                  target_link_uri,
-                  lti_message_hint,
-                  created_at,
-                  expires_at,
-                  used_at
-                FROM lti_login_states
-                WHERE state = $1
+                ${DEPLOYMENT_SELECT}
+                WHERE deployments.lms_type = 'canvas'
+                  AND deployments.issuer = $1
+                  AND deployments.client_id = $2
+                  AND deployments.deployment_id IS NULL
+                ORDER BY deployments.id ASC
+                FOR UPDATE OF deployments
               `,
-              args: [input.state],
+              args: [input.issuer, input.clientId],
               camelCase: true,
             });
-            const row = existing.rows[0];
 
-            if (!row) {
-              throw new Error(`Login state ${input.state} was not found.`);
+            if (pendingResult.rows.length === 0) {
+              return null;
             }
 
-            if (row.usedAt !== null) {
+            if (pendingResult.rows.length > 1) {
               throw new Error(
-                `Login state ${input.state} has already been used.`,
+                `Multiple Canvas registrations matched issuer ${input.issuer} with client ${input.clientId}. Resolve the duplicate Canvas registrations before login can continue.`,
               );
             }
 
-            throw new Error(
-              `Login state ${input.state} could not be consumed.`,
+            await transaction.queryArray(
+              `
+                UPDATE deployments
+                SET deployment_id = $2,
+                    updated_at = now()
+                WHERE id = $1
+              `,
+              [pendingResult.rows[0]?.id, input.deploymentId],
             );
+
+            const updated = await transaction.queryObject<DeploymentRow>({
+              text: `
+                ${DEPLOYMENT_SELECT}
+                WHERE deployments.id = $1
+              `,
+              args: [pendingResult.rows[0]?.id],
+              camelCase: true,
+            });
+
+            return mapOptionalDeployment(updated.rows[0]);
           },
         );
       });
     },
+    ...createLoginStateRepositoryMethods(pool),
   };
 }

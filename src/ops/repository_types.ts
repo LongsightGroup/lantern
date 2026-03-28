@@ -4,8 +4,8 @@ import type {
   AuditEventStatus,
   GradePublicationStatus,
   PlacementAuditSnapshot,
-} from "../package_review/types.ts";
-import type { LmsType } from "../lti/types.ts";
+} from '../package_review/types.ts';
+import type { LmsType } from '../lti/types.ts';
 import type {
   BrokerVerificationRunStatus,
   BrokerVerificationSource,
@@ -16,7 +16,7 @@ import type {
   DeploymentGradePublicationSnapshot,
   OfficialCertificationState,
   RetryableGradePublicationLookup,
-} from "./types.ts";
+} from './types.ts';
 
 export interface InventoryQueryRow {
   deploymentId: number;
@@ -34,33 +34,27 @@ export interface InventoryQueryRow {
   installEvidenceSummary: string | null;
   installEvidenceDetail: Record<string, unknown> | null;
   installEvidenceOccurredAt: Date | string | null;
-  internalBrokerVerificationScope:
-    | BrokerVerificationStatus["supportedPath"]
-    | null;
+  internalBrokerVerificationScope: BrokerVerificationStatus['supportedPath'] | null;
   internalBrokerVerificationSource: BrokerVerificationSource | null;
   internalBrokerVerificationStatus: BrokerVerificationRunStatus | null;
   internalBrokerVerificationSummary: string | null;
   internalBrokerVerificationDetailUrl: string | null;
   internalBrokerVerificationCheckedAt: Date | string | null;
-  officialBrokerVerificationScope:
-    | BrokerVerificationStatus["supportedPath"]
-    | null;
+  officialBrokerVerificationScope: BrokerVerificationStatus['supportedPath'] | null;
   officialBrokerVerificationStatus: PersistedBrokerVerificationRunStatus | null;
-  officialBrokerVerificationCertificationState:
-    | Exclude<OfficialCertificationState, "notCertified">
-    | null;
+  officialBrokerVerificationCertificationState: Exclude<
+    OfficialCertificationState,
+    'notCertified'
+  > | null;
   officialBrokerVerificationDetailUrl: string | null;
   officialBrokerVerificationCheckedAt: Date | string | null;
   bindingCanvasEnvironment: string | null;
   bindingIssuer: string | null;
   bindingClientId: string | null;
   bindingDeploymentId: string | null;
-  bindingMoodleAuthenticationRequestUrl: string | null;
-  bindingMoodleAccessTokenUrl: string | null;
-  bindingMoodleJwksUrl: string | null;
-  bindingSakaiOidcAuthenticationUrl: string | null;
-  bindingSakaiAccessTokenUrl: string | null;
-  bindingSakaiJwksUrl: string | null;
+  bindingAuthorizationEndpoint: string | null;
+  bindingAccessTokenUrl: string | null;
+  bindingJwksUrl: string | null;
   updatedAt: Date | string;
   lastLaunchAt: Date | string | null;
   lastLaunchStatus: ControlPlaneActivityStatus | null;
@@ -91,11 +85,11 @@ export interface GradePublicationSnapshotRow {
   attemptId: string;
   status: GradePublicationStatus;
   lineItemUrl: string;
-  canvasUserId: string;
+  platformUserId: string;
   scoreGiven: number | string;
   scoreMaximum: number | string;
-  activityProgress: DeploymentGradePublicationSnapshot["activityProgress"];
-  gradingProgress: DeploymentGradePublicationSnapshot["gradingProgress"];
+  activityProgress: DeploymentGradePublicationSnapshot['activityProgress'];
+  gradingProgress: DeploymentGradePublicationSnapshot['gradingProgress'];
   publishedAt: Date | string | null;
   updatedAt: Date | string;
   errorCode: string | null;
@@ -114,25 +108,21 @@ export interface DiagnosticRow {
   occurredAt: Date | string;
 }
 
-export type PersistedBrokerVerificationRunStatus =
-  | BrokerVerificationRunStatus
-  | "notCertified";
+export type PersistedBrokerVerificationRunStatus = BrokerVerificationRunStatus | 'notCertified';
 
 export interface RecordBrokerVerificationRunInput {
   deploymentRecordId: number | null;
   source: BrokerVerificationSource;
-  scope: BrokerVerificationStatus["supportedPath"];
+  scope: BrokerVerificationStatus['supportedPath'];
   status: PersistedBrokerVerificationRunStatus;
-  certificationState:
-    | Exclude<OfficialCertificationState, "notCertified">
-    | null;
+  certificationState: Exclude<OfficialCertificationState, 'notCertified'> | null;
   summary: string;
   detailUrl: string | null;
   checkedAt: string;
 }
 
 export interface InternalBrokerVerificationRow {
-  scope: BrokerVerificationStatus["supportedPath"];
+  scope: BrokerVerificationStatus['supportedPath'];
   source: BrokerVerificationSource;
   status: BrokerVerificationRunStatus;
   summary: string;
@@ -141,11 +131,9 @@ export interface InternalBrokerVerificationRow {
 }
 
 export interface OfficialBrokerVerificationRow {
-  scope: BrokerVerificationStatus["supportedPath"];
+  scope: BrokerVerificationStatus['supportedPath'];
   status: PersistedBrokerVerificationRunStatus;
-  certificationState:
-    | Exclude<OfficialCertificationState, "notCertified">
-    | null;
+  certificationState: Exclude<OfficialCertificationState, 'notCertified'> | null;
   detailUrl: string | null;
   checkedAt: Date | string;
 }
@@ -156,11 +144,11 @@ export interface RetryLookupRow {
   deploymentSlug: string;
   publicationStatus: GradePublicationStatus;
   lineItemUrl: string;
-  canvasUserId: string;
+  platformUserId: string;
   scoreGiven: number | string;
   scoreMaximum: number | string;
-  activityProgress: DeploymentGradePublicationSnapshot["activityProgress"];
-  gradingProgress: DeploymentGradePublicationSnapshot["gradingProgress"];
+  activityProgress: DeploymentGradePublicationSnapshot['activityProgress'];
+  gradingProgress: DeploymentGradePublicationSnapshot['gradingProgress'];
   publishedAt: Date | string | null;
   updatedAt: Date | string;
   errorCode: string | null;
@@ -192,13 +180,9 @@ export interface OpsRepository {
   ): Promise<ControlPlaneDeploymentDetailSnapshot | null>;
   getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
   getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
-  recordBrokerVerificationRun(
-    input: RecordBrokerVerificationRunInput,
-  ): Promise<void>;
+  recordBrokerVerificationRun(input: RecordBrokerVerificationRunInput): Promise<void>;
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
-  getPlacementAuditSnapshot(
-    placementId: string,
-  ): Promise<PlacementAuditSnapshot>;
+  getPlacementAuditSnapshot(placementId: string): Promise<PlacementAuditSnapshot>;
 }

@@ -51,7 +51,7 @@ Deno.test('POST /runtime/sessions/:id/finalize finalizes the durable attempt and
         },
       }),
     ],
-    runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2026-03-26T02:45:00Z' })],
+    runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2099-03-26T02:45:00Z' })],
   });
   const app = createApp({ getRepository: () => repository });
 
@@ -180,7 +180,7 @@ Deno.test('POST /runtime/sessions/:id/finalize records a failed grade publish wh
         },
       }),
     ],
-    runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2026-03-26T02:45:00Z' })],
+    runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2099-03-26T02:45:00Z' })],
   });
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());

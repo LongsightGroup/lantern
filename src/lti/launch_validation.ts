@@ -1,5 +1,5 @@
-import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from "jose";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
+import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from 'jose';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
 import {
   optionalRecordClaim,
   optionalStringClaim,
@@ -8,8 +8,8 @@ import {
   requireTrimmedValue,
   resolveUserRole,
   validateLtiAudience,
-} from "./claim_support.ts";
-import { parseLaunchServiceClaims } from "./launch_service_claims.ts";
+} from './claim_support.ts';
+import { parseLaunchServiceClaims } from './launch_service_claims.ts';
 import {
   assertSupportedLaunchMessageType,
   assertSupportedLaunchVersion,
@@ -20,26 +20,21 @@ import {
   rejectLoginStateUsed,
   rejectSignatureValidationFailed,
   requireBaselineStringClaim,
-} from "./launch_support_matrix.ts";
-import { resolveLaunchTarget } from "./launch_target_resolution.ts";
-import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
-import { createOpaqueToken, loadJwks } from "./token_support.ts";
-import type { ValidatedLaunch } from "./types.ts";
+} from './launch_support_matrix.ts';
+import { resolveLaunchTarget } from './launch_target_resolution.ts';
+import { formatLmsLabel, resolveBindingJwksUrl } from './platform_binding.ts';
+import { createOpaqueToken, loadJwks } from './token_support.ts';
+import type { ValidatedLaunch } from './types.ts';
 
-const CLAIM_MESSAGE_TYPE =
-  "https://purl.imsglobal.org/spec/lti/claim/message_type";
-const CLAIM_VERSION = "https://purl.imsglobal.org/spec/lti/claim/version";
-const CLAIM_DEPLOYMENT_ID =
-  "https://purl.imsglobal.org/spec/lti/claim/deployment_id";
-const CLAIM_TARGET_LINK_URI =
-  "https://purl.imsglobal.org/spec/lti/claim/target_link_uri";
-const CLAIM_RESOURCE_LINK =
-  "https://purl.imsglobal.org/spec/lti/claim/resource_link";
-const CLAIM_CONTEXT = "https://purl.imsglobal.org/spec/lti/claim/context";
-const CLAIM_CUSTOM = "https://purl.imsglobal.org/spec/lti/claim/custom";
-const CLAIM_ROLES = "https://purl.imsglobal.org/spec/lti/claim/roles";
-const CLAIM_LAUNCH_PRESENTATION =
-  "https://purl.imsglobal.org/spec/lti/claim/launch_presentation";
+const CLAIM_MESSAGE_TYPE = 'https://purl.imsglobal.org/spec/lti/claim/message_type';
+const CLAIM_VERSION = 'https://purl.imsglobal.org/spec/lti/claim/version';
+const CLAIM_DEPLOYMENT_ID = 'https://purl.imsglobal.org/spec/lti/claim/deployment_id';
+const CLAIM_TARGET_LINK_URI = 'https://purl.imsglobal.org/spec/lti/claim/target_link_uri';
+const CLAIM_RESOURCE_LINK = 'https://purl.imsglobal.org/spec/lti/claim/resource_link';
+const CLAIM_CONTEXT = 'https://purl.imsglobal.org/spec/lti/claim/context';
+const CLAIM_CUSTOM = 'https://purl.imsglobal.org/spec/lti/claim/custom';
+const CLAIM_ROLES = 'https://purl.imsglobal.org/spec/lti/claim/roles';
+const CLAIM_LAUNCH_PRESENTATION = 'https://purl.imsglobal.org/spec/lti/claim/launch_presentation';
 
 export async function validateLaunchRequest(input: {
   repository: PackageReviewRepository;
@@ -52,11 +47,8 @@ export async function validateLaunchRequest(input: {
   const now = input.now ?? (() => new Date());
   const nextOpaqueToken = input.createOpaqueToken ?? createOpaqueToken;
   const loadLaunchJwks = input.loadJwks ?? loadJwks;
-  const state = requireTrimmedValue(input.state, "Launch state is required.");
-  const idToken = requireTrimmedValue(
-    input.idToken,
-    "Launch id_token is required.",
-  );
+  const state = requireTrimmedValue(input.state, 'Launch state is required.');
+  const idToken = requireTrimmedValue(input.idToken, 'Launch id_token is required.');
   const loginState = await input.repository.getLoginStateByState(state);
 
   if (!loginState) {
@@ -88,7 +80,7 @@ export async function validateLaunchRequest(input: {
   }
 
   const jwks = await loadLaunchJwks(resolveBindingJwksUrl(deployment.binding));
-  let payload: Awaited<ReturnType<typeof jwtVerify>>["payload"];
+  let payload: Awaited<ReturnType<typeof jwtVerify>>['payload'];
 
   try {
     const verified = await jwtVerify(idToken, createLocalJWKSet(jwks), {
@@ -106,45 +98,42 @@ export async function validateLaunchRequest(input: {
     aud: payload.aud,
     azp: payload.azp,
     clientId: loginState.clientId,
-    subject: "Launch",
+    subject: 'Launch',
   });
 
   const deploymentId = requireStringClaim(
     payload[CLAIM_DEPLOYMENT_ID],
-    "Launch deployment_id is required.",
+    'Launch deployment_id is required.',
   );
   const targetLinkUri = requireStringClaim(
     payload[CLAIM_TARGET_LINK_URI],
-    "Launch target_link_uri is required.",
+    'Launch target_link_uri is required.',
   );
-  const nonce = requireStringClaim(payload.nonce, "Launch nonce is required.");
+  const nonce = requireStringClaim(payload.nonce, 'Launch nonce is required.');
   const messageType = requireStringClaim(
     payload[CLAIM_MESSAGE_TYPE],
-    "Launch message_type is required.",
+    'Launch message_type is required.',
   );
-  const version = requireStringClaim(
-    payload[CLAIM_VERSION],
-    "Launch LTI version is required.",
-  );
+  const version = requireStringClaim(payload[CLAIM_VERSION], 'Launch LTI version is required.');
 
   if (deploymentId !== loginState.deploymentId) {
     rejectDeploymentMismatch({
-      field: "deployment_id",
-      target: "saved login state",
+      field: 'deployment_id',
+      target: 'saved login state',
     });
   }
 
   if (targetLinkUri !== loginState.targetLinkUri) {
     rejectDeploymentMismatch({
-      field: "target_link_uri",
-      target: "saved login state",
+      field: 'target_link_uri',
+      target: 'saved login state',
     });
   }
 
   if (nonce !== loginState.nonce) {
     rejectDeploymentMismatch({
-      field: "nonce",
-      target: "saved login state",
+      field: 'nonce',
+      target: 'saved login state',
     });
   }
 
@@ -153,21 +142,21 @@ export async function validateLaunchRequest(input: {
 
   if (deploymentId !== deployment.binding.deploymentId) {
     rejectDeploymentMismatch({
-      field: "deployment_id",
+      field: 'deployment_id',
       target: `saved ${deployment.binding.lms} deployment binding`,
     });
   }
 
   const resourceLink = requireRecordClaim(
     payload[CLAIM_RESOURCE_LINK],
-    "Launch resource_link claim is required.",
+    'Launch resource_link claim is required.',
   );
   const resourceLinkId = requireStringClaim(
     resourceLink.id,
-    "Launch resource_link.id is required.",
+    'Launch resource_link.id is required.',
   );
   const context = readClaimRecord(payload[CLAIM_CONTEXT]);
-  const contextId = requireBaselineStringClaim(context?.id, "context.id");
+  const contextId = requireBaselineStringClaim(context?.id, 'context.id');
   const resolvedLaunch = await resolveLaunchTarget({
     repository: input.repository,
     deployment,
@@ -182,9 +171,9 @@ export async function validateLaunchRequest(input: {
   });
   const launchPresentation = optionalRecordClaim(
     payload[CLAIM_LAUNCH_PRESENTATION],
-    "Launch launch_presentation claim must be an object when provided.",
+    'Launch launch_presentation claim must be an object when provided.',
   );
-  const userId = requireStringClaim(payload.sub, "Launch subject is required.");
+  const userId = requireStringClaim(payload.sub, 'Launch subject is required.');
 
   return {
     lms: deployment.binding.lms,
@@ -214,7 +203,7 @@ export async function validateLaunchRequest(input: {
 }
 
 function readClaimRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null;
   }
 

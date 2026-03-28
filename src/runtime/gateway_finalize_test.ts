@@ -57,7 +57,7 @@ Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubr
     ],
   });
   const session = buildRuntimeSessionRecord({
-    expiresAt: '2026-03-26T02:45:00Z',
+    expiresAt: '2099-03-26T02:45:00Z',
   });
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
@@ -174,7 +174,7 @@ Deno.test('runtime gateway keeps the AGS line-item resource id aligned with the 
       assignmentId: 'assignment-9',
       activityId: '/content/bonus.json',
     },
-    expiresAt: '2026-03-26T02:45:00Z',
+    expiresAt: '2099-03-26T02:45:00Z',
   });
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());

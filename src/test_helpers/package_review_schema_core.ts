@@ -43,12 +43,9 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
   `
     ALTER TABLE deployments
       ADD COLUMN IF NOT EXISTS lms_type text,
-      ADD COLUMN IF NOT EXISTS moodle_authentication_request_url text,
-      ADD COLUMN IF NOT EXISTS moodle_access_token_url text,
-      ADD COLUMN IF NOT EXISTS moodle_jwks_url text,
-      ADD COLUMN IF NOT EXISTS sakai_oidc_authentication_url text,
-      ADD COLUMN IF NOT EXISTS sakai_access_token_url text,
-      ADD COLUMN IF NOT EXISTS sakai_jwks_url text
+      ADD COLUMN IF NOT EXISTS authorization_endpoint text,
+      ADD COLUMN IF NOT EXISTS access_token_url text,
+      ADD COLUMN IF NOT EXISTS jwks_url text
   `,
   `
     UPDATE deployments

@@ -191,30 +191,27 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
       state.auditEvents.push(nextRecord);
 
       if (
-        nextRecord.eventType === "deployment.ags_smoke_verified" &&
+        nextRecord.eventType === 'deployment.ags_smoke_verified' &&
         nextRecord.deploymentRecordId !== null
       ) {
-        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails
-          .map((detail) =>
-            detail.inventory.deploymentId === nextRecord.deploymentRecordId
-              ? {
+        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
+          detail.inventory.deploymentId === nextRecord.deploymentRecordId
+            ? {
                 ...detail,
                 latestAgsSmoke: {
-                  status: nextRecord.status === "succeeded"
-                    ? "succeeded"
-                    : "failed",
+                  status: nextRecord.status === 'succeeded' ? 'succeeded' : 'failed',
                   occurredAt: nextRecord.occurredAt,
                   summary: nextRecord.summary,
                   attemptId: nextRecord.attemptId,
                   contextId:
-                    typeof nextRecord.detail.contextId === "string"
+                    typeof nextRecord.detail.contextId === 'string'
                       ? nextRecord.detail.contextId
                       : null,
                   detail: cloneRecord(nextRecord.detail),
                 },
               }
-              : detail
-          );
+            : detail,
+        );
       }
 
       return Promise.resolve(cloneRecord(nextRecord));

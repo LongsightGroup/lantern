@@ -1,0 +1,2 @@
+examples/apps/**/dist/
+.playwright-cli/

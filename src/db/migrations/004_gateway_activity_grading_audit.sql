@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS attempt_events (
   UNIQUE (attempt_id, sequence)
 );
 
-CREATE TABLE IF NOT EXISTS canvas_line_item_bindings (
+CREATE TABLE IF NOT EXISTS line_item_bindings (
   id bigserial PRIMARY KEY,
   deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
   package_version_id bigint NOT NULL REFERENCES package_versions (id),
@@ -90,9 +90,9 @@ CREATE TABLE IF NOT EXISTS canvas_line_item_bindings (
 CREATE TABLE IF NOT EXISTS grade_publications (
   id bigserial PRIMARY KEY,
   attempt_id text NOT NULL REFERENCES attempts (attempt_id) ON DELETE CASCADE,
-  line_item_binding_id bigint NOT NULL REFERENCES canvas_line_item_bindings (id) ON DELETE CASCADE,
+  line_item_binding_id bigint NOT NULL REFERENCES line_item_bindings (id) ON DELETE CASCADE,
   line_item_url text NOT NULL,
-  canvas_user_id text NOT NULL,
+  platform_user_id text NOT NULL,
   score_given numeric NOT NULL,
   score_maximum numeric NOT NULL,
   activity_progress text NOT NULL CHECK (
@@ -118,7 +118,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
   deployment_record_id bigint REFERENCES deployments (id) ON DELETE SET NULL,
   package_version_id bigint REFERENCES package_versions (id) ON DELETE SET NULL,
   attempt_id text REFERENCES attempts (attempt_id) ON DELETE SET NULL,
-  line_item_binding_id bigint REFERENCES canvas_line_item_bindings (id) ON DELETE SET NULL,
+  line_item_binding_id bigint REFERENCES line_item_bindings (id) ON DELETE SET NULL,
   status text NOT NULL CHECK (status IN ('accepted', 'succeeded', 'failed')),
   summary text NOT NULL,
   detail jsonb NOT NULL,

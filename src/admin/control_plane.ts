@@ -1,21 +1,15 @@
-import type {
-  BrokerVerificationStatus,
-  ControlPlaneDeploymentInventoryRow,
-} from "../ops/types.ts";
-import {
-  aggregatePilotUsage,
-  resolveOfficialBrokerVerification,
-} from "./control_plane_support.ts";
+import type { BrokerVerificationStatus, ControlPlaneDeploymentInventoryRow } from '../ops/types.ts';
+import { aggregatePilotUsage, resolveOfficialBrokerVerification } from './control_plane_support.ts';
 import {
   renderDeploymentInventorySection,
   renderInventorySummarySection,
   renderPilotUsageSection,
-} from "./control_plane_sections.ts";
+} from './control_plane_sections.ts';
 import {
   renderBrokerVerificationSection,
   renderVerificationUpdateSection,
-} from "./control_plane_verification_sections.ts";
-import { type AdminNotice, renderAdminLayout } from "./layout.ts";
+} from './control_plane_verification_sections.ts';
+import { type AdminNotice, renderAdminLayout } from './layout.ts';
 
 export function renderDeploymentsPage(input: {
   deployments: ControlPlaneDeploymentInventoryRow[];
@@ -24,12 +18,12 @@ export function renderDeploymentsPage(input: {
   const aggregateUsage = aggregatePilotUsage(input.deployments);
 
   return renderAdminLayout({
-    title: "Lantern Admin Deployments",
-    eyebrow: "Deployments",
-    heading: "Deployments",
+    title: 'Lantern Admin Deployments',
+    eyebrow: 'Deployments',
+    heading: 'Deployments',
     intro:
-      "See each governed deployment, its current health, and the latest pilot evidence without mixing that work into the package library.",
-    activePath: "/admin/deployments",
+      'See each governed deployment, its current health, and the latest pilot evidence without mixing that work into the package library.',
+    activePath: '/admin/deployments',
     notice: input.notice ?? null,
     body: `${renderInventorySummarySection(input.deployments)}
     ${renderPilotUsageSection(aggregateUsage)}
@@ -47,19 +41,17 @@ export function renderVerificationPage(input: {
   );
 
   return renderAdminLayout({
-    title: "Lantern Admin Verification",
-    eyebrow: "Verification",
-    heading: "Verification",
+    title: 'Lantern Admin Verification',
+    eyebrow: 'Verification',
+    heading: 'Verification',
     intro:
-      "Review deployment-scoped broker proof for each saved deployment. Record internal checks and official 1EdTech evidence without merging them into one global status.",
-    activePath: "/admin/verification",
+      'Review deployment-scoped broker proof for each saved deployment. Record internal checks and official 1EdTech evidence without merging them into one global status.',
+    activePath: '/admin/verification',
     notice: input.notice ?? null,
-    body: `${
-      renderBrokerVerificationSection({
-        deployments: input.deployments,
-        latestOfficialBrokerVerification,
-      })
-    }
+    body: `${renderBrokerVerificationSection({
+      deployments: input.deployments,
+      latestOfficialBrokerVerification,
+    })}
     ${renderVerificationUpdateSection(input.deployments)}`,
   });
 }

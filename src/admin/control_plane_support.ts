@@ -2,35 +2,28 @@ import type {
   BrokerVerificationStatus,
   ControlPlaneDeploymentInventoryRow,
   OfficialCertificationState,
-} from "../ops/types.ts";
-import { formatDateTime } from "./layout.ts";
+} from '../ops/types.ts';
+export {
+  describeSupportedPath,
+  resolveSupportedPathForDeployment,
+} from '../ops/broker_verification_paths.ts';
+import { formatDateTime } from './layout.ts';
 
-export function aggregatePilotUsage(
-  deployments: ControlPlaneDeploymentInventoryRow[],
-) {
-  return deployments.reduce<ControlPlaneDeploymentInventoryRow["pilotUsage"]>(
+export function aggregatePilotUsage(deployments: ControlPlaneDeploymentInventoryRow[]) {
+  return deployments.reduce<ControlPlaneDeploymentInventoryRow['pilotUsage']>(
     (summary, deployment) => ({
       deploymentRecordId: 0,
-      totalLaunches: summary.totalLaunches +
-        deployment.pilotUsage.totalLaunches,
-      attemptsStarted: summary.attemptsStarted +
-        deployment.pilotUsage.attemptsStarted,
-      attemptsCompleted: summary.attemptsCompleted +
-        deployment.pilotUsage.attemptsCompleted,
-      gradePublishesSucceeded: summary.gradePublishesSucceeded +
-        deployment.pilotUsage.gradePublishesSucceeded,
-      gradePublishesFailed: summary.gradePublishesFailed +
-        deployment.pilotUsage.gradePublishesFailed,
-      recentActiveUsers: summary.recentActiveUsers +
-        deployment.pilotUsage.recentActiveUsers,
-      lastLaunchAt: pickLatestTimestamp(
-        summary.lastLaunchAt,
-        deployment.pilotUsage.lastLaunchAt,
-      ),
-      measuredAt: pickLatestTimestamp(
-        summary.measuredAt,
-        deployment.pilotUsage.measuredAt,
-      ) ??
+      totalLaunches: summary.totalLaunches + deployment.pilotUsage.totalLaunches,
+      attemptsStarted: summary.attemptsStarted + deployment.pilotUsage.attemptsStarted,
+      attemptsCompleted: summary.attemptsCompleted + deployment.pilotUsage.attemptsCompleted,
+      gradePublishesSucceeded:
+        summary.gradePublishesSucceeded + deployment.pilotUsage.gradePublishesSucceeded,
+      gradePublishesFailed:
+        summary.gradePublishesFailed + deployment.pilotUsage.gradePublishesFailed,
+      recentActiveUsers: summary.recentActiveUsers + deployment.pilotUsage.recentActiveUsers,
+      lastLaunchAt: pickLatestTimestamp(summary.lastLaunchAt, deployment.pilotUsage.lastLaunchAt),
+      measuredAt:
+        pickLatestTimestamp(summary.measuredAt, deployment.pilotUsage.measuredAt) ??
         new Date().toISOString(),
     }),
     {
@@ -61,166 +54,121 @@ export function resolveOfficialBrokerVerification(
   };
 }
 
-export function describeSupportedPath(
-  supportedPath: BrokerVerificationStatus["supportedPath"],
-): string {
-  switch (supportedPath) {
-    case "canvasLti13LaunchAgsNrps":
-      return "Canvas LTI 1.3 launch, AGS, and NRPS";
-    case "moodleLti13LaunchAgsScore":
-      return "Moodle LTI 1.3 launch and AGS score publish";
-    case "sakaiLti13LaunchAgsScore":
-      return "Sakai LTI 1.3 launch and AGS score publish";
-  }
-}
-
-export function resolveSupportedPathForDeployment(
-  deployment: ControlPlaneDeploymentInventoryRow,
-): BrokerVerificationStatus["supportedPath"] | null {
-  if (deployment.brokerVerification !== null) {
-    return deployment.brokerVerification.supportedPath;
-  }
-
-  switch (deployment.binding?.lms ?? null) {
-    case "canvas":
-      return "canvasLti13LaunchAgsNrps";
-    case "moodle":
-      return "moodleLti13LaunchAgsScore";
-    case "sakai":
-      return "sakaiLti13LaunchAgsScore";
-    case null:
-      return null;
-  }
-}
-
 export function describeBrokerRunStatus(
-  status: "passed" | "failed" | "pending" | "notRun",
+  status: 'passed' | 'failed' | 'pending' | 'notRun',
 ): string {
   switch (status) {
-    case "passed":
-      return "Passed";
-    case "failed":
-      return "Failed";
-    case "pending":
-      return "Pending";
-    case "notRun":
-      return "Not run";
+    case 'passed':
+      return 'Passed';
+    case 'failed':
+      return 'Failed';
+    case 'pending':
+      return 'Pending';
+    case 'notRun':
+      return 'Not run';
   }
 }
 
-export function describeOfficialCertificationState(
-  state: OfficialCertificationState,
-): string {
+export function describeOfficialCertificationState(state: OfficialCertificationState): string {
   switch (state) {
-    case "notCertified":
-      return "Not certified";
-    case "ltiAdvantageCertified":
-      return "LTI Advantage Certified";
-    case "ltiAdvantageComplete":
-      return "LTI Advantage Complete";
+    case 'notCertified':
+      return 'Not certified';
+    case 'ltiAdvantageCertified':
+      return 'LTI Advantage Certified';
+    case 'ltiAdvantageComplete':
+      return 'LTI Advantage Complete';
   }
 }
 
-export function describeEnablementState(
-  deployment: ControlPlaneDeploymentInventoryRow,
-): string {
-  if (
-    deployment.enabledPackageVersionId !== null && deployment.binding !== null
-  ) {
-    return "Launch-ready";
+export function describeEnablementState(deployment: ControlPlaneDeploymentInventoryRow): string {
+  if (deployment.enabledPackageVersionId !== null && deployment.binding !== null) {
+    return 'Launch-ready';
   }
 
   if (deployment.enabledPackageVersionId !== null) {
-    return "Version pinned, binding missing";
+    return 'Version pinned, binding missing';
   }
 
   if (deployment.binding !== null) {
-    return "Binding saved, version missing";
+    return 'Binding saved, version missing';
   }
 
-  return "Needs configuration";
+  return 'Needs configuration';
 }
 
 export function describeActivitySnapshot(
-  status: ControlPlaneDeploymentInventoryRow["lastLaunchStatus"],
+  status: ControlPlaneDeploymentInventoryRow['lastLaunchStatus'],
   occurredAt: string | null,
 ): string {
   if (status === null || occurredAt === null) {
-    return "Not recorded yet";
+    return 'Not recorded yet';
   }
 
   return `${describeActivityStatus(status)} at ${formatDateTime(occurredAt)}`;
 }
 
 export function describeGradePublicationSnapshot(
-  status: ControlPlaneDeploymentInventoryRow["lastGradePublishStatus"],
+  status: ControlPlaneDeploymentInventoryRow['lastGradePublishStatus'],
   occurredAt: string | null,
 ): string {
   if (status === null || occurredAt === null) {
-    return "Not recorded yet";
+    return 'Not recorded yet';
   }
 
-  return `${describeGradePublicationStatus(status)} at ${
-    formatDateTime(occurredAt)
-  }`;
+  return `${describeGradePublicationStatus(status)} at ${formatDateTime(occurredAt)}`;
 }
 
-export function describeFollowUp(
-  deployment: ControlPlaneDeploymentInventoryRow,
-): string {
-  if (deployment.lastGradePublishStatus === "failed") {
-    return "Retry required";
+export function describeFollowUp(deployment: ControlPlaneDeploymentInventoryRow): string {
+  if (deployment.lastGradePublishStatus === 'failed') {
+    return 'Retry required';
   }
 
-  if (deployment.health.overallStatus === "healthy") {
-    return "None right now";
+  if (deployment.health.overallStatus === 'healthy') {
+    return 'None right now';
   }
 
-  if (deployment.health.overallStatus === "failed") {
-    return "Blocked";
+  if (deployment.health.overallStatus === 'failed') {
+    return 'Blocked';
   }
 
-  if (deployment.health.overallStatus === "attention") {
-    return "Operator review";
+  if (deployment.health.overallStatus === 'attention') {
+    return 'Operator review';
   }
 
-  return "Awaiting evidence";
+  return 'Awaiting evidence';
 }
 
 export function healthStatusClass(
-  status: ControlPlaneDeploymentInventoryRow["health"]["overallStatus"],
+  status: ControlPlaneDeploymentInventoryRow['health']['overallStatus'],
 ): string {
   switch (status) {
-    case "healthy":
-      return "status-badge status-approved";
-    case "attention":
-      return "status-badge status-pending";
-    case "failed":
-      return "status-badge status-rejected";
-    case "unknown":
-      return "status-badge status-pending";
+    case 'healthy':
+      return 'status-badge status-approved';
+    case 'attention':
+      return 'status-badge status-pending';
+    case 'failed':
+      return 'status-badge status-rejected';
+    case 'unknown':
+      return 'status-badge status-pending';
   }
 }
 
 export function describeHealthLabel(
-  status: ControlPlaneDeploymentInventoryRow["health"]["overallStatus"],
+  status: ControlPlaneDeploymentInventoryRow['health']['overallStatus'],
 ): string {
   switch (status) {
-    case "healthy":
-      return "Healthy";
-    case "attention":
-      return "Needs attention";
-    case "failed":
-      return "Blocked";
-    case "unknown":
-      return "Not recorded";
+    case 'healthy':
+      return 'Healthy';
+    case 'attention':
+      return 'Needs attention';
+    case 'failed':
+      return 'Blocked';
+    case 'unknown':
+      return 'Not recorded';
   }
 }
 
-function pickLatestTimestamp(
-  left: string | null,
-  right: string | null,
-): string | null {
+function pickLatestTimestamp(left: string | null, right: string | null): string | null {
   if (left === null) {
     return right;
   }
@@ -233,31 +181,29 @@ function pickLatestTimestamp(
 }
 
 function describeActivityStatus(
-  status: NonNullable<ControlPlaneDeploymentInventoryRow["lastLaunchStatus"]>,
+  status: NonNullable<ControlPlaneDeploymentInventoryRow['lastLaunchStatus']>,
 ): string {
   switch (status) {
-    case "succeeded":
-      return "Succeeded";
-    case "failed":
-      return "Failed";
-    case "pending":
-      return "Pending";
-    case "notRun":
-      return "Not run";
+    case 'succeeded':
+      return 'Succeeded';
+    case 'failed':
+      return 'Failed';
+    case 'pending':
+      return 'Pending';
+    case 'notRun':
+      return 'Not run';
   }
 }
 
 function describeGradePublicationStatus(
-  status: NonNullable<
-    ControlPlaneDeploymentInventoryRow["lastGradePublishStatus"]
-  >,
+  status: NonNullable<ControlPlaneDeploymentInventoryRow['lastGradePublishStatus']>,
 ): string {
   switch (status) {
-    case "published":
-      return "Published";
-    case "failed":
-      return "Failed";
-    case "pending":
-      return "Pending";
+    case 'published':
+      return 'Published';
+    case 'failed':
+      return 'Failed';
+    case 'pending':
+      return 'Pending';
   }
 }

@@ -2,7 +2,7 @@ import { assertEquals } from '@std/assert';
 import {
   buildAttemptRecord,
   buildAuditEventRecord,
-  buildCanvasLineItemBindingRecord,
+  buildLineItemBindingRecord,
   buildDeploymentRecord,
   buildPackageVersionRecord,
 } from '../test_helpers/package_review.ts';
@@ -39,7 +39,7 @@ Deno.test.ignore(
           deployment: buildDeploymentRecord().slug,
           packageVersion: buildPackageVersionRecord().version,
           attempt: buildAttemptRecord().attemptId,
-          lineItem: buildCanvasLineItemBindingRecord().lineItemUrl,
+          lineItem: buildLineItemBindingRecord().lineItemUrl,
         },
       }),
     );

@@ -1,104 +1,98 @@
-import { assertFalse, assertStringIncludes } from "@std/assert";
-import { resolveCanvasIssuer } from "../lti/config.ts";
+import { assertFalse, assertStringIncludes } from '@std/assert';
+import { resolveCanvasIssuer } from '../lti/config.ts';
 import {
-  buildBrokerVerificationStatus,
-  buildControlPlaneDeploymentDetailSnapshot,
-  buildControlPlaneDeploymentInventoryRow,
-  buildControlPlaneDiagnosticItem,
-  buildDeploymentActivitySnapshot,
-  buildDeploymentGradePublicationSnapshot,
   buildDeploymentRecord,
   buildPackageVersionRecord,
-  buildPilotUsageMetrics,
-  buildRetryableGradePublicationLookup,
-} from "../test_helpers/package_review.ts";
+} from '../test_helpers/package_review.ts';
 import {
   buildCanvasDeploymentBinding,
   buildDeploymentBinding,
-  buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
-} from "../test_helpers/lti.ts";
-import { renderDeploymentDetailPage } from "./deployment_detail.ts";
+} from '../test_helpers/lti.ts';
+import { renderDeploymentDetailPage } from './deployment_detail.ts';
 
-Deno.test("deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai setup into tabs", () => {
+Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai setup into tabs', () => {
   const binding = buildCanvasDeploymentBinding();
   const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
+    appId: 'chapter-4-asteroids',
+    appTitle: 'Chapter 4 Asteroids',
     history: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
+        enabledPackageVersion: '0.1.0',
         binding,
       }),
     ],
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    canvasConfigUrl: 'http://localhost:8417/lti/canvas/config.json',
+    canvasDynamicRegistrationUrl:
+      'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/canvas',
     supportedCanvasEnvironments: [
       {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
+        id: 'production',
+        label: 'Production Canvas',
+        issuer: resolveCanvasIssuer('production'),
       },
     ],
   });
 
-  assertStringIncludes(html, "Managed LMS deployment");
-  assertStringIncludes(html, "Open one LMS slot at a time.");
-  assertStringIncludes(html, "deployment-tab-strip");
-  assertStringIncludes(html, "Canvas editor");
+  assertStringIncludes(html, 'Managed LMS deployment');
+  assertStringIncludes(html, 'Open one LMS slot at a time.');
+  assertStringIncludes(html, 'deployment-tab-strip');
+  assertStringIncludes(html, 'Canvas editor');
+  assertStringIncludes(html, 'Dynamic registration');
+  assertStringIncludes(
+    html,
+    'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/canvas',
+  );
   assertStringIncludes(html, 'deployment-tab-label">Moodle</span>');
   assertStringIncludes(html, 'deployment-tab-label">Sakai</span>');
   assertFalse(
     html.includes(
-      "Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path.",
+      'Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path.',
     ),
   );
-  assertStringIncludes(html, "Config URL");
-  assertStringIncludes(html, "Canvas environment");
+  assertStringIncludes(html, 'Config URL');
+  assertStringIncludes(html, 'Canvas environment');
   assertStringIncludes(html, binding.issuer);
-  assertStringIncludes(
-    html,
-    "Deployment-scoped operational evidence.",
-  );
-  assertStringIncludes(
-    html,
-    "Show install, launch, verification, and diagnostic detail",
-  );
+  assertStringIncludes(html, 'Deployment-scoped operational evidence.');
+  assertStringIncludes(html, 'Show install, launch, verification, and diagnostic detail');
 });
 
-Deno.test("deployment page renders the selected Sakai tab without leaking the Canvas form", () => {
+Deno.test('deployment page renders the selected Sakai tab without leaking the Canvas form', () => {
   const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
-    selectedLms: "sakai",
+    appId: 'chapter-4-asteroids',
+    appTitle: 'Chapter 4 Asteroids',
+    selectedLms: 'sakai',
     history: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
+        enabledPackageVersion: '0.1.0',
         binding: buildSakaiDeploymentBinding(),
-        lmsType: "sakai",
+        lmsType: 'sakai',
       }),
     ],
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    canvasConfigUrl: 'http://localhost:8417/lti/canvas/config.json',
+    sakaiDynamicRegistrationUrl:
+      'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/sakai',
     supportedCanvasEnvironments: [
       {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
+        id: 'production',
+        label: 'Production Canvas',
+        issuer: resolveCanvasIssuer('production'),
       },
     ],
   });
@@ -107,455 +101,93 @@ Deno.test("deployment page renders the selected Sakai tab without leaking the Ca
     html,
     'href="/admin/packages/chapter-4-asteroids/deployment?lms=sakai#slot-panel" aria-current="page"',
   );
-  assertStringIncludes(html, "Sakai setup");
-  assertStringIncludes(html, "OIDC authentication URL");
-  assertStringIncludes(html, "Public keyset URL");
-  assertFalse(html.includes("Canvas environment"));
-  assertFalse(html.includes("Config URL"));
+  assertStringIncludes(html, 'Sakai setup');
+  assertStringIncludes(html, 'Dynamic registration');
+  assertStringIncludes(html, 'Tool configuration URL');
+  assertStringIncludes(
+    html,
+    'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/sakai',
+  );
+  assertStringIncludes(html, 'Authorization endpoint');
+  assertStringIncludes(html, 'Public keyset URL');
+  assertFalse(html.includes('Canvas environment'));
+  assertFalse(html.includes('Config URL'));
 });
 
-Deno.test("deployment page shows the latest roster verification summary and action", () => {
+Deno.test('deployment page shows the Canvas pending-registration state before the first launch seals deployment_id', () => {
   const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
+    appId: 'chapter-4-asteroids',
+    appTitle: 'Chapter 4 Asteroids',
     history: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
     deployments: [
       buildDeploymentRecord({
         enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
+        enabledPackageVersion: '0.1.0',
+        lmsType: 'canvas',
+        binding: null,
+      }),
+    ],
+    canvasConfigUrl: 'http://localhost:8417/lti/canvas/config.json',
+    canvasDynamicRegistrationUrl:
+      'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/canvas',
+    supportedCanvasEnvironments: [
+      {
+        id: 'production',
+        label: 'Production Canvas',
+        issuer: resolveCanvasIssuer('production'),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, 'Canvas registration saved, first launch still needed');
+  assertStringIncludes(html, 'Pending Canvas registration');
+  assertStringIncludes(html, 'one real Canvas launch to capture the exact');
+  assertStringIncludes(html, 'Save release pin');
+});
+
+Deno.test('deployment page shows the latest roster verification summary and action', () => {
+  const html = renderDeploymentDetailPage({
+    appId: 'chapter-4-asteroids',
+    appTitle: 'Chapter 4 Asteroids',
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-23T18:05:00Z',
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: '0.1.0',
         binding: buildDeploymentBinding(),
       }),
     ],
     nrpsVerification: {
-      status: "succeeded",
-      checkedAt: "2026-03-24T03:05:00Z",
-      contextId: "course-42",
+      status: 'succeeded',
+      checkedAt: '2026-03-24T03:05:00Z',
+      contextId: 'course-42',
       memberCount: 2,
     },
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    canvasConfigUrl: 'http://localhost:8417/lti/canvas/config.json',
     supportedCanvasEnvironments: [
       {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
+        id: 'production',
+        label: 'Production Canvas',
+        issuer: resolveCanvasIssuer('production'),
       },
     ],
   });
 
-  assertStringIncludes(html, "Canvas service check");
-  assertStringIncludes(html, "Succeeded");
-  assertStringIncludes(html, "Run roster check");
-  assertStringIncludes(html, "course-42");
-  assertStringIncludes(html, "2");
-});
-
-Deno.test("deployment page shows status panels and pilot usage without dropping the binding and version controls", () => {
-  const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
-    history: [
-      buildPackageVersionRecord({
-        id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
-        binding: buildDeploymentBinding(),
-      }),
-    ],
-    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
-      latestLaunch: buildDeploymentActivitySnapshot({
-        occurredAt: "2026-03-24T12:30:00Z",
-        summary: "Latest launch reached the governed runtime handoff.",
-      }),
-      latestNrpsRead: buildDeploymentActivitySnapshot({
-        occurredAt: "2026-03-24T12:33:00Z",
-        summary: "Latest roster verification succeeded.",
-      }),
-      latestGradePublish: buildDeploymentGradePublicationSnapshot({
-        updatedAt: "2026-03-24T12:35:00Z",
-        status: "failed",
-      }),
-      pilotUsage: buildPilotUsageMetrics({
-        totalLaunches: 6,
-        attemptsCompleted: 5,
-        gradePublishesSucceeded: 4,
-        gradePublishesFailed: 1,
-        recentActiveUsers: 3,
-      }),
-    }),
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
-    supportedCanvasEnvironments: [
-      {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
-      },
-    ],
-  });
-
-  assertStringIncludes(html, "Current status");
-  assertStringIncludes(html, "Last launch");
-  assertStringIncludes(html, "Last AGS write");
-  assertStringIncludes(html, "Last NRPS read");
-  assertStringIncludes(html, "Pilot usage");
-  assertStringIncludes(html, "Launches recorded");
-  assertStringIncludes(html, "Attempts completed");
-  assertStringIncludes(html, "Grade publishes");
-  assertStringIncludes(html, "Recent active users");
-  assertStringIncludes(html, "Diagnostics");
-  assertStringIncludes(html, "Canvas slot");
-  assertStringIncludes(html, "Save release pin");
-});
-
-Deno.test("deployment page shows diagnostics and an explicit retry action for retryable AGS failures", () => {
-  const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
-    history: [
-      buildPackageVersionRecord({
-        id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
-        binding: buildDeploymentBinding(),
-      }),
-    ],
-    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
-      diagnostics: [
-        buildControlPlaneDiagnosticItem({
-          id: 1,
-          kind: "launch",
-          eventType: "launch.rejected",
-          summary: "Rejected launch before runtime handoff.",
-          operatorSummary:
-            "Launch failed before Lantern could hand the learner into the governed runtime.",
-        }),
-        buildControlPlaneDiagnosticItem({
-          id: 2,
-          kind: "nrps",
-          eventType: "deployment.nrps_verified",
-          status: "failed",
-          code: "token_request_failed",
-          summary: "Canvas roster verification failed.",
-          operatorSummary:
-            "Roster verification failed for the saved deployment path.",
-        }),
-        buildControlPlaneDiagnosticItem({
-          id: 3,
-          kind: "gradePublication",
-          eventType: "grade_publish.failed",
-          status: "failed",
-          attemptId: "attempt-123",
-          code: "token_request_failed",
-          summary: "Canvas AGS score publish failed.",
-          operatorSummary:
-            "Grade publish failed and can be retried from the control plane.",
-          retryable: true,
-        }),
-      ],
-      retryableGradePublication: buildRetryableGradePublicationLookup({
-        attemptId: "attempt-123",
-      }),
-    }),
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
-    supportedCanvasEnvironments: [
-      {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
-      },
-    ],
-  });
-
-  assertStringIncludes(html, "Diagnostics");
-  assertStringIncludes(
-    html,
-    "Launch failed before Lantern could hand the learner into the governed runtime.",
-  );
-  assertStringIncludes(
-    html,
-    "Roster verification failed for the saved deployment path.",
-  );
-  assertStringIncludes(
-    html,
-    "Grade publish failed and can be retried from the control plane.",
-  );
-  assertStringIncludes(html, "retry-grade-publish");
-  assertStringIncludes(html, "Retry grade publish");
-});
-
-Deno.test("deployment page shows the latest internal verification fact for the viewed deployment without official certification copy", () => {
-  const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
-    selectedLms: "moodle",
-    history: [
-      buildPackageVersionRecord({
-        id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        id: 4,
-        slug: "chapter-4-asteroids-moodle",
-        label: "Chapter 4 Asteroids Moodle Deployment",
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
-        lmsType: "moodle",
-        binding: buildMoodleDeploymentBinding(),
-      }),
-    ],
-    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
-      inventory: buildControlPlaneDeploymentInventoryRow({
-        deploymentId: 4,
-        deploymentSlug: "chapter-4-asteroids-moodle",
-        deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
-        binding: buildMoodleDeploymentBinding(),
-        brokerVerification: buildBrokerVerificationStatus({
-          supportedPath: "moodleLti13LaunchAgsScore",
-          internal: {
-            source: "ci",
-            status: "passed",
-            checkedAt: "2026-03-24T12:50:00Z",
-            summary:
-              "Latest internal proof passed for the saved Moodle deployment.",
-            evidenceUrl: "https://example.test/verification/moodle-ci-pass",
-          },
-        }),
-      }),
-      brokerVerification: buildBrokerVerificationStatus({
-        supportedPath: "moodleLti13LaunchAgsScore",
-        internal: {
-          source: "ci",
-          status: "passed",
-          checkedAt: "2026-03-24T12:50:00Z",
-          summary:
-            "Latest internal proof passed for the saved Moodle deployment.",
-          evidenceUrl: "https://example.test/verification/moodle-ci-pass",
-        },
-      }),
-    }),
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
-    supportedCanvasEnvironments: [
-      {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
-      },
-    ],
-  });
-
-  assertStringIncludes(html, "Latest internal verification");
-  assertStringIncludes(
-    html,
-    "Latest internal proof passed for the saved Moodle deployment.",
-  );
-  assertStringIncludes(
-    html,
-    "https://example.test/verification/moodle-ci-pass",
-  );
-  assertFalse(html.includes("Official certification"));
-  assertFalse(html.includes("Supported Canvas path"));
-});
-
-Deno.test("deployment page shows the latest Moodle smoke result with AGS capability and publication facts", () => {
-  const smokeLineItemUrl =
-    "https://moodle.example/mod/lti/services.php/2/lineitems/9";
-  const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
-    selectedLms: "moodle",
-    history: [
-      buildPackageVersionRecord({
-        id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        id: 4,
-        slug: "chapter-4-asteroids-moodle",
-        label: "Chapter 4 Asteroids Moodle Deployment",
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
-        lmsType: "moodle",
-        binding: buildMoodleDeploymentBinding(),
-      }),
-    ],
-    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
-      inventory: buildControlPlaneDeploymentInventoryRow({
-        deploymentId: 4,
-        deploymentSlug: "chapter-4-asteroids-moodle",
-        deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
-        binding: buildMoodleDeploymentBinding(),
-      }),
-      latestAgsSmoke: buildDeploymentActivitySnapshot({
-        status: "succeeded",
-        summary: "Moodle AGS smoke verification succeeded.",
-        detail: {
-          lms: "moodle",
-          agsCapable: true,
-          publicationStatus: "succeeded",
-          lineItemUrl: smokeLineItemUrl,
-          error: null,
-        },
-      }),
-    }),
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
-    supportedCanvasEnvironments: [
-      {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
-      },
-    ],
-  });
-
-  assertStringIncludes(html, "Latest grade smoke verification");
-  assertStringIncludes(html, "AGS capability");
-  assertStringIncludes(html, "Publication");
-  assertStringIncludes(html, "Run grade smoke check");
-  assertStringIncludes(html, smokeLineItemUrl);
-});
-
-Deno.test("deployment page shows the latest Sakai smoke result with AGS capability and publication facts", () => {
-  const smokeLineItemUrl =
-    "https://sakai.example/direct/lti/lineitems/course-42/items/9";
-  const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
-    selectedLms: "sakai",
-    history: [
-      buildPackageVersionRecord({
-        id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        id: 5,
-        slug: "chapter-4-asteroids-sakai",
-        label: "Chapter 4 Asteroids Sakai Deployment",
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
-        lmsType: "sakai",
-        binding: buildSakaiDeploymentBinding(),
-      }),
-    ],
-    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
-      inventory: buildControlPlaneDeploymentInventoryRow({
-        deploymentId: 5,
-        deploymentSlug: "chapter-4-asteroids-sakai",
-        deploymentLabel: "Chapter 4 Asteroids Sakai Deployment",
-        binding: buildSakaiDeploymentBinding(),
-      }),
-      latestAgsSmoke: buildDeploymentActivitySnapshot({
-        status: "succeeded",
-        summary: "Sakai AGS smoke verification succeeded.",
-        detail: {
-          lms: "sakai",
-          agsCapable: true,
-          publicationStatus: "succeeded",
-          lineItemUrl: smokeLineItemUrl,
-          error: null,
-        },
-      }),
-    }),
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
-    supportedCanvasEnvironments: [
-      {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
-      },
-    ],
-  });
-
-  assertStringIncludes(html, "Latest grade smoke verification");
-  assertStringIncludes(html, "AGS capability");
-  assertStringIncludes(html, "Publication");
-  assertStringIncludes(html, "Run grade smoke check");
-  assertStringIncludes(html, smokeLineItemUrl);
-});
-
-Deno.test("deployment page keeps failed smoke rendering bounded and readable on the existing detail page", () => {
-  const html = renderDeploymentDetailPage({
-    appId: "chapter-4-asteroids",
-    appTitle: "Chapter 4 Asteroids",
-    selectedLms: "moodle",
-    history: [
-      buildPackageVersionRecord({
-        id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        id: 4,
-        slug: "chapter-4-asteroids-moodle",
-        label: "Chapter 4 Asteroids Moodle Deployment",
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
-        lmsType: "moodle",
-        binding: buildMoodleDeploymentBinding(),
-      }),
-    ],
-    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
-      inventory: buildControlPlaneDeploymentInventoryRow({
-        deploymentId: 4,
-        deploymentSlug: "chapter-4-asteroids-moodle",
-        deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
-        binding: buildMoodleDeploymentBinding(),
-      }),
-      latestAgsSmoke: buildDeploymentActivitySnapshot({
-        status: "failed",
-        summary: "Moodle AGS smoke verification failed.",
-        detail: {
-          lms: "moodle",
-          agsCapable: true,
-          publicationStatus: "not_attempted",
-          lineItemUrl: null,
-          error: {
-            code: "token_request_failed",
-            message: "simulated token failure",
-          },
-          accessToken: "should-not-render",
-        },
-      }),
-    }),
-    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
-    supportedCanvasEnvironments: [
-      {
-        id: "production",
-        label: "Production Canvas",
-        issuer: resolveCanvasIssuer("production"),
-      },
-    ],
-  });
-
-  assertStringIncludes(html, "Latest grade smoke verification");
-  assertStringIncludes(html, "token_request_failed");
-  assertStringIncludes(html, "simulated token failure");
-  assertFalse(html.includes("should-not-render"));
+  assertStringIncludes(html, 'Canvas service check');
+  assertStringIncludes(html, 'Succeeded');
+  assertStringIncludes(html, 'Run roster check');
+  assertStringIncludes(html, 'course-42');
+  assertStringIncludes(html, '2');
 });

@@ -37,12 +37,9 @@ export const DEPLOYMENT_SELECT = `
     deployments.issuer,
     deployments.client_id,
     deployments.deployment_id,
-    deployments.moodle_authentication_request_url,
-    deployments.moodle_access_token_url,
-    deployments.moodle_jwks_url,
-    deployments.sakai_oidc_authentication_url,
-    deployments.sakai_access_token_url,
-    deployments.sakai_jwks_url,
+    deployments.authorization_endpoint,
+    deployments.access_token_url,
+    deployments.jwks_url,
     package_versions.version AS enabled_package_version,
     deployments.updated_at
   FROM deployments
@@ -250,7 +247,7 @@ export const LINE_ITEM_BINDING_SELECT = `
     score_maximum,
     created_at,
     updated_at
-  FROM canvas_line_item_bindings
+  FROM line_item_bindings
 `;
 
 export const GRADE_PUBLICATION_SELECT = `
@@ -259,7 +256,7 @@ export const GRADE_PUBLICATION_SELECT = `
     attempt_id,
     line_item_binding_id,
     line_item_url,
-    canvas_user_id,
+    platform_user_id,
     score_given,
     score_maximum,
     activity_progress,

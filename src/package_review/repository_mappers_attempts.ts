@@ -2,15 +2,15 @@ import type {
   AttemptEventRecord,
   AttemptRecord,
   AuditEventRecord,
-  CanvasLineItemBindingRecord,
   GradePublicationRecord,
+  LineItemBindingRecord,
 } from './types.ts';
 import type {
   AttemptEventRow,
   AttemptRow,
   AuditEventRow,
-  CanvasLineItemBindingRow,
   GradePublicationRow,
+  LineItemBindingRow,
 } from './repository_row_types.ts';
 import {
   normalizeNumeric,
@@ -67,20 +67,18 @@ export function mapAttemptEventRow(row: AttemptEventRow | undefined): AttemptEve
 }
 
 export function mapOptionalLineItemBinding(
-  row: CanvasLineItemBindingRow | undefined,
-): CanvasLineItemBindingRecord | null {
+  row: LineItemBindingRow | undefined,
+): LineItemBindingRecord | null {
   if (!row) {
     return null;
   }
 
-  return mapCanvasLineItemBindingRow(row);
+  return mapLineItemBindingRow(row);
 }
 
-export function mapCanvasLineItemBindingRow(
-  row: CanvasLineItemBindingRow | undefined,
-): CanvasLineItemBindingRecord {
+export function mapLineItemBindingRow(row: LineItemBindingRow | undefined): LineItemBindingRecord {
   if (!row) {
-    throw new Error('Expected a Canvas line item binding row.');
+    throw new Error('Expected a line item binding row.');
   }
 
   return {
@@ -123,7 +121,7 @@ export function mapGradePublicationRow(
     attemptId: row.attemptId,
     lineItemBindingId: row.lineItemBindingId,
     lineItemUrl: row.lineItemUrl,
-    canvasUserId: row.canvasUserId,
+    platformUserId: row.platformUserId,
     scoreGiven: normalizeNumeric(row.scoreGiven),
     scoreMaximum: normalizeNumeric(row.scoreMaximum),
     activityProgress: row.activityProgress,

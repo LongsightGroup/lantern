@@ -5,7 +5,7 @@
     "suspicious": "error",
     "pedantic": "error"
   },
-  "ignorePatterns": ["private/**"],
+  "ignorePatterns": ["private/**", "examples/apps/**/dist/**"],
   "globals": {
     "Deno": "readonly"
   },

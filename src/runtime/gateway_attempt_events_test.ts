@@ -12,7 +12,7 @@ Deno.test('runtime gateway accepts authenticated attempt-event writes and persis
     attempts: [buildAttemptRecord()],
     runtimeSessions: [
       buildRuntimeSessionRecord({
-        expiresAt: '2026-03-26T02:45:00Z',
+        expiresAt: '2099-03-26T02:45:00Z',
       }),
     ],
   });
@@ -47,7 +47,7 @@ Deno.test('runtime gateway blocks missing capability, bad payloads, and bad toke
     runtimeSessions: [
       buildRuntimeSessionRecord({
         capabilities: ['read_launch_context'],
-        expiresAt: '2026-03-26T02:45:00Z',
+        expiresAt: '2099-03-26T02:45:00Z',
       }),
     ],
   });
@@ -132,14 +132,14 @@ Deno.test('runtime gateway helper appends attempt events directly against the du
     attempts: [buildAttemptRecord()],
     runtimeSessions: [
       buildRuntimeSessionRecord({
-        expiresAt: '2026-03-26T02:45:00Z',
+        expiresAt: '2099-03-26T02:45:00Z',
       }),
     ],
   });
   const appended = await acceptAttemptEvent({
     repository,
     session: buildRuntimeSessionRecord({
-      expiresAt: '2026-03-26T02:45:00Z',
+      expiresAt: '2099-03-26T02:45:00Z',
     }),
     payload: {
       type: 'answer',

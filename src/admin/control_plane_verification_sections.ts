@@ -2,14 +2,17 @@ import type {
   BrokerVerificationStatus,
   ControlPlaneDeploymentInventoryRow,
   OfficialCertificationState,
-} from "../ops/types.ts";
-import { escapeHtml, formatDateTime } from "./layout.ts";
+} from '../ops/types.ts';
+import {
+  BROKER_VERIFICATION_SUPPORTED_PATHS,
+  describeSupportedPath,
+  resolveSupportedPathForDeployment,
+} from '../ops/broker_verification_paths.ts';
+import { escapeHtml, formatDateTime } from './layout.ts';
 import {
   describeBrokerRunStatus,
   describeOfficialCertificationState,
-  describeSupportedPath,
-  resolveSupportedPathForDeployment,
-} from "./control_plane_support.ts";
+} from './control_plane_support.ts';
 
 export function renderBrokerVerificationSection(input: {
   deployments: ControlPlaneDeploymentInventoryRow[];
@@ -22,19 +25,17 @@ export function renderBrokerVerificationSection(input: {
           <h2>Deployment-scoped internal proof</h2>
           <p>Each deployment keeps its own manual or CI verification record. Lantern does not hide which deployment was actually checked.</p>
           ${
-    input.deployments.length === 0
-      ? `<div class="callout">
+            input.deployments.length === 0
+              ? `<div class="callout">
               <h3>No deployments recorded yet</h3>
               <p>Save a deployment binding before you record deployment-scoped broker verification evidence.</p>
             </div>`
-      : `<div class="table-list">
-              ${
-        input.deployments
-          .map((deployment) => renderDeploymentVerificationRow(deployment))
-          .join("")
-      }
+              : `<div class="table-list">
+              ${input.deployments
+                .map((deployment) => renderDeploymentVerificationRow(deployment))
+                .join('')}
             </div>`
-  }
+          }
         </div>
         ${renderOfficialEvidenceSection(input.latestOfficialBrokerVerification)}
       </div>
@@ -56,52 +57,44 @@ export function renderVerificationUpdateSection(
     </section>`;
 }
 
-function renderDeploymentVerificationRow(
-  deployment: ControlPlaneDeploymentInventoryRow,
-): string {
+function renderDeploymentVerificationRow(deployment: ControlPlaneDeploymentInventoryRow): string {
   const verification = deployment.brokerVerification;
   const internal = verification?.internal ?? null;
   const supportedPath = resolveSupportedPathForDeployment(deployment);
-  const checkedAt = internal === null
-    ? "Not recorded yet"
-    : formatDateTime(internal.checkedAt);
+  const checkedAt = internal === null ? 'Not recorded yet' : formatDateTime(internal.checkedAt);
 
   return `<article class="table-row">
       <div class="table-row-top">
         <p class="line-title">
           <span>${escapeHtml(deployment.deploymentLabel)}</span>
-          <span class="chip">${
-    escapeHtml(describeBrokerRunStatus(internal?.status ?? "notRun"))
-  }</span>
+          <span class="chip">${escapeHtml(
+            describeBrokerRunStatus(internal?.status ?? 'notRun'),
+          )}</span>
         </p>
         <p class="micro muted">${escapeHtml(checkedAt)}</p>
       </div>
-      <p class="line-copy">${
-    escapeHtml(
-      internal?.summary ?? describeMissingInternalVerification(deployment),
-    )
-  }</p>
+      <p class="line-copy">${escapeHtml(
+        internal?.summary ?? describeMissingInternalVerification(deployment),
+      )}</p>
       <div class="table-row-meta">
-        <span><strong>Deployment:</strong> ${
-    escapeHtml(describeDeploymentContext(deployment))
-  }</span>
-        <span><strong>Path:</strong> ${
-    escapeHtml(
-      supportedPath === null
-        ? "No supported path recorded yet."
-        : describeSupportedPath(supportedPath),
-    )
-  }</span>
+        <span><strong>Deployment:</strong> ${escapeHtml(
+          describeDeploymentContext(deployment),
+        )}</span>
+        <span><strong>Path:</strong> ${escapeHtml(
+          supportedPath === null
+            ? 'No supported path recorded yet.'
+            : describeSupportedPath(supportedPath),
+        )}</span>
       </div>
       ${
-    internal?.evidenceUrl
-      ? `<div class="button-row">
-              <a class="button-ghost" href="${
-        escapeHtml(internal.evidenceUrl)
-      }">${escapeHtml(internal.evidenceUrl)}</a>
+        internal?.evidenceUrl
+          ? `<div class="button-row">
+              <a class="button-ghost" href="${escapeHtml(
+                internal.evidenceUrl,
+              )}">${escapeHtml(internal.evidenceUrl)}</a>
             </div>`
-      : ""
-  }
+          : ''
+      }
     </article>`;
 }
 
@@ -109,7 +102,7 @@ function renderOfficialEvidenceSection(
   latestOfficialBrokerVerification: BrokerVerificationStatus | null,
 ): string {
   const official = latestOfficialBrokerVerification?.official ?? {
-    state: "notCertified" as OfficialCertificationState,
+    state: 'notCertified' as OfficialCertificationState,
     checkedAt: null,
     directoryUrl: null,
   };
@@ -122,55 +115,45 @@ function renderOfficialEvidenceSection(
       <p>Official directory evidence stays scope-based and separate from deployment-scoped internal proof.</p>
       <div class="fact">
         <span class="fact-label">Supported path</span>
-        <span class="fact-value">${
-    escapeHtml(
-      supportedPath === null
-        ? "No official path recorded"
-        : describeSupportedPath(supportedPath),
-    )
-  }</span>
+        <span class="fact-value">${escapeHtml(
+          supportedPath === null
+            ? 'No official path recorded'
+            : describeSupportedPath(supportedPath),
+        )}</span>
       </div>
       <div class="fact">
         <span class="fact-label">Official certification</span>
-        <span class="fact-value">${
-    escapeHtml(
-      hasOfficialRecord
-        ? describeOfficialCertificationState(official.state)
-        : "No official claim recorded",
-    )
-  }</span>
-        <p class="micro muted">${
-    escapeHtml(
-      hasOfficialRecord
-        ? official.state === "notCertified"
-          ? "Latest recorded 1EdTech evidence does not show a certification listing."
-          : "Latest recorded 1EdTech evidence shows the listed certification state."
-        : "Lantern has no recorded 1EdTech directory evidence for the supported path yet.",
-    )
-  }</p>
-        <p class="micro muted">${
-    escapeHtml(
-      official.checkedAt === null
-        ? "Checked at Not recorded yet"
-        : `Checked ${formatDateTime(official.checkedAt)}`,
-    )
-  }</p>
+        <span class="fact-value">${escapeHtml(
+          hasOfficialRecord
+            ? describeOfficialCertificationState(official.state)
+            : 'No official claim recorded',
+        )}</span>
+        <p class="micro muted">${escapeHtml(
+          hasOfficialRecord
+            ? official.state === 'notCertified'
+              ? 'Latest recorded 1EdTech evidence does not show a certification listing.'
+              : 'Latest recorded 1EdTech evidence shows the listed certification state.'
+            : 'Lantern has no recorded 1EdTech directory evidence for the supported path yet.',
+        )}</p>
+        <p class="micro muted">${escapeHtml(
+          official.checkedAt === null
+            ? 'Checked at Not recorded yet'
+            : `Checked ${formatDateTime(official.checkedAt)}`,
+        )}</p>
       </div>
       ${
-    official.directoryUrl
-      ? `<div class="button-row">
-              <a class="button-ghost" href="${
-        escapeHtml(official.directoryUrl)
-      }">${escapeHtml(official.directoryUrl)}</a>
+        official.directoryUrl
+          ? `<div class="button-row">
+              <a class="button-ghost" href="${escapeHtml(
+                official.directoryUrl,
+              )}">${escapeHtml(official.directoryUrl)}</a>
             </div>`
-      : ""
-  }
+          : ''
+      }
     </section>`;
 }
 
-function renderBrokerVerificationForm(
-  deployments: ControlPlaneDeploymentInventoryRow[],
-): string {
+function renderBrokerVerificationForm(deployments: ControlPlaneDeploymentInventoryRow[]): string {
   return `<form method="post" action="/admin/verification" class="stack">
     <div class="field">
       <label for="verification-source">Evidence source</label>
@@ -185,24 +168,26 @@ function renderBrokerVerificationForm(
       <label for="verification-deployment-record-id">Deployment</label>
       <select id="verification-deployment-record-id" name="deploymentRecordId">
         <option value="">No deployment selected</option>
-        ${
-    deployments
-      .map((deployment) =>
-        `<option value="${deployment.deploymentId}">${
-          escapeHtml(deployment.deploymentLabel)
-        }</option>`
-      )
-      .join("")
-  }
+        ${deployments
+          .map(
+            (deployment) =>
+              `<option value="${deployment.deploymentId}">${escapeHtml(
+                deployment.deploymentLabel,
+              )}</option>`,
+          )
+          .join('')}
       </select>
       <p class="field-hint">Pick the exact deployment for internal manual or CI proof. Leave this blank for official 1EdTech evidence.</p>
     </div>
     <div class="field">
       <label for="verification-scope">Supported path</label>
       <select id="verification-scope" name="scope">
-        <option value="canvasLti13LaunchAgsNrps">Canvas LTI 1.3 launch, AGS, and NRPS</option>
-        <option value="moodleLti13LaunchAgsScore">Moodle LTI 1.3 launch and AGS score publish</option>
-        <option value="sakaiLti13LaunchAgsScore">Sakai LTI 1.3 launch and AGS score publish</option>
+        ${BROKER_VERIFICATION_SUPPORTED_PATHS.map(
+          (supportedPath) =>
+            `<option value="${supportedPath}">${escapeHtml(
+              describeSupportedPath(supportedPath),
+            )}</option>`,
+        ).join('')}
       </select>
       <p class="field-hint">Record the exact supported path the evidence covers.</p>
     </div>
@@ -252,17 +237,15 @@ function describeMissingInternalVerification(
   return `No internal verification evidence has been recorded for ${deployment.deploymentLabel} yet.`;
 }
 
-function describeDeploymentContext(
-  deployment: ControlPlaneDeploymentInventoryRow,
-): string {
+function describeDeploymentContext(deployment: ControlPlaneDeploymentInventoryRow): string {
   switch (deployment.binding?.lms ?? null) {
-    case "canvas":
-      return "Canvas deployment";
-    case "moodle":
-      return "Moodle deployment";
-    case "sakai":
-      return "Sakai deployment";
+    case 'canvas':
+      return 'Canvas deployment';
+    case 'moodle':
+      return 'Moodle deployment';
+    case 'sakai':
+      return 'Sakai deployment';
     case null:
-      return "Binding not saved yet";
+      return 'Binding not saved yet';
   }
 }

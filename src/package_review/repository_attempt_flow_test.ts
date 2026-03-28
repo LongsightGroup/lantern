@@ -3,7 +3,7 @@ import { resetPackageReviewTables } from '../test_helpers/postgres.ts';
 import {
   buildAttemptRecord,
   buildAuditEventRecord,
-  buildCanvasLineItemBindingRecord,
+  buildLineItemBindingRecord,
   buildGradePublicationRecord,
 } from '../test_helpers/package_review.ts';
 import {
@@ -182,13 +182,13 @@ Deno.test('repository stores package-version line item bindings and idempotent g
       }),
     );
     const savedBinding = await repository.saveLineItemBinding(
-      buildCanvasLineItemBindingRecord({
+      buildLineItemBindingRecord({
         deploymentRecordId: deployment.id,
         packageVersionId: approvedRecord.id,
       }),
     );
     const reusedBinding = await repository.saveLineItemBinding(
-      buildCanvasLineItemBindingRecord({
+      buildLineItemBindingRecord({
         deploymentRecordId: deployment.id,
         packageVersionId: approvedRecord.id,
       }),

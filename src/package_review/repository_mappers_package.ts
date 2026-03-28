@@ -1,14 +1,7 @@
-import type { DeploymentBinding, LoginStateRecord } from "../lti/types.ts";
-import type { DeploymentRecord, PackageVersionRecord } from "./types.ts";
-import type {
-  DeploymentRow,
-  LoginStateRow,
-  PackageVersionRow,
-} from "./repository_row_types.ts";
-import {
-  normalizeOptionalTimestamp,
-  normalizeTimestamp,
-} from "./repository_value_support.ts";
+import type { DeploymentBinding, LoginStateRecord } from '../lti/types.ts';
+import type { DeploymentRecord, PackageVersionRecord } from './types.ts';
+import type { DeploymentRow, LoginStateRow, PackageVersionRow } from './repository_row_types.ts';
+import { normalizeOptionalTimestamp, normalizeTimestamp } from './repository_value_support.ts';
 
 export function mapOptionalPackageVersion(
   row: PackageVersionRow | undefined,
@@ -20,11 +13,9 @@ export function mapOptionalPackageVersion(
   return mapPackageVersionRow(row);
 }
 
-export function mapPackageVersionRow(
-  row: PackageVersionRow | undefined,
-): PackageVersionRecord {
+export function mapPackageVersionRow(row: PackageVersionRow | undefined): PackageVersionRecord {
   if (!row) {
-    throw new Error("Expected a package version row.");
+    throw new Error('Expected a package version row.');
   }
 
   return {
@@ -61,9 +52,7 @@ export function mapPackageVersionRow(
   };
 }
 
-export function mapOptionalDeployment(
-  row: DeploymentRow | undefined,
-): DeploymentRecord | null {
+export function mapOptionalDeployment(row: DeploymentRow | undefined): DeploymentRecord | null {
   if (!row) {
     return null;
   }
@@ -71,11 +60,9 @@ export function mapOptionalDeployment(
   return mapDeploymentRow(row);
 }
 
-export function mapDeploymentRow(
-  row: DeploymentRow | undefined,
-): DeploymentRecord {
+export function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentRecord {
   if (!row) {
-    throw new Error("Expected a deployment row.");
+    throw new Error('Expected a deployment row.');
   }
 
   return {
@@ -91,72 +78,49 @@ export function mapDeploymentRow(
   };
 }
 
-export function mapDeploymentBinding(
-  row: DeploymentRow,
-): DeploymentBinding | null {
-  if (
-    row.issuer === null || row.clientId === null || row.deploymentId === null
-  ) {
+export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | null {
+  if (row.issuer === null || row.clientId === null || row.deploymentId === null) {
     return null;
   }
 
   switch (row.lmsType) {
-    case "canvas":
+    case 'canvas':
       if (row.canvasEnvironment === null) {
         return null;
       }
 
       return {
-        lms: "canvas",
+        lms: 'canvas',
         canvasEnvironment: row.canvasEnvironment,
         issuer: row.issuer,
         clientId: row.clientId,
         deploymentId: row.deploymentId,
       };
-    case "moodle":
+    case 'moodle':
+    case 'sakai':
       if (
-        row.moodleAuthenticationRequestUrl === null ||
-        row.moodleAccessTokenUrl === null ||
-        row.moodleJwksUrl === null
+        row.authorizationEndpoint === null ||
+        row.accessTokenUrl === null ||
+        row.jwksUrl === null
       ) {
         return null;
       }
 
       return {
-        lms: "moodle",
+        lms: row.lmsType,
         issuer: row.issuer,
         clientId: row.clientId,
         deploymentId: row.deploymentId,
-        authenticationRequestUrl: row.moodleAuthenticationRequestUrl,
-        accessTokenUrl: row.moodleAccessTokenUrl,
-        jwksUrl: row.moodleJwksUrl,
+        authorizationEndpoint: row.authorizationEndpoint,
+        accessTokenUrl: row.accessTokenUrl,
+        jwksUrl: row.jwksUrl,
       };
-    case "sakai":
-      if (
-        row.sakaiOidcAuthenticationUrl === null ||
-        row.sakaiAccessTokenUrl === null ||
-        row.sakaiJwksUrl === null
-      ) {
-        return null;
-      }
-
-      return {
-        lms: "sakai",
-        issuer: row.issuer,
-        clientId: row.clientId,
-        deploymentId: row.deploymentId,
-        oidcAuthenticationUrl: row.sakaiOidcAuthenticationUrl,
-        accessTokenUrl: row.sakaiAccessTokenUrl,
-        jwksUrl: row.sakaiJwksUrl,
-      };
-    case "preview":
+    case 'preview':
       return null;
   }
 }
 
-export function mapOptionalLoginState(
-  row: LoginStateRow | undefined,
-): LoginStateRecord | null {
+export function mapOptionalLoginState(row: LoginStateRow | undefined): LoginStateRecord | null {
   if (!row) {
     return null;
   }
@@ -164,21 +128,17 @@ export function mapOptionalLoginState(
   return mapLoginStateRow(row);
 }
 
-export function mapLoginStateRow(
-  row: LoginStateRow | undefined,
-): LoginStateRecord {
+export function mapLoginStateRow(row: LoginStateRow | undefined): LoginStateRecord {
   if (!row) {
-    throw new Error("Expected a login state row.");
+    throw new Error('Expected a login state row.');
   }
 
-  if (row.lmsType === "canvas" && row.canvasEnvironment === null) {
-    throw new Error("Canvas login state rows must include canvas_environment.");
+  if (row.lmsType === 'canvas' && row.canvasEnvironment === null) {
+    throw new Error('Canvas login state rows must include canvas_environment.');
   }
 
-  if (row.lmsType !== "canvas" && row.canvasEnvironment !== null) {
-    throw new Error(
-      `${row.lmsType} login state rows cannot include canvas_environment.`,
-    );
+  if (row.lmsType !== 'canvas' && row.canvasEnvironment !== null) {
+    throw new Error(`${row.lmsType} login state rows cannot include canvas_environment.`);
   }
 
   return {

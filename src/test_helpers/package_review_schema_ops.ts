@@ -31,7 +31,7 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
     )
   `,
   `
-    CREATE TABLE IF NOT EXISTS canvas_line_item_bindings (
+    CREATE TABLE IF NOT EXISTS line_item_bindings (
       id bigserial PRIMARY KEY,
       deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
       package_version_id bigint NOT NULL REFERENCES package_versions (id),
@@ -59,9 +59,9 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
     CREATE TABLE IF NOT EXISTS grade_publications (
       id bigserial PRIMARY KEY,
       attempt_id text NOT NULL REFERENCES attempts (attempt_id) ON DELETE CASCADE,
-      line_item_binding_id bigint NOT NULL REFERENCES canvas_line_item_bindings (id) ON DELETE CASCADE,
+      line_item_binding_id bigint NOT NULL REFERENCES line_item_bindings (id) ON DELETE CASCADE,
       line_item_url text NOT NULL,
-      canvas_user_id text NOT NULL,
+      platform_user_id text NOT NULL,
       score_given numeric NOT NULL,
       score_maximum numeric NOT NULL,
       activity_progress text NOT NULL,
@@ -83,7 +83,7 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
       deployment_record_id bigint REFERENCES deployments (id) ON DELETE SET NULL,
       package_version_id bigint REFERENCES package_versions (id) ON DELETE SET NULL,
       attempt_id text REFERENCES attempts (attempt_id) ON DELETE SET NULL,
-      line_item_binding_id bigint REFERENCES canvas_line_item_bindings (id) ON DELETE SET NULL,
+      line_item_binding_id bigint REFERENCES line_item_bindings (id) ON DELETE SET NULL,
       status text NOT NULL,
       summary text NOT NULL,
       detail jsonb NOT NULL,
@@ -175,4 +175,4 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
 ];
 
 export const PACKAGE_REVIEW_RESET_SQL =
-  'TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, canvas_line_item_bindings, attempt_events, attempts, preview_evidence, preview_sessions, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE';
+  'TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, line_item_bindings, attempt_events, attempts, preview_evidence, preview_sessions, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE';

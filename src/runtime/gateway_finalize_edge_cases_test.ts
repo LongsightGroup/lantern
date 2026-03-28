@@ -47,7 +47,7 @@ Deno.test('runtime gateway surfaces Canvas token failures clearly after the dura
     ],
   });
   const session = buildRuntimeSessionRecord({
-    expiresAt: '2026-03-26T02:45:00Z',
+    expiresAt: '2099-03-26T02:45:00Z',
   });
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
@@ -105,7 +105,7 @@ Deno.test('runtime gateway fails clearly for manual grading finalize requests an
     attempts: [buildAttemptRecord()],
   });
   const session = buildRuntimeSessionRecord({
-    expiresAt: '2026-03-26T02:45:00Z',
+    expiresAt: '2099-03-26T02:45:00Z',
   });
 
   await assertRejects(

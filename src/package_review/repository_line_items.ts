@@ -1,11 +1,11 @@
 import type { Pool } from '@db/postgres';
 import { withClient, withTransaction } from './repository_core.ts';
 import {
-  mapCanvasLineItemBindingRow,
+  mapLineItemBindingRow,
   mapOptionalLineItemBinding,
 } from './repository_mappers_attempts.ts';
 import { LINE_ITEM_BINDING_SELECT } from './repository_query_fragments.ts';
-import type { CanvasLineItemBindingRow } from './repository_row_types.ts';
+import type { LineItemBindingRow } from './repository_row_types.ts';
 import { isUniqueViolation } from './repository_value_support.ts';
 import type { PackageReviewRepository } from './repository.ts';
 
@@ -15,7 +15,7 @@ export function createLineItemRepositoryMethods(
   return {
     async getLineItemBinding(input) {
       return await withClient(pool, async (client) => {
-        const result = await client.queryObject<CanvasLineItemBindingRow>({
+        const result = await client.queryObject<LineItemBindingRow>({
           text: `
             ${LINE_ITEM_BINDING_SELECT}
             WHERE deployment_record_id = $1
@@ -41,7 +41,7 @@ export function createLineItemRepositoryMethods(
     async saveLineItemBinding(record) {
       return await withClient(pool, async (client) => {
         return await withTransaction(client, 'save_line_item_binding', async (transaction) => {
-          const existingResult = await transaction.queryObject<CanvasLineItemBindingRow>({
+          const existingResult = await transaction.queryObject<LineItemBindingRow>({
             text: `
                 ${LINE_ITEM_BINDING_SELECT}
                 WHERE deployment_record_id = $1
@@ -62,13 +62,13 @@ export function createLineItemRepositoryMethods(
           });
 
           if (existingResult.rows[0]) {
-            return mapCanvasLineItemBindingRow(existingResult.rows[0]);
+            return mapLineItemBindingRow(existingResult.rows[0]);
           }
 
           try {
-            const insertResult = await transaction.queryObject<CanvasLineItemBindingRow>({
+            const insertResult = await transaction.queryObject<LineItemBindingRow>({
               text: `
-                  INSERT INTO canvas_line_item_bindings (
+                  INSERT INTO line_item_bindings (
                     deployment_record_id,
                     package_version_id,
                     context_id,
@@ -119,13 +119,13 @@ export function createLineItemRepositoryMethods(
               camelCase: true,
             });
 
-            return mapCanvasLineItemBindingRow(insertResult.rows[0]);
+            return mapLineItemBindingRow(insertResult.rows[0]);
           } catch (error) {
             if (!isUniqueViolation(error)) {
               throw error;
             }
 
-            const retryResult = await transaction.queryObject<CanvasLineItemBindingRow>({
+            const retryResult = await transaction.queryObject<LineItemBindingRow>({
               text: `
                   ${LINE_ITEM_BINDING_SELECT}
                   WHERE (
@@ -149,7 +149,7 @@ export function createLineItemRepositoryMethods(
             });
 
             if (retryResult.rows[0]) {
-              return mapCanvasLineItemBindingRow(retryResult.rows[0]);
+              return mapLineItemBindingRow(retryResult.rows[0]);
             }
 
             throw error;

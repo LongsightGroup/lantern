@@ -17,7 +17,7 @@ export function mapRetryLookupRow(row: RetryLookupRow): RetryableGradePublicatio
       attemptId: row.attemptId,
       status: row.publicationStatus,
       lineItemUrl: row.lineItemUrl,
-      canvasUserId: row.canvasUserId,
+      platformUserId: row.platformUserId,
       scoreGiven: normalizeNumeric(row.scoreGiven),
       scoreMaximum: normalizeNumeric(row.scoreMaximum),
       activityProgress: row.activityProgress,

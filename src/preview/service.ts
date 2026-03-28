@@ -1,19 +1,13 @@
-import type { RuntimeSessionRecord } from "../lti/types.ts";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import type {
-  PackageVersionRecord,
-  PreviewSessionRecord,
-} from "../package_review/types.ts";
-import {
-  loadPreviewFixtureData,
-  resolvePreviewRuntimeContentPath,
-} from "./fixture.ts";
+import type { RuntimeSessionRecord } from '../lti/types.ts';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import type { PackageVersionRecord, PreviewSessionRecord } from '../package_review/types.ts';
+import { loadPreviewFixtureData, resolvePreviewRuntimeContentPath } from './fixture.ts';
 
 export interface PreviewFakeScoringDefaults {
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: "Completed";
-  gradingProgress: "FullyGraded";
+  activityProgress: 'Completed';
+  gradingProgress: 'FullyGraded';
 }
 
 export interface CreatedPreviewSession {
@@ -36,8 +30,8 @@ export async function createPreviewSession(input: {
     fakeScoring: {
       scoreGiven: 0,
       scoreMaximum: previewSession.fakeScoreMaximum,
-      activityProgress: "Completed",
-      gradingProgress: "FullyGraded",
+      activityProgress: 'Completed',
+      gradingProgress: 'FullyGraded',
     },
   };
 }
@@ -67,7 +61,7 @@ export async function launchPreviewRuntimeSession(input: {
     label: buildPreviewDeploymentLabel(created.previewSession.packageTitle),
     appId: created.previewSession.appId,
     packageVersionId: created.previewSession.packageVersionId,
-    lmsType: "preview",
+    lmsType: 'preview',
   });
   const runtimeAttemptId = buildPreviewRuntimeAttemptId(created.previewSession);
 
@@ -83,7 +77,7 @@ export async function launchPreviewRuntimeSession(input: {
     contextId: created.previewSession.launch.courseId,
     resourceLinkId: `preview-resource-${created.previewSession.sessionId}`,
     activityId: created.previewSession.launch.activityId,
-    status: "in_progress",
+    status: 'in_progress',
     completionState: null,
     startedAt: createdAt.toISOString(),
     finalizedAt: null,
@@ -118,19 +112,17 @@ export async function launchPreviewRuntimeSession(input: {
       previewSessionId: created.previewSession.sessionId,
     },
     createdAt: createdAt.toISOString(),
-    expiresAt: new Date(createdAt.getTime() + PREVIEW_RUNTIME_SESSION_TTL_MS)
-      .toISOString(),
+    expiresAt: new Date(createdAt.getTime() + PREVIEW_RUNTIME_SESSION_TTL_MS).toISOString(),
   });
 
   await input.repository.appendPreviewEvidence({
     previewSessionId: created.previewSession.sessionId,
-    eventType: "preview.launch",
+    eventType: 'preview.launch',
     capability: null,
-    summary: "Launched reviewed preview runtime session.",
+    summary: 'Launched reviewed preview runtime session.',
     detail: {
       runtimeSessionId: runtimeSession.sessionId,
-      route:
-        `/admin/packages/${created.previewSession.appId}/versions/${created.previewSession.packageVersion}/preview`,
+      route: `/admin/packages/${created.previewSession.appId}/versions/${created.previewSession.packageVersion}/preview`,
     },
     occurredAt: createdAt.toISOString(),
   });
@@ -141,9 +133,7 @@ export async function launchPreviewRuntimeSession(input: {
   };
 }
 
-function buildPreviewRuntimeAttemptId(
-  previewSession: PreviewSessionRecord,
-): string {
+function buildPreviewRuntimeAttemptId(previewSession: PreviewSessionRecord): string {
   return `${previewSession.fakeAttemptId}:${previewSession.sessionId}`;
 }
 
@@ -164,7 +154,7 @@ export async function preparePreviewSession(input: {
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const packageVersion = input.packageVersion;
 
-  if (packageVersion.approvalStatus !== "approved") {
+  if (packageVersion.approvalStatus !== 'approved') {
     throw new Error(
       `Preview requires an approved package version. Found ${packageVersion.appId}@${packageVersion.version} in ${packageVersion.approvalStatus} state.`,
     );
@@ -199,5 +189,5 @@ export async function preparePreviewSession(input: {
 }
 
 function defaultOpaqueToken(): string {
-  return crypto.randomUUID().replaceAll("-", "");
+  return crypto.randomUUID().replaceAll('-', '');
 }

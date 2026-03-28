@@ -3,8 +3,8 @@ import type { PublishFinalScoreInput, PublishFinalScoreResult } from '../lti/ser
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type {
   AttemptRecord,
-  CanvasLineItemBindingRecord,
   GradePublicationRecord,
+  LineItemBindingRecord,
 } from '../package_review/types.ts';
 
 export interface FinalizeAttemptInput {
@@ -15,7 +15,7 @@ export interface FinalizeAttemptResult {
   attempt: AttemptRecord;
   score: AttemptScoreResult;
   finalizedNow: boolean;
-  lineItemBinding: CanvasLineItemBindingRecord | null;
+  lineItemBinding: LineItemBindingRecord | null;
   gradePublication: GradePublicationRecord | null;
   gradePublishedNow: boolean;
   publishError: {
@@ -30,7 +30,7 @@ export interface GovernedGradePublicationInput {
   attemptId: string;
   publication: Pick<
     GradePublicationRecord,
-    'lineItemUrl' | 'canvasUserId' | 'scoreGiven' | 'scoreMaximum' | 'activityProgress'
+    'lineItemUrl' | 'platformUserId' | 'scoreGiven' | 'scoreMaximum' | 'activityProgress'
   >;
   accessToken: string;
   now: () => Date;

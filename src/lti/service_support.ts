@@ -1,4 +1,4 @@
-import type { NrpsMembership } from './services.ts';
+import type { NrpsMembership } from './service_memberships.ts';
 
 export interface ParsedLineItem {
   lineItemUrl: string;
@@ -11,7 +11,7 @@ export interface ParsedLineItem {
 
 export function parseLineItemCollection(value: unknown): ParsedLineItem[] {
   if (!Array.isArray(value)) {
-    throw new TypeError('Canvas line item lookup must return an array.');
+    throw new TypeError('LTI line item lookup must return an array.');
   }
 
   return value.map((item, index) => mapLineItem(item, index));
@@ -53,7 +53,7 @@ export async function readMaybeJson(response: Response): Promise<Record<string, 
 
   const parsed = JSON.parse(text) as unknown;
 
-  return requireRecord(parsed, 'Canvas response body must be an object.');
+  return requireRecord(parsed, 'LTI service response body must be an object.');
 }
 
 export function parseNextLink(headerValue: string | null): string | null {
@@ -92,7 +92,7 @@ export function toLineItemsUrl(lineItemUrl: string): string {
   const segments = url.pathname.split('/').filter(Boolean);
 
   if (segments.length < 2) {
-    throw new Error('Canvas lineitem URL could not be resolved to lineitems.');
+    throw new Error('Line item URL could not be resolved to a lineitems URL.');
   }
 
   segments.pop();
@@ -125,32 +125,32 @@ export function uniqueTrimmedStrings(values: string[], message: string): string[
 }
 
 function mapLineItem(value: unknown, index: number): ParsedLineItem {
-  const record = requireRecord(value, `Canvas line item ${index} must be an object.`);
+  const record = requireRecord(value, `LTI line item ${index} must be an object.`);
 
   return {
     lineItemUrl: requireTrimmedString(
       valueAsString(record.id),
-      `Canvas line item ${index} must include id.`,
+      `LTI line item ${index} must include id.`,
     ),
     resourceLinkId: requireTrimmedString(
       valueAsString(record.resourceLinkId),
-      `Canvas line item ${index} must include resourceLinkId.`,
+      `LTI line item ${index} must include resourceLinkId.`,
     ),
     resourceId: requireTrimmedString(
       valueAsString(record.resourceId),
-      `Canvas line item ${index} must include resourceId.`,
+      `LTI line item ${index} must include resourceId.`,
     ),
     tag: requireTrimmedString(
       valueAsString(record.tag),
-      `Canvas line item ${index} must include tag.`,
+      `LTI line item ${index} must include tag.`,
     ),
     label: requireTrimmedString(
       valueAsString(record.label),
-      `Canvas line item ${index} must include label.`,
+      `LTI line item ${index} must include label.`,
     ),
     scoreMaximum: requireNumber(
       record.scoreMaximum,
-      `Canvas line item ${index} must include scoreMaximum.`,
+      `LTI line item ${index} must include scoreMaximum.`,
     ),
   };
 }
