@@ -22,6 +22,9 @@ export function createAttemptFlowRepositoryMethods(
                 package_version_id,
                 package_version,
                 user_id,
+                user_display_name,
+                user_email,
+                user_login,
                 user_role,
                 context_id,
                 resource_link_id,
@@ -32,7 +35,7 @@ export function createAttemptFlowRepositoryMethods(
                 finalized_at
               ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
-                $9, $10, $11, $12, $13, $14, $15
+                $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
               )
               RETURNING
                 id,
@@ -43,6 +46,9 @@ export function createAttemptFlowRepositoryMethods(
                 package_version_id,
                 package_version,
                 user_id,
+                user_display_name,
+                user_email,
+                user_login,
                 user_role,
                 context_id,
                 resource_link_id,
@@ -60,6 +66,9 @@ export function createAttemptFlowRepositoryMethods(
               record.packageVersionId,
               record.packageVersion,
               record.userId,
+              record.userDisplayName,
+              record.userEmail,
+              record.userLogin,
               record.userRole,
               record.contextId,
               record.resourceLinkId,
@@ -159,6 +168,9 @@ export function createAttemptFlowRepositoryMethods(
                   package_version_id,
                   package_version,
                   user_id,
+                  user_display_name,
+                  user_email,
+                  user_login,
                   user_role,
                   context_id,
                   resource_link_id,
@@ -201,6 +213,9 @@ export function createAttemptFlowRepositoryMethods(
                   package_version_id,
                   package_version,
                   user_id,
+                  user_display_name,
+                  user_email,
+                  user_login,
                   user_role,
                   context_id,
                   resource_link_id,

@@ -174,6 +174,9 @@ export async function validateLaunchRequest(input: {
     'Launch launch_presentation claim must be an object when provided.',
   );
   const userId = requireStringClaim(payload.sub, 'Launch subject is required.');
+  const userDisplayName = resolveLaunchUserDisplayName(payload);
+  const userEmail = optionalStringClaim(payload.email);
+  const userLogin = optionalStringClaim(payload.preferred_username);
 
   return {
     lms: deployment.binding.lms,
@@ -185,6 +188,9 @@ export async function validateLaunchRequest(input: {
     contentPath: resolvedLaunch.contentPath,
     attemptId: `attempt-${nextOpaqueToken()}`,
     userId,
+    userDisplayName,
+    userEmail,
+    userLogin,
     userRole: resolveUserRole(payload[CLAIM_ROLES]),
     resourceLinkId,
     resourceLinkTitle: optionalStringClaim(resourceLink.title),
@@ -208,4 +214,19 @@ function readClaimRecord(value: unknown): Record<string, unknown> | null {
   }
 
   return value as Record<string, unknown>;
+}
+
+function resolveLaunchUserDisplayName(payload: Record<string, unknown>): string | null {
+  const explicitName = optionalStringClaim(payload.name);
+
+  if (explicitName !== null) {
+    return explicitName;
+  }
+
+  const nameParts = [
+    optionalStringClaim(payload.given_name),
+    optionalStringClaim(payload.family_name),
+  ].filter((value): value is string => value !== null);
+
+  return nameParts.length === 0 ? null : nameParts.join(' ');
 }

@@ -164,13 +164,13 @@ export function describeDiagnosticKind(kind: ControlPlaneDiagnosticItem['kind'])
     case 'launch':
       return 'Launch';
     case 'nrps':
-      return 'NRPS';
+      return 'Roster read';
     case 'brokerVerification':
-      return 'Broker verification';
+      return 'Compatibility result';
     case 'reviewer':
-      return 'Reviewer';
+      return 'Reviewer action';
     case 'gradePublication':
-      return 'AGS publish';
+      return 'Grade write';
   }
 }
 
@@ -180,4 +180,16 @@ export function describeDiagnosticStatus(item: ControlPlaneDiagnosticItem): stri
   }
 
   return item.status === 'failed' ? 'Failed' : 'Recorded';
+}
+
+export function describeProblemSummary(problemCount: number): string {
+  if (problemCount === 0) {
+    return 'None right now';
+  }
+
+  if (problemCount === 1) {
+    return '1 to review';
+  }
+
+  return `${problemCount} to review`;
 }

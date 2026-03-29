@@ -80,6 +80,18 @@ export interface DeploymentActivitySnapshot {
   detail: Record<string, unknown>;
 }
 
+export interface DeploymentRecentLaunch {
+  occurredAt: string;
+  summary: string;
+  attemptId: string | null;
+  userId: string | null;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  userLogin: string | null;
+  contextId: string | null;
+  resourceLinkId: string | null;
+}
+
 export interface DeploymentGradePublicationSnapshot {
   attemptId: string;
   status: GradePublicationStatus;
@@ -181,6 +193,7 @@ export interface ControlPlaneDeploymentDetailSnapshot {
   inventory: ControlPlaneDeploymentInventoryRow;
   latestInstallEvidence: DeploymentActivitySnapshot | null;
   latestLaunch: DeploymentActivitySnapshot | null;
+  recentLaunches: DeploymentRecentLaunch[];
   latestAgsSmoke: DeploymentActivitySnapshot | null;
   latestNrpsRead: DeploymentActivitySnapshot | null;
   latestGradePublish: DeploymentGradePublicationSnapshot | null;

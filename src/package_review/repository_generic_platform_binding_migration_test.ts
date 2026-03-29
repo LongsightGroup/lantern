@@ -107,7 +107,11 @@ Deno.test('migration collapses Moodle and Sakai endpoint columns into the shared
       client.release();
     }
 
-    assertEquals(await runMigrations(pool), 1);
+    const expectedPendingMigrationCount = await countPendingMigrationsAfter(
+      PRE_015_MIGRATIONS.at(-1)!,
+    );
+
+    assertEquals(await runMigrations(pool), expectedPendingMigrationCount);
     assertEquals(await runMigrations(pool), 0);
 
     const repository = createPackageReviewRepository(pool);
@@ -164,4 +168,20 @@ async function resetToPre015Schema(pool: Pool): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+async function countPendingMigrationsAfter(lastAppliedMigrationName: string): Promise<number> {
+  let pendingMigrationCount = 0;
+
+  for await (const entry of Deno.readDir(new URL('../db/migrations/', import.meta.url))) {
+    if (!entry.isFile || !entry.name.endsWith('.sql')) {
+      continue;
+    }
+
+    if (entry.name.localeCompare(lastAppliedMigrationName) > 0) {
+      pendingMigrationCount += 1;
+    }
+  }
+
+  return pendingMigrationCount;
 }

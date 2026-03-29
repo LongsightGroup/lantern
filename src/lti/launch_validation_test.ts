@@ -35,6 +35,9 @@ Deno.test('validateLaunchRequest accepts a signed launch with matching state, no
   const idToken = await signCanvasIdToken({
     nonce: 'nonce-123',
     audience: '10000000000001',
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    preferredUsername: 'adal',
   });
   const launch = await validateLaunchRequest({
     repository,
@@ -49,6 +52,9 @@ Deno.test('validateLaunchRequest accepts a signed launch with matching state, no
   assertEquals(launch.clientId, '10000000000001');
   assertEquals(launch.appId, 'chapter-4-asteroids');
   assertEquals(launch.packageVersionId, 1);
+  assertEquals(launch.userDisplayName, 'Ada Lovelace');
+  assertEquals(launch.userEmail, 'ada@example.com');
+  assertEquals(launch.userLogin, 'adal');
   assertEquals(loginState?.usedAt !== null, true);
 });
 

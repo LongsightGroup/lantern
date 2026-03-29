@@ -3,8 +3,8 @@ import { resetPackageReviewTables } from '../test_helpers/postgres.ts';
 import {
   buildAttemptRecord,
   buildAuditEventRecord,
-  buildLineItemBindingRecord,
   buildGradePublicationRecord,
+  buildLineItemBindingRecord,
 } from '../test_helpers/package_review.ts';
 import {
   buildImportedPackageVersion,

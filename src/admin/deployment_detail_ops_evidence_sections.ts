@@ -3,7 +3,6 @@ import type { ControlPlaneDeploymentDetailSnapshot } from '../ops/types.ts';
 import { escapeHtml } from './layout.ts';
 import {
   formatActivityTimestamp,
-  formatBrokerVerificationTimestamp,
   readBooleanDetail,
   readNestedStringDetail,
   readStringDetail,
@@ -30,11 +29,11 @@ export function renderDiagnosticsSection(
   return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Problems</p>
-        <h2>Recent failures</h2>
+        <h2>Problems to review</h2>
         ${
           diagnostics.length === 0
             ? `<div class="callout">
-              <h3>No failures recorded</h3>
+              <h3>No problems recorded</h3>
               <p>Lantern has not recorded a failed launch, roster read, or grade write for this setup.</p>
             </div>`
             : `<div class="table-list">
@@ -54,33 +53,27 @@ export function renderBrokerVerificationSection(
 
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Setup check</p>
-        <h2>Latest setup check</h2>
-        <p>Use this to see whether this exact LMS setup was tested and what happened. Official 1EdTech listings stay on the shared Verification page.</p>
+        <p class="section-label">More history</p>
+        <h2>Setup history</h2>
+        <p>If you need past setup records or test logs for this app setup, open Verification. Most admins can ignore this unless they are troubleshooting.</p>
         <div class="facts">
           ${renderActivityFact(
-            'Status',
+            'Latest saved result',
             describeBrokerVerificationStatusLabel(internalVerification?.status ?? null),
             internalVerification?.summary ??
-              'No setup check has been recorded for this LMS setup yet.',
-          )}
-          ${renderActivityFact(
-            'Checked at',
-            formatBrokerVerificationTimestamp(internalVerification),
-            internalVerification === null
-              ? 'Save a check from /admin/verification after you test this setup.'
-              : 'This result belongs only to the LMS setup on this tab.',
+              'No setup record has been saved for this app setup yet.',
           )}
         </div>
-        ${
-          internalVerification?.evidenceUrl
-            ? `<div class="button-row">
-              <a class="button-ghost" href="${escapeHtml(
-                internalVerification.evidenceUrl,
-              )}">Open check log</a>
-            </div>`
-            : ''
-        }
+        <div class="button-row">
+          <a class="button-ghost" href="/admin/verification">Open Verification</a>
+          ${
+            internalVerification?.evidenceUrl
+              ? `<a class="button-ghost" href="${escapeHtml(
+                  internalVerification.evidenceUrl,
+                )}">Open log</a>`
+              : ''
+          }
+        </div>
       </div>
     </section>`;
 }

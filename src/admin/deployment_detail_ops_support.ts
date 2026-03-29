@@ -4,6 +4,7 @@ import type {
   ControlPlaneHealthStatus,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
+  DeploymentRecentLaunch,
 } from '../ops/types.ts';
 import { escapeHtml, formatDateTime } from './layout.ts';
 import {
@@ -82,6 +83,79 @@ export function renderDiagnosticRow(
       ${details.length === 0 ? '' : `<p class="micro muted">${escapeHtml(details.join(' · '))}</p>`}
       ${retryAction}
     </article>`;
+}
+
+export function renderRecentLaunchRow(item: DeploymentRecentLaunch): string {
+  const identity = resolveLaunchIdentity(item);
+  const launchContext = [
+    item.contextId === null ? null : `Course or site ${item.contextId}`,
+    item.resourceLinkId === null ? null : `Placement ${item.resourceLinkId}`,
+  ].filter((value): value is string => value !== null);
+  const launchDetails = [
+    identity.secondary,
+    item.attemptId === null ? null : `Attempt ${item.attemptId}`,
+  ].filter((value): value is string => value !== null);
+  const title = identity.primary === null ? 'Recent launch' : `Opened by ${identity.primary}`;
+  const summary = launchContext.length === 0 ? item.summary : launchContext.join(' · ');
+
+  return `<article class="table-row table-row-status table-row-status-healthy">
+      <div class="table-row-top">
+        <p class="line-title">
+          <span>${escapeHtml(title)}</span>
+          <span class="chip chip-status chip-status-healthy">Opened</span>
+        </p>
+        <p class="micro muted">${escapeHtml(formatDateTime(item.occurredAt))}</p>
+      </div>
+      <p class="line-copy">${escapeHtml(summary)}</p>
+      ${
+        launchDetails.length === 0
+          ? ''
+          : `<p class="micro muted">${escapeHtml(launchDetails.join(' · '))}</p>`
+      }
+    </article>`;
+}
+
+function resolveLaunchIdentity(item: DeploymentRecentLaunch): {
+  primary: string | null;
+  secondary: string | null;
+} {
+  if (item.userDisplayName !== null) {
+    return {
+      primary: item.userDisplayName,
+      secondary: item.userEmail ?? item.userLogin,
+    };
+  }
+
+  if (item.userEmail !== null) {
+    return {
+      primary: item.userEmail,
+      secondary: item.userLogin,
+    };
+  }
+
+  if (item.userLogin !== null) {
+    return {
+      primary: item.userLogin,
+      secondary: null,
+    };
+  }
+
+  return {
+    primary: item.userId === null ? null : normalizeOpaqueSubject(item.userId),
+    secondary: null,
+  };
+}
+
+function normalizeOpaqueSubject(value: string): string {
+  try {
+    const url = new URL(value);
+    const pathSegments = url.pathname.split('/').filter((segment) => segment.length > 0);
+    const lastSegment = pathSegments.at(-1);
+
+    return lastSegment === undefined ? value : lastSegment;
+  } catch {
+    return value;
+  }
 }
 
 export function formatActivityTimestamp(
@@ -190,4 +264,18 @@ function describeDiagnosticTone(
   }
 
   return 'unknown';
+}
+
+export function describeProblemFactSummary(problemCount: number, retryableCount: number): string {
+  if (problemCount === 0) {
+    return 'No problems are recorded for this LMS setup right now.';
+  }
+
+  if (retryableCount === 0) {
+    return 'Open the details below to review the latest failures and warnings.';
+  }
+
+  return `${retryableCount} retry action${
+    retryableCount === 1 ? '' : 's'
+  } still need operator follow-up.`;
 }

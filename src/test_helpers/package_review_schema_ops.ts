@@ -9,6 +9,9 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
       package_version_id bigint NOT NULL REFERENCES package_versions (id),
       package_version text NOT NULL,
       user_id text NOT NULL,
+      user_display_name text,
+      user_email text,
+      user_login text,
       user_role text NOT NULL,
       context_id text NOT NULL,
       resource_link_id text NOT NULL,
@@ -18,6 +21,12 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
       started_at timestamptz NOT NULL,
       finalized_at timestamptz
     )
+  `,
+  `
+    ALTER TABLE attempts
+      ADD COLUMN IF NOT EXISTS user_display_name text,
+      ADD COLUMN IF NOT EXISTS user_email text,
+      ADD COLUMN IF NOT EXISTS user_login text
   `,
   `
     CREATE TABLE IF NOT EXISTS attempt_events (

@@ -81,6 +81,18 @@ export interface ActivitySnapshotRow {
   occurredAt: Date | string;
 }
 
+export interface RecentLaunchRow {
+  summary: string;
+  actorId: string | null;
+  userId: string | null;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  userLogin: string | null;
+  attemptId: string | null;
+  detail: Record<string, unknown>;
+  occurredAt: Date | string;
+}
+
 export interface GradePublicationSnapshotRow {
   attemptId: string;
   status: GradePublicationStatus;

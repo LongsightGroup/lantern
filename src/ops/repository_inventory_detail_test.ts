@@ -3,16 +3,23 @@ import { buildAuditEventRecord } from '../test_helpers/package_review.ts';
 import { insertAuditEvent } from './repository_test_core_support.ts';
 import { withSeededOpsRepositoryTest } from './repository_inventory_test_support.ts';
 
-Deno.test('ops repository returns deployment detail snapshots with the latest launch, NRPS read, AGS publish, and diagnostics feed', async () => {
+Deno.test('ops repository returns deployment detail snapshots with recent launches, the latest checks, and only failed diagnostics', async () => {
   await withSeededOpsRepositoryTest(async (_pool, repository) => {
     const detail = await repository.getControlPlaneDeploymentDetail(1);
 
     assertExists(detail);
     assertEquals(detail.inventory.deploymentSlug, 'chapter-4-asteroids-pilot');
     assertEquals(detail.latestLaunch?.attemptId, 'attempt-123');
+    assertEquals(detail.recentLaunches.length, 1);
+    assertEquals(detail.recentLaunches[0]?.userId, 'opaque-user-123');
+    assertEquals(detail.recentLaunches[0]?.userDisplayName, 'Ada Lovelace');
+    assertEquals(detail.recentLaunches[0]?.userEmail, 'ada@example.com');
+    assertEquals(detail.recentLaunches[0]?.userLogin, 'adal');
+    assertEquals(detail.recentLaunches[0]?.contextId, 'course-42');
     assertEquals(detail.latestNrpsRead?.status, 'succeeded');
     assertEquals(detail.latestGradePublish?.errorCode, 'canvas_score_rejected');
-    assertEquals(detail.diagnostics.length, 3);
+    assertEquals(detail.diagnostics.length, 1);
+    assertEquals(detail.diagnostics[0]?.eventType, 'grade_publish.failed');
   });
 });
 

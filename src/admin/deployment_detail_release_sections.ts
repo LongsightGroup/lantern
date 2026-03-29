@@ -37,7 +37,7 @@ export function renderManagedDeploymentSections(input: {
   return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Connections</p>
-        <h2>Set up one LMS at a time.</h2>
+        <h2>Choose your LMS.</h2>
         <p>Most teams only need one tab. Open Advanced settings only when you need exact IDs or URLs.</p>
         <nav class="deployment-tab-strip" aria-label="App settings">
           ${input.slots

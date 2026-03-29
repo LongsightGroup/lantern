@@ -2,8 +2,8 @@ import { assertEquals } from '@std/assert';
 import {
   buildAttemptRecord,
   buildAuditEventRecord,
-  buildLineItemBindingRecord,
   buildDeploymentRecord,
+  buildLineItemBindingRecord,
   buildPackageVersionRecord,
 } from '../test_helpers/package_review.ts';
 

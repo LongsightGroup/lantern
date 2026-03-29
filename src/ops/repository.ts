@@ -20,6 +20,7 @@ import {
   LATEST_LAUNCH_QUERY,
   LATEST_NRPS_QUERY,
   LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
+  RECENT_ACCEPTED_LAUNCHES_QUERY,
   RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY,
 } from './repository_queries.ts';
 import type {
@@ -30,6 +31,7 @@ import type {
   InventoryQueryRow,
   OfficialBrokerVerificationRow,
   OpsRepository,
+  RecentLaunchRow,
   RecordBrokerVerificationRunInput,
   RetryLookupRow,
 } from './repository_types.ts';
@@ -40,6 +42,7 @@ import {
   mapDiagnosticRows,
   mapGradePublicationSnapshotRow,
   mapInventoryRow,
+  mapRecentLaunchRows,
 } from './repository_mapping.ts';
 import { mapRetryLookupRow } from './repository_retry_mapping.ts';
 
@@ -68,9 +71,10 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           return null;
         }
 
-        const [latestLaunch, latestAgsSmoke, latestNrpsRead, latestGradePublish] =
+        const [latestLaunch, recentLaunches, latestAgsSmoke, latestNrpsRead, latestGradePublish] =
           await Promise.all([
             getActivitySnapshot(client, LATEST_LAUNCH_QUERY, deploymentRecordId),
+            listRecentAcceptedLaunches(client, deploymentRecordId),
             getActivitySnapshot(client, LATEST_AGS_SMOKE_QUERY, deploymentRecordId),
             getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
             getLatestGradePublication(client, deploymentRecordId),
@@ -92,6 +96,7 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           inventory,
           latestInstallEvidence: inventory.installEvidence,
           latestLaunch,
+          recentLaunches,
           latestAgsSmoke,
           latestNrpsRead,
           latestGradePublish,
@@ -132,6 +137,16 @@ export function createOpsRepository(pool: Pool): OpsRepository {
       return await packageReviewRepository.requirePlacementAuditSnapshotById(placementId);
     },
   };
+}
+
+async function listRecentAcceptedLaunches(client: PoolClient, deploymentRecordId: number) {
+  const result = await client.queryObject<RecentLaunchRow>({
+    text: RECENT_ACCEPTED_LAUNCHES_QUERY,
+    args: [deploymentRecordId],
+    camelCase: true,
+  });
+
+  return mapRecentLaunchRows(result.rows);
 }
 
 async function getInventoryRow(

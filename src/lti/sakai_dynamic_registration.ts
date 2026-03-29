@@ -112,7 +112,7 @@ function buildSakaiRegistrationRequest(appOrigin: string, appTitle: string) {
       domain: origin.host,
       description: `Launch the approved ${appTitle} activity through Lantern's governed runtime.`,
       target_link_uri: launchUrl,
-      claims: ['iss', 'sub', 'name', 'given_name', 'family_name', 'email'],
+      claims: ['iss', 'sub', 'name', 'given_name', 'family_name', 'email', 'preferred_username'],
       messages: [
         {
           type: 'LtiResourceLinkRequest',

@@ -36,6 +36,10 @@ Deno.test('renderPackageDetailPage explains the approval decision for higher-acc
     body,
     'Approve this version only if these actions match what you expect the app to do.',
   );
+  assertStringIncludes(
+    body,
+    'Lantern will keep this version from going live, and you can leave the current approved version in place until a safer update is ready.',
+  );
   assertStringIncludes(body, 'Finish attempt');
   assertStringIncludes(body, 'Stores learner data');
   assertStringIncludes(body, 'callout-review');

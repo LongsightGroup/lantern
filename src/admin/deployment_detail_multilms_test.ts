@@ -85,7 +85,7 @@ Deno.test('deployment page keeps separate Canvas, Moodle, and Sakai slots for on
   assertStringIncludes(html, 'name="lms" value="canvas"');
 });
 
-Deno.test('deployment page keeps one deployment route while rendering install, launch, failure, and verification evidence for each LMS slot', () => {
+Deno.test('deployment page keeps one deployment route while rendering setup, launch, failure, and verification history for each LMS slot', () => {
   const cases = [
     {
       lms: 'canvas' as const,
@@ -93,7 +93,8 @@ Deno.test('deployment page keeps one deployment route while rendering install, l
       deploymentId: 3,
       slug: 'chapter-4-asteroids-pilot',
       label: 'Chapter 4 Asteroids Pilot Deployment',
-      installSummary: 'Saved the Canvas deployment binding.',
+      setupHeading: 'Set up Canvas',
+      saveButtonLabel: 'Save Canvas settings',
       launchSummary: 'Latest Canvas launch reached the governed runtime handoff.',
       diagnosticSummary: 'Canvas launch failed on the saved deployment path.',
       verificationSummary: 'Latest internal proof passed for the saved Canvas deployment.',
@@ -105,7 +106,8 @@ Deno.test('deployment page keeps one deployment route while rendering install, l
       deploymentId: 4,
       slug: 'chapter-4-asteroids-moodle',
       label: 'Chapter 4 Asteroids Moodle Deployment',
-      installSummary: 'Saved the Moodle deployment binding.',
+      setupHeading: 'Set up Moodle',
+      saveButtonLabel: 'Save Moodle settings',
       launchSummary: 'Latest Moodle launch reached the governed runtime handoff.',
       diagnosticSummary: 'Moodle launch failed on the saved deployment path.',
       verificationSummary: 'Latest internal proof passed for the saved Moodle deployment.',
@@ -117,7 +119,8 @@ Deno.test('deployment page keeps one deployment route while rendering install, l
       deploymentId: 5,
       slug: 'chapter-4-asteroids-sakai',
       label: 'Chapter 4 Asteroids Sakai Deployment',
-      installSummary: 'Saved the Sakai deployment binding.',
+      setupHeading: 'Set up Sakai',
+      saveButtonLabel: 'Save Sakai settings',
       launchSummary: 'Latest Sakai launch reached the governed runtime handoff.',
       diagnosticSummary: 'Sakai launch failed on the saved deployment path.',
       verificationSummary: 'Latest internal proof passed for the saved Sakai deployment.',
@@ -156,7 +159,10 @@ Deno.test('deployment page keeps one deployment route while rendering install, l
           deploymentLabel: testCase.label,
           binding: testCase.binding,
           installEvidence: buildDeploymentActivitySnapshot({
-            summary: testCase.installSummary,
+            summary: `Saved the ${testCase.setupHeading.replace(
+              'Set up ',
+              '',
+            )} deployment binding.`,
           }),
           brokerVerification: buildBrokerVerificationStatus({
             supportedPath: testCase.supportedPath,
@@ -180,7 +186,7 @@ Deno.test('deployment page keeps one deployment route while rendering install, l
           },
         }),
         latestInstallEvidence: buildDeploymentActivitySnapshot({
-          summary: testCase.installSummary,
+          summary: `Saved the ${testCase.setupHeading.replace('Set up ', '')} deployment binding.`,
         }),
         latestLaunch: buildDeploymentActivitySnapshot({
           summary: testCase.launchSummary,
@@ -209,9 +215,9 @@ Deno.test('deployment page keeps one deployment route while rendering install, l
       html,
       `href="/admin/packages/chapter-4-asteroids/deployment?lms=${testCase.lms}#slot-panel" aria-current="page"`,
     );
-    assertStringIncludes(html, 'Install evidence');
-    assertStringIncludes(html, 'Latest setup check');
-    assertStringIncludes(html, testCase.installSummary);
+    assertStringIncludes(html, testCase.setupHeading);
+    assertStringIncludes(html, testCase.saveButtonLabel);
+    assertStringIncludes(html, 'Setup history');
     assertStringIncludes(html, testCase.launchSummary);
     assertStringIncludes(html, testCase.diagnosticSummary);
     assertStringIncludes(html, testCase.verificationSummary);

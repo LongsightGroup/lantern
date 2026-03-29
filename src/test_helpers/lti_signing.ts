@@ -40,6 +40,11 @@ export interface CanvasLaunchTokenInput {
   audience?: string;
   nonce?: string;
   subject?: string | null;
+  name?: string | null;
+  email?: string | null;
+  preferredUsername?: string | null;
+  givenName?: string | null;
+  familyName?: string | null;
   messageType?: string;
   version?: string;
   issuedAt?: string;
@@ -100,6 +105,13 @@ export async function signCanvasIdToken(input: CanvasLaunchTokenInput = {}): Pro
       : null;
   const claims = {
     nonce: input.nonce ?? 'nonce-123',
+    ...(input.name === undefined ? {} : { name: input.name }),
+    ...(input.email === undefined ? {} : { email: input.email }),
+    ...(input.preferredUsername === undefined
+      ? {}
+      : { preferred_username: input.preferredUsername }),
+    ...(input.givenName === undefined ? {} : { given_name: input.givenName }),
+    ...(input.familyName === undefined ? {} : { family_name: input.familyName }),
     'https://purl.imsglobal.org/spec/lti/claim/message_type':
       input.messageType ?? 'LtiResourceLinkRequest',
     'https://purl.imsglobal.org/spec/lti/claim/version': input.version ?? '1.3.0',

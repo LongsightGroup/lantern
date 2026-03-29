@@ -3,7 +3,7 @@ import { buildAuditEventRecord } from '../test_helpers/package_review.ts';
 import { insertAuditEvent } from './repository_test_core_support.ts';
 import { withSeededOpsRepositoryTest } from './repository_inventory_test_support.ts';
 
-Deno.test('ops repository diagnostics include reviewer events while keeping launch, NRPS, and AGS diagnostics intact', async () => {
+Deno.test('ops repository diagnostics keep only failed follow-up items while recent launches stay on their own list', async () => {
   await withSeededOpsRepositoryTest(async (pool, repository) => {
     const client = await pool.connect();
 
@@ -12,11 +12,11 @@ Deno.test('ops repository diagnostics include reviewer events while keeping laun
         client,
         buildAuditEventRecord({
           id: 4,
-          eventType: 'reviewer.preview_viewed',
+          eventType: 'reviewer.follow_up_failed',
           actorType: 'user',
           actorId: 'reviewer-123',
-          status: 'succeeded',
-          summary: 'Reviewer opened placement evidence.',
+          status: 'failed',
+          summary: 'Reviewer follow-up failed.',
           detail: { placementId: 'placement-ops-123' },
           occurredAt: '2026-03-24T12:36:00Z',
         }),
@@ -28,25 +28,29 @@ Deno.test('ops repository diagnostics include reviewer events while keeping laun
     const detail = await repository.getControlPlaneDeploymentDetail(1);
 
     assertExists(detail);
-    assertEquals(detail.diagnostics.length, 4);
+    assertEquals(
+      detail.recentLaunches.some((item) => item.attemptId === 'attempt-123'),
+      true,
+    );
+    assertEquals(detail.diagnostics.length, 2);
     assertEquals(
       detail.diagnostics.some((item) => item.eventType === 'launch.accepted'),
-      true,
+      false,
     );
     assertEquals(
       detail.diagnostics.some((item) => item.eventType === 'deployment.nrps_verified'),
-      true,
+      false,
     );
     assertEquals(
       detail.diagnostics.some((item) => item.eventType === 'grade_publish.failed'),
       true,
     );
     assertEquals(
-      detail.diagnostics.some((item) => item.eventType === 'reviewer.preview_viewed'),
+      detail.diagnostics.some((item) => item.eventType === 'reviewer.follow_up_failed'),
       true,
     );
     assertEquals(
-      detail.diagnostics.find((item) => item.eventType === 'reviewer.preview_viewed')?.kind,
+      detail.diagnostics.find((item) => item.eventType === 'reviewer.follow_up_failed')?.kind,
       'reviewer',
     );
   });

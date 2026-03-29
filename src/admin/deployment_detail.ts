@@ -217,7 +217,7 @@ export function renderDeploymentDetailPage(input: {
     title: `${input.appTitle} App settings`,
     eyebrow: 'App settings',
     heading: `${input.appTitle} App settings`,
-    intro: 'Set up one LMS at a time and choose the live version.',
+    intro: 'Connect this app to one LMS and choose what version people should open.',
     activePath: '/admin/deployments',
     breadcrumbs: [
       { label: 'Apps', href: '/admin/packages' },

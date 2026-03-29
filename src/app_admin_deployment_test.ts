@@ -138,7 +138,10 @@ Deno.test('GET /admin/packages/:appId/deployment renders an LMS tab strip with o
     const body = await response.text();
 
     assertStringIncludes(body, 'App settings');
-    assertStringIncludes(body, 'Set up one LMS at a time.');
+    assertStringIncludes(
+      body,
+      'Connect this app to one LMS and choose what version people should open.',
+    );
     assertStringIncludes(body, 'class="deployment-tab ');
     assertStringIncludes(body, 'deployment-tab-label">Canvas</span>');
     assertStringIncludes(body, 'deployment-tab-label">Moodle</span>');
@@ -165,8 +168,8 @@ Deno.test('GET /admin/packages/:appId/deployment renders an LMS tab strip with o
     assertStringIncludes(body, 'Last NRPS read');
     assertStringIncludes(body, 'Pilot usage');
     assertStringIncludes(body, 'Grade publishes');
-    assertStringIncludes(body, 'Recent activity');
-    assertStringIncludes(body, 'Open activity and failure details');
+    assertStringIncludes(body, 'Recent launches');
+    assertStringIncludes(body, 'Open checks and troubleshooting');
     assertStringIncludes(body, 'details id="activity-details" open');
     assertStringIncludes(body, 'Save Moodle settings');
     assertStringIncludes(body, 'Save live version');

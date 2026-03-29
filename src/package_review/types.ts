@@ -96,6 +96,9 @@ export interface AttemptRecord {
   packageVersionId: number;
   packageVersion: string;
   userId: string;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  userLogin: string | null;
   userRole: UserRole;
   contextId: string;
   resourceLinkId: string;

@@ -197,6 +197,9 @@ export interface AttemptRow {
   packageVersionId: number;
   packageVersion: string;
   userId: string;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  userLogin: string | null;
   userRole: AttemptRecord['userRole'];
   contextId: string;
   resourceLinkId: string;

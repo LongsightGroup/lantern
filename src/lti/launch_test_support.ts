@@ -1,4 +1,4 @@
-import { type LaunchRejection, isLaunchRejectionError } from './launch_rejection.ts';
+import { isLaunchRejectionError, type LaunchRejection } from './launch_rejection.ts';
 
 export function expectLaunchRejection(error: unknown): LaunchRejection {
   if (!isLaunchRejectionError(error)) {

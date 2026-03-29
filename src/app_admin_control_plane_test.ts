@@ -62,7 +62,10 @@ Deno.test('GET /admin/deployments renders deployment operations on a dedicated p
   assertStringIncludes(body, 'Connections');
   assertStringIncludes(body, 'All connections');
   assertStringIncludes(body, 'Pilot usage');
-  assertStringIncludes(body, 'View activity');
+  assertStringIncludes(body, 'Next step');
+  assertStringIncludes(body, 'Retry grade return');
+  assertStringIncludes(body, 'Review grade problem');
+  assertStringIncludes(body, 'Open settings');
   assertStringIncludes(body, 'view=activity#activity-details');
   assertEquals(body.includes('Broker verification'), false);
 });

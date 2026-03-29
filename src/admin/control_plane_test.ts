@@ -27,11 +27,36 @@ Deno.test('renderDeploymentsPage keeps deployment operations separate from verif
   assertStringIncludes(html, 'Chapter 4 Asteroids Pilot Deployment');
   assertStringIncludes(html, 'Pilot usage');
   assertStringIncludes(html, 'Recent active users');
-  assertStringIncludes(html, 'Retry required');
-  assertStringIncludes(html, 'View activity');
+  assertStringIncludes(html, 'Next step');
+  assertStringIncludes(html, 'Retry grade return');
+  assertStringIncludes(html, 'Review grade problem');
+  assertStringIncludes(html, 'Open settings');
   assertStringIncludes(html, 'view=activity#activity-details');
   assertEquals(html.includes('Broker verification'), false);
   assertEquals(html.includes('Save check result'), false);
+});
+
+Deno.test('renderDeploymentsPage shows one clear setup action when an LMS is not connected yet', () => {
+  const deployment = buildControlPlaneDeploymentInventoryRow({
+    deploymentId: 2,
+    deploymentSlug: 'chapter-4-asteroids-moodle',
+    deploymentLabel: 'Chapter 4 Asteroids Moodle Deployment',
+    lastLaunchAt: null,
+    lastLaunchStatus: null,
+    lastGradePublishAt: null,
+    lastGradePublishStatus: null,
+  });
+  deployment.binding = null;
+  deployment.enabledPackageVersionId = null;
+  deployment.enabledPackageVersion = null;
+
+  const html = renderDeploymentsPage({
+    deployments: [deployment],
+  });
+
+  assertStringIncludes(html, 'Next step');
+  assertStringIncludes(html, 'Connect LMS');
+  assertEquals(html.includes('View launches and problems'), false);
 });
 
 Deno.test('renderVerificationPage shows deployment-scoped verification facts while keeping official evidence separate', () => {

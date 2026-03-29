@@ -13,11 +13,14 @@ import type {
   PilotUsageMetrics,
   RetryableGradePublicationLookup,
 } from '../ops/types.ts';
+import { buildDeploymentRecentLaunch } from './package_review_test_builder_ops_launches.ts';
 import {
   DEFAULT_PHASE3_AT,
   DEFAULT_PHASE4_AT,
   DEFAULT_UPDATED_AT,
 } from './package_review_test_defaults.ts';
+
+export { buildDeploymentRecentLaunch } from './package_review_test_builder_ops_launches.ts';
 
 export function buildPilotUsageMetrics(
   overrides: Partial<PilotUsageMetrics> = {},
@@ -274,6 +277,7 @@ export function buildControlPlaneDeploymentDetailSnapshot(
       buildDeploymentActivitySnapshot({
         summary: 'Latest launch completed and reached the runtime handoff.',
       }),
+    recentLaunches: overrides.recentLaunches ?? [buildDeploymentRecentLaunch()],
     latestAgsSmoke: overrides.latestAgsSmoke ?? null,
     latestNrpsRead:
       overrides.latestNrpsRead ??

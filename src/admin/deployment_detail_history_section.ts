@@ -8,10 +8,15 @@ export function renderVersionHistorySection(
 ): string {
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Version history</p>
-        <div class="table-list">
-          ${history.map((version) => renderHistoryRow(activeDeployment, version)).join('')}
-        </div>
+        <p class="section-label">Versions</p>
+        <details>
+          <summary>Past versions and review notes</summary>
+          <div class="detail-stack">
+            <div class="table-list">
+              ${history.map((version) => renderHistoryRow(activeDeployment, version)).join('')}
+            </div>
+          </div>
+        </details>
       </div>
     </section>`;
 }
@@ -29,7 +34,7 @@ function renderHistoryRow(
         <span class="${approvalStatusClass(version.approvalStatus)}">${escapeHtml(
           approvalStatusLabel(version.approvalStatus),
         )}</span>
-        ${isPinned ? `<span class="chip">Active pin</span>` : ''}
+        ${isPinned ? `<span class="chip">Live now</span>` : ''}
       </p>
       <p class="micro muted">${escapeHtml(formatDateTime(version.importedAt))}</p>
     </div>

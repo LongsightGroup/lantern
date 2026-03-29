@@ -7,8 +7,8 @@ import {
   requestAccessToken,
 } from './runtime/gateway_publication_support.ts';
 import {
-  buildRuntimeSessionRecord,
   buildPackageVersionRecord,
+  buildRuntimeSessionRecord,
 } from './test_helpers/package_review.ts';
 import { buildSmokeFixture } from './app_admin_grade_smoke_test_support.ts';
 

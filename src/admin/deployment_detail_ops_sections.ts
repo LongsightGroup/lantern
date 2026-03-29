@@ -8,15 +8,17 @@ import {
   renderDiagnosticsSection,
 } from './deployment_detail_ops_evidence_sections.ts';
 import {
+  describeProblemFactSummary,
   formatActivityTimestamp,
-  formatBrokerVerificationTimestamp,
   formatGradePublicationTimestamp,
   renderActivityFact,
   renderDimensionRow,
+  renderRecentLaunchRow,
 } from './deployment_detail_ops_support.ts';
 import {
   describeGradePublication,
   describeOverallStatus,
+  describeProblemSummary,
   formatLmsLabel,
 } from './deployment_detail_ops_labels.ts';
 
@@ -109,60 +111,63 @@ export function renderOperationalEvidenceSection(
   openDetails = false,
 ): string {
   const diagnostics = detail?.diagnostics ?? [];
-  const latestAgsSmoke = detail?.latestAgsSmoke ?? null;
+  const recentLaunches = detail?.recentLaunches ?? [];
+  const visibleLaunches = recentLaunches.slice(0, 3);
   const retryableDiagnostics = diagnostics.filter((item) => item.retryable);
-  const internalVerification = detail?.brokerVerification?.internal ?? null;
+  const showDetails = openDetails || diagnostics.length > 0;
   const viewedDeploymentLabel = slot.persisted
     ? `${formatLmsLabel(slot.lms)} deployment`
     : `${formatLmsLabel(slot.lms)} slot`;
 
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Tests and activity</p>
+        <p class="section-label">Recent use</p>
         <div class="two-column">
           <div class="stack">
-            <h2>Recent activity</h2>
-            <p>See what Lantern has recorded for this ${escapeHtml(
+            <h2>Recent launches</h2>
+            <p>See who opened this ${escapeHtml(
               viewedDeploymentLabel,
-            )}: setup saves, launches, grade return checks, and any problems. Open details only if you need more.</p>
+            )}. Open the details below only when you need checks or troubleshooting.</p>
           </div>
           <div class="facts">
             ${renderActivityFact(
-              'Install evidence',
-              formatActivityTimestamp(detail?.latestInstallEvidence),
-              detail?.latestInstallEvidence?.summary ??
-                'No install evidence has been recorded for this deployment yet.',
+              'People recently active',
+              String(detail?.pilotUsage.recentActiveUsers ?? 0),
+              detail === null
+                ? 'No recent usage has been recorded for this LMS setup yet.'
+                : `Lantern counted ${detail.pilotUsage.recentActiveUsers} recent people on this LMS setup.`,
             )}
             ${renderActivityFact(
-              'Last launch',
+              'Last opened',
               formatActivityTimestamp(detail?.latestLaunch),
               detail?.latestLaunch?.summary ?? 'No launch has been recorded yet.',
             )}
             ${renderActivityFact(
-              'Latest grade check',
-              formatActivityTimestamp(latestAgsSmoke),
-              latestAgsSmoke?.summary ??
-                'No grade return check has been recorded for this setup yet.',
-            )}
-            ${renderActivityFact(
-              'Latest setup check',
-              formatBrokerVerificationTimestamp(internalVerification),
-              internalVerification?.summary ??
-                'No setup check has been recorded for this LMS setup yet.',
-            )}
-            ${renderActivityFact(
-              'Diagnostics',
-              diagnostics.length === 0 ? 'Clear' : `${diagnostics.length} recorded`,
-              retryableDiagnostics.length === 0
-                ? 'No retry actions are waiting right now.'
-                : `${retryableDiagnostics.length} retry action${
-                    retryableDiagnostics.length === 1 ? '' : 's'
-                  } still need operator follow-up.`,
+              'Problems to review',
+              describeProblemSummary(diagnostics.length),
+              describeProblemFactSummary(diagnostics.length, retryableDiagnostics.length),
             )}
           </div>
         </div>
-        <details id="activity-details" ${openDetails ? 'open' : ''}>
-          <summary>Open activity and failure details</summary>
+        ${
+          visibleLaunches.length === 0
+            ? `<div class="callout">
+              <h3>No launches recorded yet</h3>
+              <p>Lantern has not recorded a successful launch for this LMS setup yet.</p>
+            </div>`
+            : `<div class="table-list">
+              ${visibleLaunches.map((item) => renderRecentLaunchRow(item)).join('')}
+            </div>`
+        }
+        ${
+          recentLaunches.length > visibleLaunches.length
+            ? `<p class="micro muted">Showing the ${escapeHtml(
+                String(visibleLaunches.length),
+              )} most recent launches.</p>`
+            : ''
+        }
+        <details id="activity-details" ${showDetails ? 'open' : ''}>
+          <summary>Open checks and troubleshooting</summary>
           <div class="detail-stack">
             ${renderControlPlaneStatusSection(detail)}
             ${renderAgsSmokeSection(appId, slot, detail)}

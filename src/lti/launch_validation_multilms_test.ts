@@ -51,6 +51,9 @@ Deno.test('validateLaunchRequest accepts a signed Sakai launch with matching sta
     },
     nonce: 'nonce-123',
     audience: '7dbe6a13-f948-498c-87d7-768947ac5c56',
+    name: 'Sakai Instructor',
+    email: 'sakai@example.edu',
+    preferredUsername: 'sakai-instructor',
   });
   const launch = await validateLaunchRequest({
     repository,
@@ -65,6 +68,9 @@ Deno.test('validateLaunchRequest accepts a signed Sakai launch with matching sta
   assertEquals(launch.deploymentId, '1');
   assertEquals(launch.clientId, '7dbe6a13-f948-498c-87d7-768947ac5c56');
   assertEquals(launch.appId, 'chapter-4-asteroids');
+  assertEquals(launch.userDisplayName, 'Sakai Instructor');
+  assertEquals(launch.userEmail, 'sakai@example.edu');
+  assertEquals(launch.userLogin, 'sakai-instructor');
 });
 
 Deno.test('validateLaunchRequest accepts a signed Moodle launch with matching state and deployment binding', async () => {
@@ -105,6 +111,10 @@ Deno.test('validateLaunchRequest accepts a signed Moodle launch with matching st
     },
     nonce: 'nonce-123',
     audience: 'moodle-client-123',
+    givenName: 'Moodle',
+    familyName: 'Teacher',
+    email: 'moodle@example.edu',
+    preferredUsername: 'mteacher',
   });
   const launch = await validateLaunchRequest({
     repository,
@@ -121,4 +131,7 @@ Deno.test('validateLaunchRequest accepts a signed Moodle launch with matching st
   assertEquals(launch.resourceLinkId, 'resource-link-123');
   assertEquals(launch.contextId, 'course-42');
   assertEquals(launch.appId, 'chapter-4-asteroids');
+  assertEquals(launch.userDisplayName, 'Moodle Teacher');
+  assertEquals(launch.userEmail, 'moodle@example.edu');
+  assertEquals(launch.userLogin, 'mteacher');
 });

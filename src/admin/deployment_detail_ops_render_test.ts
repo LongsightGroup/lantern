@@ -7,6 +7,7 @@ import {
   buildControlPlaneDiagnosticItem,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
+  buildDeploymentRecentLaunch,
   buildDeploymentRecord,
   buildPackageVersionRecord,
   buildPilotUsageMetrics,
@@ -34,6 +35,14 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
       }),
     ],
     controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
+      recentLaunches: [
+        buildDeploymentRecentLaunch({
+          userId: 'https://sakai.example/user/ead80b74-e0e4-42f5-a602-489adae928b1',
+          userDisplayName: 'Ada Lovelace',
+          userEmail: 'ada@example.com',
+          userLogin: 'adal',
+        }),
+      ],
       latestLaunch: buildDeploymentActivitySnapshot({
         occurredAt: '2026-03-24T12:30:00Z',
         summary: 'Latest launch reached the governed runtime handoff.',
@@ -73,7 +82,11 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
   assertStringIncludes(html, 'Attempts completed');
   assertStringIncludes(html, 'Grade publishes');
   assertStringIncludes(html, 'Recent active users');
-  assertStringIncludes(html, 'Diagnostics');
+  assertStringIncludes(html, 'Recent launches');
+  assertStringIncludes(html, 'Opened by Ada Lovelace');
+  assertStringIncludes(html, 'ada@example.com');
+  assertStringIncludes(html, 'Course or site course-42');
+  assertStringIncludes(html, 'Placement resource-link-123');
   assertStringIncludes(html, 'deployment-tab-label">Canvas</span>');
   assertStringIncludes(html, 'Save live version');
   assertStringIncludes(html, 'chip-status-healthy');
@@ -144,7 +157,7 @@ Deno.test('deployment page shows diagnostics and an explicit retry action for re
     ],
   });
 
-  assertStringIncludes(html, 'Diagnostics');
+  assertStringIncludes(html, 'Problems to review');
   assertStringIncludes(
     html,
     'Launch failed before Lantern could hand the learner into the governed runtime.',
@@ -154,9 +167,10 @@ Deno.test('deployment page shows diagnostics and an explicit retry action for re
   assertStringIncludes(html, 'retry-grade-publish');
   assertStringIncludes(html, 'Retry grade publish');
   assertStringIncludes(html, 'chip-status-attention');
+  assertStringIncludes(html, 'details id="activity-details" open');
 });
 
-Deno.test('deployment page shows the latest setup check for the viewed setup without official certification copy', () => {
+Deno.test('deployment page keeps setup history as an optional verification link-out', () => {
   const html = renderDeploymentDetailPage({
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
@@ -217,9 +231,15 @@ Deno.test('deployment page shows the latest setup check for the viewed setup wit
     ],
   });
 
-  assertStringIncludes(html, 'Latest setup check');
+  assertStringIncludes(html, 'Setup history');
+  assertStringIncludes(
+    html,
+    'If you need past setup records or test logs for this app setup, open Verification.',
+  );
   assertStringIncludes(html, 'Latest internal proof passed for the saved Moodle deployment.');
-  assertStringIncludes(html, 'Open check log');
+  assertStringIncludes(html, 'Latest saved result');
+  assertStringIncludes(html, 'Open Verification');
+  assertStringIncludes(html, 'Open log');
   assertFalse(html.includes('Official certification'));
   assertFalse(html.includes('Supported Canvas path'));
 });

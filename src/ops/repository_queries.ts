@@ -32,6 +32,38 @@ export const LATEST_LAUNCH_QUERY = `
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
   LIMIT 1
 `;
+export const RECENT_ACCEPTED_LAUNCHES_QUERY = `
+  SELECT
+    audit_events.summary,
+    audit_events.actor_id,
+    COALESCE(
+      attempts.user_id,
+      NULLIF(audit_events.detail ->> 'userId', ''),
+      audit_events.actor_id
+    ) AS user_id,
+    COALESCE(
+      attempts.user_display_name,
+      NULLIF(audit_events.detail ->> 'userDisplayName', '')
+    ) AS user_display_name,
+    COALESCE(
+      attempts.user_email,
+      NULLIF(audit_events.detail ->> 'userEmail', '')
+    ) AS user_email,
+    COALESCE(
+      attempts.user_login,
+      NULLIF(audit_events.detail ->> 'userLogin', '')
+    ) AS user_login,
+    audit_events.attempt_id,
+    audit_events.detail,
+    audit_events.occurred_at
+  FROM audit_events
+  LEFT JOIN attempts
+    ON attempts.attempt_id = audit_events.attempt_id
+  WHERE audit_events.deployment_record_id = $1
+    AND audit_events.event_type = 'launch.accepted'
+  ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
+  LIMIT 10
+`;
 export const LATEST_NRPS_QUERY = `
   SELECT
     audit_events.event_type,
@@ -95,6 +127,7 @@ export const DIAGNOSTICS_QUERY = `
     audit_events.occurred_at
   FROM audit_events
   WHERE audit_events.deployment_record_id = $1
+    AND audit_events.status = 'failed'
     AND (
       audit_events.event_type LIKE 'launch.%'
       OR audit_events.event_type = 'deployment.nrps_verified'

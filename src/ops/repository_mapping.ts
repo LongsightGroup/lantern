@@ -5,6 +5,7 @@ import type {
   ControlPlaneDiagnosticItem,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
+  DeploymentRecentLaunch,
 } from './types.ts';
 import type {
   DiagnosticRow,
@@ -12,6 +13,7 @@ import type {
   InternalBrokerVerificationRow,
   InventoryQueryRow,
   OfficialBrokerVerificationRow,
+  RecentLaunchRow,
 } from './repository_types.ts';
 import {
   mapAuditActivityStatus,
@@ -111,6 +113,20 @@ export function mapActivitySnapshotRow(row: {
     contextId: readStringDetail(row.detail, 'contextId'),
     detail: row.detail,
   };
+}
+
+export function mapRecentLaunchRows(rows: RecentLaunchRow[]): DeploymentRecentLaunch[] {
+  return rows.map((row) => ({
+    occurredAt: normalizeTimestamp(row.occurredAt),
+    summary: row.summary,
+    attemptId: row.attemptId,
+    userId: row.userId ?? row.actorId,
+    userDisplayName: row.userDisplayName,
+    userEmail: row.userEmail,
+    userLogin: row.userLogin,
+    contextId: readStringDetail(row.detail, 'contextId'),
+    resourceLinkId: readStringDetail(row.detail, 'resourceLinkId'),
+  }));
 }
 
 export function mapGradePublicationSnapshotRow(

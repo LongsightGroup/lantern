@@ -33,7 +33,7 @@ Deno.test('renderDeploymentDetailPage shows semver history with strong status ba
   assertStringIncludes(body, 'Pinned to version 0.1.0.');
   assertStringIncludes(body, 'Version 0.2.0');
   assertStringIncludes(body, 'Pending review');
-  assertStringIncludes(body, 'Active pin');
+  assertStringIncludes(body, 'Live now');
 });
 
 Deno.test('renderDeploymentDetailPage only offers approved versions in the picker', () => {

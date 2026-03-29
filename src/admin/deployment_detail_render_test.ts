@@ -43,7 +43,10 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
   });
 
   assertStringIncludes(html, 'App settings');
-  assertStringIncludes(html, 'Set up one LMS at a time.');
+  assertStringIncludes(
+    html,
+    'Connect this app to one LMS and choose what version people should open.',
+  );
   assertStringIncludes(html, 'deployment-tab-strip');
   assertStringIncludes(html, 'Set up Canvas');
   assertStringIncludes(html, 'Dynamic Registration');
@@ -62,8 +65,8 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
   assertStringIncludes(html, 'Configuration URL');
   assertStringIncludes(html, 'Canvas environment');
   assertStringIncludes(html, binding.issuer);
-  assertStringIncludes(html, 'Recent activity');
-  assertStringIncludes(html, 'Open activity and failure details');
+  assertStringIncludes(html, 'Recent launches');
+  assertStringIncludes(html, 'Open checks and troubleshooting');
 });
 
 Deno.test('deployment page renders the selected Sakai tab without leaking the Canvas form', () => {

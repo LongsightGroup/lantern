@@ -38,6 +38,9 @@ export async function createRuntimeSession(input: {
     packageVersionId: packageVersion.id,
     packageVersion: packageVersion.version,
     userId: input.launch.userId,
+    userDisplayName: input.launch.userDisplayName,
+    userEmail: input.launch.userEmail,
+    userLogin: input.launch.userLogin,
     userRole: input.launch.userRole,
     contextId: requireTrimmedValue(
       input.launch.contextId ?? '',

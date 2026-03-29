@@ -119,23 +119,77 @@ export function describeGradePublicationSnapshot(
 }
 
 export function describeFollowUp(deployment: ControlPlaneDeploymentInventoryRow): string {
+  if (deployment.binding === null) {
+    return 'Connect LMS';
+  }
+
+  if (deployment.enabledPackageVersionId === null) {
+    return 'Choose live version';
+  }
+
   if (deployment.lastGradePublishStatus === 'failed') {
-    return 'Retry required';
+    return 'Retry grade return';
+  }
+
+  if (deployment.lastLaunchStatus === 'failed') {
+    return 'Review launch problem';
+  }
+
+  if (deployment.lastLaunchStatus === null) {
+    return 'Run a test launch';
   }
 
   if (deployment.health.overallStatus === 'healthy') {
-    return 'None right now';
+    return 'Nothing needed';
   }
 
   if (deployment.health.overallStatus === 'failed') {
-    return 'Blocked';
+    return 'Open settings';
   }
 
   if (deployment.health.overallStatus === 'attention') {
-    return 'Operator review';
+    return 'Open settings';
   }
 
-  return 'Awaiting evidence';
+  return 'Open settings';
+}
+
+export function describePrimaryAction(deployment: ControlPlaneDeploymentInventoryRow): {
+  hrefType: 'settings' | 'activity';
+  label: string;
+} {
+  if (deployment.binding === null) {
+    return {
+      hrefType: 'settings',
+      label: 'Connect LMS',
+    };
+  }
+
+  if (deployment.enabledPackageVersionId === null) {
+    return {
+      hrefType: 'settings',
+      label: 'Choose live version',
+    };
+  }
+
+  if (deployment.lastGradePublishStatus === 'failed') {
+    return {
+      hrefType: 'activity',
+      label: 'Review grade problem',
+    };
+  }
+
+  if (deployment.lastLaunchStatus === 'failed') {
+    return {
+      hrefType: 'activity',
+      label: 'Review launch problem',
+    };
+  }
+
+  return {
+    hrefType: 'settings',
+    label: 'Open settings',
+  };
 }
 
 export function healthStatusClass(

@@ -2,8 +2,8 @@ import type { Pool } from '@db/postgres';
 import {
   buildAttemptRecord,
   buildAuditEventRecord,
-  buildLineItemBindingRecord,
   buildGradePublicationRecord,
+  buildLineItemBindingRecord,
   buildPackageVersionRecord,
 } from '../test_helpers/package_review.ts';
 import {
@@ -16,9 +16,9 @@ import {
   insertAttempt,
   insertAuditEvent,
   insertBrokerVerificationRun,
-  insertLineItemBinding,
   insertDeployment,
   insertGradePublication,
+  insertLineItemBinding,
   insertPackageVersion,
   insertRuntimeSession,
 } from './repository_test_core_support.ts';
@@ -75,6 +75,10 @@ export async function seedOpsRepositoryFixtures(pool: Pool): Promise<void> {
       buildAttemptRecord({
         id: 1,
         attemptId: 'attempt-123',
+        userId: 'opaque-user-123',
+        userDisplayName: 'Ada Lovelace',
+        userEmail: 'ada@example.com',
+        userLogin: 'adal',
         status: 'completed',
         completionState: 'completed',
         finalizedAt: '2026-03-24T12:31:00Z',
@@ -85,7 +89,10 @@ export async function seedOpsRepositoryFixtures(pool: Pool): Promise<void> {
       buildAttemptRecord({
         id: 2,
         attemptId: 'attempt-999',
-        userId: 'canvas-user-999',
+        userId: 'opaque-user-999',
+        userDisplayName: 'Grace Hopper',
+        userEmail: 'grace@example.com',
+        userLogin: 'ghopper',
         startedAt: '2026-03-24T12:40:00Z',
       }),
     );
@@ -135,8 +142,19 @@ export async function seedOpsRepositoryFixtures(pool: Pool): Promise<void> {
       buildAuditEventRecord({
         id: 1,
         eventType: 'launch.accepted',
+        actorType: 'user',
+        actorId: 'opaque-user-123',
         status: 'succeeded',
         summary: 'Accepted Canvas launch.',
+        detail: {
+          lms: 'canvas',
+          userId: 'opaque-user-123',
+          userDisplayName: 'Ada Lovelace',
+          userEmail: 'ada@example.com',
+          userLogin: 'adal',
+          contextId: 'course-42',
+          resourceLinkId: 'resource-link-123',
+        },
         occurredAt: '2026-03-24T12:30:00Z',
       }),
     );

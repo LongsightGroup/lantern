@@ -47,6 +47,9 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
     audience: '10000000000001',
     issuedAt: '2026-03-24T00:45:00Z',
     expirationTime: '2h',
+    name: 'Ada Lovelace',
+    email: 'ada@example.com',
+    preferredUsername: 'adal',
   });
   const formData = new FormData();
 
@@ -100,8 +103,14 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
       assertEquals(saved.services.ags?.scope, [...CANVAS_LTI_SCOPES].slice(0, 2));
       assertEquals(saved.services.nrps?.contextMembershipsUrl?.includes('names_and_roles'), true);
       assertEquals(attempt?.attemptId, saved.attemptId);
+      assertEquals(attempt?.userDisplayName, 'Ada Lovelace');
+      assertEquals(attempt?.userEmail, 'ada@example.com');
+      assertEquals(attempt?.userLogin, 'adal');
       assertEquals(auditEvents.length, 1);
       assertEquals(auditEvents[0]?.attemptId, saved.attemptId);
+      assertEquals(auditEvents[0]?.detail.userDisplayName, 'Ada Lovelace');
+      assertEquals(auditEvents[0]?.detail.userEmail, 'ada@example.com');
+      assertEquals(auditEvents[0]?.detail.userLogin, 'adal');
     },
   );
 });

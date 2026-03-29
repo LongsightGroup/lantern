@@ -6,8 +6,10 @@ import {
   describeActivitySnapshot,
   describeFollowUp,
   describeHealthLabel,
+  describePrimaryAction,
   healthStatusClass,
 } from './control_plane_support.ts';
+import { formatLmsLabel } from './deployment_detail_ops_labels.ts';
 
 export function renderInventorySummarySection(
   deployments: ControlPlaneDeploymentInventoryRow[],
@@ -90,15 +92,25 @@ function renderDeploymentRow(deployment: ControlPlaneDeploymentInventoryRow): st
   const activityQuery = deployment.binding?.lms
     ? `?lms=${encodeURIComponent(deployment.binding.lms)}&view=activity`
     : '?view=activity';
-  const reviewHref =
-    deployment.enabledPackageVersion === null
-      ? `/admin/packages/${encodeURIComponent(deployment.appId)}/deployment`
-      : `/admin/packages/${encodeURIComponent(deployment.appId)}/versions/${encodeURIComponent(
-          deployment.enabledPackageVersion,
-        )}`;
+  const settingsHref = `/admin/packages/${encodeURIComponent(deployment.appId)}/deployment`;
   const activityHref = `/admin/packages/${encodeURIComponent(
     deployment.appId,
   )}/deployment${activityQuery}#activity-details`;
+  const primaryAction = describePrimaryAction(deployment);
+  const actionMarkup =
+    primaryAction.hrefType === 'activity'
+      ? `<a class="button-ghost" href="${escapeHtml(settingsHref)}">Open settings</a>
+        <a class="button-secondary" href="${escapeHtml(activityHref)}">${escapeHtml(
+          primaryAction.label,
+        )}</a>`
+      : primaryAction.label === 'Open settings'
+        ? `<a class="button-ghost" href="${escapeHtml(activityHref)}">View launches and problems</a>
+        <a class="button-secondary" href="${escapeHtml(settingsHref)}">${escapeHtml(
+          primaryAction.label,
+        )}</a>`
+        : `<a class="button-secondary" href="${escapeHtml(settingsHref)}">${escapeHtml(
+            primaryAction.label,
+          )}</a>`;
   const healthClass = healthStatusClass(deployment.health.overallStatus);
   const approvalMarkup =
     deployment.approvalStatus === null
@@ -120,22 +132,23 @@ function renderDeploymentRow(deployment: ControlPlaneDeploymentInventoryRow): st
         <p class="line-copy">${escapeHtml(deployment.health.summary)}</p>
       </div>
       <div class="button-row">
-        <a class="button-ghost" href="${escapeHtml(reviewHref)}">Open version details</a>
-        <a class="button-ghost" href="${escapeHtml(activityHref)}">View activity</a>
-        <a class="button-secondary" href="/admin/packages/${encodeURIComponent(
-          deployment.appId,
-        )}/deployment">App settings</a>
+        ${actionMarkup}
       </div>
     </div>
     <div class="table-row-meta">
-      <span><strong>Owner</strong> ${escapeHtml(deployment.ownerId ?? 'Not recorded yet')}</span>
+      <span><strong>LMS</strong> ${escapeHtml(
+        deployment.binding === null ? 'Not connected yet' : formatLmsLabel(deployment.binding.lms),
+      )}</span>
+      <span><strong>Recent people</strong> ${escapeHtml(
+        String(deployment.pilotUsage.recentActiveUsers),
+      )}</span>
       <span><strong>Live version</strong> ${escapeHtml(
         deployment.enabledPackageVersion ?? 'Not pinned yet',
       )}</span>
       <span><strong>Latest launch</strong> ${escapeHtml(
         describeActivitySnapshot(deployment.lastLaunchStatus, deployment.lastLaunchAt),
       )}</span>
-      <span><strong>Follow-up</strong> ${escapeHtml(describeFollowUp(deployment))}</span>
+      <span><strong>Next step</strong> ${escapeHtml(describeFollowUp(deployment))}</span>
     </div>
   </article>`;
 }

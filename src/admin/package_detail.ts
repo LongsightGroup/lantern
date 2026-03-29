@@ -89,7 +89,7 @@ export function renderPackageDetailPage(input: {
                 ? `<div class="callout callout-review">
               <h3>Review before approval</h3>
               <p>Approve this version only if these actions match what you expect the app to do.</p>
-              <p class="micro muted">If not, reject it and ask for a version with less access.</p>
+              <p class="micro muted">If not, reject it. Lantern will keep this version from going live, and you can leave the current approved version in place until a safer update is ready.</p>
               <ul class="capability-review-list">
                 ${flaggedCapabilities
                   .map(

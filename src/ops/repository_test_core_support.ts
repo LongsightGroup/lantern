@@ -121,7 +121,7 @@ export async function insertDeployment(
 
 export async function insertAttempt(client: TestClient, record: AttemptRecord): Promise<void> {
   await client.queryArray({
-    text: 'INSERT INTO attempts (id, attempt_id, deployment_record_id, deployment_slug, app_id, package_version_id, package_version, user_id, user_role, context_id, resource_link_id, activity_id, status, completion_state, started_at, finalized_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)',
+    text: 'INSERT INTO attempts (id, attempt_id, deployment_record_id, deployment_slug, app_id, package_version_id, package_version, user_id, user_display_name, user_email, user_login, user_role, context_id, resource_link_id, activity_id, status, completion_state, started_at, finalized_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)',
     args: [
       record.id,
       record.attemptId,
@@ -131,6 +131,9 @@ export async function insertAttempt(client: TestClient, record: AttemptRecord): 
       record.packageVersionId,
       record.packageVersion,
       record.userId,
+      record.userDisplayName,
+      record.userEmail,
+      record.userLogin,
       record.userRole,
       record.contextId,
       record.resourceLinkId,

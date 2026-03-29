@@ -104,6 +104,9 @@ export interface ValidatedLaunch {
   contentPath: string;
   attemptId: string;
   userId: string;
+  userDisplayName: string | null;
+  userEmail: string | null;
+  userLogin: string | null;
   userRole: UserRole;
   resourceLinkId: string;
   resourceLinkTitle: string | null;
