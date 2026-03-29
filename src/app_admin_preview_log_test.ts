@@ -7,7 +7,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 
-Deno.test('preview capability log shows durable launch, content-read, attempt, and finalize evidence after reload', async () => {
+Deno.test('test-launch activity log shows durable launch, content-read, attempt, and finalize evidence after reload', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -35,10 +35,19 @@ Deno.test('preview capability log shows durable launch, content-read, attempt, a
     ],
   });
   const app = createApp({ getRepository: () => repository });
+  const formData = new FormData();
+  formData.set('userRole', 'learner');
+  formData.set('courseId', 'course_demo');
+  formData.set('assignmentId', 'assignment_demo');
+  formData.set('activityId', 'chapter-4-asteroids');
 
   const launchResponse = await app.request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview',
-    { method: 'POST', headers: { Origin: 'http://localhost' } },
+    {
+      method: 'POST',
+      headers: { Origin: 'http://localhost' },
+      body: formData,
+    },
   );
   const location = launchResponse.headers.get('location') ?? '';
   const runtimeLocation = new URL(`http://localhost${location}`);
@@ -85,7 +94,8 @@ Deno.test('preview capability log shows durable launch, content-read, attempt, a
   assertEquals(launchResponse.status, 303);
   assertEquals(runtimeSession?.preview?.previewSessionId, previewSessionId);
   assertEquals(previewPageResponse.status, 200);
-  assertStringIncludes(previewBody, 'Preview capability log');
+  assertStringIncludes(previewBody, 'Recent test activity');
+  assertStringIncludes(previewBody, 'Started test launch');
   assertStringIncludes(previewBody, 'preview.launch');
   assertStringIncludes(previewBody, 'preview.content_read');
   assertStringIncludes(previewBody, 'preview.attempt_event');

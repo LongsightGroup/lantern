@@ -9,7 +9,7 @@ import {
   createSuccessfulSmokeFetchHandler,
 } from './app_admin_grade_smoke_test_support.ts';
 
-Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the blessed Moodle smoke path and records deployment-scoped evidence', async () => {
+Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Moodle grade-return check and records deployment-scoped evidence', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
   const fixture = buildSmokeRouteFixture('moodle');
   const repository = createSmokeRouteRepository(fixture);
@@ -90,7 +90,7 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke records bou
         const body = await response.text();
 
         assertEquals(response.status, 500);
-        assertStringIncludes(body, 'Grade smoke verification failed');
+        assertStringIncludes(body, 'Grade return check failed');
 
         const auditEvents = await repository.listAuditEventsByEventType(
           'deployment.ags_smoke_verified',
@@ -148,10 +148,10 @@ Deno.test('deployment smoke verification renders the latest Moodle result back o
       const body = await getResponse.text();
 
       assertEquals(getResponse.status, 200);
-      assertStringIncludes(body, 'Latest grade smoke verification');
-      assertStringIncludes(body, 'AGS capability');
+      assertStringIncludes(body, 'Latest grade return check');
+      assertStringIncludes(body, 'Grade return access');
       assertStringIncludes(body, fixture.smokeLineItemUrl);
-      assertStringIncludes(body, 'Run grade smoke check');
+      assertStringIncludes(body, 'Run grade return check');
     });
   } finally {
     restoreEnv('LTI_TOOL_PRIVATE_JWK', previousToolKey);

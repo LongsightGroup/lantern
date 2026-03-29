@@ -2,7 +2,7 @@ import { assertEquals, assertStringIncludes } from '@std/assert';
 import { renderPackageDetailPage } from './package_detail.ts';
 import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 
-Deno.test('renderPackageDetailPage shows status, exact version, owner, and requested capabilities above the fold', () => {
+Deno.test('renderPackageDetailPage shows status, exact version, owner, and access details above the fold', () => {
   const pendingVersion = buildPackageVersionRecord();
   const body = renderPackageDetailPage({
     packageVersion: pendingVersion,
@@ -11,14 +11,16 @@ Deno.test('renderPackageDetailPage shows status, exact version, owner, and reque
 
   assertStringIncludes(body, 'Pending review');
   assertStringIncludes(body, 'Version 0.1.0');
-  assertStringIncludes(body, 'Owner instructor_123');
-  assertStringIncludes(body, 'Requested capabilities');
-  assertStringIncludes(body, 'Attempt finalization');
-  assertStringIncludes(body, 'Declarative grading');
-  assertStringIncludes(body, 'Open persisted raw manifest JSON');
+  assertStringIncludes(body, 'instructor_123');
+  assertStringIncludes(body, 'What this app can access');
+  assertStringIncludes(body, 'Finish attempt');
+  assertStringIncludes(body, 'Automatic scoring');
+  assertStringIncludes(body, 'Show manifest JSON');
+  assertStringIncludes(body, 'capability-chip-basic');
+  assertStringIncludes(body, 'capability-chip-flagged');
 });
 
-Deno.test('renderPackageDetailPage surfaces plain-language risk callouts and validation evidence', () => {
+Deno.test('renderPackageDetailPage explains the approval decision for higher-access actions and saved file details', () => {
   const reviewedVersion = buildPackageVersionRecord({
     approvalStatus: 'approved',
     reviewNotes: 'Ready for the pilot deployment.',
@@ -29,10 +31,16 @@ Deno.test('renderPackageDetailPage surfaces plain-language risk callouts and val
     history: [reviewedVersion],
   });
 
-  assertStringIncludes(body, 'Risk callouts');
-  assertStringIncludes(body, 'Attempt finalization');
-  assertStringIncludes(body, 'Saved state write');
-  assertStringIncludes(body, 'Artifact snapshot');
+  assertStringIncludes(body, 'Review before approval');
+  assertStringIncludes(
+    body,
+    'Approve this version only if these actions match what you expect the app to do.',
+  );
+  assertStringIncludes(body, 'Finish attempt');
+  assertStringIncludes(body, 'Stores learner data');
+  assertStringIncludes(body, 'callout-review');
+  assertStringIncludes(body, 'capability-risk-chip');
+  assertStringIncludes(body, 'Saved files');
   assertStringIncludes(body, 'Ready for the pilot deployment.');
   assertEquals(body.includes('/admin/packages/1/approve'), false);
 });

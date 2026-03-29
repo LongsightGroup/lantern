@@ -57,7 +57,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         lineItemBindingId: null,
         status: 'succeeded',
         summary:
-          'Saved the Canvas registration and queued the exact deployment binding for the first launch.',
+          'Saved the Canvas setup and queued the exact deployment binding for the first launch.',
         detail: {
           lms: 'canvas',
           deploymentSlug: deployment.slug,
@@ -73,7 +73,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
       return context.html(
         renderDynamicRegistrationStatusPage({
           tone: 'success',
-          title: 'Canvas registration saved',
+          title: 'Canvas setup saved',
           detail:
             'Lantern saved the Canvas environment and Client ID. Finish the tool enablement in Canvas, then launch it once so Lantern can capture the exact deployment ID automatically.',
           closeLabel: 'Close and return to Canvas',
@@ -85,7 +85,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
       return context.html(
         renderDynamicRegistrationStatusPage({
           tone: 'error',
-          title: 'Canvas dynamic registration blocked',
+          title: 'Canvas setup blocked',
           detail: errorMessage(error),
           closeLabel: 'Close and return to Canvas',
           returnUrl: `/admin/packages/${appId}/deployment?lms=canvas#slot-panel`,
@@ -130,7 +130,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         attemptId: null,
         lineItemBindingId: null,
         status: 'succeeded',
-        summary: 'Saved the Moodle deployment binding through dynamic registration.',
+        summary: 'Saved the Moodle connection through the setup link.',
         detail: {
           deploymentSlug: deployment.slug,
           registrationMode: 'dynamic',
@@ -142,9 +142,8 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
       return context.html(
         renderDynamicRegistrationStatusPage({
           tone: 'success',
-          title: 'Moodle binding saved',
-          detail:
-            'Lantern completed the Moodle dynamic registration flow and saved the exact Moodle deployment binding.',
+          title: 'Moodle connection saved',
+          detail: 'Lantern finished Moodle setup and saved the exact Moodle connection.',
           closeLabel: 'Close and return to Moodle',
           returnUrl: `/admin/packages/${appId}/deployment?lms=moodle#slot-panel`,
           returnLabel: 'Open Lantern deployment detail',
@@ -154,7 +153,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
       return context.html(
         renderDynamicRegistrationStatusPage({
           tone: 'error',
-          title: 'Moodle dynamic registration blocked',
+          title: 'Moodle setup blocked',
           detail: errorMessage(error),
           closeLabel: 'Close and return to Moodle',
           returnUrl: `/admin/packages/${appId}/deployment?lms=moodle#slot-panel`,
@@ -167,19 +166,30 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
 
   app.get('/admin/packages/:appId/deployment/register/sakai', async (context) => {
     const appId = context.req.param('appId');
+    const searchParams = new URL(context.req.url).searchParams;
+    const openidConfigurationUrl = normalizeOptionalQueryValue(
+      searchParams.get('openid_configuration'),
+    );
+    const registrationToken = normalizeOptionalQueryValue(searchParams.get('registration_token'));
+
+    if (openidConfigurationUrl === null || registrationToken === null) {
+      return context.html(
+        renderDynamicRegistrationStatusPage({
+          tone: 'error',
+          title: 'Open this from Sakai',
+          detail:
+            "This is Lantern's Sakai Dynamic Registration URL. Paste it into Sakai's LTI Dynamic Registration flow instead of opening it directly in a browser.",
+          closeLabel: 'Close',
+          returnUrl: `/admin/packages/${appId}/deployment?lms=sakai#slot-panel`,
+          returnLabel: 'Open Lantern app settings',
+        }),
+        400,
+      );
+    }
 
     try {
       const repository = services.getRepository();
       const detail = await loadDeploymentDetailState(repository, appId);
-      const searchParams = new URL(context.req.url).searchParams;
-      const openidConfigurationUrl = requireTrimmedQueryValue(
-        searchParams.get('openid_configuration'),
-        'Sakai openid_configuration is required.',
-      );
-      const registrationToken = requireTrimmedQueryValue(
-        searchParams.get('registration_token'),
-        'Sakai registration_token is required.',
-      );
       const slot = getManagedDeploymentSlot(detail.slots, 'sakai');
       const binding = await completeSakaiDynamicRegistration({
         appId,
@@ -203,7 +213,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         attemptId: null,
         lineItemBindingId: null,
         status: 'succeeded',
-        summary: 'Saved the Sakai deployment binding through dynamic registration.',
+        summary: 'Saved the Sakai connection through the setup link.',
         detail: {
           deploymentSlug: deployment.slug,
           registrationMode: 'dynamic',
@@ -212,22 +222,28 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         occurredAt: new Date().toISOString(),
       });
 
-      return context.redirect(
-        `/admin/packages/${appId}/deployment?lms=sakai&registered=sakai#slot-panel`,
-        303,
+      return context.html(
+        renderDynamicRegistrationStatusPage({
+          tone: 'success',
+          title: 'Sakai connection saved',
+          detail:
+            'Lantern finished Sakai setup and saved the exact Sakai connection. Continue in Sakai to review and save the tool.',
+          closeLabel: 'Continue in Sakai',
+          returnUrl: `/admin/packages/${appId}/deployment?lms=sakai&registered=sakai#slot-panel`,
+          returnLabel: 'Open Lantern app settings',
+        }),
       );
     } catch (error) {
-      return await import('./app_admin_support.ts').then(({ renderDeploymentError }) =>
-        renderDeploymentError(
-          context,
-          services,
-          appId,
-          'Sakai dynamic registration blocked',
-          error,
-          {
-            selectedLms: 'sakai',
-          },
-        ),
+      return context.html(
+        renderDynamicRegistrationStatusPage({
+          tone: 'error',
+          title: 'Sakai setup blocked',
+          detail: errorMessage(error),
+          closeLabel: 'Close and return to Sakai',
+          returnUrl: `/admin/packages/${appId}/deployment?lms=sakai#slot-panel`,
+          returnLabel: 'Open Lantern app settings',
+        }),
+        statusForError(error),
       );
     }
   });

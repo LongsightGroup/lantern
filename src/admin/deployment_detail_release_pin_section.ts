@@ -37,7 +37,7 @@ export function renderCanvasRosterVerification(
         }`;
 
   return `<div class="stack">
-      <p class="section-label">Canvas service check</p>
+      <p class="section-label">Canvas test</p>
       <div class="fact">
         <span class="fact-label">Roster access</span>
         <span class="fact-value">${escapeHtml(rosterStatus)}</span>
@@ -49,7 +49,7 @@ export function renderCanvasRosterVerification(
         <div class="button-row">
           <button type="submit" class="button-secondary" ${
             getCanvasBinding(slot.deployment.binding) === null ? 'disabled' : ''
-          }>Run roster check</button>
+          }>Run roster test</button>
         </div>
       </form>
     </div>`;
@@ -65,14 +65,14 @@ export function renderVersionPinForm(
   const pinEnabled = bindingSaved && approvedVersions.length > 0;
   const pinHint = bindingSaved
     ? approvedVersions.length === 0
-      ? 'Approve a version before you save a release pin.'
+      ? 'Approve a version before you choose what learners should open.'
       : hasPendingCanvasRegistration(slot)
-        ? 'Choose the reviewed version now. Lantern will finish the exact Canvas deployment binding on the first launch.'
-        : 'Choose the approved version this LMS slot should serve.'
-    : 'Save the LMS binding first. Lantern keeps the release pin secondary until the slot is identified.';
+        ? 'Choose the live version now. Lantern will finish the exact Canvas setup on the first launch.'
+        : 'Choose the approved version this app setup should open.'
+    : 'Save the app settings first. Lantern keeps the live version secondary until the slot is identified.';
 
   return `<div class="stack">
-      <p class="section-label">Release pin</p>
+      <p class="section-label">Live version</p>
       <p class="deployment-form-note">${escapeHtml(pinHint)}</p>
       <form method="post" action="/admin/packages/${escapeHtml(
         appId,
@@ -108,7 +108,7 @@ export function renderVersionPinForm(
         <div class="button-row">
           <button type="submit" class="button-secondary" ${
             pinEnabled ? '' : 'disabled'
-          }>Save release pin</button>
+          }>Save live version</button>
         </div>
       </form>
     </div>`;

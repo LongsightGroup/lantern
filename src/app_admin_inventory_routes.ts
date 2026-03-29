@@ -73,8 +73,8 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
             versions: [],
             notice: {
               tone: 'error',
-              title: 'Package version not found',
-              detail: 'Lantern could not find that exact app version in the review inventory.',
+              title: 'Version not found',
+              detail: 'Lantern could not find that app version.',
             },
           }),
           404,
@@ -93,7 +93,7 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       return context.html(
         renderPackageIndexPage({
           versions: [],
-          notice: createErrorNotice('Package dossier unavailable', error),
+          notice: createErrorNotice('Version details unavailable', error),
         }),
         statusForError(error),
       );

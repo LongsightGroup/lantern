@@ -15,9 +15,17 @@ export interface CreatedPreviewSession {
   fakeScoring: PreviewFakeScoringDefaults;
 }
 
+export interface PreviewLaunchOverrides {
+  userRole?: PreviewSessionRecord['launch']['userRole'];
+  courseId?: string;
+  assignmentId?: string | null;
+  activityId?: string;
+}
+
 export async function createPreviewSession(input: {
   repository: PackageReviewRepository;
   packageVersion: PackageVersionRecord;
+  launch?: PreviewLaunchOverrides | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<CreatedPreviewSession> {
@@ -41,6 +49,7 @@ const PREVIEW_RUNTIME_SESSION_TTL_MS = 10 * 60 * 1000;
 export async function launchPreviewRuntimeSession(input: {
   repository: PackageReviewRepository;
   packageVersion: PackageVersionRecord;
+  launch?: PreviewLaunchOverrides | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<{
@@ -53,6 +62,7 @@ export async function launchPreviewRuntimeSession(input: {
   const created = await createPreviewSession({
     repository: input.repository,
     packageVersion: input.packageVersion,
+    launch: input.launch ?? null,
     now,
     createOpaqueToken,
   });
@@ -95,7 +105,7 @@ export async function launchPreviewRuntimeSession(input: {
     capabilities: created.previewSession.capabilities,
     snapshotRoot: created.previewSession.snapshotRoot,
     entrypointPath: created.previewSession.entrypointPath,
-    contentPath: resolvePreviewRuntimeContentPath(input.packageVersion),
+    contentPath: await resolvePreviewRuntimeContentPath(input.packageVersion),
     services: {
       ags: null,
       nrps: null,
@@ -119,7 +129,7 @@ export async function launchPreviewRuntimeSession(input: {
     previewSessionId: created.previewSession.sessionId,
     eventType: 'preview.launch',
     capability: null,
-    summary: 'Launched reviewed preview runtime session.',
+    summary: "Started a test launch in Lantern's runtime.",
     detail: {
       runtimeSessionId: runtimeSession.sessionId,
       route: `/admin/packages/${created.previewSession.appId}/versions/${created.previewSession.packageVersion}/preview`,
@@ -147,6 +157,7 @@ function buildPreviewDeploymentLabel(packageTitle: string): string {
 
 export async function preparePreviewSession(input: {
   packageVersion: PackageVersionRecord;
+  launch?: PreviewLaunchOverrides | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<PreviewSessionRecord> {
@@ -156,7 +167,7 @@ export async function preparePreviewSession(input: {
 
   if (packageVersion.approvalStatus !== 'approved') {
     throw new Error(
-      `Preview requires an approved package version. Found ${packageVersion.appId}@${packageVersion.version} in ${packageVersion.approvalStatus} state.`,
+      `Test launch requires an approved package version. Found ${packageVersion.appId}@${packageVersion.version} in ${packageVersion.approvalStatus} state.`,
     );
   }
 
@@ -164,6 +175,7 @@ export async function preparePreviewSession(input: {
   const createdAt = now().toISOString();
   const sessionId = `preview-session-${createOpaqueToken()}`;
   const launchUserId = `preview-user-${createOpaqueToken()}`;
+  const launch = resolvePreviewLaunch(packageVersion, fixtureData, input.launch);
 
   return {
     sessionId,
@@ -176,10 +188,10 @@ export async function preparePreviewSession(input: {
     entrypointPath: packageVersion.artifact.entrypointPath,
     launch: {
       userId: launchUserId,
-      userRole: fixtureData.launch.user_role,
-      courseId: fixtureData.launch.course_id,
-      assignmentId: fixtureData.launch.assignment_id,
-      activityId: fixtureData.launch.activity_id,
+      userRole: launch.userRole,
+      courseId: launch.courseId,
+      assignmentId: launch.assignmentId,
+      activityId: launch.activityId,
     },
     fakeAttemptId: fixtureData.attempt_id,
     fakeScoreMaximum: packageVersion.grading.maxScore ?? 100,
@@ -190,4 +202,52 @@ export async function preparePreviewSession(input: {
 
 function defaultOpaqueToken(): string {
   return crypto.randomUUID().replaceAll('-', '');
+}
+
+function resolvePreviewLaunch(
+  packageVersion: PackageVersionRecord,
+  fixtureData: PreviewSessionRecord['fixtureData'],
+  overrides: PreviewLaunchOverrides | null | undefined,
+): Omit<PreviewSessionRecord['launch'], 'userId'> {
+  const userRole = overrides?.userRole ?? fixtureData.launch.user_role;
+
+  if (!packageVersion.roles.includes(userRole)) {
+    throw new Error(`Test launch role ${userRole} is not allowed for this app version.`);
+  }
+
+  return {
+    userRole,
+    courseId: requireTestLaunchValue(
+      overrides?.courseId ?? fixtureData.launch.course_id,
+      'Test launch course ID is required.',
+    ),
+    assignmentId: normalizeOptionalTestLaunchValue(
+      overrides?.assignmentId === undefined
+        ? fixtureData.launch.assignment_id
+        : overrides.assignmentId,
+    ),
+    activityId: requireTestLaunchValue(
+      overrides?.activityId ?? fixtureData.launch.activity_id,
+      'Test launch activity ID is required.',
+    ),
+  };
+}
+
+function requireTestLaunchValue(value: string, message: string): string {
+  const trimmed = value.trim();
+
+  if (trimmed === '') {
+    throw new Error(message);
+  }
+
+  return trimmed;
+}
+
+function normalizeOptionalTestLaunchValue(value: string | null): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === '' ? null : trimmed;
 }

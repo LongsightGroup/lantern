@@ -1,4 +1,4 @@
-import { assertEquals } from '@std/assert';
+import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
 import {
   buildPackageVersionRecord,
@@ -6,7 +6,7 @@ import {
 } from './test_helpers/package_review.ts';
 import { restoreEnv, withFetchStub } from './app_test_support.ts';
 
-Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes dynamic registration and saves the Sakai binding', async () => {
+Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automatic setup and saves the Sakai binding', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
   Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
 
@@ -81,11 +81,12 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes dynami
           `http://localhost/admin/packages/chapter-4-asteroids/deployment/register/sakai?${params.toString()}`,
         );
 
-        assertEquals(response.status, 303);
-        assertEquals(
-          response.headers.get('location'),
-          '/admin/packages/chapter-4-asteroids/deployment?lms=sakai&registered=sakai#slot-panel',
-        );
+        assertEquals(response.status, 200);
+        const body = await response.text();
+        assertStringIncludes(body, 'Sakai connection saved');
+        assertStringIncludes(body, 'Continue in Sakai to review and save the tool.');
+        assertStringIncludes(body, 'Continue in Sakai');
+        assertStringIncludes(body, 'org.imsglobal.lti.close');
       },
     );
 
@@ -123,6 +124,33 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes dynami
     assertEquals(auditEvents.length, 1);
     assertEquals(auditEvents[0]?.detail.lms, 'sakai');
     assertEquals(auditEvents[0]?.detail.registrationMode, 'dynamic');
+  } finally {
+    restoreEnv('APP_ORIGIN', previousOrigin);
+  }
+});
+
+Deno.test('GET /admin/packages/:appId/deployment/register/sakai explains direct browser access clearly', async () => {
+  const previousOrigin = Deno.env.get('APP_ORIGIN');
+  Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
+
+  try {
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 5,
+          approvalStatus: 'approved',
+          reviewedAt: '2026-03-23T18:05:00Z',
+        }),
+      ],
+    });
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/register/sakai');
+
+    assertEquals(response.status, 400);
+    const body = await response.text();
+    assertEquals(body.includes('Open this from Sakai'), true);
+    assertEquals(body.includes('Dynamic Registration URL'), true);
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
   }

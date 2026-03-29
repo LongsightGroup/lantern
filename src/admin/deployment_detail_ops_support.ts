@@ -23,6 +23,7 @@ export function renderDimensionRow(
   label: string,
   dimension: ControlPlaneHealthDimension | null,
 ): string {
+  const tone = dimension?.status ?? 'unknown';
   const status = dimension === null ? 'Unknown' : describeDimensionStatus(dimension.status);
   const summary =
     dimension?.summary ?? 'No control-plane evidence has been recorded for this dimension yet.';
@@ -31,11 +32,13 @@ export function renderDimensionRow(
       ? 'Not recorded yet'
       : formatDateTime(dimension.checkedAt);
 
-  return `<article class="table-row">
+  return `<article class="table-row table-row-status table-row-status-${escapeHtml(tone)}">
       <div class="table-row-top">
         <p class="line-title">
           <span>${escapeHtml(label)}</span>
-          <span class="chip">${escapeHtml(status)}</span>
+          <span class="chip chip-status chip-status-${escapeHtml(tone)}">${escapeHtml(
+            status,
+          )}</span>
         </p>
         <p class="micro muted">${escapeHtml(checkedAt)}</p>
       </div>
@@ -48,6 +51,7 @@ export function renderDiagnosticRow(
   appId: string,
   retryAttemptId: string | null,
 ): string {
+  const tone = describeDiagnosticTone(item);
   const details = [
     item.code === null ? null : `Code ${item.code}`,
     item.attemptId === null ? null : `Attempt ${item.attemptId}`,
@@ -64,11 +68,13 @@ export function renderDiagnosticRow(
           </form>`
       : '';
 
-  return `<article class="table-row">
+  return `<article class="table-row table-row-status table-row-status-${escapeHtml(tone)}">
       <div class="table-row-top">
         <p class="line-title">
           <span>${escapeHtml(describeDiagnosticKind(item.kind))}</span>
-          <span class="chip">${escapeHtml(describeDiagnosticStatus(item))}</span>
+          <span class="chip chip-status chip-status-${escapeHtml(tone)}">${escapeHtml(
+            describeDiagnosticStatus(item),
+          )}</span>
         </p>
         <p class="micro muted">${escapeHtml(formatDateTime(item.occurredAt))}</p>
       </div>
@@ -170,4 +176,18 @@ function describeDimensionStatus(status: ControlPlaneHealthStatus): string {
     case 'unknown':
       return 'Unknown';
   }
+}
+
+function describeDiagnosticTone(
+  item: ControlPlaneDiagnosticItem,
+): 'healthy' | 'attention' | 'failed' | 'unknown' {
+  if (item.retryable) {
+    return 'attention';
+  }
+
+  if (item.status === 'failed') {
+    return 'failed';
+  }
+
+  return 'unknown';
 }

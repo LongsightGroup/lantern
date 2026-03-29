@@ -61,7 +61,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           previewSessionId: session.preview.previewSessionId,
           eventType: 'preview.content_read',
           capability: 'read_activity_content',
-          summary: 'Read reviewed activity content from the governed preview runtime.',
+          summary: 'Loaded the app content for this test launch.',
           detail: {
             attemptId: session.attemptId,
             contentPath: session.contentPath,

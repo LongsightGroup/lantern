@@ -39,12 +39,12 @@ Deno.test('renderPlacementAuditPage shows selected content, reviewed package ide
   assertStringIncludes(html, 'Version 0.8.0');
   assertStringIncludes(html, '/content/bonus.json');
   assertStringIncludes(html, 'Physics 101');
-  assertStringIncludes(html, 'Bound with governed preview evidence');
+  assertStringIncludes(html, 'Bound with test-launch activity');
   assertStringIncludes(html, 'href="/admin/packages/chapter-4-asteroids/versions/0.8.0"');
   assertStringIncludes(html, 'href="/admin/packages/chapter-4-asteroids/deployment"');
 });
 
-Deno.test('renderPlacementAuditPage includes deep-linking, preview, and reviewer timeline entries when evidence exists', () => {
+Deno.test('renderPlacementAuditPage includes deep-linking, test-launch, and reviewer timeline entries when evidence exists', () => {
   const html = renderPlacementAuditPage({
     snapshot: {
       placement: buildReviewedPlacementRecord({
@@ -71,7 +71,7 @@ Deno.test('renderPlacementAuditPage includes deep-linking, preview, and reviewer
       buildAuditEventRecord({
         id: 42,
         eventType: 'reviewer.preview_viewed',
-        summary: 'Reviewer opened governed preview evidence.',
+        summary: 'Reviewer opened the test launch page.',
       }),
     ],
   });
@@ -79,5 +79,5 @@ Deno.test('renderPlacementAuditPage includes deep-linking, preview, and reviewer
   assertStringIncludes(html, 'Evidence timeline');
   assertStringIncludes(html, 'deep_linking.placement.created');
   assertStringIncludes(html, 'reviewer.preview_viewed');
-  assertStringIncludes(html, 'Open preview evidence');
+  assertStringIncludes(html, 'Open test activity');
 });

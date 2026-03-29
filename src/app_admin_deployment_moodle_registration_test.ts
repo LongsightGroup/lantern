@@ -6,7 +6,7 @@ import {
 } from './test_helpers/package_review.ts';
 import { restoreEnv, withFetchStub } from './app_test_support.ts';
 
-Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes dynamic registration and returns a Moodle close page', async () => {
+Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes automatic setup and returns a Moodle close page', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
   Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
 
@@ -83,7 +83,7 @@ Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes dynam
 
         assertEquals(response.status, 200);
         const body = await response.text();
-        assertStringIncludes(body, 'Moodle binding saved');
+        assertStringIncludes(body, 'Moodle connection saved');
         assertStringIncludes(body, 'Close and return to Moodle');
         assertStringIncludes(body, 'org.imsglobal.lti.close');
         assertStringIncludes(

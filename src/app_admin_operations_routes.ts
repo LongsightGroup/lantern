@@ -20,7 +20,7 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
       return context.html(
         renderDeploymentsView({
           deployments: [],
-          notice: createErrorNotice('Deployments unavailable', error),
+          notice: createErrorNotice('Connections unavailable', error),
         }),
         statusForError(error),
       );

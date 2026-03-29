@@ -50,8 +50,7 @@ export async function runGradeSmokeVerification(input: {
       publicationStatus: 'not_attempted',
       lineItemUrl: null,
       code: 'missing_ags_context',
-      message:
-        'Launch did not provide the AGS service context Lantern needs for smoke verification.',
+      message: 'Launch did not provide the grade return access Lantern needs for this check.',
     });
   }
 
@@ -64,7 +63,7 @@ export async function runGradeSmokeVerification(input: {
       publicationStatus: 'not_attempted',
       lineItemUrl: null,
       code: 'missing_ags_scope',
-      message: 'Launch did not grant the AGS scopes Lantern needs for smoke verification.',
+      message: 'Launch did not grant the grade return scopes Lantern needs for this check.',
     });
   }
 
@@ -85,7 +84,7 @@ export async function runGradeSmokeVerification(input: {
       code: accessToken.publishError?.code ?? 'token_request_failed',
       message:
         accessToken.publishError?.message ??
-        'Lantern could not get a service token for smoke verification.',
+        'Lantern could not get a service token for this grade return check.',
     });
   }
 
@@ -145,7 +144,7 @@ export async function runGradeSmokeVerification(input: {
 
   return {
     status: 'succeeded',
-    summary: `${formatGradeSmokeLmsLabel(input.binding.lms)} AGS smoke verification succeeded.`,
+    summary: `${formatGradeSmokeLmsLabel(input.binding.lms)} grade return check passed.`,
     attemptId: input.attempt.attemptId,
     detail: {
       lms: input.binding.lms,
@@ -198,7 +197,7 @@ function buildGradeSmokeFailureResult(input: {
 }): GradeSmokeVerificationResult {
   return {
     status: 'failed',
-    summary: `${formatGradeSmokeLmsLabel(input.lms)} AGS smoke verification failed.`,
+    summary: `${formatGradeSmokeLmsLabel(input.lms)} grade return check failed.`,
     attemptId: input.attemptId,
     detail: {
       lms: input.lms,

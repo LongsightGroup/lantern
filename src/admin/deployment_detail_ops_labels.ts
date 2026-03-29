@@ -55,14 +55,14 @@ export function describeSmokeCapabilitySummary(
   const agsCapable = readBooleanDetail(snapshot?.detail, 'agsCapable');
 
   if (agsCapable === true) {
-    return 'Launch-scoped AGS context and scopes were available for the saved deployment.';
+    return 'Launch-scoped grade return access was available for this saved setup.';
   }
 
   if (agsCapable === false) {
-    return 'The saved deployment did not expose the AGS context Lantern needs for the blessed smoke path.';
+    return 'This saved setup did not expose the grade return access Lantern needs for this check.';
   }
 
-  return 'Smoke verification has not checked the AGS launch claims for this deployment yet.';
+  return 'This check has not inspected grade return access for this setup yet.';
 }
 
 export function describeSmokePublication(
@@ -97,13 +97,13 @@ export function describeSmokePublicationSummary(
 
   switch (publicationStatus) {
     case 'succeeded':
-      return 'The dedicated smoke line item publish completed for this deployment.';
+      return 'Lantern completed a test grade write for this setup.';
     case 'failed':
-      return 'Lantern reached the dedicated smoke line item, but the AGS publish failed.';
+      return 'Lantern reached the test grade write step, but the write failed.';
     case 'not_attempted':
-      return 'Lantern stopped before publishing to the dedicated smoke line item.';
+      return 'Lantern stopped before the test grade write step.';
     default:
-      return 'No smoke publication result has been recorded for this deployment yet.';
+      return 'No test grade write result has been recorded for this setup yet.';
   }
 }
 

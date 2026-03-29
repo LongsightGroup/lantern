@@ -25,7 +25,7 @@ export function renderPlacementAuditPage(input: {
       'Inspect the reviewed placement record and one durable evidence timeline from Lantern-owned logs.',
     activePath: '/admin/placements',
     breadcrumbs: [
-      { label: 'Packages', href: '/admin/packages' },
+      { label: 'Apps', href: '/admin/packages' },
       { label: 'Placements', href: '/admin/placements' },
       { label: placement.placementId },
     ],
@@ -69,20 +69,20 @@ export function renderPlacementAuditPage(input: {
             <span class="fact-label">Evidence summary</span>
             <strong class="fact-value">${escapeHtml(
               String(input.snapshot.previewEvidenceCount),
-            )} preview events</strong>
+            )} test-launch events</strong>
             <p class="micro muted">${escapeHtml(
               `${input.snapshot.evidenceSummary.deepLinkingRequestCount} deep-linking requests · ${input.snapshot.evidenceSummary.placementEventCount} placement events · ${input.snapshot.evidenceSummary.reviewerEventCount} reviewer events`,
             )}</p>
           </section>
           <div class="button-row">
-            <a class="button-secondary" href="${escapeHtml(packageLink)}">Open reviewed package</a>
-            <a class="button-secondary" href="${escapeHtml(deploymentLink)}">Open deployment</a>
+            <a class="button-secondary" href="${escapeHtml(packageLink)}">Open version details</a>
+            <a class="button-secondary" href="${escapeHtml(deploymentLink)}">Open app settings</a>
             ${
               input.snapshot.latestPreviewSessionId === null
                 ? ''
                 : `<a class="button-secondary" href="${escapeHtml(
                     previewLink,
-                  )}">Open preview evidence</a>`
+                  )}">Open test activity</a>`
             }
           </div>
         </aside>
@@ -116,7 +116,7 @@ export function renderPlacementAuditRequestPage(input: {
       'Open one reviewed placement when you need the exact content choice, package version, Canvas context, and durable reviewer evidence.',
     activePath: '/admin/placements',
     breadcrumbs: [
-      { label: 'Packages', href: '/admin/packages' },
+      { label: 'Apps', href: '/admin/packages' },
       {
         label: 'Placements',
       },
@@ -127,7 +127,7 @@ export function renderPlacementAuditRequestPage(input: {
         <div class="stack">
           <p class="section-label">Find a placement</p>
           <h2>Open one reviewed placement.</h2>
-          <p>Paste a placement id from a package dossier, deployment diagnostic, or audit event to inspect the governed record behind it.</p>
+          <p>Paste a placement id from version details, app settings, or an audit event to inspect the record behind it.</p>
           <p class="micro muted">Lantern keeps placement audits on their own page so package review and deployment tasks stay simpler.</p>
         </div>
         <form method="get" action="/admin/placements" class="stack">
@@ -181,12 +181,12 @@ function renderTimelineRows(
 
   if (snapshot.latestPreviewSessionId !== null) {
     rows.unshift(`<article class="line-item">
-      <p class="line-title">preview.evidence</p>
-      <p class="line-copy">Preview session ${escapeHtml(
+      <p class="line-title">test_launch.activity</p>
+      <p class="line-copy">Test session ${escapeHtml(
         snapshot.latestPreviewSessionId,
       )} recorded ${escapeHtml(String(snapshot.previewEvidenceCount))} events.</p>
       <p class="micro muted">${escapeHtml(formatDateTime(snapshot.latestPreviewOccurredAt))}</p>
-      <a class="button-ghost" href="${escapeHtml(previewLink)}">Open preview evidence</a>
+      <a class="button-ghost" href="${escapeHtml(previewLink)}">Open test activity</a>
     </article>`);
   }
 
@@ -196,7 +196,7 @@ function renderTimelineRows(
 
   return `<article class="line-item">
       <p class="line-title">No timeline evidence recorded yet</p>
-      <p class="line-copy">Lantern has the placement record, but no linked deep-linking, preview, or reviewer activity has been recorded for this placement yet.</p>
+      <p class="line-copy">Lantern has the placement record, but no linked deep-linking, test-launch, or reviewer activity has been recorded for this placement yet.</p>
     </article>`;
 }
 
@@ -212,15 +212,15 @@ function describePlacementStatus(status: PlacementAuditSnapshot['status']): {
       };
     case 'bound_no_preview':
       return {
-        label: 'Bound with no preview evidence',
+        label: 'Bound with no test-launch activity',
         detail:
-          'Canvas binding exists and Lantern has no preview evidence for this reviewed package version yet.',
+          'Canvas binding exists and Lantern has no test-launch activity for this reviewed package version yet.',
       };
     case 'bound_with_preview':
       return {
-        label: 'Bound with governed preview evidence',
+        label: 'Bound with test-launch activity',
         detail:
-          'Canvas binding and preview evidence are both recorded for this reviewed placement.',
+          'Canvas binding and test-launch activity are both recorded for this reviewed placement.',
       };
     case 'reviewed':
       return {

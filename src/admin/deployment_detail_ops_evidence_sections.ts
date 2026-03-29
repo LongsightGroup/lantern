@@ -12,12 +12,12 @@ import {
 } from './deployment_detail_ops_support.ts';
 import {
   describeBrokerVerificationStatus as describeBrokerVerificationStatusLabel,
-  describeSmokeStatus,
   describeSmokeCapability,
   describeSmokeCapabilitySummary,
-  formatLmsLabel,
   describeSmokePublication,
   describeSmokePublicationSummary,
+  describeSmokeStatus,
+  formatLmsLabel,
 } from './deployment_detail_ops_labels.ts';
 
 export function renderDiagnosticsSection(
@@ -29,14 +29,13 @@ export function renderDiagnosticsSection(
 
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Diagnostics</p>
-        <h2>Readable failure evidence</h2>
-        <p>Lantern keeps rejected launches, roster verification failures, and AGS publish failures as bounded operator evidence instead of raw protocol dumps.</p>
+        <p class="section-label">Problems</p>
+        <h2>Recent failures</h2>
         ${
           diagnostics.length === 0
             ? `<div class="callout">
-              <h3>No diagnostics recorded yet</h3>
-              <p>The deployment has not recorded a failed launch, NRPS read, or AGS publish yet.</p>
+              <h3>No failures recorded</h3>
+              <p>Lantern has not recorded a failed launch, roster read, or grade write for this setup.</p>
             </div>`
             : `<div class="table-list">
               ${diagnostics
@@ -55,22 +54,22 @@ export function renderBrokerVerificationSection(
 
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Verification</p>
-        <h2>Latest internal verification</h2>
-        <p>Internal broker verification stays deployment-scoped here. Official 1EdTech evidence remains on the shared verification page.</p>
+        <p class="section-label">Setup check</p>
+        <h2>Latest setup check</h2>
+        <p>Use this to see whether this exact LMS setup was tested and what happened. Official 1EdTech listings stay on the shared Verification page.</p>
         <div class="facts">
           ${renderActivityFact(
             'Status',
             describeBrokerVerificationStatusLabel(internalVerification?.status ?? null),
             internalVerification?.summary ??
-              'No internal verification evidence has been recorded for this deployment yet.',
+              'No setup check has been recorded for this LMS setup yet.',
           )}
           ${renderActivityFact(
             'Checked at',
             formatBrokerVerificationTimestamp(internalVerification),
             internalVerification === null
-              ? 'Record manual or CI proof from /admin/verification when this deployment has been checked.'
-              : 'Lantern keeps this proof scoped to the deployment in view.',
+              ? 'Save a check from /admin/verification after you test this setup.'
+              : 'This result belongs only to the LMS setup on this tab.',
           )}
         </div>
         ${
@@ -78,7 +77,7 @@ export function renderBrokerVerificationSection(
             ? `<div class="button-row">
               <a class="button-ghost" href="${escapeHtml(
                 internalVerification.evidenceUrl,
-              )}">${escapeHtml(internalVerification.evidenceUrl)}</a>
+              )}">Open check log</a>
             </div>`
             : ''
         }
@@ -101,14 +100,10 @@ export function renderAgsSmokeSection(
     slot.deployment.binding?.lms === slot.lms;
   const runCopy =
     slot.lms === 'canvas'
-      ? 'Phase 11 keeps grade smoke verification limited to the blessed Moodle and Sakai deployment paths.'
+      ? 'This test is available for Moodle and Sakai only.'
       : canRunSmoke
-        ? `Run the blessed ${formatLmsLabel(
-            slot.lms,
-          )} smoke path from this deployment view. Lantern records only bounded AGS capability, publication, and line-item facts.`
-        : `Save the exact ${formatLmsLabel(
-            slot.lms,
-          )} binding before running grade smoke verification.`;
+        ? `Run a grade return test for this ${formatLmsLabel(slot.lms)} setup.`
+        : `Save the exact ${formatLmsLabel(slot.lms)} setup before running a grade return test.`;
   const runAction =
     slot.lms === 'canvas'
       ? ''
@@ -122,54 +117,52 @@ export function renderAgsSmokeSection(
             <div class="button-row">
               <button type="submit" class="button-secondary" ${
                 canRunSmoke ? '' : 'disabled'
-              }>Run grade smoke check</button>
+              }>Run grade return check</button>
             </div>
           </form>`;
   const lineItemFact =
     lineItemUrl === null
       ? ''
       : `<div class="fact">
-            <span class="fact-label">Smoke line item</span>
+            <span class="fact-label">Test line item</span>
             <span class="fact-value">${escapeHtml(lineItemUrl)}</span>
-            <p class="micro muted">Lantern keeps smoke verification on a dedicated line item instead of the learner final-grade path.</p>
+            <p class="micro muted">Lantern uses a separate test line item so this check does not touch learner grades.</p>
           </div>`;
   const failureCallout =
     errorText === null
       ? ''
       : `<div class="callout">
-            <h3>Latest smoke failure</h3>
+            <h3>Latest check failure</h3>
             <p>${escapeHtml(errorText)}</p>
             ${errorCode === null ? '' : `<p class="micro muted">Code ${escapeHtml(errorCode)}</p>`}
           </div>`;
 
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">AGS smoke</p>
-        <h2>Latest grade smoke verification</h2>
+        <p class="section-label">Grade return check</p>
+        <h2>Latest grade return check</h2>
         <p>${escapeHtml(runCopy)}</p>
         <div class="facts">
           ${renderActivityFact(
             'Status',
             describeSmokeStatus(latestAgsSmoke),
             latestAgsSmoke?.summary ??
-              'No grade smoke verification has been recorded for this deployment yet.',
+              'No grade return check has been recorded for this setup yet.',
           )}
           ${renderActivityFact(
             'Checked at',
             formatActivityTimestamp(latestAgsSmoke),
             latestAgsSmoke === null
-              ? 'Lantern has not recorded a grade smoke check for this deployment yet.'
-              : `Lantern keeps this result scoped to the viewed ${formatLmsLabel(
-                  slot.lms,
-                )} deployment.`,
+              ? 'Lantern has not recorded a grade return check for this setup yet.'
+              : `Lantern keeps this result scoped to the viewed ${formatLmsLabel(slot.lms)} setup.`,
           )}
           ${renderActivityFact(
-            'AGS capability',
+            'Grade return access',
             describeSmokeCapability(latestAgsSmoke, readBooleanDetail),
             describeSmokeCapabilitySummary(latestAgsSmoke, readBooleanDetail),
           )}
           ${renderActivityFact(
-            'Publication',
+            'Test write',
             describeSmokePublication(latestAgsSmoke, readStringDetail),
             describeSmokePublicationSummary(latestAgsSmoke, readStringDetail),
           )}

@@ -137,13 +137,14 @@ Deno.test('POST /admin/packages/:appId/deployment/install requires the exact Moo
   const body = await response.text();
 
   assertStringIncludes(body, 'Moodle install blocked');
-  assertStringIncludes(body, 'Moodle setup');
+  assertStringIncludes(body, 'Set up Moodle');
   assertStringIncludes(body, 'Moodle Authorization endpoint is required.');
   assertStringIncludes(body, 'value="https://moodle.example"');
   assertStringIncludes(body, 'value="moodle-client-123"');
   assertStringIncludes(body, 'value="moodle-deployment-123"');
   assertStringIncludes(body, 'name="authorizationEndpoint"');
   assertStringIncludes(body, 'aria-invalid="true"');
+  assertStringIncludes(body, 'Advanced Moodle settings');
   assertEquals(await repository.getDeploymentBySlug('chapter-4-asteroids-moodle'), null);
 });
 

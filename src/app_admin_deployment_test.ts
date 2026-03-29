@@ -130,13 +130,15 @@ Deno.test('GET /admin/packages/:appId/deployment renders an LMS tab strip with o
             }),
           ],
         }),
-    }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment?lms=moodle');
+    }).request(
+      'http://localhost/admin/packages/chapter-4-asteroids/deployment?lms=moodle&view=activity',
+    );
 
     assertEquals(response.status, 200);
     const body = await response.text();
 
-    assertStringIncludes(body, 'Managed LMS deployment');
-    assertStringIncludes(body, 'Open one LMS slot at a time.');
+    assertStringIncludes(body, 'App settings');
+    assertStringIncludes(body, 'Set up one LMS at a time.');
     assertStringIncludes(body, 'class="deployment-tab ');
     assertStringIncludes(body, 'deployment-tab-label">Canvas</span>');
     assertStringIncludes(body, 'deployment-tab-label">Moodle</span>');
@@ -146,28 +148,29 @@ Deno.test('GET /admin/packages/:appId/deployment renders an LMS tab strip with o
       'href="/admin/packages/chapter-4-asteroids/deployment?lms=moodle#slot-panel" aria-current="page"',
     );
     assertStringIncludes(body, 'id="slot-panel" class="deployment-tab-panel stack"');
-    assertStringIncludes(body, 'Moodle setup');
-    assertStringIncludes(body, 'Moodle editor');
-    assertStringIncludes(body, 'Dynamic registration');
+    assertStringIncludes(body, 'Set up Moodle');
+    assertStringIncludes(body, 'Automatic setup');
     assertStringIncludes(
       body,
       'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/moodle',
     );
+    assertStringIncludes(body, 'Advanced Moodle settings');
     assertStringIncludes(body, 'Platform ID');
     assertStringIncludes(body, 'Authorization endpoint');
     assertStringIncludes(body, 'Public keyset URL');
-    assertStringIncludes(body, 'Moodle binding not saved yet');
+    assertStringIncludes(body, 'Not connected');
     assertStringIncludes(body, 'Current status');
     assertStringIncludes(body, 'Last launch');
-    assertStringIncludes(body, 'Last AGS write');
+    assertStringIncludes(body, 'Last grade write');
     assertStringIncludes(body, 'Last NRPS read');
     assertStringIncludes(body, 'Pilot usage');
     assertStringIncludes(body, 'Grade publishes');
-    assertStringIncludes(body, 'Deployment-scoped operational evidence.');
-    assertStringIncludes(body, 'Show install, launch, verification, and diagnostic detail');
-    assertStringIncludes(body, 'Save Moodle');
-    assertStringIncludes(body, 'Save release pin');
-    assertStringIncludes(body, 'Save the binding first');
+    assertStringIncludes(body, 'Recent activity');
+    assertStringIncludes(body, 'Open activity and failure details');
+    assertStringIncludes(body, 'details id="activity-details" open');
+    assertStringIncludes(body, 'Save Moodle settings');
+    assertStringIncludes(body, 'Save live version');
+    assertStringIncludes(body, 'Save the app settings first');
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
   }

@@ -10,7 +10,7 @@ import {
 import { buildMoodleDeploymentBinding, buildSakaiDeploymentBinding } from '../test_helpers/lti.ts';
 import { renderDeploymentDetailPage } from './deployment_detail.ts';
 
-Deno.test('deployment page shows the latest Moodle smoke result with AGS capability and publication facts', () => {
+Deno.test('deployment page shows the latest Moodle grade-return result with plain-language check facts', () => {
   const smokeLineItemUrl = 'https://moodle.example/mod/lti/services.php/2/lineitems/9';
   const html = renderDeploymentDetailPage({
     appId: 'chapter-4-asteroids',
@@ -43,7 +43,7 @@ Deno.test('deployment page shows the latest Moodle smoke result with AGS capabil
       }),
       latestAgsSmoke: buildDeploymentActivitySnapshot({
         status: 'succeeded',
-        summary: 'Moodle AGS smoke verification succeeded.',
+        summary: 'Moodle grade return check passed.',
         detail: {
           lms: 'moodle',
           agsCapable: true,
@@ -63,14 +63,14 @@ Deno.test('deployment page shows the latest Moodle smoke result with AGS capabil
     ],
   });
 
-  assertStringIncludes(html, 'Latest grade smoke verification');
-  assertStringIncludes(html, 'AGS capability');
-  assertStringIncludes(html, 'Publication');
-  assertStringIncludes(html, 'Run grade smoke check');
+  assertStringIncludes(html, 'Latest grade return check');
+  assertStringIncludes(html, 'Grade return access');
+  assertStringIncludes(html, 'Test write');
+  assertStringIncludes(html, 'Run grade return check');
   assertStringIncludes(html, smokeLineItemUrl);
 });
 
-Deno.test('deployment page shows the latest Sakai smoke result with AGS capability and publication facts', () => {
+Deno.test('deployment page shows the latest Sakai grade-return result with plain-language check facts', () => {
   const smokeLineItemUrl = 'https://sakai.example/direct/lti/lineitems/course-42/items/9';
   const html = renderDeploymentDetailPage({
     appId: 'chapter-4-asteroids',
@@ -103,7 +103,7 @@ Deno.test('deployment page shows the latest Sakai smoke result with AGS capabili
       }),
       latestAgsSmoke: buildDeploymentActivitySnapshot({
         status: 'succeeded',
-        summary: 'Sakai AGS smoke verification succeeded.',
+        summary: 'Sakai grade return check passed.',
         detail: {
           lms: 'sakai',
           agsCapable: true,
@@ -123,10 +123,10 @@ Deno.test('deployment page shows the latest Sakai smoke result with AGS capabili
     ],
   });
 
-  assertStringIncludes(html, 'Latest grade smoke verification');
-  assertStringIncludes(html, 'AGS capability');
-  assertStringIncludes(html, 'Publication');
-  assertStringIncludes(html, 'Run grade smoke check');
+  assertStringIncludes(html, 'Latest grade return check');
+  assertStringIncludes(html, 'Grade return access');
+  assertStringIncludes(html, 'Test write');
+  assertStringIncludes(html, 'Run grade return check');
   assertStringIncludes(html, smokeLineItemUrl);
 });
 
@@ -162,7 +162,7 @@ Deno.test('deployment page keeps failed smoke rendering bounded and readable on 
       }),
       latestAgsSmoke: buildDeploymentActivitySnapshot({
         status: 'failed',
-        summary: 'Moodle AGS smoke verification failed.',
+        summary: 'Moodle grade return check failed.',
         detail: {
           lms: 'moodle',
           agsCapable: true,
@@ -186,7 +186,7 @@ Deno.test('deployment page keeps failed smoke rendering bounded and readable on 
     ],
   });
 
-  assertStringIncludes(html, 'Latest grade smoke verification');
+  assertStringIncludes(html, 'Latest grade return check');
   assertStringIncludes(html, 'token_request_failed');
   assertStringIncludes(html, 'simulated token failure');
   assertFalse(html.includes('should-not-render'));

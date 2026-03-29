@@ -47,7 +47,7 @@ Deno.test('POST /admin/packages/:appId/deployment/pin keeps the selected LMS tab
   const body = await response.text();
 
   assertStringIncludes(body, 'Moodle version pin blocked');
-  assertStringIncludes(body, 'Moodle setup');
+  assertStringIncludes(body, 'Set up Moodle');
   assertStringIncludes(body, 'Choose an approved version.');
   assertStringIncludes(body, 'name="packageVersionId"');
   assertStringIncludes(body, 'aria-invalid="true"');

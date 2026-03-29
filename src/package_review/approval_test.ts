@@ -9,7 +9,7 @@ Deno.test('renderPackageDetailPage includes approve and reject controls for pend
     history: [pendingVersion],
   });
 
-  assertStringIncludes(body, 'Approve or reject this exact version once.');
+  assertStringIncludes(body, 'Approve or reject this version.');
   assertStringIncludes(body, '/admin/packages/1/approve');
   assertStringIncludes(body, '/admin/packages/1/reject');
   assertStringIncludes(body, 'Review notes (optional)');
@@ -26,7 +26,7 @@ Deno.test('renderPackageDetailPage shows immutable decision history after review
     history: [rejectedVersion],
   });
 
-  assertStringIncludes(body, 'Decision record');
+  assertStringIncludes(body, 'Approval');
   assertStringIncludes(body, 'Rejected');
   assertStringIncludes(body, 'Needs a corrected scoring contract.');
   assertEquals(body.includes('/admin/packages/1/approve'), false);

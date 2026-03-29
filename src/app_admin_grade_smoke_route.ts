@@ -51,7 +51,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
         throw new Error(
           `Launch the ${formatGradeSmokeLmsLabel(
             smokeLms,
-          )} deployment once before running grade smoke verification.`,
+          )} setup once before running a grade return check.`,
         );
       }
 
@@ -59,7 +59,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
 
       if (attempt === null) {
         throw new Error(
-          'Launch state is incomplete for this deployment. Try a fresh launch before running grade smoke verification.',
+          'Launch state is incomplete for this setup. Try a fresh launch before running a grade return check.',
         );
       }
 
@@ -97,7 +97,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
           notice: combineNotices(
             detail.canvasConfigUrl.notice,
             createErrorNotice(
-              'Grade smoke verification failed',
+              'Grade return check failed',
               new Error(result.detail.error?.message ?? result.summary),
             ),
           ),
@@ -111,7 +111,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
         return context.html(
           renderPackageIndexPage({
             versions: [],
-            notice: createErrorNotice('Deployment page unavailable', error),
+            notice: createErrorNotice('Connections page unavailable', error),
           }),
           statusForGradeSmokeError(error),
         );
@@ -135,7 +135,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
           supportedCanvasEnvironments: listCanvasEnvironments(),
           notice: combineNotices(
             detail.canvasConfigUrl.notice,
-            createErrorNotice('Grade smoke verification failed', error),
+            createErrorNotice('Grade return check failed', error),
           ),
         }),
         statusForGradeSmokeError(error),

@@ -18,11 +18,10 @@ export function renderDeploymentsPage(input: {
   const aggregateUsage = aggregatePilotUsage(input.deployments);
 
   return renderAdminLayout({
-    title: 'Lantern Admin Deployments',
-    eyebrow: 'Deployments',
-    heading: 'Deployments',
-    intro:
-      'See each governed deployment, its current health, and the latest pilot evidence without mixing that work into the package library.',
+    title: 'Lantern Admin Connections',
+    eyebrow: 'Connections',
+    heading: 'Connections',
+    intro: 'See which app setups are live and which ones need attention.',
     activePath: '/admin/deployments',
     notice: input.notice ?? null,
     body: `${renderInventorySummarySection(input.deployments)}
@@ -44,8 +43,7 @@ export function renderVerificationPage(input: {
     title: 'Lantern Admin Verification',
     eyebrow: 'Verification',
     heading: 'Verification',
-    intro:
-      'Review deployment-scoped broker proof for each saved deployment. Record internal checks and official 1EdTech evidence without merging them into one global status.',
+    intro: 'See saved checks for each app setup, or add a new one.',
     activePath: '/admin/verification',
     notice: input.notice ?? null,
     body: `${renderBrokerVerificationSection({

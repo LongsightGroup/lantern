@@ -9,8 +9,8 @@ import {
 } from './deployment_detail_ops_evidence_sections.ts';
 import {
   formatActivityTimestamp,
-  formatGradePublicationTimestamp,
   formatBrokerVerificationTimestamp,
+  formatGradePublicationTimestamp,
   renderActivityFact,
   renderDimensionRow,
 } from './deployment_detail_ops_support.ts';
@@ -30,7 +30,6 @@ export function renderControlPlaneStatusSection(
         <div class="stack">
           <p class="section-label">Operations</p>
           <h2>Current status</h2>
-          <p>Keep the deployment's release state, latest launch evidence, latest AGS write, and latest NRPS read on one governed admin page.</p>
           <div class="facts">
             ${renderActivityFact(
               'Overall status',
@@ -43,7 +42,7 @@ export function renderControlPlaneStatusSection(
               detail?.latestLaunch?.summary ?? 'No launch has been recorded yet.',
             )}
             ${renderActivityFact(
-              'Last AGS write',
+              'Last grade write',
               formatGradePublicationTimestamp(detail?.latestGradePublish),
               detail?.latestGradePublish
                 ? describeGradePublication(detail.latestGradePublish)
@@ -57,8 +56,8 @@ export function renderControlPlaneStatusSection(
           </div>
         </div>
         <section class="stack">
-          <p class="section-label">Status dimensions</p>
-          <h2>Readable control-plane facts</h2>
+          <p class="section-label">Checks</p>
+          <h2>Status by area</h2>
           <div class="table-list">
             ${renderDimensionRow('Review', health?.dimensions.review ?? null)}
             ${renderDimensionRow('Enablement', health?.dimensions.enablement ?? null)}
@@ -87,8 +86,7 @@ export function renderPilotUsageSection(
   return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Pilot usage</p>
-        <h2>Basic activity from durable evidence</h2>
-        <p>Counts stay deliberately small: launches, completed attempts, governed grade publishes, and recent active learners for this deployment.</p>
+        <h2>Recent usage</h2>
         <div class="facts">
           ${pilotUsageFacts
             .map(
@@ -108,6 +106,7 @@ export function renderOperationalEvidenceSection(
   appId: string,
   slot: ManagedDeploymentSlot,
   detail: ControlPlaneDeploymentDetailSnapshot | null,
+  openDetails = false,
 ): string {
   const diagnostics = detail?.diagnostics ?? [];
   const latestAgsSmoke = detail?.latestAgsSmoke ?? null;
@@ -119,13 +118,13 @@ export function renderOperationalEvidenceSection(
 
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Operations</p>
+        <p class="section-label">Tests and activity</p>
         <div class="two-column">
           <div class="stack">
-            <h2>Deployment-scoped operational evidence.</h2>
-            <p>Use the LMS slot in view first. Open the evidence drawer only when you need install, launch, verification, or failure detail for this ${escapeHtml(
+            <h2>Recent activity</h2>
+            <p>See what Lantern has recorded for this ${escapeHtml(
               viewedDeploymentLabel,
-            )}.</p>
+            )}: setup saves, launches, grade return checks, and any problems. Open details only if you need more.</p>
           </div>
           <div class="facts">
             ${renderActivityFact(
@@ -140,16 +139,16 @@ export function renderOperationalEvidenceSection(
               detail?.latestLaunch?.summary ?? 'No launch has been recorded yet.',
             )}
             ${renderActivityFact(
-              'Latest AGS smoke',
+              'Latest grade check',
               formatActivityTimestamp(latestAgsSmoke),
               latestAgsSmoke?.summary ??
-                'No grade smoke verification has been recorded for this deployment yet.',
+                'No grade return check has been recorded for this setup yet.',
             )}
             ${renderActivityFact(
-              'Latest internal verification',
+              'Latest setup check',
               formatBrokerVerificationTimestamp(internalVerification),
               internalVerification?.summary ??
-                'No internal verification evidence has been recorded for this deployment yet.',
+                'No setup check has been recorded for this LMS setup yet.',
             )}
             ${renderActivityFact(
               'Diagnostics',
@@ -162,8 +161,8 @@ export function renderOperationalEvidenceSection(
             )}
           </div>
         </div>
-        <details>
-          <summary>Show install, launch, verification, and diagnostic detail</summary>
+        <details id="activity-details" ${openDetails ? 'open' : ''}>
+          <summary>Open activity and failure details</summary>
           <div class="detail-stack">
             ${renderControlPlaneStatusSection(detail)}
             ${renderAgsSmokeSection(appId, slot, detail)}

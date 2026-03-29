@@ -59,9 +59,11 @@ Deno.test('GET /admin/deployments renders deployment operations on a dedicated p
 
   const body = await response.text();
 
-  assertStringIncludes(body, 'Deployments');
-  assertStringIncludes(body, 'Deployment inventory');
+  assertStringIncludes(body, 'Connections');
+  assertStringIncludes(body, 'All connections');
   assertStringIncludes(body, 'Pilot usage');
+  assertStringIncludes(body, 'View activity');
+  assertStringIncludes(body, 'view=activity#activity-details');
   assertEquals(body.includes('Broker verification'), false);
 });
 
@@ -136,22 +138,22 @@ Deno.test('GET /admin/verification renders verification on a dedicated page', as
   const body = await response.text();
 
   assertStringIncludes(body, 'Verification');
-  assertStringIncludes(body, 'Deployment-scoped internal proof');
-  assertStringIncludes(body, 'Official 1EdTech evidence');
+  assertStringIncludes(body, 'Saved checks');
+  assertStringIncludes(body, 'Official 1EdTech listing');
   assertStringIncludes(body, 'Chapter 4 Asteroids Pilot Deployment');
   assertStringIncludes(body, 'Chapter 4 Asteroids Moodle Deployment');
   assertStringIncludes(body, 'Chapter 4 Asteroids Sakai Deployment');
-  assertStringIncludes(body, 'Record verification evidence');
+  assertStringIncludes(body, 'Add a check');
   assertStringIncludes(body, 'action="/admin/verification"');
   assertStringIncludes(body, 'name="deploymentRecordId"');
   assertStringIncludes(body, 'name="scope"');
-  assertEquals(body.includes('Deployment inventory'), false);
+  assertEquals(body.includes('One row per LMS connection'), false);
   assertEquals(body.includes('Supported Canvas path'), false);
 });
 
 Deno.test('GET /admin/deployments keeps route failures inside the admin shell', async () => {
   const app = createApp({
-    getOpsRepository: () => createFailingOpsRepository('Deployments inventory is unavailable.'),
+    getOpsRepository: () => createFailingOpsRepository('Connections inventory is unavailable.'),
   });
 
   const response = await app.request('http://localhost/admin/deployments');
@@ -159,8 +161,8 @@ Deno.test('GET /admin/deployments keeps route failures inside the admin shell', 
   assertEquals(response.status, 500);
   const body = await response.text();
 
-  assertStringIncludes(body, 'Deployments unavailable');
-  assertStringIncludes(body, 'Deployments inventory is unavailable.');
+  assertStringIncludes(body, 'Connections unavailable');
+  assertStringIncludes(body, 'Connections inventory is unavailable.');
   assertStringIncludes(body, 'href="/admin/packages"');
   assertStringIncludes(body, 'href="/admin/deployments"');
 });

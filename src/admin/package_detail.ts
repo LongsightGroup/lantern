@@ -25,13 +25,12 @@ export function renderPackageDetailPage(input: {
 
   return renderAdminLayout({
     title: `${packageVersion.title} ${packageVersion.version}`,
-    eyebrow: 'Package Dossier',
+    eyebrow: 'Version details',
     heading: packageVersion.title,
-    intro:
-      'Review the exact package version, the permissions it asks for, and the evidence Lantern captured before any deployment pin is allowed.',
+    intro: 'Review this version before you make it live.',
     activePath: '/admin/packages',
     breadcrumbs: [
-      { label: 'Packages', href: '/admin/packages' },
+      { label: 'Apps', href: '/admin/packages' },
       { label: packageVersion.title },
       { label: packageVersion.version },
     ],
@@ -54,48 +53,60 @@ export function renderPackageDetailPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">Owner</span>
-              <span class="fact-value">Owner ${escapeHtml(packageVersion.owner.id)}</span>
+              <span class="fact-value">${escapeHtml(packageVersion.owner.id)}</span>
             </div>
             <div class="fact">
-              <span class="fact-label">Roles</span>
+              <span class="fact-label">Available to</span>
               <span class="fact-value">${escapeHtml(summarizeRoles(packageVersion.roles))}</span>
             </div>
             <div class="fact">
-              <span class="fact-label">Install scope</span>
-              <span class="fact-value">${escapeHtml(packageVersion.installScope)}</span>
+              <span class="fact-label">Placement</span>
+              <span class="fact-value">${escapeHtml(
+                formatInstallScope(packageVersion.installScope),
+              )}</span>
             </div>
             <div class="fact">
-              <span class="fact-label">Imported</span>
+              <span class="fact-label">Added</span>
               <span class="fact-value">${escapeHtml(
                 formatDateTime(packageVersion.importedAt),
               )}</span>
             </div>
           </div>
           <section class="stack">
-            <p class="section-label">Requested capabilities</p>
+            <p class="section-label">What this app can access</p>
             <div class="chip-row">
               ${capabilitySummary
                 .map(
                   (capability) =>
-                    `<span class="chip ${capability.flagged ? 'chip-flagged' : ''}">${escapeHtml(
-                      capability.label,
-                    )}</span>`,
+                    `<span class="chip capability-chip ${
+                      capability.flagged ? 'capability-chip-flagged' : 'capability-chip-basic'
+                    }">${escapeHtml(capability.label)}</span>`,
                 )
                 .join('')}
             </div>
             ${
               flaggedCapabilities.length > 0
-                ? `<div class="callout">
-              <h3>Risk callouts</h3>
-              <ul>
+                ? `<div class="callout callout-review">
+              <h3>Review before approval</h3>
+              <p>Approve this version only if these actions match what you expect the app to do.</p>
+              <p class="micro muted">If not, reject it and ask for a version with less access.</p>
+              <ul class="capability-review-list">
                 ${flaggedCapabilities
                   .map(
                     (capability) =>
-                      `<li><strong>${escapeHtml(capability.label)}</strong>: ${escapeHtml(
-                        capability.detail,
-                      )}${
-                        capability.flagLabel ? ` (${escapeHtml(capability.flagLabel)})` : ''
-                      }</li>`,
+                      `<li class="capability-review-item">
+                  <p class="line-title">
+                    <span>${escapeHtml(capability.label)}</span>
+                    ${
+                      capability.flagLabel
+                        ? `<span class="chip capability-risk-chip">${escapeHtml(
+                            capability.flagLabel,
+                          )}</span>`
+                        : ''
+                    }
+                  </p>
+                  <p class="line-copy">${escapeHtml(capability.detail)}</p>
+                </li>`,
                   )
                   .join('')}
               </ul>
@@ -106,20 +117,20 @@ export function renderPackageDetailPage(input: {
         </div>
         <aside class="stack">
           <section class="fact">
-            <span class="fact-label">Grading</span>
+            <span class="fact-label">Scoring</span>
             <strong class="fact-value">${escapeHtml(grading.label)}</strong>
             <p class="micro muted">${escapeHtml(grading.detail)}</p>
           </section>
           <section class="fact">
-            <span class="fact-label">Validation evidence</span>
+            <span class="fact-label">Checks</span>
             <strong class="fact-value">${escapeHtml(validation.label)}</strong>
             <p class="micro muted">${escapeHtml(validation.detail)}</p>
           </section>
           <section class="fact">
-            <span class="fact-label">Next operator step</span>
+            <span class="fact-label">Next step</span>
             <a class="button-secondary" href="/admin/packages/${escapeHtml(
               packageVersion.appId,
-            )}/deployment">Open deployments</a>
+            )}/deployment">Open app settings</a>
           </section>
         </aside>
       </div>
@@ -127,12 +138,14 @@ export function renderPackageDetailPage(input: {
     <section class="panel">
       <div class="panel-body grid">
         <div class="stack">
-          <p class="section-label">Review evidence</p>
-          <div class="line-list">
-            ${capabilitySummary
-              .map(
-                (capability) =>
-                  `<article class="line-item">
+          <p class="section-label">More details</p>
+          <details>
+            <summary>Show access notes and saved file details</summary>
+            <div class="line-list">
+              ${capabilitySummary
+                .map(
+                  (capability) =>
+                    `<article class="line-item">
               <p class="line-title">${escapeHtml(capability.label)}${
                 capability.flagLabel
                   ? ` <span class="micro muted">${escapeHtml(capability.flagLabel)}</span>`
@@ -140,24 +153,25 @@ export function renderPackageDetailPage(input: {
               }</p>
               <p class="line-copy">${escapeHtml(capability.detail)}</p>
             </article>`,
-              )
-              .join('')}
-            <article class="line-item">
-              <p class="line-title">Grading model</p>
-              <p class="line-copy">${escapeHtml(grading.detail)}</p>
-            </article>
-            <article class="line-item">
-              <p class="line-title">Artifact snapshot</p>
-              <p class="line-copy">${escapeHtml(
-                packageVersion.artifact.snapshotRoot,
-              )} · ${escapeHtml(packageVersion.artifact.digest)}</p>
-            </article>
-          </div>
+                )
+                .join('')}
+              <article class="line-item">
+                <p class="line-title">Scoring setup</p>
+                <p class="line-copy">${escapeHtml(grading.detail)}</p>
+              </article>
+              <article class="line-item">
+                <p class="line-title">Saved files</p>
+                <p class="line-copy">Lantern saved a reviewed copy in ${escapeHtml(
+                  packageVersion.artifact.snapshotRoot,
+                )} with checksum ${escapeHtml(packageVersion.artifact.digest)}.</p>
+              </article>
+            </div>
+          </details>
         </div>
         ${
           validation.issues.length > 0
             ? `<section class="callout">
-              <h3>Fix list</h3>
+              <h3>Things to fix</h3>
               <ul>
                 ${validation.issues
                   .map(
@@ -177,19 +191,23 @@ export function renderPackageDetailPage(input: {
     <section class="panel">
       <div class="panel-body two-column">
         <section class="stack">
-          <p class="section-label">Version history</p>
+          <p class="section-label">Other versions</p>
           <div class="table-list">
             ${input.history.map((version) => renderHistoryRow(packageVersion, version)).join('')}
           </div>
         </section>
         <section class="stack">
-          <p class="section-label">Raw manifest drill-down</p>
+          <p class="section-label">Technical details</p>
           <details>
-            <summary>Open persisted raw manifest JSON</summary>
+            <summary>Show manifest JSON</summary>
             <pre>${escapeHtml(JSON.stringify(packageVersion.manifestJson, null, 2))}</pre>
           </details>
         </section>
       </div>
     </section>`,
   });
+}
+
+function formatInstallScope(scope: PackageVersionRecord['installScope']): string {
+  return scope === 'assignment' ? 'Assignment placement' : 'Course placement';
 }

@@ -79,7 +79,7 @@ Deno.test('GET /admin/packages/:appId/deployment/register/canvas saves a pending
 
         assertEquals(response.status, 200);
         const body = await response.text();
-        assertStringIncludes(body, 'Canvas registration saved');
+        assertStringIncludes(body, 'Canvas setup saved');
         assertStringIncludes(body, 'Close and return to Canvas');
         assertStringIncludes(body, 'org.imsglobal.lti.close');
         assertStringIncludes(

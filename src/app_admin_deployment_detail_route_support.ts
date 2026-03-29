@@ -26,16 +26,15 @@ export function buildDeploymentDetailNotice(
     case 'canvas':
       return {
         tone: 'success' as const,
-        title: 'Canvas registration saved',
+        title: 'Canvas setup saved',
         detail:
           'Lantern saved the Canvas environment and Client ID. Finish one real Canvas launch to capture the exact deployment ID automatically.',
       };
     case 'sakai':
       return {
         tone: 'success' as const,
-        title: 'Sakai binding saved',
-        detail:
-          'Lantern completed the Sakai dynamic registration flow and saved the exact Sakai deployment binding.',
+        title: 'Sakai connection saved',
+        detail: 'Lantern finished Sakai setup and saved the exact Sakai connection.',
       };
     default:
       return canvasNotice;

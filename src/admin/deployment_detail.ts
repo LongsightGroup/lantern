@@ -185,6 +185,7 @@ export function renderDeploymentDetailPage(input: {
   history: PackageVersionRecord[];
   deployments: DeploymentRecord[];
   selectedLms?: LmsType | null;
+  openOperationalEvidence?: boolean;
   editorState?: DeploymentEditorState | null;
   nrpsVerification?: DeploymentNrpsVerificationSummary | null;
   controlPlaneDetail?: ControlPlaneDeploymentDetailSnapshot | null;
@@ -213,19 +214,18 @@ export function renderDeploymentDetailPage(input: {
   const supportedCanvasEnvironments = input.supportedCanvasEnvironments ?? [];
 
   return renderAdminLayout({
-    title: `${input.appTitle} Deployment`,
-    eyebrow: 'Managed LMS deployment',
-    heading: `${input.appTitle} Deployment`,
-    intro:
-      'Review the Canvas, Moodle, and Sakai deployment slots for this reviewed app. Lantern keeps each release pin and exact LMS binding explicit so one install does not overwrite another.',
+    title: `${input.appTitle} App settings`,
+    eyebrow: 'App settings',
+    heading: `${input.appTitle} App settings`,
+    intro: 'Set up one LMS at a time and choose the live version.',
     activePath: '/admin/deployments',
     breadcrumbs: [
-      { label: 'Packages', href: '/admin/packages' },
+      { label: 'Apps', href: '/admin/packages' },
       {
         label: input.appTitle,
         href: `/admin/packages/${input.appId}/versions/${input.history[0]?.version ?? ''}`,
       },
-      { label: 'Deployment' },
+      { label: 'Connections' },
     ],
     notice: input.notice ?? null,
     body: `${renderManagedDeploymentSections({
@@ -243,6 +243,11 @@ export function renderDeploymentDetailPage(input: {
       history: input.history,
     })}
     ${renderVersionHistorySection(input.history, primaryDeployment)}
-    ${renderOperationalEvidenceSection(input.appId, selectedSlot, controlPlaneDetail)}`,
+    ${renderOperationalEvidenceSection(
+      input.appId,
+      selectedSlot,
+      controlPlaneDetail,
+      input.openOperationalEvidence ?? false,
+    )}`,
   });
 }

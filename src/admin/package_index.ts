@@ -26,11 +26,10 @@ export function renderPackageIndexPage(input: {
     input.versions.length === 0 ? renderEmptyState() : renderPackageLibrary(input.versions);
 
   return renderAdminLayout({
-    title: 'Lantern Admin Packages',
-    eyebrow: 'Package Home',
-    heading: 'Open a package and continue from its dossier.',
-    intro:
-      'Use this page to find a package, review its exact version, and hand off deployment or verification work to the dedicated admin pages.',
+    title: 'Lantern Admin Apps',
+    eyebrow: 'Apps',
+    heading: 'Open an app.',
+    intro: 'From there you can review a version, change app settings, or run a test launch.',
     activePath: '/admin/packages',
     notice: input.notice ?? null,
     body,
@@ -41,25 +40,21 @@ function renderEmptyState(): string {
   return `<section class="panel">
     <div class="panel-body two-column">
       <div class="stack">
-        <p class="section-label">Guided first step</p>
+        <p class="section-label">Get started</p>
         <h2>Import the demo app.</h2>
         <p>
-          Start with one known-good package so the review, approval, preview, and deployment flow is visible end to end.
-        </p>
-        <p class="micro muted">
-          Deployments, verification, and placement audits stay in their own admin pages once the package is in view.
+          Use the demo to try review, test launch, and LMS setup from start to finish.
         </p>
       </div>
       <div class="stack">
         <section class="fact">
-          <span class="fact-label">Demo package</span>
+          <span class="fact-label">Demo app</span>
           <strong class="fact-value">Chapter 4 Asteroids</strong>
-          <p class="micro muted">Playable arcade demo with review metadata and governed preview fixtures.</p>
+          <p class="micro muted">Playable arcade demo with sample review details and saved test-launch data.</p>
         </section>
         <form method="post" action="/admin/packages/import-demo" class="button-row">
           <button type="submit" class="button-primary">Start with the demo app</button>
         </form>
-        <p class="micro muted">Lantern snapshots the reviewed bytes into Lantern-managed storage.</p>
       </div>
     </div>
   </section>`;
@@ -71,18 +66,18 @@ function renderPackageLibrary(versions: PackageVersionRecord[]): string {
   return `<section class="panel">
     <div class="panel-body two-column">
       <div class="stack">
-        <p class="section-label">Package library</p>
-        <h2>Pick one package to review or deploy.</h2>
+        <p class="section-label">Apps</p>
+        <h2>Choose an app.</h2>
         <p>
-          Open the latest dossier for a package, then move into deployment, preview, or review from that single source of truth.
+          Open a version to review it, or open app settings to connect it to an LMS.
         </p>
       </div>
       <div class="stack">
         <form method="post" action="/admin/packages/import-demo">
-          <button type="submit" class="button-secondary">Open the demo dossier</button>
+          <button type="submit" class="button-secondary">Open demo app</button>
         </form>
         <p class="micro muted">
-          If the demo already exists, Lantern reopens the exact dossier instead of importing it again.
+          If the demo is already here, Lantern opens that same version instead of importing it again.
         </p>
       </div>
     </div>
@@ -143,10 +138,10 @@ function renderPackageEntry(entry: PackageLibraryEntry): string {
       <div class="button-row">
         <a class="button-ghost" href="/admin/packages/${escapeHtml(
           entry.appId,
-        )}/versions/${escapeHtml(entry.latestVersion)}">Open latest dossier</a>
+        )}/versions/${escapeHtml(entry.latestVersion)}">Open version details</a>
         <a class="button-secondary" href="/admin/packages/${escapeHtml(
           entry.appId,
-        )}/deployment">Open deployments</a>
+        )}/deployment">App settings</a>
       </div>
     </div>
     <div class="table-row-meta">
@@ -155,7 +150,7 @@ function renderPackageEntry(entry: PackageLibraryEntry): string {
       <span><strong>Approved</strong> ${escapeHtml(String(entry.approvedVersionCount))}</span>
       <span><strong>Owner</strong> ${escapeHtml(entry.ownerId)}</span>
       <span><strong>App ID</strong> ${escapeHtml(entry.appId)}</span>
-      <span><strong>Imported</strong> ${escapeHtml(formatDateTime(entry.latestImportedAt))}</span>
+      <span><strong>Added</strong> ${escapeHtml(formatDateTime(entry.latestImportedAt))}</span>
     </div>
   </article>`;
 }

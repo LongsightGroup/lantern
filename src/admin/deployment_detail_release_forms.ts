@@ -8,7 +8,6 @@ import type {
 } from './deployment_detail.ts';
 import {
   describeBindingStatusHeading,
-  describeEditorCopy,
   describeManagedSlotIntro,
   formatLmsLabel,
 } from './deployment_detail_release_support.ts';
@@ -42,27 +41,27 @@ export function renderSelectedSlotPanel(input: {
   return `<section id="slot-panel" class="deployment-tab-panel stack">
       <div class="table-row-top">
         <div class="stack">
-          <p class="section-label">${escapeHtml(lmsLabel)} slot</p>
-          <h2>${escapeHtml(lmsLabel)} setup</h2>
+          <p class="section-label">${escapeHtml(lmsLabel)} settings</p>
+          <h2>Set up ${escapeHtml(lmsLabel)}</h2>
           <p class="deployment-form-note">${escapeHtml(
             describeManagedSlotIntro(input.slot.lms),
           )}</p>
         </div>
         <span class="chip chip-flagged">${escapeHtml(bindingStatusHeading)}</span>
       </div>
-      <div class="chip-row">
-        <span class="chip">Slug ${escapeHtml(input.slot.deployment.slug)}</span>
-        <span class="chip">${escapeHtml(
-          input.slot.deployment.enabledPackageVersionId === null
-            ? 'No version pinned'
-            : `Pinned ${input.slot.deployment.enabledPackageVersion ?? 'reviewed version'}`,
-        )}</span>
-      </div>
-      <div class="deployment-tab-copy">
-        <span class="deployment-tab-title">${escapeHtml(lmsLabel)} editor</span>
-        <span class="deployment-tab-copy-text">${escapeHtml(
-          describeEditorCopy(input.slot.lms),
-        )}</span>
+      <div class="facts deployment-summary-grid">
+        <div class="fact">
+          <span class="fact-label">Setup status</span>
+          <span class="fact-value">${escapeHtml(bindingStatusHeading)}</span>
+        </div>
+        <div class="fact">
+          <span class="fact-label">Live version</span>
+          <span class="fact-value">${escapeHtml(
+            input.slot.deployment.enabledPackageVersionId === null
+              ? 'Not chosen yet'
+              : (input.slot.deployment.enabledPackageVersion ?? 'Reviewed version'),
+          )}</span>
+        </div>
       </div>
       ${renderInlineNotice(input.editorState?.notice ?? null)}
       <div class="deployment-tab-body stack">

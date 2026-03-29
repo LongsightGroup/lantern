@@ -23,13 +23,15 @@ Deno.test('renderDeploymentsPage keeps deployment operations separate from verif
     ],
   });
 
-  assertStringIncludes(html, 'Deployments');
+  assertStringIncludes(html, 'Connections');
   assertStringIncludes(html, 'Chapter 4 Asteroids Pilot Deployment');
   assertStringIncludes(html, 'Pilot usage');
   assertStringIncludes(html, 'Recent active users');
   assertStringIncludes(html, 'Retry required');
+  assertStringIncludes(html, 'View activity');
+  assertStringIncludes(html, 'view=activity#activity-details');
   assertEquals(html.includes('Broker verification'), false);
-  assertEquals(html.includes('Record verification evidence'), false);
+  assertEquals(html.includes('Save check result'), false);
 });
 
 Deno.test('renderVerificationPage shows deployment-scoped verification facts while keeping official evidence separate', () => {
@@ -88,8 +90,8 @@ Deno.test('renderVerificationPage shows deployment-scoped verification facts whi
     }),
   });
 
-  assertStringIncludes(html, 'Deployment-scoped internal proof');
-  assertStringIncludes(html, 'Official 1EdTech evidence');
+  assertStringIncludes(html, 'Saved checks');
+  assertStringIncludes(html, 'Official 1EdTech listing');
   assertStringIncludes(html, 'Chapter 4 Asteroids Pilot Deployment');
   assertStringIncludes(html, 'Chapter 4 Asteroids Moodle Deployment');
   assertStringIncludes(html, 'Chapter 4 Asteroids Sakai Deployment');
@@ -101,7 +103,7 @@ Deno.test('renderVerificationPage shows deployment-scoped verification facts whi
   assertStringIncludes(html, 'https://example.test/internal-proof');
   assertStringIncludes(html, 'https://example.test/moodle-proof');
   assertStringIncludes(html, 'https://example.test/official-directory');
-  assertStringIncludes(html, 'Record verification evidence');
+  assertStringIncludes(html, 'Add a check');
   assertStringIncludes(html, 'action="/admin/verification"');
   assertStringIncludes(html, 'name="deploymentRecordId"');
   assertStringIncludes(html, 'name="scope"');

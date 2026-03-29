@@ -73,7 +73,6 @@ Deno.test('deployment page keeps separate Canvas, Moodle, and Sakai slots for on
   assertStringIncludes(html, 'deployment-tab-label">Canvas</span>');
   assertStringIncludes(html, 'deployment-tab-label">Moodle</span>');
   assertStringIncludes(html, 'deployment-tab-label">Sakai</span>');
-  assertStringIncludes(html, 'chapter-4-asteroids-pilot');
   assertStringIncludes(html, 'Pinned to version 0.1.0.');
   assertStringIncludes(
     html,
@@ -211,7 +210,7 @@ Deno.test('deployment page keeps one deployment route while rendering install, l
       `href="/admin/packages/chapter-4-asteroids/deployment?lms=${testCase.lms}#slot-panel" aria-current="page"`,
     );
     assertStringIncludes(html, 'Install evidence');
-    assertStringIncludes(html, 'Latest internal verification');
+    assertStringIncludes(html, 'Latest setup check');
     assertStringIncludes(html, testCase.installSummary);
     assertStringIncludes(html, testCase.launchSummary);
     assertStringIncludes(html, testCase.diagnosticSummary);

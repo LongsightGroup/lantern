@@ -51,7 +51,7 @@ Deno.test('GET /admin/placements/:placementId renders selected content, reviewed
       buildAuditEventRecord({
         eventType: 'reviewer.preview_viewed',
         packageVersionId: 8,
-        summary: 'Reviewer opened governed preview evidence.',
+        summary: 'Reviewer opened the test launch page.',
         detail: { placementId: 'placement-audit-123' },
       }),
     ],
@@ -71,7 +71,7 @@ Deno.test('GET /admin/placements/:placementId renders selected content, reviewed
   assertStringIncludes(body, '/content/bonus.json');
   assertStringIncludes(body, 'Physics 101');
   assertStringIncludes(body, 'reviewer.preview_viewed');
-  assertStringIncludes(body, 'Open preview evidence');
+  assertStringIncludes(body, 'Open test activity');
 });
 
 Deno.test('GET /admin/placements renders a lookup page and unknown placement ids still fail clearly', async () => {
@@ -91,13 +91,13 @@ Deno.test('GET /admin/placements renders a lookup page and unknown placement ids
   assertStringIncludes(unknownBody, 'Reviewed placement placement-missing was not found.');
 });
 
-Deno.test('approved package dossier includes a governed preview launch link', async () => {
+Deno.test('approved package review page includes a test launch link', async () => {
   const seededRepository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
         id: 41,
         approvalStatus: 'approved',
-        reviewNotes: 'Ready for governed preview.',
+        reviewNotes: 'Ready for test launch.',
         reviewedAt: '2026-03-25T00:40:00Z',
       }),
     ],
@@ -111,5 +111,6 @@ Deno.test('approved package dossier includes a governed preview launch link', as
   const body = await response.text();
 
   assertStringIncludes(body, '/admin/packages/chapter-4-asteroids/versions/0.1.0/preview');
+  assertStringIncludes(body, 'Open test launch');
   assertStringIncludes(body, 'href="/admin/placements"');
 });

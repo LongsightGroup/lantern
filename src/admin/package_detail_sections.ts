@@ -10,15 +10,15 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
   if (packageVersion.approvalStatus === 'pending') {
     return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Decision</p>
-        <h2>Approve or reject this exact version once.</h2>
+        <p class="section-label">Approval</p>
+        <h2>Approve or reject this version.</h2>
         <p>
-          The decision freezes the review state for this version. If the package needs more work, import a new version instead of editing this one in place.
+          This decision applies only to this version. If the app needs changes, import a new version instead of editing this one in place.
         </p>
         <form method="post" class="stack">
           <div class="field">
             <label for="review-notes">Review notes (optional)</label>
-            <textarea id="review-notes" name="reviewNotes" placeholder="Record what made this version ready, or why it stays blocked."></textarea>
+            <textarea id="review-notes" name="reviewNotes" placeholder="Record why this version is ready, or what still needs to change."></textarea>
           </div>
           <div class="button-row">
             <button type="submit" class="button-primary" formaction="/admin/packages/${escapeHtml(
@@ -35,7 +35,7 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
 
   return `<section class="panel">
     <div class="panel-body stack">
-      <p class="section-label">Decision record</p>
+      <p class="section-label">Approval</p>
       <h2>${escapeHtml(approvalStatusLabel(packageVersion.approvalStatus))}</h2>
       <p>${escapeHtml(approvalStatusDetail(packageVersion.approvalStatus))}</p>
       ${
@@ -43,9 +43,7 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
           ? `<div class="button-row">
             <a class="button-primary" href="/admin/packages/${escapeHtml(
               packageVersion.appId,
-            )}/versions/${escapeHtml(
-              packageVersion.version,
-            )}/preview">Open governed preview launch</a>
+            )}/versions/${escapeHtml(packageVersion.version)}/preview">Open test launch</a>
           </div>`
           : ''
       }
@@ -55,7 +53,7 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
           <span class="fact-value">${escapeHtml(formatDateTime(packageVersion.reviewedAt))}</span>
         </div>
         <div class="fact">
-          <span class="fact-label">Notes</span>
+          <span class="fact-label">Review notes</span>
           <span class="fact-value">${escapeHtml(
             packageVersion.reviewNotes ?? 'No review notes recorded.',
           )}</span>
@@ -80,7 +78,7 @@ export function renderHistoryRow(
         <span class="${approvalStatusClass(version.approvalStatus)}">${escapeHtml(
           approvalStatusLabel(version.approvalStatus),
         )}</span>
-        ${isCurrent ? `<span class="chip">Open dossier</span>` : ''}
+        ${isCurrent ? `<span class="chip">Current version</span>` : ''}
       </p>
       <p class="micro muted">${escapeHtml(formatDateTime(version.importedAt))}</p>
     </div>

@@ -21,10 +21,11 @@ Deno.test('GET /admin/packages renders the demo-first zero state when no version
   assertStringIncludes(body, 'Start with the demo app');
   assertStringIncludes(body, 'Chapter 4 Asteroids');
   assertStringIncludes(body, 'Import the demo app.');
-  assertStringIncludes(body, 'Package Home');
+  assertStringIncludes(body, 'Get started');
+  assertStringIncludes(body, 'Apps');
 });
 
-Deno.test('GET /admin/packages renders the package home when package data exists', async () => {
+Deno.test('GET /admin/packages renders the app library when package data exists', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -51,20 +52,20 @@ Deno.test('GET /admin/packages renders the package home when package data exists
   assertEquals(response.status, 200);
   const body = await response.text();
 
-  assertStringIncludes(body, 'Package Home');
-  assertStringIncludes(body, 'Pick one package to review or deploy.');
-  assertStringIncludes(body, 'Open latest dossier');
-  assertStringIncludes(body, 'Open deployments');
+  assertStringIncludes(body, 'Apps');
+  assertStringIncludes(body, 'Choose an app.');
+  assertStringIncludes(body, 'Open version details');
+  assertStringIncludes(body, 'App settings');
   assertStringIncludes(body, 'Signed in');
   assertStringIncludes(body, 'href="/admin/deployments"');
   assertStringIncludes(body, 'href="/admin/verification"');
   assertStringIncludes(body, 'href="/admin/placements"');
   assertEquals(body.includes('Pilot usage'), false);
   assertEquals(body.includes('Broker verification'), false);
-  assertEquals(body.includes('Record verification evidence'), false);
+  assertEquals(body.includes('Save check result'), false);
 });
 
-Deno.test('POST /admin/packages/import-demo imports the demo package and redirects to the dossier', async () => {
+Deno.test('POST /admin/packages/import-demo imports the demo package and redirects to the version details page', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const app = createApp({
     getRepository: () => repository,
@@ -86,7 +87,7 @@ Deno.test('POST /admin/packages/import-demo imports the demo package and redirec
   assertEquals(saved?.approvalStatus, 'pending');
 });
 
-Deno.test('POST /admin/packages/import-demo reopens the existing demo dossier when the exact version is already present', async () => {
+Deno.test('POST /admin/packages/import-demo reopens the existing demo version details page when the exact version is already present', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildPackageVersionRecord()],
   });
@@ -107,7 +108,7 @@ Deno.test('POST /admin/packages/import-demo reopens the existing demo dossier wh
   );
 });
 
-Deno.test('POST /admin/packages/import-demo restores the demo dossier from the stored snapshot when the database row is missing', async () => {
+Deno.test('POST /admin/packages/import-demo restores the demo version details page from the stored snapshot when the database row is missing', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const app = createApp({
     getRepository: () => repository,

@@ -13,9 +13,6 @@ import type {
 } from './deployment_detail.ts';
 import {
   describeBindingStatusHeading,
-  describeEditorCopy,
-  describeManagedSlotIntro,
-  describeSavedBindingChip,
   formatLmsLabel,
 } from './deployment_detail_release_support.ts';
 import { renderSelectedSlotPanel } from './deployment_detail_release_forms.ts';
@@ -39,19 +36,10 @@ export function renderManagedDeploymentSections(input: {
 
   return `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">LMS slots</p>
-        <div class="two-column">
-          <div class="stack">
-            <h2>Open one LMS slot at a time.</h2>
-            <p>Each LMS keeps its own exact binding and reviewed version pin. Switch tabs instead of scanning three long forms on one page.</p>
-          </div>
-          <section class="fact">
-            <span class="fact-label">Editor in view</span>
-            <span class="fact-value">${escapeHtml(formatLmsLabel(selectedLms))}</span>
-            <p class="micro muted">${escapeHtml(describeManagedSlotIntro(selectedLms))}</p>
-          </section>
-        </div>
-        <nav class="deployment-tab-strip" aria-label="LMS slots">
+        <p class="section-label">Connections</p>
+        <h2>Set up one LMS at a time.</h2>
+        <p>Most teams only need one tab. Open Advanced settings only when you need exact IDs or URLs.</p>
+        <nav class="deployment-tab-strip" aria-label="App settings">
           ${input.slots
             .map((slot) =>
               renderLmsTab({
@@ -99,7 +87,5 @@ function renderLmsTab(input: {
       <span class="deployment-tab-label">${escapeHtml(lmsLabel)}</span>
       <span class="deployment-tab-note">${escapeHtml(bindingStatusHeading)}</span>
       <span class="deployment-tab-note">${escapeHtml(pinStatus)}</span>
-      <span class="deployment-tab-note">${escapeHtml(describeSavedBindingChip(input.slot))}</span>
-      <span class="deployment-tab-note">${escapeHtml(describeEditorCopy(input.slot.lms))}</span>
     </a>`;
 }

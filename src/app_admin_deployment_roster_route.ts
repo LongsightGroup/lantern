@@ -104,7 +104,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
         return context.html(
           renderPackageIndexPage({
             versions: [],
-            notice: createErrorNotice('Deployment page unavailable', error),
+            notice: createErrorNotice('Connections page unavailable', error),
           }),
           statusForNrpsError(error),
         );

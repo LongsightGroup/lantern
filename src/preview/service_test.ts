@@ -7,6 +7,7 @@ Deno.test('preview service loads preview.fixtures_file and validates required fi
   const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
 
   try {
+    await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
     await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
     await Deno.writeTextFile(
       `${snapshotRoot}/preview/fixtures.json`,
@@ -32,10 +33,9 @@ Deno.test('preview service loads preview.fixtures_file and validates required fi
         digest: 'sha256:preview-fixture-test',
       },
       manifestJson: {
-        preview: {
-          fixtures_file: '/preview/fixtures.json',
-          tests_file: '/preview/tests.json',
-        },
+        app_id: 'chapter-4-asteroids',
+        version: '0.1.0',
+        title: 'Chapter 4 Asteroids',
       },
     });
 
@@ -59,6 +59,7 @@ Deno.test('preview service fails clearly when preview fixtures are missing and d
   const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
 
   try {
+    await writePreviewManifest(snapshotRoot, '/preview/missing.json');
     const approvedPackage = buildPackageVersionRecord({
       id: 12,
       approvalStatus: 'approved',
@@ -84,8 +85,63 @@ Deno.test('preview service fails clearly when preview fixtures are missing and d
           createOpaqueToken: () => 'opaque-1',
         }),
       Error,
-      'Preview fixtures file /preview/missing.json is missing from reviewed snapshot.',
+      'Saved test launch file /preview/missing.json is missing from the reviewed app files.',
     );
+  } finally {
+    await Deno.remove(snapshotRoot, { recursive: true });
+  }
+});
+
+Deno.test('preview service applies explicit test-launch overrides over saved defaults', async () => {
+  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+
+  try {
+    await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
+    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await Deno.writeTextFile(
+      `${snapshotRoot}/preview/fixtures.json`,
+      JSON.stringify({
+        launch: {
+          user_role: 'learner',
+          course_id: 'course-preview-42',
+          assignment_id: 'assignment-preview-7',
+          activity_id: 'activity-preview-9',
+        },
+        attempt_id: 'attempt-preview-123',
+        local_state: null,
+      }),
+    );
+
+    const approvedPackage = buildPackageVersionRecord({
+      id: 14,
+      approvalStatus: 'approved',
+      roles: ['learner', 'instructor'],
+      artifact: {
+        snapshotRoot,
+        manifestPath: `${snapshotRoot}/manifest.json`,
+        entrypointPath: `${snapshotRoot}/dist/index.html`,
+        digest: 'sha256:preview-launch-overrides',
+      },
+    });
+
+    const prepared = await preparePreviewSession({
+      packageVersion: approvedPackage,
+      launch: {
+        userRole: 'instructor',
+        courseId: 'physics-201',
+        assignmentId: null,
+        activityId: 'boss-fight',
+      },
+      now: () => new Date('2026-03-25T02:07:00Z'),
+      createOpaqueToken: () => 'opaque-2',
+    });
+
+    assertEquals(prepared.launch.userRole, 'instructor');
+    assertEquals(prepared.launch.courseId, 'physics-201');
+    assertEquals(prepared.launch.assignmentId, null);
+    assertEquals(prepared.launch.activityId, 'boss-fight');
+    assertEquals(prepared.fixtureData.launch.user_role, 'learner');
+    assertEquals(prepared.fixtureData.launch.course_id, 'course-preview-42');
   } finally {
     await Deno.remove(snapshotRoot, { recursive: true });
   }
@@ -95,6 +151,7 @@ Deno.test('preview service returns fake identity/session defaults shaped for run
   const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
 
   try {
+    await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
     await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
     await Deno.writeTextFile(
       `${snapshotRoot}/preview/fixtures.json`,
@@ -125,10 +182,9 @@ Deno.test('preview service returns fake identity/session defaults shaped for run
         digest: 'sha256:preview-runtime-shape',
       },
       manifestJson: {
-        preview: {
-          fixtures_file: '/preview/fixtures.json',
-          tests_file: '/preview/tests.json',
-        },
+        app_id: 'chapter-4-asteroids',
+        version: '0.1.0',
+        title: 'Chapter 4 Asteroids',
       },
     });
     const repository = createInMemoryPackageReviewRepository({
@@ -158,3 +214,40 @@ Deno.test('preview service returns fake identity/session defaults shaped for run
     await Deno.remove(snapshotRoot, { recursive: true });
   }
 });
+
+async function writePreviewManifest(snapshotRoot: string, fixturesFile: string): Promise<void> {
+  await Deno.writeTextFile(
+    `${snapshotRoot}/manifest.json`,
+    JSON.stringify({
+      schema_version: '1',
+      app_id: 'chapter-4-asteroids',
+      version: '0.1.0',
+      title: 'Chapter 4 Asteroids',
+      owner: {
+        type: 'user',
+        id: 'instructor_123',
+      },
+      entrypoint: '/dist/index.html',
+      roles: ['learner', 'instructor'],
+      install_scope: 'course',
+      capabilities: [
+        'read_launch_context',
+        'read_activity_content',
+        'submit_attempt_event',
+        'finalize_attempt',
+        'read_local_state',
+        'write_local_state',
+      ],
+      grading: {
+        mode: 'declarative',
+        rubric_file: '/scoring/rubric.json',
+        max_score: 100,
+      },
+      content_files: ['/content/activity.json'],
+      preview: {
+        fixtures_file: fixturesFile,
+        tests_file: '/preview/tests.json',
+      },
+    }),
+  );
+}

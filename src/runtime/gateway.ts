@@ -53,7 +53,7 @@ export async function acceptAttemptEvent(input: {
         previewSessionId: previewSession.sessionId,
         eventType: 'preview.attempt_event',
         capability: 'submit_attempt_event',
-        summary: 'Recorded preview attempt activity without LMS side effects.',
+        summary: 'Recorded app progress in the test session.',
         detail: {
           attemptId: input.session.attemptId,
           sequence: attemptEvent.sequence,
@@ -70,7 +70,7 @@ export async function acceptAttemptEvent(input: {
         previewSessionId: previewSession.sessionId,
         eventType: 'preview.attempt_event.blocked',
         capability: 'submit_attempt_event',
-        summary: 'Blocked preview attempt-event write outside declared capability.',
+        summary: 'Blocked an app progress update outside the allowed test-launch actions.',
         detail: {
           attemptId: input.session.attemptId,
           reason: errorMessage(error),
@@ -105,7 +105,7 @@ export async function finalizeRuntimeAttempt(input: {
           previewSessionId: previewSession.sessionId,
           eventType: 'preview.finalize.blocked',
           capability: 'finalize_attempt',
-          summary: 'Blocked preview finalize from attempting live LMS side effects.',
+          summary: 'Blocked the test launch from making live LMS changes.',
           detail: {
             attemptId: input.session.attemptId,
             hasAgsServices: input.session.services.ags !== null,
@@ -135,7 +135,7 @@ export async function finalizeRuntimeAttempt(input: {
         previewSessionId: previewSession.sessionId,
         eventType: 'preview.finalize',
         capability: 'finalize_attempt',
-        summary: 'Finalized preview attempt with Lantern fake scoring and no LMS writes.',
+        summary: 'Finished the test attempt with simulated scoring and no LMS writes.',
         detail: {
           attemptId: finalizedAttempt.attemptId,
           completionState: finalizedAttempt.completionState,
@@ -207,7 +207,7 @@ export async function finalizeRuntimeAttempt(input: {
         previewSessionId: previewSession.sessionId,
         eventType: 'preview.finalize.blocked',
         capability: 'finalize_attempt',
-        summary: 'Blocked preview finalize request before any LMS side effect.',
+        summary: 'Blocked the test attempt before any LMS change.',
         detail: {
           attemptId: input.session.attemptId,
           reason: errorMessage(error),

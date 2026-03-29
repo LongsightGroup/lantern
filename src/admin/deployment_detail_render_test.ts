@@ -42,11 +42,11 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
     ],
   });
 
-  assertStringIncludes(html, 'Managed LMS deployment');
-  assertStringIncludes(html, 'Open one LMS slot at a time.');
+  assertStringIncludes(html, 'App settings');
+  assertStringIncludes(html, 'Set up one LMS at a time.');
   assertStringIncludes(html, 'deployment-tab-strip');
-  assertStringIncludes(html, 'Canvas editor');
-  assertStringIncludes(html, 'Dynamic registration');
+  assertStringIncludes(html, 'Set up Canvas');
+  assertStringIncludes(html, 'Dynamic Registration');
   assertStringIncludes(
     html,
     'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/canvas',
@@ -58,11 +58,12 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
       'Pin the reviewed version, then wire this deployment into Canvas through one supported LTI 1.3 path.',
     ),
   );
-  assertStringIncludes(html, 'Config URL');
+  assertStringIncludes(html, 'Advanced Canvas settings');
+  assertStringIncludes(html, 'Configuration URL');
   assertStringIncludes(html, 'Canvas environment');
   assertStringIncludes(html, binding.issuer);
-  assertStringIncludes(html, 'Deployment-scoped operational evidence.');
-  assertStringIncludes(html, 'Show install, launch, verification, and diagnostic detail');
+  assertStringIncludes(html, 'Recent activity');
+  assertStringIncludes(html, 'Open activity and failure details');
 });
 
 Deno.test('deployment page renders the selected Sakai tab without leaking the Canvas form', () => {
@@ -101,17 +102,18 @@ Deno.test('deployment page renders the selected Sakai tab without leaking the Ca
     html,
     'href="/admin/packages/chapter-4-asteroids/deployment?lms=sakai#slot-panel" aria-current="page"',
   );
-  assertStringIncludes(html, 'Sakai setup');
-  assertStringIncludes(html, 'Dynamic registration');
-  assertStringIncludes(html, 'Tool configuration URL');
+  assertStringIncludes(html, 'Set up Sakai');
+  assertStringIncludes(html, 'Automatic setup');
+  assertStringIncludes(html, 'Dynamic Registration URL');
   assertStringIncludes(
     html,
     'http://localhost:8417/admin/packages/chapter-4-asteroids/deployment/register/sakai',
   );
+  assertStringIncludes(html, 'Advanced Sakai settings');
   assertStringIncludes(html, 'Authorization endpoint');
   assertStringIncludes(html, 'Public keyset URL');
   assertFalse(html.includes('Canvas environment'));
-  assertFalse(html.includes('Config URL'));
+  assertFalse(html.includes('Configuration URL'));
 });
 
 Deno.test('deployment page shows the Canvas pending-registration state before the first launch seals deployment_id', () => {
@@ -145,10 +147,10 @@ Deno.test('deployment page shows the Canvas pending-registration state before th
     ],
   });
 
-  assertStringIncludes(html, 'Canvas registration saved, first launch still needed');
-  assertStringIncludes(html, 'Pending Canvas registration');
+  assertStringIncludes(html, 'Waiting for first Canvas launch');
+  assertStringIncludes(html, 'Pending connection');
   assertStringIncludes(html, 'one real Canvas launch to capture the exact');
-  assertStringIncludes(html, 'Save release pin');
+  assertStringIncludes(html, 'Save live version');
 });
 
 Deno.test('deployment page shows the latest roster verification summary and action', () => {
@@ -185,9 +187,9 @@ Deno.test('deployment page shows the latest roster verification summary and acti
     ],
   });
 
-  assertStringIncludes(html, 'Canvas service check');
+  assertStringIncludes(html, 'Canvas test');
   assertStringIncludes(html, 'Succeeded');
-  assertStringIncludes(html, 'Run roster check');
+  assertStringIncludes(html, 'Run roster test');
   assertStringIncludes(html, 'course-42');
   assertStringIncludes(html, '2');
 });

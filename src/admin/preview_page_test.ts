@@ -6,7 +6,7 @@ import {
   buildPreviewSessionRecord,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('renderPreviewPage shows reviewed package identity and fixture-backed launch context', () => {
+Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and empty test activity', () => {
   const packageVersion = buildPackageVersionRecord({
     id: 11,
     appId: 'chapter-4-asteroids',
@@ -31,26 +31,36 @@ Deno.test('renderPreviewPage shows reviewed package identity and fixture-backed 
 
   const body = renderPreviewPage({
     packageVersion,
-    previewSession,
+    savedDefaults: previewSession,
+    latestSession: null,
+    formValues: {
+      userRole: 'learner',
+      courseId: 'course-run-7',
+      assignmentId: '',
+      activityId: 'activity-run-9',
+    },
     previewEvidence: [],
   });
 
-  assertStringIncludes(body, 'Governed preview launch');
+  assertStringIncludes(body, 'Test Launch');
   assertStringIncludes(body, 'Chapter 4 Asteroids');
   assertStringIncludes(body, 'Version 0.3.0');
   assertStringIncludes(body, 'preview-course-42');
   assertStringIncludes(body, 'preview-activity-9');
+  assertStringIncludes(body, 'name="userRole"');
+  assertStringIncludes(body, 'value="course-run-7"');
+  assertStringIncludes(body, 'Student');
   assertStringIncludes(body, 'action="/admin/packages/chapter-4-asteroids/versions/0.3.0/preview"');
-  assertStringIncludes(body, 'Launch preview runtime');
-  assertStringIncludes(body, 'Declared capabilities');
-  assertStringIncludes(body, 'Preview capability log');
+  assertStringIncludes(body, 'Start test launch');
+  assertStringIncludes(body, 'What this test allows');
+  assertStringIncludes(body, 'Recent test activity');
   assertStringIncludes(
     body,
-    'No preview activity has been recorded yet. Launch the preview runtime to capture governed capability evidence.',
+    'No test activity has been recorded yet. Start a test launch to open the app.',
   );
 });
 
-Deno.test('renderPreviewPage shows durable preview activity evidence in capability log timeline', () => {
+Deno.test('renderPreviewPage shows durable test activity evidence in capability log timeline', () => {
   const packageVersion = buildPackageVersionRecord({
     id: 11,
     appId: 'chapter-4-asteroids',
@@ -70,7 +80,7 @@ Deno.test('renderPreviewPage shows durable preview activity evidence in capabili
     buildPreviewEvidenceRecord({
       previewSessionId: previewSession.sessionId,
       eventType: 'preview.launch',
-      summary: 'Launched reviewed preview runtime session.',
+      summary: "Started a test launch in Lantern's runtime.",
       detail: {
         runtimeSessionId: 'preview-runtime-123',
       },
@@ -81,7 +91,7 @@ Deno.test('renderPreviewPage shows durable preview activity evidence in capabili
       previewSessionId: previewSession.sessionId,
       eventType: 'preview.finalize',
       capability: 'finalize_attempt',
-      summary: 'Finalized preview attempt with fake scoring.',
+      summary: 'Finished the test attempt with simulated scoring and no LMS writes.',
       detail: {
         scoreGiven: 0,
         scoreMaximum: 100,
@@ -91,13 +101,23 @@ Deno.test('renderPreviewPage shows durable preview activity evidence in capabili
 
   const body = renderPreviewPage({
     packageVersion,
-    previewSession,
+    savedDefaults: previewSession,
+    latestSession: previewSession,
+    formValues: {
+      userRole: previewSession.launch.userRole,
+      courseId: previewSession.launch.courseId,
+      assignmentId: previewSession.launch.assignmentId ?? '',
+      activityId: previewSession.launch.activityId,
+    },
     previewEvidence,
   });
 
-  assertStringIncludes(body, 'Latest preview session: preview-session-123');
+  assertStringIncludes(body, 'Latest session');
+  assertStringIncludes(body, 'preview-session-123');
+  assertStringIncludes(body, 'Started test launch');
+  assertStringIncludes(body, 'Finished test attempt');
   assertStringIncludes(body, 'preview.launch');
   assertStringIncludes(body, 'preview.finalize');
   assertStringIncludes(body, 'finalize_attempt');
-  assertStringIncludes(body, 'Finalized preview attempt with fake scoring.');
+  assertStringIncludes(body, 'Finished the test attempt with simulated scoring and no LMS writes.');
 });

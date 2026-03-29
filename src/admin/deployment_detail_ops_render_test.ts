@@ -66,7 +66,7 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
 
   assertStringIncludes(html, 'Current status');
   assertStringIncludes(html, 'Last launch');
-  assertStringIncludes(html, 'Last AGS write');
+  assertStringIncludes(html, 'Last grade write');
   assertStringIncludes(html, 'Last NRPS read');
   assertStringIncludes(html, 'Pilot usage');
   assertStringIncludes(html, 'Launches recorded');
@@ -74,8 +74,11 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
   assertStringIncludes(html, 'Grade publishes');
   assertStringIncludes(html, 'Recent active users');
   assertStringIncludes(html, 'Diagnostics');
-  assertStringIncludes(html, 'Canvas slot');
-  assertStringIncludes(html, 'Save release pin');
+  assertStringIncludes(html, 'deployment-tab-label">Canvas</span>');
+  assertStringIncludes(html, 'Save live version');
+  assertStringIncludes(html, 'chip-status-healthy');
+  assertStringIncludes(html, 'chip-status-failed');
+  assertStringIncludes(html, 'table-row-status-failed');
 });
 
 Deno.test('deployment page shows diagnostics and an explicit retry action for retryable AGS failures', () => {
@@ -150,9 +153,10 @@ Deno.test('deployment page shows diagnostics and an explicit retry action for re
   assertStringIncludes(html, 'Grade publish failed and can be retried from the control plane.');
   assertStringIncludes(html, 'retry-grade-publish');
   assertStringIncludes(html, 'Retry grade publish');
+  assertStringIncludes(html, 'chip-status-attention');
 });
 
-Deno.test('deployment page shows the latest internal verification fact for the viewed deployment without official certification copy', () => {
+Deno.test('deployment page shows the latest setup check for the viewed setup without official certification copy', () => {
   const html = renderDeploymentDetailPage({
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
@@ -213,9 +217,9 @@ Deno.test('deployment page shows the latest internal verification fact for the v
     ],
   });
 
-  assertStringIncludes(html, 'Latest internal verification');
+  assertStringIncludes(html, 'Latest setup check');
   assertStringIncludes(html, 'Latest internal proof passed for the saved Moodle deployment.');
-  assertStringIncludes(html, 'https://example.test/verification/moodle-ci-pass');
+  assertStringIncludes(html, 'Open check log');
   assertFalse(html.includes('Official certification'));
   assertFalse(html.includes('Supported Canvas path'));
 });

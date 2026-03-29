@@ -6,7 +6,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 
-Deno.test('GET /admin/packages/:appId/versions/:version/preview renders fake launch context for approved reviewed versions', async () => {
+Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-launch defaults for approved reviewed versions', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -19,10 +19,6 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview renders fake lau
           app_id: 'chapter-4-asteroids',
           version: '0.1.0',
           title: 'Chapter 4 Asteroids',
-          preview: {
-            fixtures_file: '/preview/fixtures.json',
-            tests_file: '/preview/tests.json',
-          },
         },
         artifact: {
           snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -41,9 +37,10 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview renders fake lau
   assertEquals(response.status, 200);
   const body = await response.text();
 
-  assertStringIncludes(body, 'Governed preview launch');
+  assertStringIncludes(body, 'Test Launch');
   assertStringIncludes(body, 'course_demo');
   assertStringIncludes(body, 'chapter-4-asteroids');
+  assertStringIncludes(body, 'name="userRole"');
   assertStringIncludes(body, 'action="/admin/packages/chapter-4-asteroids/versions/0.1.0/preview"');
 });
 
@@ -65,10 +62,10 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview fails clearly fo
 
   assertEquals(response.status, 409);
   assertEquals(response.headers.get('location'), null);
-  assertStringIncludes(await response.text(), 'Preview requires an approved package version.');
+  assertStringIncludes(await response.text(), 'Test launch requires an approved package version.');
 });
 
-Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a preview runtime session and redirects to Lantern runtime', async () => {
+Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a runtime session from submitted test-launch values and redirects to Lantern runtime', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -96,10 +93,19 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a previ
     ],
   });
   const app = createApp({ getRepository: () => repository });
+  const formData = new FormData();
+  formData.set('userRole', 'instructor');
+  formData.set('courseId', 'physics-101');
+  formData.set('assignmentId', '');
+  formData.set('activityId', 'asteroids-boss-stage');
 
   const response = await app.request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview',
-    { method: 'POST', headers: { Origin: 'http://localhost' } },
+    {
+      method: 'POST',
+      headers: { Origin: 'http://localhost' },
+      body: formData,
+    },
   );
 
   assertEquals(response.status, 303);
@@ -115,8 +121,10 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a previ
   assertEquals(session?.services.ags, null);
   assertEquals(session?.services.nrps, null);
   assertEquals(session?.deploymentSlug, 'chapter-4-asteroids-preview');
-  assertEquals(session?.launch.courseId, 'course_demo');
-  assertEquals(session?.launch.activityId, 'chapter-4-asteroids');
+  assertEquals(session?.launch.userRole, 'instructor');
+  assertEquals(session?.launch.courseId, 'physics-101');
+  assertEquals(session?.launch.assignmentId ?? null, null);
+  assertEquals(session?.launch.activityId, 'asteroids-boss-stage');
   assertEquals(session?.sessionToken, runtimeLocation.searchParams.get('token'));
   assertEquals(deployment?.enabledPackageVersionId, 44);
   assertEquals(deployment?.enabledPackageVersion, '0.1.0');
@@ -150,10 +158,19 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview writes durable 
     ],
   });
   const app = createApp({ getRepository: () => repository });
+  const formData = new FormData();
+  formData.set('userRole', 'learner');
+  formData.set('courseId', 'course_demo');
+  formData.set('assignmentId', 'assignment_demo');
+  formData.set('activityId', 'chapter-4-asteroids');
 
   const response = await app.request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview',
-    { method: 'POST', headers: { Origin: 'http://localhost' } },
+    {
+      method: 'POST',
+      headers: { Origin: 'http://localhost' },
+      body: formData,
+    },
   );
   const location = response.headers.get('location') ?? '';
   const runtimeLocation = new URL(`http://localhost${location}`);

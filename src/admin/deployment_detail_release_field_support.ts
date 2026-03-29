@@ -35,7 +35,7 @@ export function renderInlineNotice(notice: AdminNotice | null): string {
 export function renderSavedBindingSummary(slot: ManagedDeploymentSlot): string {
   if (hasPendingCanvasRegistration(slot)) {
     return `<div class="fact">
-      <span class="fact-label">Pending Canvas registration</span>
+      <span class="fact-label">Pending connection</span>
       <p class="micro muted">Canvas created the registration, but Lantern still needs one real Canvas launch to capture the exact <code class="inline-code">deployment_id</code>.</p>
     </div>`;
   }
@@ -49,7 +49,7 @@ export function renderSavedBindingSummary(slot: ManagedDeploymentSlot): string {
       const binding = getCanvasBinding(slot.deployment.binding);
 
       return `<div class="fact">
-        <span class="fact-label">Saved binding</span>
+        <span class="fact-label">Saved Canvas values</span>
         <p class="micro muted">Environment ${escapeHtml(
           describeBindingValue(binding?.canvasEnvironment),
         )} · Issuer ${escapeHtml(describeBindingValue(binding?.issuer))} · Client ${escapeHtml(
@@ -61,7 +61,7 @@ export function renderSavedBindingSummary(slot: ManagedDeploymentSlot): string {
       const binding = getMoodleBinding(slot.deployment.binding);
 
       return `<div class="fact">
-        <span class="fact-label">Saved binding</span>
+        <span class="fact-label">Saved Moodle values</span>
         <p class="micro muted">Platform ${escapeHtml(
           describeBindingValue(binding?.issuer),
         )} · Client ${escapeHtml(
@@ -73,7 +73,7 @@ export function renderSavedBindingSummary(slot: ManagedDeploymentSlot): string {
       const binding = getSakaiBinding(slot.deployment.binding);
 
       return `<div class="fact">
-        <span class="fact-label">Saved binding</span>
+        <span class="fact-label">Saved Sakai values</span>
         <p class="micro muted">Platform ${escapeHtml(
           describeBindingValue(binding?.issuer),
         )} · Client ${escapeHtml(

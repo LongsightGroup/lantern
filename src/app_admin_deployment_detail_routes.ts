@@ -21,6 +21,7 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
     try {
       const url = new URL(context.req.url);
       const selectedLms = parseOptionalManagedDeploymentLms(url.searchParams.get('lms'));
+      const openOperationalEvidence = url.searchParams.get('view') === 'activity';
       const repository = services.getRepository();
       const detail = await loadDeploymentDetailState(repository, context.req.param('appId'));
       const viewedSlot = getSelectedManagedDeploymentSlot(detail.slots, selectedLms);
@@ -37,6 +38,7 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
           history: detail.history,
           deployments: detail.deployments,
           selectedLms,
+          openOperationalEvidence,
           nrpsVerification: detail.nrpsVerification,
           controlPlaneDetail,
           canvasConfigUrl: detail.canvasConfigUrl.url,
@@ -54,7 +56,7 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
       return context.html(
         renderPackageIndexPage({
           versions: [],
-          notice: createErrorNotice('Deployment page unavailable', error),
+          notice: createErrorNotice('Connections page unavailable', error),
         }),
         statusForError(error),
       );

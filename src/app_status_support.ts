@@ -19,6 +19,8 @@ export function statusForError(error: unknown): 409 | 500 {
     return 500;
   }
 
+  const loweredMessage = error.message.toLowerCase();
+
   if (
     error.message.includes('already exists') ||
     error.message.includes('cannot change state') ||
@@ -35,7 +37,8 @@ export function statusForError(error: unknown): 409 | 500 {
     error.message.includes('Canvas issuer') ||
     error.message.includes('Login state') ||
     error.message.includes('Launch ') ||
-    error.message.includes('Preview ')
+    error.message.includes('Preview ') ||
+    loweredMessage.includes('test launch')
   ) {
     return 409;
   }
