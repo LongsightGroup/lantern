@@ -13,23 +13,22 @@ import {
   resolveUserRole,
   validateLtiAudience,
 } from "./claim_support.ts";
-import { resolveCanvasPlatform } from "./canvas_platform.ts";
 import { verifyIdTokenWithJwksRetry } from "./id_token_verification.ts";
 import {
   assertLanternTargetLinkKind,
+  resolveLanternDeepLinkingPlacement,
   targetLinkUrisMatch,
 } from "./target_link_uri.ts";
+import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
 import { loadJwks } from "./token_support.ts";
 import type {
   DeepLinkingAcceptType,
   DeepLinkingPresentationDocumentTarget,
   DeepLinkingSettings,
+  LtiPlacement,
   ValidatedDeepLinkingRequest,
 } from "./types.ts";
-import {
-  LTI_ASSIGNMENT_SELECTION_PLACEMENT,
-  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-} from "./types.ts";
+import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from "./types.ts";
 
 const CLAIM_MESSAGE_TYPE =
   "https://purl.imsglobal.org/spec/lti/claim/message_type";
@@ -74,29 +73,32 @@ export async function validateDeepLinkingRequest(input: {
     throw new Error(`Login state ${state} has expired.`);
   }
 
-  if (loginState.lms !== "canvas" || loginState.canvasEnvironment === null) {
-    throw new Error("Deep Linking is only supported for Canvas deployments.");
+  const deployment = await input.repository.getDeploymentByBinding({
+    lms: loginState.lms,
+    issuer: loginState.issuer,
+    clientId: loginState.clientId,
+    deploymentId: loginState.deploymentId,
+  });
+
+  if (!deployment?.binding) {
+    throw new Error(
+      `${
+        formatLmsLabel(loginState.lms)
+      } deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
+    );
   }
 
-  const platform = resolveCanvasPlatform(loginState.issuer);
   let payload: Awaited<ReturnType<typeof verifyIdTokenWithJwksRetry>>;
 
   try {
     payload = await verifyIdTokenWithJwksRetry({
       idToken,
-      jwksUrl: platform.jwksUrl,
+      jwksUrl: resolveBindingJwksUrl(deployment.binding),
       issuer: loginState.issuer,
       audience: loginState.clientId,
       now,
       loadJwks: loadDeepLinkingJwks,
       onRetry: async () => {
-        const deployment = await input.repository.getDeploymentByBinding({
-          lms: "canvas",
-          issuer: loginState.issuer,
-          clientId: loginState.clientId,
-          deploymentId: loginState.deploymentId,
-        });
-
         await recordInteropPathUsed({
           repository: input.repository,
           scope: "deep_linking",
@@ -136,6 +138,7 @@ export async function validateDeepLinkingRequest(input: {
     payload[CLAIM_TARGET_LINK_URI],
     "Deep Linking target_link_uri is required.",
   );
+  const placement = requireDeepLinkingRouteTarget(targetLinkUri);
   const nonce = resolveDeepLinkingNonce(payload);
   const messageType = requireStringClaim(
     payload[CLAIM_MESSAGE_TYPE],
@@ -162,9 +165,6 @@ export async function validateDeepLinkingRequest(input: {
       "Deep Linking target_link_uri did not match the saved login state.",
     );
   }
-
-  requireDeepLinkingRouteTarget(targetLinkUri);
-
   if (nonce.value !== loginState.nonce) {
     throw new Error("Deep Linking nonce did not match the saved login state.");
   }
@@ -177,16 +177,9 @@ export async function validateDeepLinkingRequest(input: {
     throw new Error(`Unsupported LTI version ${version}.`);
   }
 
-  const deployment = await input.repository.getDeploymentByBinding({
-    lms: "canvas",
-    issuer: loginState.issuer,
-    clientId: loginState.clientId,
-    deploymentId,
-  });
-
-  if (!deployment?.binding) {
+  if (deploymentId !== deployment.binding.deploymentId) {
     throw new Error(
-      `Canvas deployment ${loginState.clientId} / ${deploymentId} was not found for issuer ${loginState.issuer}.`,
+      "Deep Linking deployment_id did not match the saved deployment binding.",
     );
   }
 
@@ -221,7 +214,7 @@ export async function validateDeepLinkingRequest(input: {
   });
 
   return {
-    lms: "canvas",
+    lms: deployment.binding.lms,
     internalDeploymentId: deployment.id,
     internalDeploymentSlug: deployment.slug,
     appId: deployment.appId,
@@ -232,7 +225,7 @@ export async function validateDeepLinkingRequest(input: {
     targetLinkUri,
     deepLinkReturnUrl: settings.deepLinkReturnUrl,
     data: settings.data,
-    placement: LTI_ASSIGNMENT_SELECTION_PLACEMENT,
+    placement,
     settings: {
       acceptTypes: settings.acceptTypes,
       acceptMultiple: settings.acceptMultiple,
@@ -241,7 +234,7 @@ export async function validateDeepLinkingRequest(input: {
       acceptLineItem: settings.acceptLineItem,
     },
     issuedAt: now().toISOString(),
-    canvasEnvironment: loginState.canvasEnvironment,
+    canvasEnvironment: consumedState.canvasEnvironment,
     issuer: consumedState.issuer,
     clientId: consumedState.clientId,
     deploymentId: consumedState.deploymentId,
@@ -273,12 +266,22 @@ function resolveDeepLinkingNonce(payload: Record<string, unknown>): {
   throw new Error("Deep Linking nonce is required.");
 }
 
-function requireDeepLinkingRouteTarget(targetLinkUri: string): void {
+function requireDeepLinkingRouteTarget(targetLinkUri: string): LtiPlacement {
   assertLanternTargetLinkKind({
     targetLinkUri,
     kind: "deep_linking",
     message: `Unsupported Deep Linking target_link_uri ${targetLinkUri}.`,
   });
+
+  const placement = resolveLanternDeepLinkingPlacement(targetLinkUri);
+
+  if (placement === null) {
+    throw new Error(
+      `Unsupported Deep Linking placement in target_link_uri ${targetLinkUri}.`,
+    );
+  }
+
+  return placement;
 }
 
 function parseDeepLinkingSettingsClaim(value: unknown): DeepLinkingSettings & {

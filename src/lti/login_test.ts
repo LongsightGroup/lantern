@@ -143,6 +143,34 @@ Deno.test("login state records preserve the dedicated deep-linking target_link_u
   );
 });
 
+Deno.test("login state records preserve Deep Linking placement-specific target_link_uri values", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [
+      buildDeploymentRecord({
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+  });
+  const result = await createLoginRedirect({
+    repository,
+    loginRequest: buildCanvasLoginRequest({
+      targetLinkUri:
+        "http://localhost:8417/lti/deep-linking?placement=resource_selection",
+    }),
+    now: () => new Date("2026-03-23T22:45:00Z"),
+    createOpaqueToken: () => crypto.randomUUID(),
+  });
+
+  assertEquals(
+    result.loginState.targetLinkUri,
+    "http://localhost:8417/lti/deep-linking?placement=resource_selection",
+  );
+  assertEquals(
+    new URL(result.location).searchParams.get("redirect_uri"),
+    "http://localhost:8417/lti/deep-linking?placement=resource_selection",
+  );
+});
+
 Deno.test("createLoginRedirect seals a pending Canvas registration on the first real launch", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [

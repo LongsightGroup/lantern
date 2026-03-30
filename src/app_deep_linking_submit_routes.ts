@@ -16,9 +16,9 @@ import {
 import { resolveConfiguredPublicOrigin } from "./public_origin.ts";
 
 const sessionVerificationFailureDetail =
-  "Lantern could not verify this Deep Linking session. Reopen the assignment picker from Canvas and try again.";
+  "Lantern could not verify this Deep Linking session. Reopen the assignment picker from the LMS and try again.";
 const sessionReplayFailureDetail =
-  "This Deep Linking return has already been used. Reopen the assignment picker from Canvas, confirm the reviewed selection, and return once.";
+  "This Deep Linking return has already been used. Reopen the assignment picker from the LMS, confirm the reviewed selection, and return once.";
 
 export function registerDeepLinkingSubmitRoutes(
   app: Hono,
@@ -52,7 +52,7 @@ export function registerDeepLinkingSubmitRoutes(
         return context.html(
           renderDeepLinkingSubmitStatusPage({
             tone: "error",
-            title: "Canvas return already used",
+            title: "LMS return already used",
             detail: sessionReplayFailureDetail,
             session,
             selection: resolveDeepLinkingSelection({
@@ -88,7 +88,7 @@ export function registerDeepLinkingSubmitRoutes(
           notice: {
             tone: "error",
             title: "Return blocked",
-            detail: "Save one reviewed selection before returning to Canvas.",
+            detail: "Save one reviewed selection before returning to the LMS.",
           },
           status: 409,
         });
@@ -100,7 +100,7 @@ export function registerDeepLinkingSubmitRoutes(
 
       if (deployment === null || deployment.id !== session.deploymentRecordId) {
         throw new Error(
-          `Canvas deployment ${session.deploymentSlug} could not be loaded for this Deep Linking session.`,
+          `Deployment ${session.deploymentSlug} could not be loaded for this Deep Linking session.`,
         );
       }
 
@@ -110,7 +110,7 @@ export function registerDeepLinkingSubmitRoutes(
 
       if (packageVersion === null) {
         throw new Error(
-          `Reviewed package version ${selection.packageVersionId} could not be loaded for the Canvas return.`,
+          `Reviewed package version ${selection.packageVersionId} could not be loaded for the LMS return.`,
         );
       }
 
@@ -123,7 +123,7 @@ export function registerDeepLinkingSubmitRoutes(
         return context.html(
           renderDeepLinkingSubmitStatusPage({
             tone: "error",
-            title: "Canvas return already used",
+            title: "LMS return already used",
             detail: sessionReplayFailureDetail,
             session,
             selection,
@@ -174,9 +174,9 @@ export function registerDeepLinkingSubmitRoutes(
       return context.html(
         renderDeepLinkingSubmitStatusPage({
           tone: "success",
-          title: "Returning to Canvas",
+          title: "Returning to LMS",
           detail:
-            "Lantern created the reviewed placement and is posting the signed Deep Linking response back to Canvas.",
+            "Lantern created the reviewed placement and is posting the signed Deep Linking response back to the LMS.",
           session,
           selection,
           submission,
@@ -186,7 +186,7 @@ export function registerDeepLinkingSubmitRoutes(
       return context.html(
         renderDeepLinkingSubmitStatusPage({
           tone: "error",
-          title: "Canvas return failed",
+          title: "LMS return failed",
           detail: deepLinkingReturnErrorMessage(error),
           session,
           selection: resolveDeepLinkingSelection({

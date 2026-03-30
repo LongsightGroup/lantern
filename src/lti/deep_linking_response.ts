@@ -46,7 +46,7 @@ export async function buildDeepLinkingResponseSubmission(input: {
 
   if (binding === null) {
     throw new Error(
-      `Deployment ${input.deployment.slug} is missing its Canvas binding.`,
+      `Deployment ${input.deployment.slug} is missing its LTI binding.`,
     );
   }
 
@@ -105,7 +105,8 @@ function buildDeepLinkingResponseContentItem(input: {
 }): DeepLinkingResponseContentItem {
   const title = input.placement.contentTitle ??
     `${input.placement.packageTitle} ${input.placement.packageVersion}`;
-  const lineItem = input.session.acceptLineItem
+  const lineItem = input.session.acceptLineItem &&
+      input.session.placement === "assignment_selection"
     ? buildOptionalLineItem({
       placement: input.placement,
       packageVersion: input.packageVersion,

@@ -119,6 +119,7 @@ export async function listDeepLinkingResources(input: {
 }): Promise<DeepLinkingResourceOption[]> {
   return await input.repository.listDeepLinkingResourceOptions(
     input.session.appId,
+    input.session.placement,
   );
 }
 

@@ -327,22 +327,27 @@ export function createDeepLinkingSessionRepositoryMethods(
       });
     },
 
-    async listDeepLinkingResourceOptions(appId) {
+    async listDeepLinkingResourceOptions(appId, placement) {
+      const installScope = placement === "assignment_selection"
+        ? "assignment"
+        : "course";
+
       return await withClient(pool, async (client) => {
         const result = await client.queryObject<PackageVersionRow>({
           text: `
             ${PACKAGE_VERSION_SELECT}
             WHERE app_id = $1
-              AND install_scope = 'assignment'
+              AND install_scope = $2
               AND approval_status = 'approved'
               AND reviewed_at IS NOT NULL
           `,
-          args: [appId],
+          args: [appId, installScope],
           camelCase: true,
         });
 
         return buildDeepLinkingResourceOptions(
           sortPackageVersions(result.rows.map(mapPackageVersionRow)),
+          placement,
         );
       });
     },

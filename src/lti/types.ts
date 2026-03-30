@@ -11,6 +11,7 @@ export const LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE = "LtiResourceLinkRequest";
 export const LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE = "LtiDeepLinkingRequest";
 export const LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE = "LtiDeepLinkingResponse";
 export const LTI_ASSIGNMENT_SELECTION_PLACEMENT = "assignment_selection";
+export const LTI_RESOURCE_SELECTION_PLACEMENT = "resource_selection";
 export const LANTERN_PLACEMENT_CUSTOM_KEY = "lantern_placement_id";
 export const CANVAS_LTI_SCOPES = [
   LTI_AGS_SCORE_SCOPE,
@@ -178,9 +179,16 @@ export type LtiMessageType =
   | typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE
   | typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
 
-export type LtiPlacement = typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
+export type LtiPlacement =
+  | typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT
+  | typeof LTI_RESOURCE_SELECTION_PLACEMENT;
 
-export interface ValidatedDeepLinkingRequest extends CanvasDeploymentBinding {
+export interface ValidatedDeepLinkingRequest {
+  lms: LmsType;
+  canvasEnvironment: CanvasEnvironment | null;
+  issuer: string;
+  clientId: string;
+  deploymentId: string;
   internalDeploymentId: number;
   internalDeploymentSlug: string;
   appId: string;

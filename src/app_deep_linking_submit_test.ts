@@ -21,7 +21,7 @@ import {
   withCanvasReturnEnv,
 } from "./app_test_support.ts";
 
-Deno.test("POST /lti/deep-linking/sessions/:id/submit creates one reviewed placement and returns an auto-post Canvas form", async () => {
+Deno.test("POST /lti/deep-linking/sessions/:id/submit creates one reviewed placement and returns an auto-post LMS form", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -109,8 +109,8 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
       body,
       'action="https://canvas.example/courses/42/deep_link_return"',
     );
-    assertStringIncludes(body, 'id="canvas-return-form"');
-    assertStringIncludes(body, "Returning to Canvas");
+    assertStringIncludes(body, 'id="lms-return-form"');
+    assertStringIncludes(body, "Returning to LMS");
     assertEquals(
       verified
         .payload["https://purl.imsglobal.org/spec/lti/claim/message_type"],
@@ -140,7 +140,7 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
     assertEquals(replay.status, 409);
     assertStringIncludes(
       await replay.text(),
-      "Canvas return already used",
+      "LMS return already used",
     );
   });
 });
@@ -179,7 +179,7 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit keeps missing reviewed sel
   assertStringIncludes(body, "Return blocked");
   assertStringIncludes(
     body,
-    "Save one reviewed selection before returning to Canvas.",
+    "Save one reviewed selection before returning to the LMS.",
   );
 });
 
@@ -214,7 +214,7 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit blocks missing session tok
   assertStringIncludes(body, "Session verification failed");
   assertStringIncludes(
     body,
-    "Reopen the assignment picker from Canvas and try again.",
+    "Reopen the assignment picker from the LMS and try again.",
   );
 });
 
@@ -285,11 +285,11 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit keeps placement-creation f
     const body = await response.text();
 
     assertStringIncludes(body, "<!doctype html>");
-    assertStringIncludes(body, "Canvas return failed");
+    assertStringIncludes(body, "LMS return failed");
     assertStringIncludes(
       body,
       "Lantern could not create the reviewed placement.",
     );
-    assertEquals(body.includes('id="canvas-return-form"'), false);
+    assertEquals(body.includes('id="lms-return-form"'), false);
   });
 });

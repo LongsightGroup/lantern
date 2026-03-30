@@ -169,6 +169,39 @@ Deno.test("deep linking response builder derives optional line-item metadata fro
   );
 });
 
+Deno.test("deep linking response builder suppresses line-item metadata for resource_selection placements", async () => {
+  const response = await buildDeepLinkingResponseSubmission({
+    session: buildDeepLinkingSessionRecord({
+      placement: "resource_selection",
+      acceptLineItem: true,
+    }),
+    deployment: buildDeploymentRecord({
+      binding: buildDeploymentBinding(),
+    }),
+    placement: buildReviewedPlacementRecord(),
+    packageVersion: buildPackageVersionRecord({
+      installScope: "course",
+      grading: {
+        mode: "declarative",
+        rubricFile: "/scoring/rubric.json",
+        maxScore: 25,
+      },
+    }),
+    appOrigin: "https://lantern.example",
+    env: buildResponseEnv(),
+  });
+  const verified = await verifyResponseJwt(
+    response.jwt,
+    buildDeploymentBinding(),
+    new Date("2026-03-24T18:31:00Z"),
+  );
+  const contentItems = verified.payload[
+    "https://purl.imsglobal.org/spec/lti-dl/claim/content_items"
+  ] as Array<Record<string, unknown>>;
+
+  assertEquals("lineItem" in (contentItems[0] ?? {}), false);
+});
+
 Deno.test("deep linking response builder falls back to the first accepted presentation target when iframe is unavailable", async () => {
   const response = await buildDeepLinkingResponseSubmission({
     session: buildDeepLinkingSessionRecord({

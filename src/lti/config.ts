@@ -4,6 +4,7 @@ import {
   LTI_ASSIGNMENT_SELECTION_PLACEMENT,
   LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
   LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
+  LTI_RESOURCE_SELECTION_PLACEMENT,
 } from "./types.ts";
 import { getPublicJwkSet } from "./tool_key.ts";
 import {
@@ -54,7 +55,7 @@ export type CanvasConfigPlacement =
     text: string;
   }
   | {
-    placement: "resource_selection";
+    placement: typeof LTI_RESOURCE_SELECTION_PLACEMENT;
     message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
     target_link_uri: string;
     text: string;
@@ -156,7 +157,7 @@ export async function buildCanvasConfigDocument(
               text: "Select Lantern activity",
             },
             {
-              placement: "resource_selection",
+              placement: LTI_RESOURCE_SELECTION_PLACEMENT,
               message_type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
               target_link_uri: resourceSelectionUrl,
               text: "Select Lantern activity",
