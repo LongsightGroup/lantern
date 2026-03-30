@@ -1,18 +1,71 @@
-import type { Context } from '@hono/hono';
-import { createLoginRedirect } from './lti/login.ts';
-import { isLaunchRejectionError } from './lti/launch_rejection.ts';
-import { readLoginRequest } from './app_request_support.ts';
-import { errorMessage, statusForError } from './app_status_support.ts';
-import type { AppServices } from './app_services.ts';
-import type { PackageReviewRepository } from './package_review/repository.ts';
+import type { Context } from "@hono/hono";
+import { createLoginRedirect } from "./lti/login.ts";
+import { isLaunchRejectionError } from "./lti/launch_rejection.ts";
+import { readLoginRequest } from "./app_request_support.ts";
+import { errorMessage, statusForError } from "./app_status_support.ts";
+import { renderTopLevelLaunchPage } from "./app_lti_views.ts";
+import type { AppServices } from "./app_services.ts";
+import { recordInteropPathUsed } from "./interop_audit.ts";
+import type { PackageReviewRepository } from "./package_review/repository.ts";
+import { resolveConfiguredPublicOrigin } from "./public_origin.ts";
 
-export async function handleLoginInitiation(context: Context, services: AppServices) {
+export async function handleLoginInitiation(
+  context: Context,
+  services: AppServices,
+) {
   try {
     const loginRequest = await readLoginRequest(context);
+    const repository = services.getRepository();
     const result = await createLoginRedirect({
-      repository: services.getRepository(),
-      loginRequest,
+      repository,
+      loginRequest: loginRequest.request,
+      appOrigin: resolveConfiguredPublicOrigin({
+        requestUrl: context.req.url,
+        forwardedHeader: context.req.header("forwarded") ?? null,
+        xForwardedHost: context.req.header("x-forwarded-host") ?? null,
+        xForwardedProto: context.req.header("x-forwarded-proto") ?? null,
+        configuredOrigin: Deno.env.get("APP_ORIGIN"),
+      }),
     });
+    const compatibilityPaths = [
+      ...(loginRequest.compatibility.decodedLoginHint
+        ? ["opaque_login_hint_decode"]
+        : []),
+      ...(loginRequest.compatibility.decodedLtiMessageHint
+        ? ["opaque_lti_message_hint_decode"]
+        : []),
+      ...(context.req.header("sec-fetch-dest") === "iframe"
+        ? ["iframe_top_level_escape"]
+        : []),
+    ];
+
+    await Promise.all(
+      compatibilityPaths.map((path) =>
+        recordInteropPathUsed({
+          repository,
+          scope: "login",
+          path,
+          actorType: "platform",
+          deploymentRecordId: result.deploymentRecordId,
+          packageVersionId: result.packageVersionId,
+          summary: "Lantern used an LTI login compatibility path.",
+          detail: {
+            deploymentSlug: result.deploymentSlug,
+            issuer: result.loginState.issuer,
+            clientId: result.loginState.clientId,
+            deploymentId: result.loginState.deploymentId,
+          },
+        })
+      ),
+    );
+
+    if (context.req.header("sec-fetch-dest") === "iframe") {
+      return context.html(
+        renderTopLevelLaunchPage({
+          location: result.location,
+        }),
+      );
+    }
 
     return context.redirect(result.location, 302);
   } catch (error) {
@@ -25,36 +78,34 @@ export async function recordRejectedLaunchAudit(input: {
   state: string | null;
   error: unknown;
 }): Promise<void> {
-  const loginState =
-    input.state === null
-      ? null
-      : await input.repository.getLoginStateByState(input.state).catch(() => null);
-  const deployment =
-    loginState === null
-      ? null
-      : await input.repository
-          .getDeploymentByBinding({
-            lms: loginState.lms,
-            issuer: loginState.issuer,
-            clientId: loginState.clientId,
-            deploymentId: loginState.deploymentId,
-          })
-          .catch(() => null);
+  const loginState = input.state === null
+    ? null
+    : await input.repository.getLoginStateByState(input.state).catch(() =>
+      null
+    );
+  const deployment = loginState === null ? null : await input.repository
+    .getDeploymentByBinding({
+      lms: loginState.lms,
+      issuer: loginState.issuer,
+      clientId: loginState.clientId,
+      deploymentId: loginState.deploymentId,
+    })
+    .catch(() => null);
   const rejection = readLaunchRejection(input.error);
 
   await input.repository.recordAuditEvent({
-    eventType: 'launch.rejected',
-    actorType: 'platform',
+    eventType: "launch.rejected",
+    actorType: "platform",
     actorId: null,
     deploymentRecordId: deployment?.id ?? null,
     packageVersionId: deployment?.enabledPackageVersionId ?? null,
     attemptId: null,
     lineItemBindingId: null,
-    status: 'failed',
-    summary: 'Rejected the governed LTI launch before runtime handoff.',
+    status: "failed",
+    summary: "Rejected the governed LTI launch before runtime handoff.",
     detail: {
       lms: loginState?.lms ?? null,
-      code: rejection?.code ?? 'launch_validation_failed',
+      code: rejection?.code ?? "launch_validation_failed",
       message: rejection?.message ?? errorMessage(input.error),
       ...rejection?.detail,
       issuer: loginState?.issuer ?? null,

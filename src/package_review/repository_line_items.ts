@@ -1,17 +1,17 @@
-import type { Pool } from '@db/postgres';
-import { withClient, withTransaction } from './repository_core.ts';
+import type { Pool } from "@db/postgres";
+import { withClient, withTransaction } from "./repository_core.ts";
 import {
   mapLineItemBindingRow,
   mapOptionalLineItemBinding,
-} from './repository_mappers_attempts.ts';
-import { LINE_ITEM_BINDING_SELECT } from './repository_query_fragments.ts';
-import type { LineItemBindingRow } from './repository_row_types.ts';
-import { isUniqueViolation } from './repository_value_support.ts';
-import type { PackageReviewRepository } from './repository.ts';
+} from "./repository_mappers_attempts.ts";
+import { LINE_ITEM_BINDING_SELECT } from "./repository_query_fragments.ts";
+import type { LineItemBindingRow } from "./repository_row_types.ts";
+import { isUniqueViolation } from "./repository_value_support.ts";
+import type { PackageReviewRepository } from "./repository.ts";
 
 export function createLineItemRepositoryMethods(
   pool: Pool,
-): Pick<PackageReviewRepository, 'getLineItemBinding' | 'saveLineItemBinding'> {
+): Pick<PackageReviewRepository, "getLineItemBinding" | "saveLineItemBinding"> {
   return {
     async getLineItemBinding(input) {
       return await withClient(pool, async (client) => {
@@ -40,9 +40,14 @@ export function createLineItemRepositoryMethods(
 
     async saveLineItemBinding(record) {
       return await withClient(pool, async (client) => {
-        return await withTransaction(client, 'save_line_item_binding', async (transaction) => {
-          const existingResult = await transaction.queryObject<LineItemBindingRow>({
-            text: `
+        return await withTransaction(
+          client,
+          "save_line_item_binding",
+          async (transaction) => {
+            const existingResult = await transaction.queryObject<
+              LineItemBindingRow
+            >({
+              text: `
                 ${LINE_ITEM_BINDING_SELECT}
                 WHERE deployment_record_id = $1
                   AND package_version_id = $2
@@ -51,23 +56,25 @@ export function createLineItemRepositoryMethods(
                   AND activity_id = $5
                 FOR UPDATE
               `,
-            args: [
-              record.deploymentRecordId,
-              record.packageVersionId,
-              record.contextId,
-              record.resourceLinkId,
-              record.activityId,
-            ],
-            camelCase: true,
-          });
+              args: [
+                record.deploymentRecordId,
+                record.packageVersionId,
+                record.contextId,
+                record.resourceLinkId,
+                record.activityId,
+              ],
+              camelCase: true,
+            });
 
-          if (existingResult.rows[0]) {
-            return mapLineItemBindingRow(existingResult.rows[0]);
-          }
+            if (existingResult.rows[0]) {
+              return mapLineItemBindingRow(existingResult.rows[0]);
+            }
 
-          try {
-            const insertResult = await transaction.queryObject<LineItemBindingRow>({
-              text: `
+            try {
+              const insertResult = await transaction.queryObject<
+                LineItemBindingRow
+              >({
+                text: `
                   INSERT INTO line_item_bindings (
                     deployment_record_id,
                     package_version_id,
@@ -101,32 +108,34 @@ export function createLineItemRepositoryMethods(
                     created_at,
                     updated_at
                 `,
-              args: [
-                record.deploymentRecordId,
-                record.packageVersionId,
-                record.contextId,
-                record.resourceLinkId,
-                record.activityId,
-                record.lineItemsUrl,
-                record.lineItemUrl,
-                record.resourceId,
-                record.tag,
-                record.label,
-                record.scoreMaximum,
-                record.createdAt,
-                record.updatedAt,
-              ],
-              camelCase: true,
-            });
+                args: [
+                  record.deploymentRecordId,
+                  record.packageVersionId,
+                  record.contextId,
+                  record.resourceLinkId,
+                  record.activityId,
+                  record.lineItemsUrl,
+                  record.lineItemUrl,
+                  record.resourceId,
+                  record.tag,
+                  record.label,
+                  record.scoreMaximum,
+                  record.createdAt,
+                  record.updatedAt,
+                ],
+                camelCase: true,
+              });
 
-            return mapLineItemBindingRow(insertResult.rows[0]);
-          } catch (error) {
-            if (!isUniqueViolation(error)) {
-              throw error;
-            }
+              return mapLineItemBindingRow(insertResult.rows[0]);
+            } catch (error) {
+              if (!isUniqueViolation(error)) {
+                throw error;
+              }
 
-            const retryResult = await transaction.queryObject<LineItemBindingRow>({
-              text: `
+              const retryResult = await transaction.queryObject<
+                LineItemBindingRow
+              >({
+                text: `
                   ${LINE_ITEM_BINDING_SELECT}
                   WHERE (
                     deployment_record_id = $1
@@ -137,24 +146,25 @@ export function createLineItemRepositoryMethods(
                   ) OR line_item_url = $6
                   LIMIT 1
                 `,
-              args: [
-                record.deploymentRecordId,
-                record.packageVersionId,
-                record.contextId,
-                record.resourceLinkId,
-                record.activityId,
-                record.lineItemUrl,
-              ],
-              camelCase: true,
-            });
+                args: [
+                  record.deploymentRecordId,
+                  record.packageVersionId,
+                  record.contextId,
+                  record.resourceLinkId,
+                  record.activityId,
+                  record.lineItemUrl,
+                ],
+                camelCase: true,
+              });
 
-            if (retryResult.rows[0]) {
-              return mapLineItemBindingRow(retryResult.rows[0]);
+              if (retryResult.rows[0]) {
+                return mapLineItemBindingRow(retryResult.rows[0]);
+              }
+
+              throw error;
             }
-
-            throw error;
-          }
-        });
+          },
+        );
       });
     },
   };

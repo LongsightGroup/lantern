@@ -1,7 +1,7 @@
-import type { Hono } from '@hono/hono';
-import { getManagedDeploymentSlot } from './admin/deployment_detail.ts';
-import { renderPackageIndexPage } from './admin/package_index.ts';
-import { loadDeploymentDetailState } from './app_deployment_support.ts';
+import type { Hono } from "@hono/hono";
+import { getManagedDeploymentSlot } from "./admin/deployment_detail.ts";
+import { renderPackageIndexPage } from "./admin/package_index.ts";
+import { loadDeploymentDetailState } from "./app_deployment_support.ts";
 import {
   buildBindingAuditDetail,
   buildDeploymentBindingFromFormData,
@@ -9,22 +9,33 @@ import {
   formatLmsLabel,
   parseManagedDeploymentLms,
   parseRequiredPackageVersionId,
-} from './app_admin_deployment_detail_route_support.ts';
+} from "./app_admin_deployment_detail_route_support.ts";
 import {
   buildInstallEditorState,
   buildPinEditorState,
-} from './app_admin_deployment_editor_state.ts';
-import type { LmsType } from './lti/types.ts';
-import type { AppServices } from './app_services.ts';
+} from "./app_admin_deployment_editor_state.ts";
+import type { LmsType } from "./lti/types.ts";
+import type { AppServices } from "./app_services.ts";
+import { resolveConfiguredPublicOrigin } from "./public_origin.ts";
 
-export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServices): void {
-  app.post('/admin/packages/:appId/deployment/pin', async (context) => {
-    const appId = context.req.param('appId');
+export function registerAdminDeploymentFormRoutes(
+  app: Hono,
+  services: AppServices,
+): void {
+  app.post("/admin/packages/:appId/deployment/pin", async (context) => {
+    const appId = context.req.param("appId");
     let lms: LmsType | null = null;
     let formData: FormData | null = null;
 
     try {
       const repository = services.getRepository();
+      const appOrigin = resolveConfiguredPublicOrigin({
+        requestUrl: context.req.url,
+        forwardedHeader: context.req.header("forwarded") ?? null,
+        xForwardedHost: context.req.header("x-forwarded-host") ?? null,
+        xForwardedProto: context.req.header("x-forwarded-proto") ?? null,
+        configuredOrigin: Deno.env.get("APP_ORIGIN"),
+      });
       formData = await context.req.formData();
       lms = parseManagedDeploymentLms(formData);
       const history = await repository.listPackageVersionsByApp(appId);
@@ -34,22 +45,30 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
           renderPackageIndexPage({
             versions: [],
             notice: {
-              tone: 'error',
+              tone: "error",
               title: `${formatLmsLabel(lms)} version picker unavailable`,
-              detail: `Import the app package before you attempt to save the ${formatLmsLabel(
-                lms,
-              )} deployment pin.`,
+              detail: `Import the app package before you attempt to save the ${
+                formatLmsLabel(
+                  lms,
+                )
+              } deployment pin.`,
             },
           }),
           404,
         );
       }
 
-      const detail = await loadDeploymentDetailState(repository, appId);
+      const detail = await loadDeploymentDetailState(
+        repository,
+        appId,
+        appOrigin,
+      );
       const slot = getManagedDeploymentSlot(detail.slots, lms);
 
       if (!canPinDeploymentVersion(slot, lms)) {
-        throw new Error(`Save the ${formatLmsLabel(lms)} binding before you pin a version.`);
+        throw new Error(
+          `Save the ${formatLmsLabel(lms)} binding before you pin a version.`,
+        );
       }
 
       const selectedId = parseRequiredPackageVersionId(formData);
@@ -62,17 +81,19 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         packageVersionId: selectedId,
       });
       await repository.recordAuditEvent({
-        eventType: 'deployment.version_pinned',
-        actorType: 'user',
+        eventType: "deployment.version_pinned",
+        actorType: "user",
         actorId: null,
         deploymentRecordId: deployment.id,
         packageVersionId: deployment.enabledPackageVersionId,
         attemptId: null,
         lineItemBindingId: null,
-        status: 'succeeded',
-        summary: `Pinned an exact reviewed package version for the ${formatLmsLabel(
-          lms,
-        )} deployment.`,
+        status: "succeeded",
+        summary: `Pinned an exact reviewed package version for the ${
+          formatLmsLabel(
+            lms,
+          )
+        } deployment.`,
         detail: {
           lms,
           deploymentSlug: deployment.slug,
@@ -82,36 +103,52 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         occurredAt: new Date().toISOString(),
       });
 
-      return context.redirect(`/admin/packages/${appId}/deployment?lms=${lms}#slot-panel`, 303);
+      return context.redirect(
+        `/admin/packages/${appId}/deployment?lms=${lms}#slot-panel`,
+        303,
+      );
     } catch (error) {
-      return await import('./app_admin_support.ts').then(({ renderDeploymentError }) =>
+      return await import("./app_admin_support.ts").then((
+        { renderDeploymentError },
+      ) =>
         renderDeploymentError(
           context,
           services,
           appId,
-          lms === null ? 'Version pin blocked' : `${formatLmsLabel(lms)} version pin blocked`,
+          lms === null
+            ? "Version pin blocked"
+            : `${formatLmsLabel(lms)} version pin blocked`,
           error,
           {
             selectedLms: lms,
             editorState: buildPinEditorState(
               lms,
               formData,
-              lms === null ? 'Version pin blocked' : `${formatLmsLabel(lms)} version pin blocked`,
+              lms === null
+                ? "Version pin blocked"
+                : `${formatLmsLabel(lms)} version pin blocked`,
               error,
             ),
           },
-        ),
+        )
       );
     }
   });
 
-  app.post('/admin/packages/:appId/deployment/install', async (context) => {
-    const appId = context.req.param('appId');
+  app.post("/admin/packages/:appId/deployment/install", async (context) => {
+    const appId = context.req.param("appId");
     let lms: LmsType | null = null;
     let formData: FormData | null = null;
 
     try {
       const repository = services.getRepository();
+      const appOrigin = resolveConfiguredPublicOrigin({
+        requestUrl: context.req.url,
+        forwardedHeader: context.req.header("forwarded") ?? null,
+        xForwardedHost: context.req.header("x-forwarded-host") ?? null,
+        xForwardedProto: context.req.header("x-forwarded-proto") ?? null,
+        configuredOrigin: Deno.env.get("APP_ORIGIN"),
+      });
       formData = await context.req.formData();
       lms = parseManagedDeploymentLms(formData);
       const history = await repository.listPackageVersionsByApp(appId);
@@ -121,18 +158,24 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
           renderPackageIndexPage({
             versions: [],
             notice: {
-              tone: 'error',
+              tone: "error",
               title: `${formatLmsLabel(lms)} install unavailable`,
-              detail: `Import the app package before you attempt to save the ${formatLmsLabel(
-                lms,
-              )} binding.`,
+              detail: `Import the app package before you attempt to save the ${
+                formatLmsLabel(
+                  lms,
+                )
+              } binding.`,
             },
           }),
           404,
         );
       }
 
-      const detail = await loadDeploymentDetailState(repository, appId);
+      const detail = await loadDeploymentDetailState(
+        repository,
+        appId,
+        appOrigin,
+      );
       const slot = getManagedDeploymentSlot(detail.slots, lms);
       const binding = buildDeploymentBindingFromFormData(lms, formData);
 
@@ -143,14 +186,14 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         binding,
       });
       await repository.recordAuditEvent({
-        eventType: 'deployment.binding_saved',
-        actorType: 'user',
+        eventType: "deployment.binding_saved",
+        actorType: "user",
         actorId: null,
         deploymentRecordId: deployment.id,
         packageVersionId: deployment.enabledPackageVersionId,
         attemptId: null,
         lineItemBindingId: null,
-        status: 'succeeded',
+        status: "succeeded",
         summary: `Saved the ${formatLmsLabel(lms)} deployment binding.`,
         detail: {
           deploymentSlug: deployment.slug,
@@ -159,14 +202,21 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         occurredAt: new Date().toISOString(),
       });
 
-      return context.redirect(`/admin/packages/${appId}/deployment?lms=${lms}#slot-panel`, 303);
+      return context.redirect(
+        `/admin/packages/${appId}/deployment?lms=${lms}#slot-panel`,
+        303,
+      );
     } catch (error) {
-      return await import('./app_admin_support.ts').then(({ renderDeploymentError }) =>
+      return await import("./app_admin_support.ts").then((
+        { renderDeploymentError },
+      ) =>
         renderDeploymentError(
           context,
           services,
           appId,
-          lms === null ? 'Deployment install blocked' : `${formatLmsLabel(lms)} install blocked`,
+          lms === null
+            ? "Deployment install blocked"
+            : `${formatLmsLabel(lms)} install blocked`,
           error,
           {
             selectedLms: lms,
@@ -174,12 +224,12 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
               lms,
               formData,
               lms === null
-                ? 'Deployment install blocked'
+                ? "Deployment install blocked"
                 : `${formatLmsLabel(lms)} install blocked`,
               error,
             ),
           },
-        ),
+        )
       );
     }
   });

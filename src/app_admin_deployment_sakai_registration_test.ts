@@ -1,25 +1,33 @@
-import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import { createApp } from "./app.ts";
 import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
-} from './test_helpers/package_review.ts';
-import { restoreEnv, withFetchStub } from './app_test_support.ts';
+} from "./test_helpers/package_review.ts";
+import { restoreEnv, withFetchStub } from "./app_test_support.ts";
 
-Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automatic setup and saves the Sakai binding', async () => {
-  const previousOrigin = Deno.env.get('APP_ORIGIN');
-  Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
+Deno.test("GET /admin/packages/:appId/deployment/register/sakai completes automatic setup and saves the Sakai binding", async () => {
+  const previousOrigin = Deno.env.get("APP_ORIGIN");
+  Deno.env.set("APP_ORIGIN", "http://localhost:8417");
 
   try {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
         buildPackageVersionRecord({
           id: 5,
-          approvalStatus: 'approved',
-          reviewNotes: 'Ready for pilot.',
-          reviewedAt: '2026-03-23T18:05:00Z',
+          approvalStatus: "approved",
+          reviewNotes: "Ready for pilot.",
+          reviewedAt: "2026-03-23T18:05:00Z",
         }),
       ],
+    });
+    const registrationState = await repository.createDynamicRegistrationState({
+      state: "sakai-registration-state-123",
+      appId: "chapter-4-asteroids",
+      lms: "sakai",
+      createdAt: "2030-03-24T00:00:00Z",
+      expiresAt: "2030-03-24T00:30:00Z",
+      usedAt: null,
     });
     const app = createApp({ getRepository: () => repository });
     const requests: Array<{
@@ -31,41 +39,45 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automa
 
     await withFetchStub(
       (input, init) => {
-        const url = typeof input === 'string' ? input : input.toString();
+        const url = typeof input === "string" ? input : input.toString();
         requests.push({
           url,
-          method: init?.method ?? 'GET',
-          authorization: new Headers(init?.headers).get('authorization'),
-          body: typeof init?.body === 'string' ? init.body : null,
+          method: init?.method ?? "GET",
+          authorization: new Headers(init?.headers).get("authorization"),
+          body: typeof init?.body === "string" ? init.body : null,
         });
 
-        if (url === 'https://sakai.example/imsblis/lti13/well_known') {
+        if (url === "https://sakai.example/imsblis/lti13/well_known") {
           return new Response(
             JSON.stringify({
-              issuer: 'https://sakai.example',
-              authorization_endpoint: 'https://sakai.example/imsoidc/lti13/oidc_auth',
-              token_endpoint: 'https://sakai.example/imsblis/lti13/token/91',
-              jwks_uri: 'https://sakai.example/imsblis/lti13/keyset',
-              registration_endpoint: 'https://sakai.example/imsblis/lti13/registration_endpoint/91',
+              issuer: "https://sakai.example",
+              authorization_endpoint:
+                "https://sakai.example/imsoidc/lti13/oidc_auth",
+              token_endpoint: "https://sakai.example/imsblis/lti13/token/91",
+              jwks_uri: "https://sakai.example/imsblis/lti13/keyset",
+              registration_endpoint:
+                "https://sakai.example/imsblis/lti13/registration_endpoint/91",
             }),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' },
+              headers: { "content-type": "application/json" },
             },
           );
         }
 
-        if (url === 'https://sakai.example/imsblis/lti13/registration_endpoint/91') {
+        if (
+          url === "https://sakai.example/imsblis/lti13/registration_endpoint/91"
+        ) {
           return new Response(
             JSON.stringify({
-              client_id: '7dbe6a13-f948-498c-87d7-768947ac5c56',
-              'https://purl.imsglobal.org/spec/lti-tool-configuration': {
-                deployment_id: '1',
+              client_id: "7dbe6a13-f948-498c-87d7-768947ac5c56",
+              "https://purl.imsglobal.org/spec/lti-tool-configuration": {
+                deployment_id: "1",
               },
             }),
             {
               status: 200,
-              headers: { 'content-type': 'application/json' },
+              headers: { "content-type": "application/json" },
             },
           );
         }
@@ -74,8 +86,10 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automa
       },
       async () => {
         const params = new URLSearchParams({
-          openid_configuration: 'https://sakai.example/imsblis/lti13/well_known',
-          registration_token: 'registration-123',
+          state: registrationState.state,
+          openid_configuration:
+            "https://sakai.example/imsblis/lti13/well_known",
+          registration_token: "registration-123",
         });
         const response = await app.request(
           `http://localhost/admin/packages/chapter-4-asteroids/deployment/register/sakai?${params.toString()}`,
@@ -83,75 +97,101 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automa
 
         assertEquals(response.status, 200);
         const body = await response.text();
-        assertStringIncludes(body, 'Sakai connection saved');
-        assertStringIncludes(body, 'Continue in Sakai to review and save the tool.');
-        assertStringIncludes(body, 'Continue in Sakai');
-        assertStringIncludes(body, 'org.imsglobal.lti.close');
+        assertStringIncludes(body, "Sakai connection saved");
+        assertStringIncludes(
+          body,
+          "Continue in Sakai to review and save the tool.",
+        );
+        assertStringIncludes(body, "Continue in Sakai");
+        assertStringIncludes(body, "org.imsglobal.lti.close");
       },
     );
 
     assertEquals(requests.length, 2);
-    assertEquals(requests[0]?.method, 'GET');
-    assertEquals(requests[1]?.url, 'https://sakai.example/imsblis/lti13/registration_endpoint/91');
-    assertEquals(requests[1]?.method, 'POST');
-    assertEquals(requests[1]?.authorization, 'Bearer registration-123');
+    assertEquals(requests[0]?.method, "GET");
+    assertEquals(
+      requests[1]?.url,
+      "https://sakai.example/imsblis/lti13/registration_endpoint/91",
+    );
+    assertEquals(requests[1]?.method, "POST");
+    assertEquals(requests[1]?.authorization, "Bearer registration-123");
 
-    const registrationRequest = JSON.parse(requests[1]?.body ?? 'null') as {
+    const registrationRequest = JSON.parse(requests[1]?.body ?? "null") as {
       initiate_login_uri: string;
       jwks_uri: string;
       redirect_uris: string[];
     };
-    assertEquals(registrationRequest.initiate_login_uri, 'http://localhost:8417/lti/login');
-    assertEquals(registrationRequest.jwks_uri, 'http://localhost:8417/lti/jwks.json');
-    assertEquals(registrationRequest.redirect_uris, ['http://localhost:8417/lti/launch']);
+    assertEquals(
+      registrationRequest.initiate_login_uri,
+      "http://localhost:8417/lti/login",
+    );
+    assertEquals(
+      registrationRequest.jwks_uri,
+      "http://localhost:8417/lti/jwks.json",
+    );
+    assertEquals(registrationRequest.redirect_uris, [
+      "http://localhost:8417/lti/launch",
+    ]);
 
-    const deployment = await repository.getDeploymentBySlug('chapter-4-asteroids-sakai');
+    const deployment = await repository.getDeploymentBySlug(
+      "chapter-4-asteroids-sakai",
+    );
     const binding = deployment?.binding;
-    assertEquals(binding?.lms, 'sakai');
+    assertEquals(binding?.lms, "sakai");
 
-    if (binding?.lms !== 'sakai') {
-      throw new Error('Expected the Sakai binding to be saved.');
+    if (binding?.lms !== "sakai") {
+      throw new Error("Expected the Sakai binding to be saved.");
     }
 
-    assertEquals(binding.issuer, 'https://sakai.example');
-    assertEquals(binding.clientId, '7dbe6a13-f948-498c-87d7-768947ac5c56');
-    assertEquals(binding.deploymentId, '1');
-    assertEquals(binding.authorizationEndpoint, 'https://sakai.example/imsoidc/lti13/oidc_auth');
-    assertEquals(binding.accessTokenUrl, 'https://sakai.example/imsblis/lti13/token/91');
-    assertEquals(binding.jwksUrl, 'https://sakai.example/imsblis/lti13/keyset');
+    assertEquals(binding.issuer, "https://sakai.example");
+    assertEquals(binding.clientId, "7dbe6a13-f948-498c-87d7-768947ac5c56");
+    assertEquals(binding.deploymentId, "1");
+    assertEquals(
+      binding.authorizationEndpoint,
+      "https://sakai.example/imsoidc/lti13/oidc_auth",
+    );
+    assertEquals(
+      binding.accessTokenUrl,
+      "https://sakai.example/imsblis/lti13/token/91",
+    );
+    assertEquals(binding.jwksUrl, "https://sakai.example/imsblis/lti13/keyset");
 
-    const auditEvents = await repository.listAuditEventsByEventType('deployment.binding_saved');
+    const auditEvents = await repository.listAuditEventsByEventType(
+      "deployment.binding_saved",
+    );
     assertEquals(auditEvents.length, 1);
-    assertEquals(auditEvents[0]?.detail.lms, 'sakai');
-    assertEquals(auditEvents[0]?.detail.registrationMode, 'dynamic');
+    assertEquals(auditEvents[0]?.detail.lms, "sakai");
+    assertEquals(auditEvents[0]?.detail.registrationMode, "dynamic");
   } finally {
-    restoreEnv('APP_ORIGIN', previousOrigin);
+    restoreEnv("APP_ORIGIN", previousOrigin);
   }
 });
 
-Deno.test('GET /admin/packages/:appId/deployment/register/sakai explains direct browser access clearly', async () => {
-  const previousOrigin = Deno.env.get('APP_ORIGIN');
-  Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
+Deno.test("GET /admin/packages/:appId/deployment/register/sakai explains direct browser access clearly", async () => {
+  const previousOrigin = Deno.env.get("APP_ORIGIN");
+  Deno.env.set("APP_ORIGIN", "http://localhost:8417");
 
   try {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
         buildPackageVersionRecord({
           id: 5,
-          approvalStatus: 'approved',
-          reviewedAt: '2026-03-23T18:05:00Z',
+          approvalStatus: "approved",
+          reviewedAt: "2026-03-23T18:05:00Z",
         }),
       ],
     });
     const response = await createApp({
       getRepository: () => repository,
-    }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/register/sakai');
+    }).request(
+      "http://localhost/admin/packages/chapter-4-asteroids/deployment/register/sakai",
+    );
 
     assertEquals(response.status, 400);
     const body = await response.text();
-    assertEquals(body.includes('Open this from Sakai'), true);
-    assertEquals(body.includes('Dynamic Registration URL'), true);
+    assertEquals(body.includes("Open this from Sakai"), true);
+    assertEquals(body.includes("Dynamic Registration URL"), true);
   } finally {
-    restoreEnv('APP_ORIGIN', previousOrigin);
+    restoreEnv("APP_ORIGIN", previousOrigin);
   }
 });

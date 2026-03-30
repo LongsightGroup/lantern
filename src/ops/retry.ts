@@ -1,21 +1,33 @@
-import type { PublishFinalScoreInput, PublishFinalScoreResult } from '../lti/services.ts';
-import { requestCanvasServiceAccessToken } from '../lti/services.ts';
-import type { PackageReviewRepository } from '../package_review/repository.ts';
-import { publishGovernedGradePublication } from '../runtime/gateway.ts';
-import type { RetryableGradePublicationLookup } from './types.ts';
+import type {
+  PublishFinalScoreInput,
+  PublishFinalScoreResult,
+} from "../lti/services.ts";
+import { requestCanvasServiceAccessToken } from "../lti/services.ts";
+import { recordInteropPathUsed } from "../interop_audit.ts";
+import type { PackageReviewRepository } from "../package_review/repository.ts";
+import { publishGovernedGradePublication } from "../runtime/gateway.ts";
+import type { RetryableGradePublicationLookup } from "./types.ts";
 
 export interface RetryScorePublisher {
   (input: PublishFinalScoreInput): Promise<PublishFinalScoreResult>;
 }
 
 export interface RetryAccessTokenRequester {
-  (input: { issuer: string; clientId: string; scopes: string[] }): Promise<{ accessToken: string }>;
+  (
+    input: {
+      issuer: string;
+      clientId: string;
+      deploymentId?: string;
+      scopes: string[];
+    },
+  ): Promise<{ accessToken: string }>;
 }
 
-export interface RetryLookupRepository extends Pick<
-  PackageReviewRepository,
-  'updateGradePublication'
-> {
+export interface RetryLookupRepository extends
+  Pick<
+    PackageReviewRepository,
+    "recordAuditEvent" | "updateGradePublication"
+  > {
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
@@ -28,7 +40,9 @@ export async function retryFailedGradePublication(input: {
   requestAccessToken?: RetryAccessTokenRequester;
   publishScore?: RetryScorePublisher;
 }): Promise<RetryableGradePublicationLookup> {
-  const lookup = await input.repository.getRetryableGradePublicationLookup(input.attemptId);
+  const lookup = await input.repository.getRetryableGradePublicationLookup(
+    input.attemptId,
+  );
 
   if (lookup === null) {
     throw new Error(
@@ -36,38 +50,71 @@ export async function retryFailedGradePublication(input: {
     );
   }
 
-  if (lookup.runtimeSession === null) {
+  const runtimeSession = lookup.runtimeSession;
+
+  if (runtimeSession === null) {
     throw new Error(
-      'Retry blocked: Lantern no longer has the attempt-scoped runtime session for this grade publication.',
+      "Retry blocked: Lantern no longer has the attempt-scoped runtime session for this grade publication.",
     );
   }
 
-  if (lookup.runtimeSession.services.ags === null) {
+  const ags = runtimeSession.services.ags;
+
+  if (ags === null) {
     throw new Error(
-      'Retry blocked: the saved runtime session does not include AGS service context.',
+      "Retry blocked: the saved runtime session does not include AGS service context.",
     );
   }
 
   if (lookup.binding === null) {
     throw new Error(
-      'Retry blocked: Lantern no longer has the saved Canvas binding for this grade publication.',
+      "Retry blocked: Lantern no longer has the saved Canvas binding for this grade publication.",
     );
   }
 
-  const requestAccessToken = input.requestAccessToken ?? requestCanvasServiceAccessToken;
+  const requestAccessToken = input.requestAccessToken ??
+    requestCanvasServiceAccessToken;
   const now = input.now ?? (() => new Date());
   const token = await requestAccessToken({
     issuer: lookup.binding.issuer,
     clientId: lookup.binding.clientId,
-    scopes: lookup.runtimeSession.services.ags.scope,
+    deploymentId: lookup.binding.deploymentId,
+    scopes: ags.scope,
   });
+  const retryUnauthorized = async () => {
+    await recordInteropPathUsed({
+      repository: input.repository,
+      scope: "service",
+      path: "service_401_retry",
+      actorType: "system",
+      deploymentRecordId: runtimeSession.deploymentRecordId,
+      packageVersionId: runtimeSession.packageVersionId,
+      attemptId: lookup.attemptId,
+      summary: "Lantern retried an LMS service request after a 401.",
+      detail: {
+        lms: lookup.binding!.lms,
+        deploymentSlug: runtimeSession.deploymentSlug,
+      },
+    });
+    const refreshed = await requestAccessToken({
+      issuer: lookup.binding!.issuer,
+      clientId: lookup.binding!.clientId,
+      deploymentId: lookup.binding!.deploymentId,
+      scopes: ags.scope,
+    });
+
+    return refreshed.accessToken;
+  };
   const published = await publishGovernedGradePublication({
     repository: input.repository,
     attemptId: lookup.attemptId,
     publication: lookup.publication,
     accessToken: token.accessToken,
+    retryUnauthorized,
     now,
-    ...(input.publishScore === undefined ? {} : { publishScore: input.publishScore }),
+    ...(input.publishScore === undefined
+      ? {}
+      : { publishScore: input.publishScore }),
   });
 
   return {

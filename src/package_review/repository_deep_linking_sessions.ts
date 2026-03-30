@@ -1,30 +1,34 @@
-import type { Pool } from '@db/postgres';
-import { withClient } from './repository_core.ts';
-import { mapPackageVersionRow } from './repository_mappers_package.ts';
+import type { Pool } from "@db/postgres";
+import { withClient, withTransaction } from "./repository_core.ts";
+import { mapPackageVersionRow } from "./repository_mappers_package.ts";
 import {
   mapDeepLinkingSessionRow,
   mapOptionalDeepLinkingSession,
-} from './repository_mappers_sessions.ts';
+} from "./repository_mappers_sessions.ts";
 import {
   DEEP_LINKING_SESSION_SELECT,
   PACKAGE_VERSION_SELECT,
-} from './repository_query_fragments.ts';
-import type { DeepLinkingSessionRow, PackageVersionRow } from './repository_row_types.ts';
+} from "./repository_query_fragments.ts";
+import type {
+  DeepLinkingSessionRow,
+  PackageVersionRow,
+} from "./repository_row_types.ts";
 import {
   buildDeepLinkingResourceOptions,
   sortPackageVersions,
-} from './repository_resource_options.ts';
-import { isUniqueViolation } from './repository_value_support.ts';
-import type { PackageReviewRepository } from './repository.ts';
+} from "./repository_resource_options.ts";
+import { isUniqueViolation } from "./repository_value_support.ts";
+import type { PackageReviewRepository } from "./repository.ts";
 
 export function createDeepLinkingSessionRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | 'createDeepLinkingSession'
-  | 'getDeepLinkingSessionById'
-  | 'updateDeepLinkingSessionSelection'
-  | 'listDeepLinkingResourceOptions'
+  | "createDeepLinkingSession"
+  | "getDeepLinkingSessionById"
+  | "consumeDeepLinkingSession"
+  | "updateDeepLinkingSessionSelection"
+  | "listDeepLinkingResourceOptions"
 > {
   return {
     async createDeepLinkingSession(record) {
@@ -54,10 +58,11 @@ export function createDeepLinkingSessionRepositoryMethods(
                 selected_activity_id,
                 selected_content_path,
                 created_at,
-                expires_at
+                expires_at,
+                used_at
               ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-                $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+                $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
               )
               RETURNING
                 session_id,
@@ -81,7 +86,8 @@ export function createDeepLinkingSessionRepositoryMethods(
                 selected_activity_id,
                 selected_content_path,
                 created_at,
-                expires_at
+                expires_at,
+                used_at
             `,
             args: [
               record.sessionId,
@@ -106,6 +112,7 @@ export function createDeepLinkingSessionRepositoryMethods(
               record.selection?.contentPath ?? null,
               record.createdAt,
               record.expiresAt,
+              record.usedAt,
             ],
             camelCase: true,
           });
@@ -135,6 +142,114 @@ export function createDeepLinkingSessionRepositoryMethods(
       });
     },
 
+    async consumeDeepLinkingSession(input) {
+      return await withClient(pool, async (client) => {
+        return await withTransaction(
+          client,
+          "consume_deep_linking_session",
+          async (transaction) => {
+            const updated = await transaction.queryObject<
+              DeepLinkingSessionRow
+            >(
+              {
+                text: `
+                  UPDATE deep_linking_sessions
+                  SET used_at = $2
+                  WHERE session_id = $1
+                    AND used_at IS NULL
+                  RETURNING
+                    session_id,
+                    session_token,
+                    deployment_record_id,
+                    deployment_slug,
+                    app_id,
+                    user_id,
+                    user_role,
+                    context_id,
+                    context_title,
+                    deep_link_return_url,
+                    data,
+                    placement,
+                    accept_types,
+                    accept_multiple,
+                    accept_presentation_document_targets,
+                    accept_line_item,
+                    selected_package_version_id,
+                    selected_package_version,
+                    selected_activity_id,
+                    selected_content_path,
+                    created_at,
+                    expires_at,
+                    used_at
+                `,
+                args: [input.sessionId, input.usedAt],
+                camelCase: true,
+              },
+            );
+            const consumed = updated.rows[0];
+
+            if (consumed) {
+              return mapDeepLinkingSessionRow(consumed);
+            }
+
+            const existing = await transaction.queryObject<
+              DeepLinkingSessionRow
+            >(
+              {
+                text: `
+                  SELECT
+                    session_id,
+                    session_token,
+                    deployment_record_id,
+                    deployment_slug,
+                    app_id,
+                    user_id,
+                    user_role,
+                    context_id,
+                    context_title,
+                    deep_link_return_url,
+                    data,
+                    placement,
+                    accept_types,
+                    accept_multiple,
+                    accept_presentation_document_targets,
+                    accept_line_item,
+                    selected_package_version_id,
+                    selected_package_version,
+                    selected_activity_id,
+                    selected_content_path,
+                    created_at,
+                    expires_at,
+                    used_at
+                  FROM deep_linking_sessions
+                  WHERE session_id = $1
+                `,
+                args: [input.sessionId],
+                camelCase: true,
+              },
+            );
+            const row = existing.rows[0];
+
+            if (!row) {
+              throw new Error(
+                `Deep Linking session ${input.sessionId} was not found.`,
+              );
+            }
+
+            if (row.usedAt !== null) {
+              throw new Error(
+                `Deep Linking session ${input.sessionId} has already been used.`,
+              );
+            }
+
+            throw new Error(
+              `Deep Linking session ${input.sessionId} could not be consumed.`,
+            );
+          },
+        );
+      });
+    },
+
     async updateDeepLinkingSessionSelection(input) {
       return await withClient(pool, async (client) => {
         const result = await client.queryObject<DeepLinkingSessionRow>({
@@ -146,6 +261,7 @@ export function createDeepLinkingSessionRepositoryMethods(
               selected_activity_id = $4,
               selected_content_path = $5
             WHERE session_id = $1
+              AND used_at IS NULL
             RETURNING
               session_id,
               session_token,
@@ -168,7 +284,8 @@ export function createDeepLinkingSessionRepositoryMethods(
               selected_activity_id,
               selected_content_path,
               created_at,
-              expires_at
+              expires_at,
+              used_at
           `,
           args: [
             input.sessionId,
@@ -182,7 +299,28 @@ export function createDeepLinkingSessionRepositoryMethods(
         const updated = result.rows[0];
 
         if (!updated) {
-          throw new Error(`Deep Linking session ${input.sessionId} was not found.`);
+          const existing = await client.queryObject<DeepLinkingSessionRow>({
+            text: `${DEEP_LINKING_SESSION_SELECT} WHERE session_id = $1`,
+            args: [input.sessionId],
+            camelCase: true,
+          });
+          const row = existing.rows[0];
+
+          if (!row) {
+            throw new Error(
+              `Deep Linking session ${input.sessionId} was not found.`,
+            );
+          }
+
+          if (row.usedAt !== null) {
+            throw new Error(
+              `Deep Linking session ${input.sessionId} has already been used.`,
+            );
+          }
+
+          throw new Error(
+            `Deep Linking session ${input.sessionId} could not be updated.`,
+          );
         }
 
         return mapDeepLinkingSessionRow(updated);

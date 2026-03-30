@@ -1,7 +1,9 @@
-import { requireAppOrigin } from './config.ts';
-import type { DeploymentBinding } from './types.ts';
+import { requireAppOrigin } from "./config.ts";
+import { assertHostedDynamicRegistrationMetadata } from "./dynamic_registration_support.ts";
+import type { DeploymentBinding } from "./types.ts";
 
-const SAKAI_TOOL_CONFIGURATION_CLAIM = 'https://purl.imsglobal.org/spec/lti-tool-configuration';
+const SAKAI_TOOL_CONFIGURATION_CLAIM =
+  "https://purl.imsglobal.org/spec/lti-tool-configuration";
 
 interface SakaiOpenIdProviderConfiguration {
   issuer: string;
@@ -17,9 +19,20 @@ interface FetchLike {
 
 export function buildSakaiDynamicRegistrationUrl(
   appId: string,
+  state: string | null = null,
   appOrigin = requireAppOrigin(),
 ): string {
-  return `${appOrigin}/admin/packages/${encodeURIComponent(appId)}/deployment/register/sakai`;
+  const url = new URL(
+    `${appOrigin}/admin/packages/${
+      encodeURIComponent(appId)
+    }/deployment/register/sakai`,
+  );
+
+  if (state !== null) {
+    url.searchParams.set("state", state);
+  }
+
+  return url.toString();
 }
 
 export async function completeSakaiDynamicRegistration(input: {
@@ -27,9 +40,10 @@ export async function completeSakaiDynamicRegistration(input: {
   appTitle: string;
   openidConfigurationUrl: string;
   registrationToken: string;
+  appOrigin?: string;
   fetch?: FetchLike;
-}): Promise<Extract<DeploymentBinding, { lms: 'sakai' }>> {
-  const appOrigin = requireAppOrigin();
+}): Promise<Extract<DeploymentBinding, { lms: "sakai" }>> {
+  const appOrigin = input.appOrigin ?? requireAppOrigin();
   const fetcher = input.fetch ?? fetch;
   const providerConfiguration = await loadSakaiOpenIdProviderConfiguration(
     input.openidConfigurationUrl,
@@ -57,19 +71,32 @@ async function loadSakaiOpenIdProviderConfiguration(
   const response = await fetcher(openidConfigurationUrl);
 
   if (!response.ok) {
-    throw new Error(`Sakai openid_configuration fetch failed with status ${response.status}.`);
+    throw new Error(
+      `Sakai openid_configuration fetch failed with status ${response.status}.`,
+    );
   }
 
   const json = await response.json();
-  const record = requireObject(json, 'Sakai openid_configuration must be a JSON object.');
+  const record = requireObject(
+    json,
+    "Sakai openid_configuration must be a JSON object.",
+  );
 
-  return {
-    issuer: requireString(record, 'issuer'),
-    authorizationEndpoint: requireString(record, 'authorization_endpoint'),
-    tokenEndpoint: requireString(record, 'token_endpoint'),
-    jwksUrl: requireString(record, 'jwks_uri'),
-    registrationEndpoint: requireString(record, 'registration_endpoint'),
+  const providerConfiguration = {
+    issuer: requireString(record, "issuer"),
+    authorizationEndpoint: requireString(record, "authorization_endpoint"),
+    tokenEndpoint: requireString(record, "token_endpoint"),
+    jwksUrl: requireString(record, "jwks_uri"),
+    registrationEndpoint: requireString(record, "registration_endpoint"),
   };
+
+  assertHostedDynamicRegistrationMetadata({
+    platformLabel: "Sakai",
+    openidConfigurationUrl,
+    ...providerConfiguration,
+  });
+
+  return providerConfiguration;
 }
 
 async function submitSakaiRegistration(input: {
@@ -80,19 +107,26 @@ async function submitSakaiRegistration(input: {
   fetch: FetchLike;
 }): Promise<Record<string, unknown>> {
   const response = await input.fetch(input.registrationEndpoint, {
-    method: 'POST',
+    method: "POST",
     headers: {
       authorization: `Bearer ${input.registrationToken}`,
-      'content-type': 'application/json',
+      "content-type": "application/json",
     },
-    body: JSON.stringify(buildSakaiRegistrationRequest(input.appOrigin, input.appTitle)),
+    body: JSON.stringify(
+      buildSakaiRegistrationRequest(input.appOrigin, input.appTitle),
+    ),
   });
 
   if (!response.ok) {
-    throw new Error(`Sakai registration failed with status ${response.status}.`);
+    throw new Error(
+      `Sakai registration failed with status ${response.status}.`,
+    );
   }
 
-  return requireObject(await response.json(), 'Sakai registration response must be a JSON object.');
+  return requireObject(
+    await response.json(),
+    "Sakai registration response must be a JSON object.",
+  );
 }
 
 function buildSakaiRegistrationRequest(appOrigin: string, appTitle: string) {
@@ -100,22 +134,31 @@ function buildSakaiRegistrationRequest(appOrigin: string, appTitle: string) {
   const launchUrl = `${appOrigin}/lti/launch`;
 
   return {
-    application_type: 'web',
-    response_types: ['id_token'],
-    grant_types: ['implicit', 'client_credentials'],
+    application_type: "web",
+    response_types: ["id_token"],
+    grant_types: ["implicit", "client_credentials"],
     initiate_login_uri: `${appOrigin}/lti/login`,
     redirect_uris: [launchUrl],
     client_name: `${appTitle} via Lantern`,
     jwks_uri: `${appOrigin}/lti/jwks.json`,
-    token_endpoint_auth_method: 'private_key_jwt',
+    token_endpoint_auth_method: "private_key_jwt",
     [SAKAI_TOOL_CONFIGURATION_CLAIM]: {
       domain: origin.host,
-      description: `Launch the approved ${appTitle} activity through Lantern's governed runtime.`,
+      description:
+        `Launch the approved ${appTitle} activity through Lantern's governed runtime.`,
       target_link_uri: launchUrl,
-      claims: ['iss', 'sub', 'name', 'given_name', 'family_name', 'email', 'preferred_username'],
+      claims: [
+        "iss",
+        "sub",
+        "name",
+        "given_name",
+        "family_name",
+        "email",
+        "preferred_username",
+      ],
       messages: [
         {
-          type: 'LtiResourceLinkRequest',
+          type: "LtiResourceLinkRequest",
           target_link_uri: launchUrl,
           label: `${appTitle} in Lantern`,
         },
@@ -128,23 +171,24 @@ function extractSakaiDeploymentBinding(
   providerConfiguration: SakaiOpenIdProviderConfiguration,
   registrationResponse: Record<string, unknown>,
   openidConfigurationUrl: string,
-): Extract<DeploymentBinding, { lms: 'sakai' }> {
+): Extract<DeploymentBinding, { lms: "sakai" }> {
   const toolConfiguration = requireObject(
     registrationResponse[SAKAI_TOOL_CONFIGURATION_CLAIM],
-    'Sakai registration response did not include tool configuration.',
+    "Sakai registration response did not include tool configuration.",
   );
-  const deploymentId =
-    readOptionalString(toolConfiguration, 'deployment_id') ??
-    new URL(openidConfigurationUrl).searchParams.get('deploymentId');
+  const deploymentId = readOptionalString(toolConfiguration, "deployment_id") ??
+    new URL(openidConfigurationUrl).searchParams.get("deploymentId");
 
   if (!deploymentId) {
-    throw new Error('Sakai registration response did not include a deployment_id.');
+    throw new Error(
+      "Sakai registration response did not include a deployment_id.",
+    );
   }
 
   return {
-    lms: 'sakai',
+    lms: "sakai",
     issuer: providerConfiguration.issuer,
-    clientId: requireString(registrationResponse, 'client_id'),
+    clientId: requireString(registrationResponse, "client_id"),
     deploymentId,
     authorizationEndpoint: providerConfiguration.authorizationEndpoint,
     accessTokenUrl: providerConfiguration.tokenEndpoint,
@@ -152,8 +196,11 @@ function extractSakaiDeploymentBinding(
   };
 }
 
-function requireObject(value: unknown, message: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+function requireObject(
+  value: unknown,
+  message: string,
+): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(message);
   }
 
@@ -170,7 +217,10 @@ function requireString(record: Record<string, unknown>, key: string): string {
   return value;
 }
 
-function readOptionalString(record: Record<string, unknown>, key: string): string | null {
+function readOptionalString(
+  record: Record<string, unknown>,
+  key: string,
+): string | null {
   const value = record[key];
-  return typeof value === 'string' && value.trim() !== '' ? value : null;
+  return typeof value === "string" && value.trim() !== "" ? value : null;
 }

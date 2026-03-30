@@ -1,14 +1,15 @@
-import type { PackageReviewRepository } from '../package_review/repository.ts';
-import type { LoginStateRecord } from './types.ts';
-import { resolveAuthorizationEndpoint } from './platform_binding.ts';
+import type { PackageReviewRepository } from "../package_review/repository.ts";
+import { buildLanternTargetLinkUri } from "./target_link_uri.ts";
+import type { LoginStateRecord } from "./types.ts";
+import { resolveAuthorizationEndpoint } from "./platform_binding.ts";
 
 const LOGIN_STATE_TTL_MS = 5 * 60 * 1000;
 
 export interface LoginRequest {
   iss: string;
   loginHint: string;
-  targetLinkUri: string;
-  clientId: string;
+  targetLinkUri: string | null;
+  clientId: string | null;
   deploymentId: string;
   ltiMessageHint: string | null;
 }
@@ -16,11 +17,15 @@ export interface LoginRequest {
 export interface LoginRedirectResult {
   location: string;
   loginState: LoginStateRecord;
+  deploymentRecordId: number;
+  deploymentSlug: string;
+  packageVersionId: number | null;
 }
 
 export async function createLoginRedirect(input: {
   repository: PackageReviewRepository;
   loginRequest: LoginRequest;
+  appOrigin?: string;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<LoginRedirectResult> {
@@ -36,9 +41,13 @@ export async function createLoginRedirect(input: {
       deploymentId: loginRequest.deploymentId,
     });
   } catch (error) {
-    if (error instanceof Error && error.message.includes('Multiple deployments matched issuer')) {
+    if (
+      error instanceof Error &&
+      error.message.includes("Multiple deployments matched issuer") &&
+      !error.message.includes("must send client_id")
+    ) {
       throw new Error(
-        'Choose one supported LMS deployment. Resolve the duplicate LMS bindings before login can continue.',
+        "Choose one supported LMS deployment. Resolve the duplicate LMS bindings before login can continue.",
       );
     }
 
@@ -46,14 +55,22 @@ export async function createLoginRedirect(input: {
   }
 
   if (!deployment) {
-    deployment = await input.repository.completePendingCanvasBinding({
-      issuer: loginRequest.iss,
-      clientId: loginRequest.clientId,
-      deploymentId: loginRequest.deploymentId,
-    });
+    if (loginRequest.clientId !== null) {
+      deployment = await input.repository.completePendingCanvasBinding({
+        issuer: loginRequest.iss,
+        clientId: loginRequest.clientId,
+        deploymentId: loginRequest.deploymentId,
+      });
+    }
   }
 
   if (!deployment?.binding) {
+    if (loginRequest.clientId === null) {
+      throw new Error(
+        `Deployment ${loginRequest.deploymentId} was not found for issuer ${loginRequest.iss}. Include client_id in the login request or save a matching LMS binding before login can continue.`,
+      );
+    }
+
     throw new Error(
       `Deployment ${loginRequest.clientId} / ${loginRequest.deploymentId} was not found for issuer ${loginRequest.iss}.`,
     );
@@ -61,16 +78,23 @@ export async function createLoginRedirect(input: {
 
   const binding = deployment.binding;
   const createdAt = now();
+  const targetLinkUri = resolveLoginTargetLinkUri({
+    targetLinkUri: loginRequest.targetLinkUri,
+    lms: binding.lms,
+    appOrigin: input.appOrigin,
+  });
   const loginState = await input.repository.createLoginState({
     lms: binding.lms,
     state: createOpaqueToken(),
     nonce: createOpaqueToken(),
-    canvasEnvironment: binding.lms === 'canvas' ? binding.canvasEnvironment : null,
+    canvasEnvironment: binding.lms === "canvas"
+      ? binding.canvasEnvironment
+      : null,
     issuer: binding.issuer,
     clientId: binding.clientId,
     deploymentId: binding.deploymentId,
     loginHint: loginRequest.loginHint,
-    targetLinkUri: loginRequest.targetLinkUri,
+    targetLinkUri,
     ltiMessageHint: loginRequest.ltiMessageHint,
     createdAt: createdAt.toISOString(),
     expiresAt: new Date(createdAt.getTime() + LOGIN_STATE_TTL_MS).toISOString(),
@@ -78,34 +102,61 @@ export async function createLoginRedirect(input: {
   });
   const location = new URL(resolveAuthorizationEndpoint(binding));
 
-  location.searchParams.set('client_id', loginState.clientId);
-  location.searchParams.set('login_hint', loginState.loginHint);
-  location.searchParams.set('nonce', loginState.nonce);
-  location.searchParams.set('redirect_uri', loginState.targetLinkUri);
-  location.searchParams.set('response_mode', 'form_post');
-  location.searchParams.set('response_type', 'id_token');
-  location.searchParams.set('scope', 'openid');
-  location.searchParams.set('state', loginState.state);
+  location.searchParams.set("client_id", loginState.clientId);
+  location.searchParams.set("login_hint", loginState.loginHint);
+  location.searchParams.set("nonce", loginState.nonce);
+  location.searchParams.set("redirect_uri", loginState.targetLinkUri);
+  location.searchParams.set("response_mode", "form_post");
+  location.searchParams.set("response_type", "id_token");
+  location.searchParams.set("scope", "openid");
+  location.searchParams.set("state", loginState.state);
 
   if (loginState.ltiMessageHint !== null) {
-    location.searchParams.set('lti_message_hint', loginState.ltiMessageHint);
+    location.searchParams.set("lti_message_hint", loginState.ltiMessageHint);
   }
 
   return {
     location: location.toString(),
     loginState,
+    deploymentRecordId: deployment.id,
+    deploymentSlug: deployment.slug,
+    packageVersionId: deployment.enabledPackageVersionId,
   };
 }
 
 function normalizeLoginRequest(request: LoginRequest): LoginRequest {
   return {
-    iss: requireTrimmedValue(request.iss, 'LTI issuer is required.'),
-    loginHint: requireTrimmedValue(request.loginHint, 'LTI login_hint is required.'),
-    targetLinkUri: requireTrimmedValue(request.targetLinkUri, 'LTI target_link_uri is required.'),
-    clientId: requireTrimmedValue(request.clientId, 'LTI client_id is required.'),
-    deploymentId: requireTrimmedValue(request.deploymentId, 'LTI deployment_id is required.'),
+    iss: requireTrimmedValue(request.iss, "LTI issuer is required."),
+    loginHint: requireTrimmedValue(
+      request.loginHint,
+      "LTI login_hint is required.",
+    ),
+    targetLinkUri: normalizeOptionalValue(request.targetLinkUri),
+    clientId: normalizeOptionalValue(request.clientId),
+    deploymentId: requireTrimmedValue(
+      request.deploymentId,
+      "LTI deployment_id is required.",
+    ),
     ltiMessageHint: normalizeOptionalValue(request.ltiMessageHint),
   };
+}
+
+function resolveLoginTargetLinkUri(input: {
+  targetLinkUri: string | null;
+  lms: LoginStateRecord["lms"];
+  appOrigin: string | undefined;
+}): string {
+  if (input.targetLinkUri !== null) {
+    return input.targetLinkUri;
+  }
+
+  if (input.lms === "canvas") {
+    throw new Error(
+      "LTI target_link_uri is required for Canvas login because Canvas launches use more than one Lantern callback route.",
+    );
+  }
+
+  return buildLanternTargetLinkUri("launch", input.appOrigin);
 }
 
 function normalizeOptionalValue(value: string | null): string | null {
@@ -115,13 +166,17 @@ function normalizeOptionalValue(value: string | null): string | null {
 
   const trimmed = value.trim();
 
-  return trimmed === '' ? null : trimmed;
+  return trimmed === "" ? null : trimmed;
 }
 
-function requireTrimmedValue(value: string, message: string): string {
+function requireTrimmedValue(value: string | null, message: string): string {
+  if (value === null) {
+    throw new Error(message);
+  }
+
   const trimmed = value.trim();
 
-  if (trimmed === '') {
+  if (trimmed === "") {
     throw new Error(message);
   }
 
@@ -133,7 +188,12 @@ function defaultOpaqueToken(): string {
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
-  const chunk = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
+  const chunk = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join(
+    "",
+  );
 
-  return btoa(chunk).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  return btoa(chunk).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
+    "=",
+    "",
+  );
 }

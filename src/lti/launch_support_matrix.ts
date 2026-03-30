@@ -1,9 +1,9 @@
-import { LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE } from './types.ts';
-import { buildLaunchDetailRecord, rejectLaunch } from './launch_rejection.ts';
+import { LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE } from "./types.ts";
+import { buildLaunchDetailRecord, rejectLaunch } from "./launch_rejection.ts";
 
-export const GOVERNED_RUNTIME_BASELINE_RULE = 'governed_runtime_baseline';
-export const SUPPORTED_LTI_LAUNCH_PATH = '/lti/launch';
-export const SUPPORTED_LTI_VERSION = '1.3.0';
+export const GOVERNED_RUNTIME_BASELINE_RULE = "governed_runtime_baseline";
+export const SUPPORTED_LTI_LAUNCH_PATH = "/lti/launch";
+export const SUPPORTED_LTI_VERSION = "1.3.0";
 
 export function assertSupportedLaunchMessageType(messageType: string): void {
   if (messageType === LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE) {
@@ -11,8 +11,9 @@ export function assertSupportedLaunchMessageType(messageType: string): void {
   }
 
   rejectLaunch({
-    code: 'unsupported_message_type',
-    message: `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only accepts ${LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE} for the governed runtime baseline.`,
+    code: "unsupported_message_type",
+    message:
+      `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only accepts ${LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE} for the governed runtime baseline.`,
     detail: buildLaunchDetailRecord({
       route: SUPPORTED_LTI_LAUNCH_PATH,
       rule: GOVERNED_RUNTIME_BASELINE_RULE,
@@ -29,8 +30,9 @@ export function assertSupportedLaunchVersion(version: string): void {
   }
 
   rejectLaunch({
-    code: 'unsupported_lti_version',
-    message: `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only supports LTI ${SUPPORTED_LTI_VERSION} for the governed runtime baseline.`,
+    code: "unsupported_lti_version",
+    message:
+      `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only supports LTI ${SUPPORTED_LTI_VERSION} for the governed runtime baseline.`,
     detail: buildLaunchDetailRecord({
       route: SUPPORTED_LTI_LAUNCH_PATH,
       rule: GOVERNED_RUNTIME_BASELINE_RULE,
@@ -40,11 +42,15 @@ export function assertSupportedLaunchVersion(version: string): void {
   });
 }
 
-export function requireBaselineStringClaim(value: unknown, claim: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
+export function requireBaselineStringClaim(
+  value: unknown,
+  claim: string,
+): string {
+  if (typeof value !== "string" || value.trim() === "") {
     rejectLaunch({
-      code: 'missing_baseline_claim',
-      message: `Launch rejected because the governed runtime baseline requires ${claim}.`,
+      code: "missing_baseline_claim",
+      message:
+        `Launch rejected because the governed runtime baseline requires ${claim}.`,
       detail: buildLaunchDetailRecord({
         route: SUPPORTED_LTI_LAUNCH_PATH,
         rule: GOVERNED_RUNTIME_BASELINE_RULE,
@@ -58,8 +64,9 @@ export function requireBaselineStringClaim(value: unknown, claim: string): strin
 
 export function rejectLoginStateMissing(state: string): never {
   rejectLaunch({
-    code: 'login_state_missing',
-    message: `Login state ${state} was not found.`,
+    code: "login_state_missing",
+    message:
+      "Lantern could not resume this LTI launch because the saved login state was missing. This usually means the LMS frame lost cookies or storage, or the launch came from an older tab. Reopen the tool from the LMS and, if needed, retry in a new top-level browser tab.",
     detail: buildLaunchDetailRecord({
       state,
     }),
@@ -68,8 +75,9 @@ export function rejectLoginStateMissing(state: string): never {
 
 export function rejectLoginStateUsed(state: string): never {
   rejectLaunch({
-    code: 'login_state_used',
-    message: `Login state ${state} has already been used.`,
+    code: "login_state_used",
+    message:
+      "Lantern already used this LTI launch state. This usually happens when the LMS reposts an older launch page or the browser resubmits from history. Reopen the tool from the LMS and retry from a fresh top-level tab if the LMS stays embedded.",
     detail: buildLaunchDetailRecord({
       state,
     }),
@@ -78,8 +86,9 @@ export function rejectLoginStateUsed(state: string): never {
 
 export function rejectLoginStateExpired(state: string): never {
   rejectLaunch({
-    code: 'login_state_expired',
-    message: `Login state ${state} has expired.`,
+    code: "login_state_expired",
+    message:
+      "Lantern could not resume this LTI launch because the saved login state expired before the LMS returned. Reopen the tool from the LMS and, if the launch keeps failing inside the frame, retry in a new top-level browser tab.",
     detail: buildLaunchDetailRecord({
       state,
     }),
@@ -93,8 +102,9 @@ export function rejectDeploymentBindingMissing(input: {
   issuer: string;
 }): never {
   rejectLaunch({
-    code: 'deployment_binding_missing',
-    message: `${input.lmsLabel} deployment ${input.clientId} / ${input.deploymentId} was not found for issuer ${input.issuer}.`,
+    code: "deployment_binding_missing",
+    message:
+      `${input.lmsLabel} deployment ${input.clientId} / ${input.deploymentId} was not found for issuer ${input.issuer}.`,
     detail: buildLaunchDetailRecord({
       issuer: input.issuer,
       clientId: input.clientId,
@@ -105,15 +115,17 @@ export function rejectDeploymentBindingMissing(input: {
 
 export function rejectSignatureValidationFailed(): never {
   rejectLaunch({
-    code: 'signature_validation_failed',
-    message: 'Launch id_token signature or issuer validation failed.',
+    code: "signature_validation_failed",
+    message: "Launch id_token signature or issuer validation failed.",
     detail: buildLaunchDetailRecord({}),
   });
 }
 
-export function rejectDeploymentMismatch(input: { field: string; target: string }): never {
+export function rejectDeploymentMismatch(
+  input: { field: string; target: string },
+): never {
   rejectLaunch({
-    code: 'deployment_mismatch',
+    code: "deployment_mismatch",
     message: `Launch ${input.field} did not match the ${input.target}.`,
     detail: buildLaunchDetailRecord({
       field: input.field,
@@ -124,7 +136,7 @@ export function rejectDeploymentMismatch(input: { field: string; target: string 
 
 export function rejectReviewedPlacementNotFound(placementId: string): never {
   rejectLaunch({
-    code: 'reviewed_placement_not_found',
+    code: "reviewed_placement_not_found",
     message: `Reviewed placement ${placementId} was not found.`,
     detail: buildLaunchDetailRecord({
       placementId,
@@ -138,8 +150,9 @@ export function rejectReviewedPlacementDeploymentMismatch(input: {
   placementDeploymentSlug?: string | null;
 }): never {
   rejectLaunch({
-    code: 'reviewed_placement_deployment_mismatch',
-    message: `Reviewed placement ${input.placementId} does not belong to deployment ${input.deploymentSlug}.`,
+    code: "reviewed_placement_deployment_mismatch",
+    message:
+      `Reviewed placement ${input.placementId} does not belong to deployment ${input.deploymentSlug}.`,
     detail: buildLaunchDetailRecord({
       placementId: input.placementId,
       deploymentSlug: input.deploymentSlug,
@@ -154,8 +167,9 @@ export function rejectReviewedPlacementContextMismatch(input: {
   placementContextId?: string | null;
 }): never {
   rejectLaunch({
-    code: 'reviewed_placement_context_mismatch',
-    message: `Reviewed placement ${input.placementId} does not match governed launch context ${input.contextId}.`,
+    code: "reviewed_placement_context_mismatch",
+    message:
+      `Reviewed placement ${input.placementId} does not match governed launch context ${input.contextId}.`,
     detail: buildLaunchDetailRecord({
       placementId: input.placementId,
       contextId: input.contextId,
@@ -172,8 +186,9 @@ export function rejectReviewedPlacementResourceLinkConflict(input: {
 }): never {
   if (input.existingResourceLinkId) {
     rejectLaunch({
-      code: 'reviewed_placement_resource_link_conflict',
-      message: `Reviewed placement ${input.placementId} is already bound to resource link ${input.existingResourceLinkId}.`,
+      code: "reviewed_placement_resource_link_conflict",
+      message:
+        `Reviewed placement ${input.placementId} is already bound to resource link ${input.existingResourceLinkId}.`,
       detail: buildLaunchDetailRecord({
         placementId: input.placementId,
         resourceLinkId: input.resourceLinkId,
@@ -183,7 +198,7 @@ export function rejectReviewedPlacementResourceLinkConflict(input: {
   }
 
   rejectLaunch({
-    code: 'reviewed_placement_resource_link_conflict',
+    code: "reviewed_placement_resource_link_conflict",
     message: input.deploymentSlug
       ? `Resource link ${input.resourceLinkId} is already bound to another reviewed placement in deployment ${input.deploymentSlug}.`
       : `Resource link ${input.resourceLinkId} conflicts with the saved reviewed placement binding.`,
@@ -195,19 +210,24 @@ export function rejectReviewedPlacementResourceLinkConflict(input: {
   });
 }
 
-export function rejectMissingPinnedPackageVersion(deploymentSlug: string): never {
+export function rejectMissingPinnedPackageVersion(
+  deploymentSlug: string,
+): never {
   rejectLaunch({
-    code: 'missing_pinned_package_version',
-    message: `Launch rejected because deployment ${deploymentSlug} does not have an approved pinned package version.`,
+    code: "missing_pinned_package_version",
+    message:
+      `Launch rejected because deployment ${deploymentSlug} does not have an approved pinned package version.`,
     detail: buildLaunchDetailRecord({
       deploymentSlug,
     }),
   });
 }
 
-export function rejectLaunchPackageVersionMissing(packageVersionId: number): never {
+export function rejectLaunchPackageVersionMissing(
+  packageVersionId: number,
+): never {
   rejectLaunch({
-    code: 'launch_package_version_missing',
+    code: "launch_package_version_missing",
     message: `Launch package version id ${packageVersionId} was not found.`,
     detail: buildLaunchDetailRecord({
       packageVersionId,
@@ -215,10 +235,13 @@ export function rejectLaunchPackageVersionMissing(packageVersionId: number): nev
   });
 }
 
-export function rejectPackageNotApproved(input: { appId: string; packageVersion: string }): never {
+export function rejectPackageNotApproved(
+  input: { appId: string; packageVersion: string },
+): never {
   rejectLaunch({
-    code: 'package_not_approved',
-    message: `Launch package version ${input.appId}@${input.packageVersion} is not approved.`,
+    code: "package_not_approved",
+    message:
+      `Launch package version ${input.appId}@${input.packageVersion} is not approved.`,
     detail: buildLaunchDetailRecord({
       appId: input.appId,
       packageVersion: input.packageVersion,
