@@ -1,18 +1,17 @@
-import { escapeHtml } from './admin/layout.ts';
+import { escapeHtml } from "./admin/layout.ts";
 
 export function renderDynamicRegistrationStatusPage(input: {
-  tone: 'success' | 'error';
+  tone: "success" | "error";
   title: string;
   detail: string;
   closeLabel: string;
   returnUrl: string;
   returnLabel: string;
 }): string {
-  const accent = input.tone === 'success' ? '#166534' : '#b42318';
-  const surface =
-    input.tone === 'success'
-      ? 'linear-gradient(180deg, rgba(232, 245, 235, 0.82), #ffffff)'
-      : 'linear-gradient(180deg, rgba(254, 243, 242, 0.88), #ffffff)';
+  const accent = input.tone === "success" ? "#166534" : "#b42318";
+  const surface = input.tone === "success"
+    ? "linear-gradient(180deg, rgba(232, 245, 235, 0.82), #ffffff)"
+    : "linear-gradient(180deg, rgba(254, 243, 242, 0.88), #ffffff)";
 
   return `<!doctype html>
 <html lang="en">
@@ -142,12 +141,16 @@ export function renderDynamicRegistrationStatusPage(input: {
         <h1>${escapeHtml(input.title)}</h1>
         <p>${escapeHtml(input.detail)}</p>
         <div class="button-row">
-          <button type="button" onclick="closeRegistration()">${escapeHtml(
-            input.closeLabel,
-          )}</button>
-          <a href="${escapeHtml(
-            input.returnUrl,
-          )}" target="_blank" rel="noreferrer">${escapeHtml(input.returnLabel)}</a>
+          <button type="button" onclick="closeRegistration()">${
+    escapeHtml(
+      input.closeLabel,
+    )
+  }</button>
+          <a href="${
+    escapeHtml(
+      input.returnUrl,
+    )
+  }" target="_blank" rel="noreferrer">${escapeHtml(input.returnLabel)}</a>
         </div>
       </section>
     </main>

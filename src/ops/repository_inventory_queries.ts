@@ -1,5 +1,5 @@
-export { BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS } from './broker_verification_paths.ts';
-import { BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS } from './broker_verification_paths.ts';
+export { BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS } from "./broker_verification_paths.ts";
+import { BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS } from "./broker_verification_paths.ts";
 
 const DEPLOYMENT_BROKER_SUPPORTED_PATH_SQL = `
   CASE deployments.lms_type

@@ -2,7 +2,8 @@
 
 ## Mission
 
-Lantern is a governed app platform for institution-built and AI-built learning apps.
+Lantern is a governed app platform for institution-built and AI-built learning
+apps.
 
 The product goal is not:
 
@@ -54,8 +55,10 @@ The `private/` repo is for:
 Rules:
 
 - Never copy private docs into the public repo.
-- Never reference private secrets, account details, or infra values in public code or docs.
-- If a public change depends on private context, summarize only the minimum needed.
+- Never reference private secrets, account details, or infra values in public
+  code or docs.
+- If a public change depends on private context, summarize only the minimum
+  needed.
 
 ## Stack Decisions
 
@@ -86,7 +89,8 @@ TypeScript must stay strict and boring.
 - Prefer explicit types on public interfaces.
 - No `any`.
 - Use `unknown` only when there is a real boundary and narrow it immediately.
-- No `@ts-ignore` or `@ts-expect-error` unless explicitly justified in a comment.
+- No `@ts-ignore` or `@ts-expect-error` unless explicitly justified in a
+  comment.
 - No giant generic cleverness.
 - No framework magic where plain functions are clearer.
 - Model trusted and untrusted data separately.

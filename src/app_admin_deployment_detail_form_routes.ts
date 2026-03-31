@@ -8,12 +8,14 @@ import {
   canPinDeploymentVersion,
   formatLmsLabel,
   parseManagedDeploymentLms,
+  parseOptionalManagedDeploymentLms,
   parseRequiredPackageVersionId,
 } from "./app_admin_deployment_detail_route_support.ts";
 import {
   buildInstallEditorState,
   buildPinEditorState,
 } from "./app_admin_deployment_editor_state.ts";
+import { parseDeploymentLtiProfileOverrideForm } from "./app_request_support.ts";
 import type { LmsType } from "./lti/types.ts";
 import type { AppServices } from "./app_services.ts";
 import { resolveConfiguredPublicOrigin } from "./public_origin.ts";
@@ -228,6 +230,68 @@ export function registerAdminDeploymentFormRoutes(
                 : `${formatLmsLabel(lms)} install blocked`,
               error,
             ),
+          },
+        )
+      );
+    }
+  });
+
+  app.post("/admin/packages/:appId/deployment/lti-profile", async (context) => {
+    const appId = context.req.param("appId");
+    let lms: LmsType | null = null;
+
+    try {
+      const repository = services.getRepository();
+      const appOrigin = resolveConfiguredPublicOrigin({
+        requestUrl: context.req.url,
+        forwardedHeader: context.req.header("forwarded") ?? null,
+        xForwardedHost: context.req.header("x-forwarded-host") ?? null,
+        xForwardedProto: context.req.header("x-forwarded-proto") ?? null,
+        configuredOrigin: Deno.env.get("APP_ORIGIN"),
+      });
+      const formData = await context.req.formData();
+      lms = parseManagedDeploymentLms(formData);
+      const detail = await loadDeploymentDetailState(
+        repository,
+        appId,
+        appOrigin,
+      );
+      const slot = getManagedDeploymentSlot(detail.slots, lms);
+
+      if (!slot.persisted) {
+        throw new Error(
+          `Save the ${
+            formatLmsLabel(lms)
+          } binding before you choose an LTI profile.`,
+        );
+      }
+
+      await repository.saveDeploymentLtiProfileOverride({
+        deploymentId: slot.deployment.id,
+        ltiProfileOverride: parseDeploymentLtiProfileOverrideForm(formData),
+      });
+
+      return context.redirect(
+        `/admin/packages/${appId}/deployment?lms=${lms}#slot-panel`,
+        303,
+      );
+    } catch (error) {
+      return await import("./app_admin_support.ts").then((
+        { renderDeploymentError },
+      ) =>
+        renderDeploymentError(
+          context,
+          services,
+          appId,
+          lms === null
+            ? "LTI profile update blocked"
+            : `${formatLmsLabel(lms)} LTI profile update blocked`,
+          error,
+          {
+            selectedLms: lms ??
+              parseOptionalManagedDeploymentLms(
+                new URL(context.req.url).searchParams.get("lms"),
+              ),
           },
         )
       );

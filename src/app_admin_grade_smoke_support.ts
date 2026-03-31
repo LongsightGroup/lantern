@@ -1,4 +1,6 @@
 import { errorMessage } from "./app_status_support.ts";
+import { buildResolvedLtiProfileDetail } from "./lti/profile_resolution.ts";
+import type { ResolvedLtiProfile } from "./lti/profile.ts";
 import type { DeploymentBinding, RuntimeSessionRecord } from "./lti/types.ts";
 import { LTI_AGS_LINEITEM_SCOPE, LTI_AGS_SCORE_SCOPE } from "./lti/types.ts";
 import {
@@ -46,6 +48,7 @@ export async function runGradeSmokeVerification(input: {
   binding: Extract<DeploymentBinding, { lms: SupportedSmokeLms }>;
   session: RuntimeSessionRecord;
   attempt: AttemptRecord;
+  ltiProfile?: ResolvedLtiProfile | null;
 }): Promise<GradeSmokeVerificationResult> {
   const ags = input.session.services.ags;
 
@@ -115,6 +118,7 @@ export async function runGradeSmokeVerification(input: {
         lms: input.binding.lms,
         deploymentSlug: input.session.deploymentSlug,
       },
+      ltiProfile: input.ltiProfile ?? null,
     });
     const refreshed = await requestServiceAccessToken({
       binding: input.binding,
@@ -200,6 +204,7 @@ export async function recordGradeSmokeAuditEvent(
   deployment: DeploymentRecord,
   session: RuntimeSessionRecord,
   result: GradeSmokeVerificationResult,
+  ltiProfile: ResolvedLtiProfile | null = null,
 ): Promise<void> {
   await repository.recordAuditEvent({
     eventType: "deployment.ags_smoke_verified",
@@ -219,6 +224,7 @@ export async function recordGradeSmokeAuditEvent(
       publicationStatus: result.detail.publicationStatus,
       lineItemUrl: result.detail.lineItemUrl,
       error: result.detail.error,
+      ...(ltiProfile === null ? {} : buildResolvedLtiProfileDetail(ltiProfile)),
     },
     occurredAt: new Date().toISOString(),
   });

@@ -19,6 +19,7 @@ import {
   resolveLanternDeepLinkingPlacement,
   targetLinkUrisMatch,
 } from "./target_link_uri.ts";
+import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
 import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
 import { loadJwks } from "./token_support.ts";
 import type {
@@ -99,6 +100,11 @@ export async function validateDeepLinkingRequest(input: {
       now,
       loadJwks: loadDeepLinkingJwks,
       onRetry: async () => {
+        const ltiProfile = await resolveLtiProfileForDeployment({
+          repository: input.repository,
+          deployment,
+        });
+
         await recordInteropPathUsed({
           repository: input.repository,
           scope: "deep_linking",
@@ -114,6 +120,7 @@ export async function validateDeepLinkingRequest(input: {
             clientId: loginState.clientId,
             deploymentId: loginState.deploymentId,
           },
+          ltiProfile,
         });
       },
     });
@@ -184,6 +191,11 @@ export async function validateDeepLinkingRequest(input: {
   }
 
   if (nonce.source === "jti") {
+    const ltiProfile = await resolveLtiProfileForDeployment({
+      repository: input.repository,
+      deployment,
+    });
+
     await recordInteropPathUsed({
       repository: input.repository,
       scope: "deep_linking",
@@ -198,6 +210,7 @@ export async function validateDeepLinkingRequest(input: {
         clientId: loginState.clientId,
         deploymentId: loginState.deploymentId,
       },
+      ltiProfile,
     });
   }
 

@@ -1,6 +1,9 @@
 import { requireAppOrigin } from "./config.ts";
 import { assertHostedDynamicRegistrationMetadata } from "./dynamic_registration_support.ts";
-import type { DeploymentBinding } from "./types.ts";
+import {
+  type DeploymentBinding,
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+} from "./types.ts";
 
 const SAKAI_TOOL_CONFIGURATION_CLAIM =
   "https://purl.imsglobal.org/spec/lti-tool-configuration";
@@ -132,13 +135,14 @@ async function submitSakaiRegistration(input: {
 function buildSakaiRegistrationRequest(appOrigin: string, appTitle: string) {
   const origin = new URL(appOrigin);
   const launchUrl = `${appOrigin}/lti/launch`;
+  const deepLinkingUrl = `${appOrigin}/lti/deep-linking`;
 
   return {
     application_type: "web",
     response_types: ["id_token"],
     grant_types: ["implicit", "client_credentials"],
     initiate_login_uri: `${appOrigin}/lti/login`,
-    redirect_uris: [launchUrl],
+    redirect_uris: [launchUrl, deepLinkingUrl],
     client_name: `${appTitle} via Lantern`,
     jwks_uri: `${appOrigin}/lti/jwks.json`,
     token_endpoint_auth_method: "private_key_jwt",
@@ -161,6 +165,11 @@ function buildSakaiRegistrationRequest(appOrigin: string, appTitle: string) {
           type: "LtiResourceLinkRequest",
           target_link_uri: launchUrl,
           label: `${appTitle} in Lantern`,
+        },
+        {
+          type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+          target_link_uri: deepLinkingUrl,
+          label: "Select Lantern activity",
         },
       ],
     },

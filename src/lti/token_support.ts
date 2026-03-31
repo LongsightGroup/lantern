@@ -1,7 +1,13 @@
-import type { JSONWebKeySet } from 'jose';
+import type { JSONWebKeySet } from "jose";
 
 export async function loadJwks(url: string): Promise<JSONWebKeySet> {
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      "cache-control": "no-cache",
+    },
+  });
 
   if (!response.ok) {
     throw new Error(`LTI JWKS fetch failed for ${url}.`);
@@ -15,7 +21,12 @@ export function createOpaqueToken(): string {
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
-  const chunk = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
+  const chunk = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join(
+    "",
+  );
 
-  return btoa(chunk).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
+  return btoa(chunk).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
+    "=",
+    "",
+  );
 }

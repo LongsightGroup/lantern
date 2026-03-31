@@ -1,22 +1,24 @@
-import type { Pool } from '@db/postgres';
-import type { JSONWebKeySet } from 'jose';
-import { createDatabasePool } from './db/pool.ts';
+import type { Pool } from "@db/postgres";
+import type { JSONWebKeySet } from "jose";
+import { createDatabasePool } from "./db/pool.ts";
 import {
   importDemoPackage,
   type ImportedPackageVersion,
   loadDemoPackageSnapshot,
-} from './package_review/intake.ts';
+} from "./package_review/intake.ts";
 import {
   createPackageReviewRepository,
   type PackageReviewRepository,
-} from './package_review/repository.ts';
-import { createOpsRepository, type OpsRepository } from './ops/repository.ts';
+} from "./package_review/repository.ts";
+import { createOpsRepository, type OpsRepository } from "./ops/repository.ts";
 
 export interface AppServices {
   getRepository: () => PackageReviewRepository;
   getOpsRepository: () => OpsRepository;
   loadCanvasJwks: (url: string) => Promise<JSONWebKeySet>;
-  importDemoPackage: (options?: { storageRoot?: string }) => Promise<ImportedPackageVersion>;
+  importDemoPackage: (
+    options?: { storageRoot?: string },
+  ) => Promise<ImportedPackageVersion>;
   loadDemoPackageSnapshot: (options?: {
     storageRoot?: string;
   }) => Promise<ImportedPackageVersion | null>;
@@ -31,16 +33,18 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
 
   return {
     getRepository,
-    getOpsRepository:
-      services.getOpsRepository ??
+    getOpsRepository: services.getOpsRepository ??
       (() => {
         const repository = getRepository();
 
-        return isOpsRepository(repository) ? repository : getDefaultOpsRepository();
+        return isOpsRepository(repository)
+          ? repository
+          : getDefaultOpsRepository();
       }),
     loadCanvasJwks: services.loadCanvasJwks ?? defaultLoadCanvasJwks,
     importDemoPackage: services.importDemoPackage ?? importDemoPackage,
-    loadDemoPackageSnapshot: services.loadDemoPackageSnapshot ?? loadDemoPackageSnapshot,
+    loadDemoPackageSnapshot: services.loadDemoPackageSnapshot ??
+      loadDemoPackageSnapshot,
   };
 }
 
@@ -82,10 +86,14 @@ function isOpsRepository(
   repository: PackageReviewRepository,
 ): repository is PackageReviewRepository & OpsRepository {
   return (
-    typeof (repository as Partial<OpsRepository>).listControlPlaneDeployments === 'function' &&
-    typeof (repository as Partial<OpsRepository>).getLatestBrokerVerificationStatus ===
-      'function' &&
-    typeof (repository as Partial<OpsRepository>).recordBrokerVerificationRun === 'function' &&
-    typeof (repository as Partial<OpsRepository>).getRetryableGradePublicationLookup === 'function'
+    typeof (repository as Partial<OpsRepository>)
+        .listControlPlaneDeployments === "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .getLatestBrokerVerificationStatus ===
+      "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .recordBrokerVerificationRun === "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .getRetryableGradePublicationLookup === "function"
   );
 }

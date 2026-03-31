@@ -19,6 +19,9 @@ Deno.test("POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Mo
   const requestedUrls: string[] = [];
   const formData = buildSmokeVerificationFormData(fixture);
   Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+  await repository.saveLanternDefaultLtiProfile({
+    defaultLtiProfile: "certification",
+  });
 
   try {
     await withFetchStub(
@@ -53,6 +56,11 @@ Deno.test("POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Mo
         assertEquals(auditEvents[0]?.detail.lms, "moodle");
         assertEquals(auditEvents[0]?.detail.agsCapable, true);
         assertEquals(auditEvents[0]?.detail.publicationStatus, "succeeded");
+        assertEquals(auditEvents[0]?.detail.ltiProfileId, "certification");
+        assertEquals(
+          auditEvents[0]?.detail.ltiProfileSource,
+          "lanternDefault",
+        );
         assertEquals(
           auditEvents[0]?.detail.lineItemUrl,
           fixture.smokeLineItemUrl,

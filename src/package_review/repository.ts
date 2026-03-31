@@ -23,6 +23,7 @@ import type {
   PersistedDeploymentLmsType,
   RuntimeSessionRecord,
 } from "../lti/types.ts";
+import type { LtiProfileId } from "../lti/profile.ts";
 import { createAuditEventRepositoryMethods } from "./repository_audit_events.ts";
 import { createAttemptFlowRepositoryMethods } from "./repository_attempt_flows.ts";
 import { createAttemptQueryRepositoryMethods } from "./repository_attempt_queries.ts";
@@ -32,6 +33,7 @@ import { createDeploymentMutationRepositoryMethods } from "./repository_deployme
 import { createDynamicRegistrationStateRepositoryMethods } from "./repository_dynamic_registration_states.ts";
 import { createGradePublicationRepositoryMethods } from "./repository_grade_publications.ts";
 import { createLineItemRepositoryMethods } from "./repository_line_items.ts";
+import { createLtiProfileSettingsRepositoryMethods } from "./repository_lti_profile_settings.ts";
 import { createPackageVersionRepositoryMethods } from "./repository_package_versions.ts";
 import { createPreviewRepositoryMethods } from "./repository_preview.ts";
 import { createReviewedPlacementRepositoryMethods } from "./repository_reviewed_placements.ts";
@@ -219,6 +221,16 @@ export interface PackageReviewRepository {
     packageVersionId: number;
     lmsType?: PersistedDeploymentLmsType;
   }): Promise<DeploymentRecord>;
+  getLanternLtiProfileSettings(): Promise<
+    import("./types.ts").LanternLtiProfileSettingsRecord
+  >;
+  saveLanternDefaultLtiProfile(input: {
+    defaultLtiProfile: LtiProfileId;
+  }): Promise<import("./types.ts").LanternLtiProfileSettingsRecord>;
+  saveDeploymentLtiProfileOverride(input: {
+    deploymentId: number;
+    ltiProfileOverride: LtiProfileId | null;
+  }): Promise<DeploymentRecord>;
 }
 
 export function createPackageReviewRepository(
@@ -239,6 +251,7 @@ export function createPackageReviewRepository(
     ...createGradePublicationRepositoryMethods(pool),
     ...createAuditEventRepositoryMethods(pool),
     ...createDeploymentMutationRepositoryMethods(pool),
+    ...createLtiProfileSettingsRepositoryMethods(pool),
   };
 }
 

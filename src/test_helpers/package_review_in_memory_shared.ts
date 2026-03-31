@@ -25,6 +25,7 @@ import type {
   DeepLinkingResourceOption,
   DeploymentRecord,
   GradePublicationRecord,
+  LanternLtiProfileSettingsRecord,
   LineItemBindingRecord,
   PackageVersionRecord,
   PreviewEvidenceRecord,
@@ -120,6 +121,7 @@ export type InMemoryPackageReviewRepositoryOptions = {
   controlPlaneDiagnostics?: ControlPlaneDiagnosticItem[];
   brokerVerifications?: BrokerVerificationStatus[];
   retryableGradePublications?: RetryableGradePublicationLookup[];
+  lanternLtiProfileSettings?: LanternLtiProfileSettingsRecord;
 };
 
 export type InMemoryRepositoryState = Required<
@@ -161,6 +163,12 @@ export function createState(
     brokerVerifications: cloneRecord(options.brokerVerifications ?? []),
     retryableGradePublications: cloneRecord(
       options.retryableGradePublications ?? [],
+    ),
+    lanternLtiProfileSettings: cloneRecord(
+      options.lanternLtiProfileSettings ?? {
+        defaultLtiProfile: "governedCompatibility",
+        updatedAt: DEFAULT_REVIEWED_AT,
+      },
     ),
   };
 }

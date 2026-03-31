@@ -1,14 +1,19 @@
-import type { LaunchServiceClaims } from '../lti/types.ts';
-import type { RetryableGradePublicationLookup, RetryRuntimeSessionLookup } from './types.ts';
-import type { RetryLookupRow } from './repository_types.ts';
+import type { LaunchServiceClaims } from "../lti/types.ts";
+import type {
+  RetryableGradePublicationLookup,
+  RetryRuntimeSessionLookup,
+} from "./types.ts";
+import type { RetryLookupRow } from "./repository_types.ts";
 import {
   mapDeploymentBinding,
   normalizeNumeric,
   normalizeOptionalTimestamp,
   normalizeTimestamp,
-} from './repository_mapping.ts';
+} from "./repository_mapping.ts";
 
-export function mapRetryLookupRow(row: RetryLookupRow): RetryableGradePublicationLookup {
+export function mapRetryLookupRow(
+  row: RetryLookupRow,
+): RetryableGradePublicationLookup {
   return {
     attemptId: row.attemptId,
     deploymentRecordId: row.deploymentRecordId,
@@ -37,7 +42,9 @@ export function mapRetryLookupRow(row: RetryLookupRow): RetryableGradePublicatio
   };
 }
 
-function mapRetryRuntimeSession(row: RetryLookupRow): RetryRuntimeSessionLookup | null {
+function mapRetryRuntimeSession(
+  row: RetryLookupRow,
+): RetryRuntimeSessionLookup | null {
   if (
     row.sessionId === null ||
     row.runtimeDeploymentRecordId === null ||
@@ -78,23 +85,23 @@ function mapLaunchServices(input: {
   nrpsContextMembershipsUrl: string | null;
   nrpsServiceVersions: string[];
 }): LaunchServiceClaims {
-  const hasAgs =
-    input.agsScope.length > 0 || input.agsLineitemsUrl !== null || input.agsLineitemUrl !== null;
+  const hasAgs = input.agsScope.length > 0 || input.agsLineitemsUrl !== null ||
+    input.agsLineitemUrl !== null;
   const hasNrps = input.nrpsContextMembershipsUrl !== null;
 
   return {
     ags: hasAgs
       ? {
-          scope: input.agsScope,
-          lineitemsUrl: input.agsLineitemsUrl,
-          lineitemUrl: input.agsLineitemUrl,
-        }
+        scope: input.agsScope,
+        lineitemsUrl: input.agsLineitemsUrl,
+        lineitemUrl: input.agsLineitemUrl,
+      }
       : null,
     nrps: hasNrps
       ? {
-          contextMembershipsUrl: input.nrpsContextMembershipsUrl!,
-          serviceVersions: input.nrpsServiceVersions,
-        }
+        contextMembershipsUrl: input.nrpsContextMembershipsUrl!,
+        serviceVersions: input.nrpsServiceVersions,
+      }
       : null,
   };
 }

@@ -23,6 +23,7 @@ import {
   requireBaselineStringClaim,
 } from "./launch_support_matrix.ts";
 import { resolveLaunchTarget } from "./launch_target_resolution.ts";
+import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
 import { verifyIdTokenWithJwksRetry } from "./id_token_verification.ts";
 import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
 import { targetLinkUrisMatch } from "./target_link_uri.ts";
@@ -100,8 +101,13 @@ export async function validateLaunchRequest(input: {
       audience: loginState.clientId,
       now,
       loadJwks: loadLaunchJwks,
-      onRetry: () =>
-        recordInteropPathUsed({
+      onRetry: async () => {
+        const ltiProfile = await resolveLtiProfileForDeployment({
+          repository: input.repository,
+          deployment,
+        });
+
+        await recordInteropPathUsed({
           repository: input.repository,
           scope: "launch",
           path: "jwks_refetch",
@@ -115,7 +121,9 @@ export async function validateLaunchRequest(input: {
             clientId: loginState.clientId,
             deploymentId: loginState.deploymentId,
           },
-        }),
+          ltiProfile,
+        });
+      },
     });
   } catch {
     rejectSignatureValidationFailed();

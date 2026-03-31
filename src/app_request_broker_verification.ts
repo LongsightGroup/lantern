@@ -1,32 +1,48 @@
-import type { RecordBrokerVerificationRunInput } from './ops/repository.ts';
-import { isBrokerVerificationSupportedPath } from './ops/broker_verification_paths.ts';
-import { normalizeOptionalString, requireTrimmedFormValue } from './app_request_support.ts';
+import type { RecordBrokerVerificationRunInput } from "./ops/repository.ts";
+import { isBrokerVerificationSupportedPath } from "./ops/broker_verification_paths.ts";
+import {
+  normalizeOptionalString,
+  requireTrimmedFormValue,
+} from "./app_request_support.ts";
 
 export function parseBrokerVerificationRunForm(
   formData: FormData,
 ): RecordBrokerVerificationRunInput {
   const source = parseBrokerVerificationSource(
-    requireTrimmedFormValue(formData.get('source'), 'Broker verification source is required.'),
+    requireTrimmedFormValue(
+      formData.get("source"),
+      "Broker verification source is required.",
+    ),
   );
   const status = parseBrokerVerificationStatus(
-    requireTrimmedFormValue(formData.get('status'), 'Broker verification status is required.'),
+    requireTrimmedFormValue(
+      formData.get("status"),
+      "Broker verification status is required.",
+    ),
   );
   const certificationState = parseBrokerCertificationState(
-    normalizeOptionalString(formData.get('certificationState')),
+    normalizeOptionalString(formData.get("certificationState")),
   );
   const deploymentRecordId = parseOptionalDeploymentRecordId(
-    normalizeOptionalString(formData.get('deploymentRecordId')),
+    normalizeOptionalString(formData.get("deploymentRecordId")),
   );
   const scope = parseBrokerVerificationScope(
-    requireTrimmedFormValue(formData.get('scope'), 'Broker verification scope is required.'),
+    requireTrimmedFormValue(
+      formData.get("scope"),
+      "Broker verification scope is required.",
+    ),
   );
 
-  if (source !== '1edtech' && certificationState !== null) {
-    throw new Error('Internal verification runs cannot carry an official certification state.');
+  if (source !== "1edtech" && certificationState !== null) {
+    throw new Error(
+      "Internal verification runs cannot carry an official certification state.",
+    );
   }
 
-  if (source !== '1edtech' && status === 'notCertified') {
-    throw new Error('Only official 1EdTech verification runs can use the notCertified status.');
+  if (source !== "1edtech" && status === "notCertified") {
+    throw new Error(
+      "Only official 1EdTech verification runs can use the notCertified status.",
+    );
   }
 
   return {
@@ -36,65 +52,77 @@ export function parseBrokerVerificationRunForm(
     status,
     certificationState,
     summary: requireTrimmedFormValue(
-      formData.get('summary'),
-      'Broker verification summary is required.',
+      formData.get("summary"),
+      "Broker verification summary is required.",
     ),
     detailUrl: parseOptionalAbsoluteUrl(
-      normalizeOptionalString(formData.get('detailUrl')),
-      'Verification detail URL must be an absolute URL.',
+      normalizeOptionalString(formData.get("detailUrl")),
+      "Verification detail URL must be an absolute URL.",
     ),
     checkedAt: parseVerificationCheckedAt(
-      requireTrimmedFormValue(formData.get('checkedAt'), 'Checked-at timestamp is required.'),
+      requireTrimmedFormValue(
+        formData.get("checkedAt"),
+        "Checked-at timestamp is required.",
+      ),
     ),
   };
 }
 
-function parseBrokerVerificationSource(value: string): RecordBrokerVerificationRunInput['source'] {
+function parseBrokerVerificationSource(
+  value: string,
+): RecordBrokerVerificationRunInput["source"] {
   switch (value) {
-    case 'manual':
-    case 'ci':
-    case '1edtech':
+    case "manual":
+    case "ci":
+    case "1edtech":
       return value;
     default:
-      throw new Error('Choose one supported broker verification source.');
+      throw new Error("Choose one supported broker verification source.");
   }
 }
 
-function parseBrokerVerificationScope(value: string): RecordBrokerVerificationRunInput['scope'] {
+function parseBrokerVerificationScope(
+  value: string,
+): RecordBrokerVerificationRunInput["scope"] {
   if (isBrokerVerificationSupportedPath(value)) {
     return value;
   }
 
-  throw new Error('Choose one supported broker verification scope.');
+  throw new Error("Choose one supported broker verification scope.");
 }
 
-function parseBrokerVerificationStatus(value: string): RecordBrokerVerificationRunInput['status'] {
+function parseBrokerVerificationStatus(
+  value: string,
+): RecordBrokerVerificationRunInput["status"] {
   switch (value) {
-    case 'passed':
-    case 'failed':
-    case 'pending':
-    case 'notCertified':
+    case "passed":
+    case "failed":
+    case "pending":
+    case "notCertified":
       return value;
     default:
-      throw new Error('Choose one supported broker verification status.');
+      throw new Error("Choose one supported broker verification status.");
   }
 }
 
 function parseBrokerCertificationState(
   value: string | null,
-): RecordBrokerVerificationRunInput['certificationState'] {
+): RecordBrokerVerificationRunInput["certificationState"] {
   switch (value) {
     case null:
       return null;
-    case 'ltiAdvantageCertified':
-    case 'ltiAdvantageComplete':
+    case "ltiAdvantageCertified":
+    case "ltiAdvantageComplete":
       return value;
     default:
-      throw new Error('Choose one supported official certification state.');
+      throw new Error("Choose one supported official certification state.");
   }
 }
 
-function parseOptionalAbsoluteUrl(value: string | null, message: string): string | null {
+function parseOptionalAbsoluteUrl(
+  value: string | null,
+  message: string,
+): string | null {
   if (value === null) {
     return null;
   }
@@ -102,7 +130,7 @@ function parseOptionalAbsoluteUrl(value: string | null, message: string): string
   try {
     const url = new URL(value);
 
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
       throw new Error(message);
     }
 
@@ -120,7 +148,9 @@ function parseOptionalDeploymentRecordId(value: string | null): number | null {
   const parsed = Number(value);
 
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new TypeError('Broker verification deployment record id must be a positive integer.');
+    throw new TypeError(
+      "Broker verification deployment record id must be a positive integer.",
+    );
   }
 
   return parsed;
@@ -130,7 +160,7 @@ function parseVerificationCheckedAt(value: string): string {
   const timestamp = new Date(value);
 
   if (Number.isNaN(timestamp.valueOf())) {
-    throw new TypeError('Checked-at timestamp must be a valid ISO-8601 value.');
+    throw new TypeError("Checked-at timestamp must be a valid ISO-8601 value.");
   }
 
   return timestamp.toISOString();

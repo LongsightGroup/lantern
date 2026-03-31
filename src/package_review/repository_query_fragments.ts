@@ -40,6 +40,7 @@ export const DEPLOYMENT_SELECT = `
     deployments.authorization_endpoint,
     deployments.access_token_url,
     deployments.jwks_url,
+    deployments.lti_profile_override,
     package_versions.version AS enabled_package_version,
     deployments.updated_at
   FROM deployments
@@ -98,7 +99,8 @@ export const DEEP_LINKING_SESSION_SELECT = `
     selected_activity_id,
     selected_content_path,
     created_at,
-    expires_at
+    expires_at,
+    used_at
   FROM deep_linking_sessions
 `;
 

@@ -1,3 +1,5 @@
+import { buildResolvedLtiProfileDetail } from "./lti/profile_resolution.ts";
+import type { ResolvedLtiProfile } from "./lti/profile.ts";
 import type { PackageReviewRepository } from "./package_review/repository.ts";
 import type { AuditActorType } from "./package_review/types.ts";
 
@@ -13,6 +15,7 @@ export async function recordInteropPathUsed(input: {
   lineItemBindingId?: number | null;
   summary?: string;
   detail?: Record<string, unknown>;
+  ltiProfile?: ResolvedLtiProfile | null;
   occurredAt?: string;
 }): Promise<void> {
   await input.repository.recordAuditEvent({
@@ -29,6 +32,9 @@ export async function recordInteropPathUsed(input: {
       scope: input.scope,
       path: input.path,
       ...(input.detail ?? {}),
+      ...(input.ltiProfile === null || input.ltiProfile === undefined
+        ? {}
+        : buildResolvedLtiProfileDetail(input.ltiProfile)),
     },
     occurredAt: input.occurredAt ?? new Date().toISOString(),
   });

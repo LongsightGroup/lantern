@@ -1,13 +1,13 @@
-import { calculateJwkThumbprint, importJWK } from 'jose';
+import { calculateJwkThumbprint, importJWK } from "jose";
 
-const TOOL_PRIVATE_JWK_ENV = 'LTI_TOOL_PRIVATE_JWK';
+const TOOL_PRIVATE_JWK_ENV = "LTI_TOOL_PRIVATE_JWK";
 
 export interface ToolPublicJwk {
-  kty: 'RSA';
+  kty: "RSA";
   n: string;
   e: string;
-  alg: 'RS256';
-  use: 'sig';
+  alg: "RS256";
+  use: "sig";
   kid: string;
 }
 
@@ -30,7 +30,9 @@ interface EnvReader {
   get(name: string): string | undefined;
 }
 
-export async function loadToolSigningKey(env: EnvReader = Deno.env): Promise<LoadedToolSigningKey> {
+export async function loadToolSigningKey(
+  env: EnvReader = Deno.env,
+): Promise<LoadedToolSigningKey> {
   const rawValue = env.get(TOOL_PRIVATE_JWK_ENV);
 
   if (!rawValue) {
@@ -42,7 +44,7 @@ export async function loadToolSigningKey(env: EnvReader = Deno.env): Promise<Loa
   const privateJwk = await parseToolPrivateJwk(rawValue);
   const importedKey = await importJWK(privateJwk, privateJwk.alg);
 
-  if (!(importedKey instanceof CryptoKey) || importedKey.type !== 'private') {
+  if (!(importedKey instanceof CryptoKey) || importedKey.type !== "private") {
     throw new Error(
       `${TOOL_PRIVATE_JWK_ENV} must contain a private signing key, not a public-only JWK.`,
     );
@@ -71,25 +73,27 @@ async function parseToolPrivateJwk(rawValue: string): Promise<ToolPrivateJwk> {
   try {
     parsed = JSON.parse(rawValue);
   } catch {
-    throw new Error(`${TOOL_PRIVATE_JWK_ENV} must be valid JSON containing one RSA private JWK.`);
+    throw new Error(
+      `${TOOL_PRIVATE_JWK_ENV} must be valid JSON containing one RSA private JWK.`,
+    );
   }
 
   if (!isObject(parsed)) {
     throw new Error(`${TOOL_PRIVATE_JWK_ENV} must decode to a JSON object.`);
   }
 
-  readRequiredString(parsed, 'kty', 'RSA');
+  readRequiredString(parsed, "kty", "RSA");
 
   const baseJwk = {
-    kty: 'RSA' as const,
-    n: readRequiredString(parsed, 'n'),
-    e: readRequiredString(parsed, 'e'),
-    d: readRequiredString(parsed, 'd'),
-    p: readRequiredString(parsed, 'p'),
-    q: readRequiredString(parsed, 'q'),
-    dp: readRequiredString(parsed, 'dp'),
-    dq: readRequiredString(parsed, 'dq'),
-    qi: readRequiredString(parsed, 'qi'),
+    kty: "RSA" as const,
+    n: readRequiredString(parsed, "n"),
+    e: readRequiredString(parsed, "e"),
+    d: readRequiredString(parsed, "d"),
+    p: readRequiredString(parsed, "p"),
+    q: readRequiredString(parsed, "q"),
+    dp: readRequiredString(parsed, "dp"),
+    dq: readRequiredString(parsed, "dq"),
+    qi: readRequiredString(parsed, "qi"),
   };
 
   const unsignedPublicJwk = {
@@ -97,12 +101,12 @@ async function parseToolPrivateJwk(rawValue: string): Promise<ToolPrivateJwk> {
     n: baseJwk.n,
     e: baseJwk.e,
   };
-  const kid = await calculateJwkThumbprint(unsignedPublicJwk, 'sha256');
+  const kid = await calculateJwkThumbprint(unsignedPublicJwk, "sha256");
 
   return {
     ...baseJwk,
-    alg: 'RS256',
-    use: 'sig',
+    alg: "RS256",
+    use: "sig",
     kid,
   };
 }
@@ -125,17 +129,21 @@ function readRequiredString(
 ): string {
   const field = value[key];
 
-  if (typeof field !== 'string' || field.length === 0) {
-    throw new Error(`${TOOL_PRIVATE_JWK_ENV} is missing a valid "${key}" string.`);
+  if (typeof field !== "string" || field.length === 0) {
+    throw new Error(
+      `${TOOL_PRIVATE_JWK_ENV} is missing a valid "${key}" string.`,
+    );
   }
 
   if (expectedValue && field !== expectedValue) {
-    throw new Error(`${TOOL_PRIVATE_JWK_ENV} must use ${key}=${expectedValue}.`);
+    throw new Error(
+      `${TOOL_PRIVATE_JWK_ENV} must use ${key}=${expectedValue}.`,
+    );
   }
 
   return field;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

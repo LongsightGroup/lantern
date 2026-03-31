@@ -32,6 +32,10 @@ Deno.test("POST /lti/deep-linking accepts assignment-selection launches and redi
         binding: buildDeploymentBinding(),
       }),
     ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
     loginStates: [
       buildLoginStateRecord({
         state: "state-deep-linking",
@@ -91,6 +95,8 @@ Deno.test("POST /lti/deep-linking accepts assignment-selection launches and redi
     String(auditEvents[0]?.detail.internalDeploymentSlug ?? ""),
     "chapter-4-asteroids-pilot",
   );
+  assertEquals(auditEvents[0]?.detail.ltiProfileId, "certification");
+  assertEquals(auditEvents[0]?.detail.ltiProfileSource, "lanternDefault");
 });
 
 Deno.test("POST /lti/deep-linking rejects unsupported Deep Linking payloads before any picker handoff", async () => {

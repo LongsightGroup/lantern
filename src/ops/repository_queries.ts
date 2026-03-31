@@ -2,7 +2,7 @@ export {
   BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS,
   INVENTORY_BASE_QUERY,
   INVENTORY_ORDER_BY,
-} from './repository_inventory_queries.ts';
+} from "./repository_inventory_queries.ts";
 
 export const LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY = `
   SELECT

@@ -1,7 +1,10 @@
-import type { DeploymentEditorField, DeploymentEditorState } from './admin/deployment_detail.ts';
-import { createErrorNotice } from './app_notice_support.ts';
-import type { LmsType } from './lti/types.ts';
-import { errorMessage } from './app_status_support.ts';
+import type {
+  DeploymentEditorField,
+  DeploymentEditorState,
+} from "./admin/deployment_detail.ts";
+import { createErrorNotice } from "./app_notice_support.ts";
+import type { LmsType } from "./lti/types.ts";
+import { errorMessage } from "./app_status_support.ts";
 
 export function buildInstallEditorState(
   lms: LmsType | null,
@@ -15,7 +18,7 @@ export function buildInstallEditorState(
 
   return {
     lms,
-    focusSection: 'install',
+    focusSection: "install",
     notice: createErrorNotice(title, error),
     fieldErrors: buildFieldErrors(lms, errorMessage(error)),
     installValues: collectInstallValues(lms, formData),
@@ -35,11 +38,11 @@ export function buildPinEditorState(
 
   return {
     lms,
-    focusSection: 'pin',
+    focusSection: "pin",
     notice: createErrorNotice(title, error),
     fieldErrors: buildFieldErrors(lms, errorMessage(error)),
     installValues: collectInstallValues(lms, formData),
-    pinPackageVersionId: formValueString(formData, 'packageVersionId'),
+    pinPackageVersionId: formValueString(formData, "packageVersionId"),
   };
 }
 
@@ -48,25 +51,29 @@ function collectInstallValues(
   formData: FormData | null,
 ): Partial<Record<DeploymentEditorField, string>> {
   switch (lms) {
-    case 'canvas':
-      return collectFieldValues(formData, ['canvasEnvironment', 'clientId', 'deploymentId']);
-    case 'moodle':
+    case "canvas":
       return collectFieldValues(formData, [
-        'issuer',
-        'clientId',
-        'deploymentId',
-        'authorizationEndpoint',
-        'accessTokenUrl',
-        'jwksUrl',
+        "canvasEnvironment",
+        "clientId",
+        "deploymentId",
       ]);
-    case 'sakai':
+    case "moodle":
       return collectFieldValues(formData, [
-        'issuer',
-        'clientId',
-        'deploymentId',
-        'authorizationEndpoint',
-        'accessTokenUrl',
-        'jwksUrl',
+        "issuer",
+        "clientId",
+        "deploymentId",
+        "authorizationEndpoint",
+        "accessTokenUrl",
+        "jwksUrl",
+      ]);
+    case "sakai":
+      return collectFieldValues(formData, [
+        "issuer",
+        "clientId",
+        "deploymentId",
+        "authorizationEndpoint",
+        "accessTokenUrl",
+        "jwksUrl",
       ]);
   }
 }
@@ -97,61 +104,67 @@ function buildFieldErrors(
   return field === null ? {} : { [field]: message };
 }
 
-function resolveFieldError(lms: LmsType, message: string): DeploymentEditorField | null {
+function resolveFieldError(
+  lms: LmsType,
+  message: string,
+): DeploymentEditorField | null {
   switch (lms) {
-    case 'canvas':
+    case "canvas":
       switch (message) {
-        case 'Canvas Client ID is required.':
-          return 'clientId';
-        case 'Canvas Deployment ID is required.':
-          return 'deploymentId';
-        case 'Choose an approved version.':
-          return 'packageVersionId';
+        case "Canvas Client ID is required.":
+          return "clientId";
+        case "Canvas Deployment ID is required.":
+          return "deploymentId";
+        case "Choose an approved version.":
+          return "packageVersionId";
         default:
           return null;
       }
-    case 'moodle':
+    case "moodle":
       switch (message) {
-        case 'Moodle Platform ID is required.':
-          return 'issuer';
-        case 'Moodle Client ID is required.':
-          return 'clientId';
-        case 'Moodle Deployment ID is required.':
-          return 'deploymentId';
-        case 'Moodle Authorization endpoint is required.':
-          return 'authorizationEndpoint';
-        case 'Moodle Access token URL is required.':
-          return 'accessTokenUrl';
-        case 'Moodle Public keyset URL is required.':
-          return 'jwksUrl';
-        case 'Choose an approved version.':
-          return 'packageVersionId';
+        case "Moodle Platform ID is required.":
+          return "issuer";
+        case "Moodle Client ID is required.":
+          return "clientId";
+        case "Moodle Deployment ID is required.":
+          return "deploymentId";
+        case "Moodle Authorization endpoint is required.":
+          return "authorizationEndpoint";
+        case "Moodle Access token URL is required.":
+          return "accessTokenUrl";
+        case "Moodle Public keyset URL is required.":
+          return "jwksUrl";
+        case "Choose an approved version.":
+          return "packageVersionId";
         default:
           return null;
       }
-    case 'sakai':
+    case "sakai":
       switch (message) {
-        case 'Sakai Platform ID is required.':
-          return 'issuer';
-        case 'Sakai Client ID is required.':
-          return 'clientId';
-        case 'Sakai Deployment ID is required.':
-          return 'deploymentId';
-        case 'Sakai Authorization endpoint is required.':
-          return 'authorizationEndpoint';
-        case 'Sakai Access token URL is required.':
-          return 'accessTokenUrl';
-        case 'Sakai Public keyset URL is required.':
-          return 'jwksUrl';
-        case 'Choose an approved version.':
-          return 'packageVersionId';
+        case "Sakai Platform ID is required.":
+          return "issuer";
+        case "Sakai Client ID is required.":
+          return "clientId";
+        case "Sakai Deployment ID is required.":
+          return "deploymentId";
+        case "Sakai Authorization endpoint is required.":
+          return "authorizationEndpoint";
+        case "Sakai Access token URL is required.":
+          return "accessTokenUrl";
+        case "Sakai Public keyset URL is required.":
+          return "jwksUrl";
+        case "Choose an approved version.":
+          return "packageVersionId";
         default:
           return null;
       }
   }
 }
 
-function formValueString(formData: FormData | null, field: string): string | null {
+function formValueString(
+  formData: FormData | null,
+  field: string,
+): string | null {
   const value = formData?.get(field);
-  return typeof value === 'string' ? value : null;
+  return typeof value === "string" ? value : null;
 }

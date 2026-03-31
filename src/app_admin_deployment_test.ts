@@ -11,7 +11,10 @@ import {
   buildPilotUsageMetrics,
   createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
-import { buildDeploymentBinding } from "./test_helpers/lti.ts";
+import {
+  buildDeploymentBinding,
+  buildMoodleDeploymentBinding,
+} from "./test_helpers/lti.ts";
 import { restoreEnv } from "./app_test_support.ts";
 
 Deno.test("POST /admin/packages/:appId/deployment/install saves the Canvas binding and redirects back to deployment detail", async () => {
@@ -107,6 +110,10 @@ Deno.test("GET /admin/packages/:appId/deployment renders an LMS tab strip with o
               binding: buildDeploymentBinding(),
             }),
           ],
+          lanternLtiProfileSettings: {
+            defaultLtiProfile: "certification",
+            updatedAt: "2026-03-24T13:00:00Z",
+          },
           controlPlaneDeploymentDetails: [
             buildControlPlaneDeploymentDetailSnapshot({
               inventory: buildControlPlaneDeploymentInventoryRow({
@@ -182,9 +189,138 @@ Deno.test("GET /admin/packages/:appId/deployment renders an LMS tab strip with o
     assertStringIncludes(body, "Open checks and troubleshooting");
     assertStringIncludes(body, 'details id="activity-details" open');
     assertStringIncludes(body, "Save Moodle settings");
+    assertStringIncludes(body, "Choose how strict Lantern should be");
+    assertStringIncludes(
+      body,
+      'action="/admin/packages/chapter-4-asteroids/deployment/lti-profile"',
+    );
+    assertStringIncludes(body, "Use Lantern default");
+    assertStringIncludes(body, "Lantern default");
+    assertStringIncludes(body, "Certification");
+    assertStringIncludes(body, "Governed interoperability");
     assertStringIncludes(body, "Save live version");
     assertStringIncludes(body, "Save the app settings first");
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
   }
+});
+
+Deno.test("POST /admin/packages/:appId/deployment/lti-profile saves an override for only the selected deployment slot", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 5,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 3,
+        slug: "chapter-4-asteroids-pilot",
+        label: "Chapter 4 Asteroids Pilot Deployment",
+        enabledPackageVersionId: 5,
+        enabledPackageVersion: "0.1.0",
+      }),
+      buildDeploymentRecord({
+        id: 4,
+        slug: "chapter-4-asteroids-moodle",
+        label: "Chapter 4 Asteroids Moodle Deployment",
+        enabledPackageVersionId: 5,
+        enabledPackageVersion: "0.1.0",
+        lmsType: "moodle",
+        binding: buildMoodleDeploymentBinding(),
+      }),
+    ],
+  });
+  const app = createApp({ getRepository: () => repository });
+  const formData = new FormData();
+
+  formData.set("lms", "moodle");
+  formData.set("ltiProfileOverride", "certification");
+
+  const response = await app.request(
+    "http://localhost/admin/packages/chapter-4-asteroids/deployment/lti-profile",
+    {
+      method: "POST",
+      headers: { Origin: "http://localhost" },
+      body: formData,
+    },
+  );
+
+  assertEquals(response.status, 303);
+  assertEquals(
+    response.headers.get("location"),
+    "/admin/packages/chapter-4-asteroids/deployment?lms=moodle#slot-panel",
+  );
+  assertEquals(
+    (
+      await repository.getDeploymentBySlug("chapter-4-asteroids-moodle")
+    )?.ltiProfileOverride,
+    "certification",
+  );
+  assertEquals(
+    (
+      await repository.getDeploymentBySlug("chapter-4-asteroids-pilot")
+    )?.ltiProfileOverride,
+    null,
+  );
+  assertEquals(
+    (await repository.getLanternLtiProfileSettings()).defaultLtiProfile,
+    "governedCompatibility",
+  );
+});
+
+Deno.test("POST /admin/packages/:appId/deployment/lti-profile clears the selected deployment override back to inherited mode", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 5,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 4,
+        slug: "chapter-4-asteroids-moodle",
+        label: "Chapter 4 Asteroids Moodle Deployment",
+        enabledPackageVersionId: 5,
+        enabledPackageVersion: "0.1.0",
+        lmsType: "moodle",
+        binding: buildMoodleDeploymentBinding(),
+        ltiProfileOverride: "certification",
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "governedCompatibility",
+      updatedAt: "2026-03-24T13:00:00Z",
+    },
+  });
+  const app = createApp({ getRepository: () => repository });
+  const formData = new FormData();
+
+  formData.set("lms", "moodle");
+  formData.set("ltiProfileOverride", "");
+
+  const response = await app.request(
+    "http://localhost/admin/packages/chapter-4-asteroids/deployment/lti-profile",
+    {
+      method: "POST",
+      headers: { Origin: "http://localhost" },
+      body: formData,
+    },
+  );
+
+  assertEquals(response.status, 303);
+  assertEquals(
+    (
+      await repository.getDeploymentBySlug("chapter-4-asteroids-moodle")
+    )?.ltiProfileOverride,
+    null,
+  );
+  assertEquals(
+    (await repository.getLanternLtiProfileSettings()).defaultLtiProfile,
+    "governedCompatibility",
+  );
 });

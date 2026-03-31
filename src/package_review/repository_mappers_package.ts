@@ -1,7 +1,19 @@
-import type { DeploymentBinding, LoginStateRecord } from '../lti/types.ts';
-import type { DeploymentRecord, PackageVersionRecord } from './types.ts';
-import type { DeploymentRow, LoginStateRow, PackageVersionRow } from './repository_row_types.ts';
-import { normalizeOptionalTimestamp, normalizeTimestamp } from './repository_value_support.ts';
+import type {
+  DeploymentBinding,
+  DynamicRegistrationStateRecord,
+  LoginStateRecord,
+} from "../lti/types.ts";
+import type { DeploymentRecord, PackageVersionRecord } from "./types.ts";
+import type {
+  DeploymentRow,
+  DynamicRegistrationStateRow,
+  LoginStateRow,
+  PackageVersionRow,
+} from "./repository_row_types.ts";
+import {
+  normalizeOptionalTimestamp,
+  normalizeTimestamp,
+} from "./repository_value_support.ts";
 
 export function mapOptionalPackageVersion(
   row: PackageVersionRow | undefined,
@@ -13,9 +25,11 @@ export function mapOptionalPackageVersion(
   return mapPackageVersionRow(row);
 }
 
-export function mapPackageVersionRow(row: PackageVersionRow | undefined): PackageVersionRecord {
+export function mapPackageVersionRow(
+  row: PackageVersionRow | undefined,
+): PackageVersionRecord {
   if (!row) {
-    throw new Error('Expected a package version row.');
+    throw new Error("Expected a package version row.");
   }
 
   return {
@@ -52,7 +66,9 @@ export function mapPackageVersionRow(row: PackageVersionRow | undefined): Packag
   };
 }
 
-export function mapOptionalDeployment(row: DeploymentRow | undefined): DeploymentRecord | null {
+export function mapOptionalDeployment(
+  row: DeploymentRow | undefined,
+): DeploymentRecord | null {
   if (!row) {
     return null;
   }
@@ -60,9 +76,11 @@ export function mapOptionalDeployment(row: DeploymentRow | undefined): Deploymen
   return mapDeploymentRow(row);
 }
 
-export function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentRecord {
+export function mapDeploymentRow(
+  row: DeploymentRow | undefined,
+): DeploymentRecord {
   if (!row) {
-    throw new Error('Expected a deployment row.');
+    throw new Error("Expected a deployment row.");
   }
 
   return {
@@ -74,30 +92,35 @@ export function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentReco
     enabledPackageVersion: row.enabledPackageVersion,
     lmsType: row.lmsType,
     binding: mapDeploymentBinding(row),
+    ltiProfileOverride: row.ltiProfileOverride,
     updatedAt: normalizeTimestamp(row.updatedAt),
   };
 }
 
-export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | null {
-  if (row.issuer === null || row.clientId === null || row.deploymentId === null) {
+export function mapDeploymentBinding(
+  row: DeploymentRow,
+): DeploymentBinding | null {
+  if (
+    row.issuer === null || row.clientId === null || row.deploymentId === null
+  ) {
     return null;
   }
 
   switch (row.lmsType) {
-    case 'canvas':
+    case "canvas":
       if (row.canvasEnvironment === null) {
         return null;
       }
 
       return {
-        lms: 'canvas',
+        lms: "canvas",
         canvasEnvironment: row.canvasEnvironment,
         issuer: row.issuer,
         clientId: row.clientId,
         deploymentId: row.deploymentId,
       };
-    case 'moodle':
-    case 'sakai':
+    case "moodle":
+    case "sakai":
       if (
         row.authorizationEndpoint === null ||
         row.accessTokenUrl === null ||
@@ -115,12 +138,14 @@ export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | nu
         accessTokenUrl: row.accessTokenUrl,
         jwksUrl: row.jwksUrl,
       };
-    case 'preview':
+    case "preview":
       return null;
   }
 }
 
-export function mapOptionalLoginState(row: LoginStateRow | undefined): LoginStateRecord | null {
+export function mapOptionalLoginState(
+  row: LoginStateRow | undefined,
+): LoginStateRecord | null {
   if (!row) {
     return null;
   }
@@ -128,17 +153,21 @@ export function mapOptionalLoginState(row: LoginStateRow | undefined): LoginStat
   return mapLoginStateRow(row);
 }
 
-export function mapLoginStateRow(row: LoginStateRow | undefined): LoginStateRecord {
+export function mapLoginStateRow(
+  row: LoginStateRow | undefined,
+): LoginStateRecord {
   if (!row) {
-    throw new Error('Expected a login state row.');
+    throw new Error("Expected a login state row.");
   }
 
-  if (row.lmsType === 'canvas' && row.canvasEnvironment === null) {
-    throw new Error('Canvas login state rows must include canvas_environment.');
+  if (row.lmsType === "canvas" && row.canvasEnvironment === null) {
+    throw new Error("Canvas login state rows must include canvas_environment.");
   }
 
-  if (row.lmsType !== 'canvas' && row.canvasEnvironment !== null) {
-    throw new Error(`${row.lmsType} login state rows cannot include canvas_environment.`);
+  if (row.lmsType !== "canvas" && row.canvasEnvironment !== null) {
+    throw new Error(
+      `${row.lmsType} login state rows cannot include canvas_environment.`,
+    );
   }
 
   return {
@@ -152,6 +181,33 @@ export function mapLoginStateRow(row: LoginStateRow | undefined): LoginStateReco
     loginHint: row.loginHint,
     targetLinkUri: row.targetLinkUri,
     ltiMessageHint: row.ltiMessageHint,
+    createdAt: normalizeTimestamp(row.createdAt),
+    expiresAt: normalizeTimestamp(row.expiresAt),
+    usedAt: normalizeOptionalTimestamp(row.usedAt),
+  };
+}
+
+export function mapOptionalDynamicRegistrationState(
+  row: DynamicRegistrationStateRow | undefined,
+): DynamicRegistrationStateRecord | null {
+  if (!row) {
+    return null;
+  }
+
+  return mapDynamicRegistrationStateRow(row);
+}
+
+export function mapDynamicRegistrationStateRow(
+  row: DynamicRegistrationStateRow | undefined,
+): DynamicRegistrationStateRecord {
+  if (!row) {
+    throw new Error("Expected a dynamic registration state row.");
+  }
+
+  return {
+    state: row.state,
+    appId: row.appId,
+    lms: row.lmsType,
     createdAt: normalizeTimestamp(row.createdAt),
     expiresAt: normalizeTimestamp(row.expiresAt),
     usedAt: normalizeOptionalTimestamp(row.usedAt),

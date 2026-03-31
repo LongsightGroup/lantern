@@ -16,6 +16,7 @@ import type { PackageReviewRepository } from "./package_review/repository.ts";
 import type {
   AuditEventRecord,
   DeploymentRecord,
+  LanternLtiProfileSettingsRecord,
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
@@ -34,6 +35,7 @@ export interface DeploymentDetailState {
   primaryDeployment: DeploymentRecord | null;
   canvasDeployment: DeploymentRecord | null;
   nrpsVerification: DeploymentNrpsVerificationSummary | null;
+  ltiProfileSettings: LanternLtiProfileSettingsRecord;
   canvasConfigUrl: CanvasConfigUrlState;
   canvasDynamicRegistrationUrl: string | null;
   moodleDynamicRegistrationUrl: string | null;
@@ -55,6 +57,7 @@ export async function loadDeploymentDetailState(
 
   const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
   const deployments = await repository.listDeploymentsByApp(appId);
+  const ltiProfileSettings = await repository.getLanternLtiProfileSettings();
   const slots = buildManagedDeploymentSlots({
     appId,
     appTitle,
@@ -83,6 +86,7 @@ export async function loadDeploymentDetailState(
     primaryDeployment,
     canvasDeployment,
     nrpsVerification,
+    ltiProfileSettings,
     canvasConfigUrl: getCanvasConfigUrlNoticeSafe(appOrigin),
     canvasDynamicRegistrationUrl,
     moodleDynamicRegistrationUrl,
@@ -106,6 +110,10 @@ export async function loadDeploymentDetailStateSafe(
       primaryDeployment: null,
       canvasDeployment: null,
       nrpsVerification: null,
+      ltiProfileSettings: {
+        defaultLtiProfile: "governedCompatibility",
+        updatedAt: "",
+      },
       canvasConfigUrl: getCanvasConfigUrlNoticeSafe(appOrigin),
       canvasDynamicRegistrationUrl: null,
       moodleDynamicRegistrationUrl: null,

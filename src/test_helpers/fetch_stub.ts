@@ -1,5 +1,8 @@
 export async function withFetchStub<T>(
-  handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>,
+  handler: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Response | Promise<Response>,
   run: () => Promise<T>,
 ): Promise<T> {
   const originalFetch = globalThis.fetch;

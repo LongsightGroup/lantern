@@ -1,40 +1,45 @@
-import type { Pool, PoolClient } from '@db/postgres';
-import type { ApprovalStatus, PackageVersionRecord } from './types.ts';
-import { mapPackageVersionRow } from './repository_mappers_package.ts';
-import type { PackageVersionRow } from './repository_row_types.ts';
-import { PACKAGE_VERSION_SELECT } from './repository_query_fragments.ts';
+import type { Pool, PoolClient } from "@db/postgres";
+import type { ApprovalStatus, PackageVersionRecord } from "./types.ts";
+import { mapPackageVersionRow } from "./repository_mappers_package.ts";
+import type { PackageVersionRow } from "./repository_row_types.ts";
+import { PACKAGE_VERSION_SELECT } from "./repository_query_fragments.ts";
 
 export async function reviewPackageVersion(
   pool: Pool,
   id: number,
-  approvalStatus: Exclude<ApprovalStatus, 'pending'>,
+  approvalStatus: Exclude<ApprovalStatus, "pending">,
   reviewNotes: string | null,
 ): Promise<PackageVersionRecord> {
   return await withClient(pool, async (client) => {
-    return await withTransaction(client, 'review_package_version', async (transaction) => {
-      const existingResult = await transaction.queryObject<PackageVersionRow>({
-        text: `
+    return await withTransaction(
+      client,
+      "review_package_version",
+      async (transaction) => {
+        const existingResult = await transaction.queryObject<PackageVersionRow>(
+          {
+            text: `
           ${PACKAGE_VERSION_SELECT}
           WHERE id = $1
           FOR UPDATE
         `,
-        args: [id],
-        camelCase: true,
-      });
-      const existingRow = existingResult.rows[0];
-
-      if (!existingRow) {
-        throw new Error(`Package version id ${id} was not found.`);
-      }
-
-      if (existingRow.approvalStatus !== 'pending') {
-        throw new Error(
-          `Package version ${existingRow.appId}@${existingRow.version} has already been reviewed and cannot change state.`,
+            args: [id],
+            camelCase: true,
+          },
         );
-      }
+        const existingRow = existingResult.rows[0];
 
-      const updatedResult = await transaction.queryObject<PackageVersionRow>({
-        text: `
+        if (!existingRow) {
+          throw new Error(`Package version id ${id} was not found.`);
+        }
+
+        if (existingRow.approvalStatus !== "pending") {
+          throw new Error(
+            `Package version ${existingRow.appId}@${existingRow.version} has already been reviewed and cannot change state.`,
+          );
+        }
+
+        const updatedResult = await transaction.queryObject<PackageVersionRow>({
+          text: `
           UPDATE package_versions
           SET
             approval_status = $1,
@@ -65,12 +70,13 @@ export async function reviewPackageVersion(
             artifact_digest,
             imported_at
         `,
-        args: [approvalStatus, reviewNotes, id],
-        camelCase: true,
-      });
+          args: [approvalStatus, reviewNotes, id],
+          camelCase: true,
+        });
 
-      return mapPackageVersionRow(updatedResult.rows[0]);
-    });
+        return mapPackageVersionRow(updatedResult.rows[0]);
+      },
+    );
   });
 }
 
@@ -90,10 +96,10 @@ export async function withClient<T>(
 export async function withTransaction<T>(
   client: PoolClient,
   name: string,
-  run: (transaction: ReturnType<PoolClient['createTransaction']>) => Promise<T>,
+  run: (transaction: ReturnType<PoolClient["createTransaction"]>) => Promise<T>,
 ): Promise<T> {
   const transaction = client.createTransaction(name, {
-    isolation_level: 'serializable',
+    isolation_level: "serializable",
   });
 
   await transaction.begin();

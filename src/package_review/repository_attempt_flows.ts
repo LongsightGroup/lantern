@@ -1,13 +1,19 @@
-import type { Pool } from '@db/postgres';
-import { withClient, withTransaction } from './repository_core.ts';
-import { mapAttemptEventRow, mapAttemptRow } from './repository_mappers_attempts.ts';
-import type { AttemptEventRow, AttemptRow } from './repository_row_types.ts';
-import { isUniqueViolation } from './repository_value_support.ts';
-import type { PackageReviewRepository } from './repository.ts';
+import type { Pool } from "@db/postgres";
+import { withClient, withTransaction } from "./repository_core.ts";
+import {
+  mapAttemptEventRow,
+  mapAttemptRow,
+} from "./repository_mappers_attempts.ts";
+import type { AttemptEventRow, AttemptRow } from "./repository_row_types.ts";
+import { isUniqueViolation } from "./repository_value_support.ts";
+import type { PackageReviewRepository } from "./repository.ts";
 
 export function createAttemptFlowRepositoryMethods(
   pool: Pool,
-): Pick<PackageReviewRepository, 'createAttempt' | 'appendAttemptEvent' | 'finalizeAttempt'> {
+): Pick<
+  PackageReviewRepository,
+  "createAttempt" | "appendAttemptEvent" | "finalizeAttempt"
+> {
   return {
     async createAttempt(record) {
       return await withClient(pool, async (client) => {
@@ -84,7 +90,9 @@ export function createAttemptFlowRepositoryMethods(
           return mapAttemptRow(result.rows[0]);
         } catch (error) {
           if (isUniqueViolation(error)) {
-            throw new Error(`Attempt ${record.attemptId} already exists and cannot be replaced.`);
+            throw new Error(
+              `Attempt ${record.attemptId} already exists and cannot be replaced.`,
+            );
           }
 
           throw error;
@@ -94,34 +102,41 @@ export function createAttemptFlowRepositoryMethods(
 
     async appendAttemptEvent(input) {
       return await withClient(pool, async (client) => {
-        return await withTransaction(client, 'append_attempt_event', async (transaction) => {
-          const attemptResult = await transaction.queryObject<{ attemptId: string }>({
-            text: `
+        return await withTransaction(
+          client,
+          "append_attempt_event",
+          async (transaction) => {
+            const attemptResult = await transaction.queryObject<
+              { attemptId: string }
+            >({
+              text: `
                 SELECT attempt_id
                 FROM attempts
                 WHERE attempt_id = $1
                 FOR UPDATE
               `,
-            args: [input.attemptId],
-            camelCase: true,
-          });
+              args: [input.attemptId],
+              camelCase: true,
+            });
 
-          if (!attemptResult.rows[0]) {
-            throw new Error(`Attempt ${input.attemptId} was not found.`);
-          }
+            if (!attemptResult.rows[0]) {
+              throw new Error(`Attempt ${input.attemptId} was not found.`);
+            }
 
-          const sequenceResult = await transaction.queryObject<{ nextSequence: number }>({
-            text: `
+            const sequenceResult = await transaction.queryObject<
+              { nextSequence: number }
+            >({
+              text: `
                 SELECT COALESCE(MAX(sequence), 0) + 1 AS next_sequence
                 FROM attempt_events
                 WHERE attempt_id = $1
               `,
-            args: [input.attemptId],
-            camelCase: true,
-          });
-          const nextSequence = sequenceResult.rows[0]?.nextSequence ?? 1;
-          const result = await transaction.queryObject<AttemptEventRow>({
-            text: `
+              args: [input.attemptId],
+              camelCase: true,
+            });
+            const nextSequence = sequenceResult.rows[0]?.nextSequence ?? 1;
+            const result = await transaction.queryObject<AttemptEventRow>({
+              text: `
                 INSERT INTO attempt_events (
                   attempt_id,
                   sequence,
@@ -139,26 +154,30 @@ export function createAttemptFlowRepositoryMethods(
                   event,
                   received_at
               `,
-            args: [
-              input.attemptId,
-              nextSequence,
-              input.event.type,
-              JSON.stringify(input.event),
-              input.receivedAt,
-            ],
-            camelCase: true,
-          });
+              args: [
+                input.attemptId,
+                nextSequence,
+                input.event.type,
+                JSON.stringify(input.event),
+                input.receivedAt,
+              ],
+              camelCase: true,
+            });
 
-          return mapAttemptEventRow(result.rows[0]);
-        });
+            return mapAttemptEventRow(result.rows[0]);
+          },
+        );
       });
     },
 
     async finalizeAttempt(input) {
       return await withClient(pool, async (client) => {
-        return await withTransaction(client, 'finalize_attempt', async (transaction) => {
-          const existingResult = await transaction.queryObject<AttemptRow>({
-            text: `
+        return await withTransaction(
+          client,
+          "finalize_attempt",
+          async (transaction) => {
+            const existingResult = await transaction.queryObject<AttemptRow>({
+              text: `
                 SELECT
                   id,
                   attempt_id,
@@ -183,21 +202,21 @@ export function createAttemptFlowRepositoryMethods(
                 WHERE attempt_id = $1
                 FOR UPDATE
               `,
-            args: [input.attemptId],
-            camelCase: true,
-          });
-          const existing = existingResult.rows[0];
+              args: [input.attemptId],
+              camelCase: true,
+            });
+            const existing = existingResult.rows[0];
 
-          if (!existing) {
-            throw new Error(`Attempt ${input.attemptId} was not found.`);
-          }
+            if (!existing) {
+              throw new Error(`Attempt ${input.attemptId} was not found.`);
+            }
 
-          if (existing.finalizedAt !== null) {
-            return mapAttemptRow(existing);
-          }
+            if (existing.finalizedAt !== null) {
+              return mapAttemptRow(existing);
+            }
 
-          const updatedResult = await transaction.queryObject<AttemptRow>({
-            text: `
+            const updatedResult = await transaction.queryObject<AttemptRow>({
+              text: `
                 UPDATE attempts
                 SET
                   status = $2,
@@ -225,12 +244,18 @@ export function createAttemptFlowRepositoryMethods(
                   started_at,
                   finalized_at
               `,
-            args: [input.attemptId, input.status, input.completionState, input.finalizedAt],
-            camelCase: true,
-          });
+              args: [
+                input.attemptId,
+                input.status,
+                input.completionState,
+                input.finalizedAt,
+              ],
+              camelCase: true,
+            });
 
-          return mapAttemptRow(updatedResult.rows[0]);
-        });
+            return mapAttemptRow(updatedResult.rows[0]);
+          },
+        );
       });
     },
   };

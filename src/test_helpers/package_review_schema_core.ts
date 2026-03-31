@@ -102,6 +102,16 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
     )
   `,
   `
+    CREATE TABLE IF NOT EXISTS dynamic_registration_states (
+      state text PRIMARY KEY,
+      app_id text NOT NULL,
+      lms_type text NOT NULL CHECK (lms_type IN ('canvas', 'moodle', 'sakai')),
+      created_at timestamptz NOT NULL,
+      expires_at timestamptz NOT NULL,
+      used_at timestamptz
+    )
+  `,
+  `
     CREATE TABLE IF NOT EXISTS runtime_sessions (
       session_id text PRIMARY KEY,
       session_token text NOT NULL UNIQUE,
@@ -151,7 +161,8 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
       selected_activity_id text,
       selected_content_path text,
       created_at timestamptz NOT NULL,
-      expires_at timestamptz NOT NULL
+      expires_at timestamptz NOT NULL,
+      used_at timestamptz
     )
   `,
   `

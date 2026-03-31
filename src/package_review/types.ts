@@ -1,4 +1,5 @@
 import type { AttemptEvent, Capability, UserRole } from "../../sdk/app-sdk.ts";
+import type { LtiProfileId } from "../lti/profile.ts";
 import type {
   DeploymentBinding,
   PersistedDeploymentLmsType,
@@ -87,6 +88,12 @@ export interface DeploymentRecord {
   enabledPackageVersion: string | null;
   lmsType: PersistedDeploymentLmsType;
   binding: DeploymentBinding | null;
+  ltiProfileOverride: LtiProfileId | null;
+  updatedAt: string;
+}
+
+export interface LanternLtiProfileSettingsRecord {
+  defaultLtiProfile: LtiProfileId;
   updatedAt: string;
 }
 

@@ -1,5 +1,5 @@
 export function toFinalizeError(error: unknown): Error {
-  if (error instanceof Error && error.message.startsWith('Finalize ')) {
+  if (error instanceof Error && error.message.startsWith("Finalize ")) {
     return error;
   }
 
@@ -7,5 +7,5 @@ export function toFinalizeError(error: unknown): Error {
 }
 
 export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Unknown finalize error.';
+  return error instanceof Error ? error.message : "Unknown finalize error.";
 }

@@ -9,6 +9,10 @@ import {
 import { combineNotices, createErrorNotice } from "./app_notice_support.ts";
 import { errorMessage, statusForNrpsError } from "./app_status_support.ts";
 import { listCanvasEnvironments } from "./lti/config.ts";
+import {
+  buildResolvedLtiProfileDetail,
+  resolveLtiProfileForDeployment,
+} from "./lti/profile_resolution.ts";
 import { LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE } from "./lti/types.ts";
 import {
   readContextMemberships,
@@ -74,6 +78,10 @@ export function registerAdminDeploymentRosterRoute(
             "Launch did not provide NRPS service context for this deployment.",
           );
         }
+        const ltiProfile = await resolveLtiProfileForDeployment({
+          repository,
+          deployment: canvasDeployment,
+        });
 
         const token = await requestCanvasServiceAccessToken({
           issuer: canvasDeployment.binding.issuer,
@@ -95,6 +103,7 @@ export function registerAdminDeploymentRosterRoute(
               lms: "canvas",
               deploymentSlug: canvasDeployment.slug,
             },
+            ltiProfile,
           });
           const refreshed = await requestCanvasServiceAccessToken({
             issuer: canvasDeployment.binding!.issuer,
@@ -126,6 +135,7 @@ export function registerAdminDeploymentRosterRoute(
           detail: {
             contextId: latestSession.launch.courseId,
             memberCount: members.length,
+            ...buildResolvedLtiProfileDetail(ltiProfile),
           },
           occurredAt: new Date().toISOString(),
         });
@@ -144,6 +154,12 @@ export function registerAdminDeploymentRosterRoute(
           }),
         );
         const canvasDeployment = detail.canvasDeployment;
+        const ltiProfile = canvasDeployment === null
+          ? null
+          : await resolveLtiProfileForDeployment({
+            repository,
+            deployment: canvasDeployment,
+          });
 
         if (canvasDeployment !== null) {
           await repository.recordAuditEvent({
@@ -158,6 +174,9 @@ export function registerAdminDeploymentRosterRoute(
             summary: "Canvas roster verification failed.",
             detail: {
               message: errorMessage(error),
+              ...(ltiProfile === null
+                ? {}
+                : buildResolvedLtiProfileDetail(ltiProfile)),
             },
             occurredAt: new Date().toISOString(),
           });
@@ -183,6 +202,7 @@ export function registerAdminDeploymentRosterRoute(
             history: detail.history,
             deployments: detail.deployments,
             nrpsVerification,
+            lanternLtiProfileSettings: detail.ltiProfileSettings,
             canvasConfigUrl: detail.canvasConfigUrl.url,
             supportedCanvasEnvironments: listCanvasEnvironments(),
             notice: combineNotices(

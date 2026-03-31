@@ -1,35 +1,38 @@
-import type { Pool } from '@db/postgres';
-import { withClient, withTransaction } from './repository_core.ts';
-import { mapOptionalPlacementAuditSnapshot } from './repository_mappers_review.ts';
+import type { Pool } from "@db/postgres";
+import { withClient, withTransaction } from "./repository_core.ts";
+import { mapOptionalPlacementAuditSnapshot } from "./repository_mappers_review.ts";
 import {
   mapOptionalReviewedPlacement,
   mapReviewedPlacementRow,
-} from './repository_mappers_sessions.ts';
+} from "./repository_mappers_sessions.ts";
 import {
   PLACEMENT_AUDIT_SNAPSHOT_SELECT,
   REVIEWED_PLACEMENT_SELECT,
-} from './repository_query_fragments.ts';
-import type { PlacementAuditSnapshotRow, ReviewedPlacementRow } from './repository_row_types.ts';
-import { isUniqueViolation } from './repository_value_support.ts';
-import type { PackageReviewRepository } from './repository.ts';
+} from "./repository_query_fragments.ts";
+import type {
+  PlacementAuditSnapshotRow,
+  ReviewedPlacementRow,
+} from "./repository_row_types.ts";
+import { isUniqueViolation } from "./repository_value_support.ts";
+import type { PackageReviewRepository } from "./repository.ts";
 
 export function createReviewedPlacementRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | 'createReviewedPlacement'
-  | 'getReviewedPlacementById'
-  | 'getPlacementAuditSnapshotById'
-  | 'requirePlacementAuditSnapshotById'
-  | 'bindReviewedPlacementResourceLink'
+  | "createReviewedPlacement"
+  | "getReviewedPlacementById"
+  | "getPlacementAuditSnapshotById"
+  | "requirePlacementAuditSnapshotById"
+  | "bindReviewedPlacementResourceLink"
 > {
   const methods: Pick<
     PackageReviewRepository,
-    | 'createReviewedPlacement'
-    | 'getReviewedPlacementById'
-    | 'getPlacementAuditSnapshotById'
-    | 'requirePlacementAuditSnapshotById'
-    | 'bindReviewedPlacementResourceLink'
+    | "createReviewedPlacement"
+    | "getReviewedPlacementById"
+    | "getPlacementAuditSnapshotById"
+    | "requirePlacementAuditSnapshotById"
+    | "bindReviewedPlacementResourceLink"
   > = {
     async createReviewedPlacement(record) {
       return await withClient(pool, async (client) => {
@@ -124,7 +127,8 @@ export function createReviewedPlacementRepositoryMethods(
     async getPlacementAuditSnapshotById(placementId) {
       return await withClient(pool, async (client) => {
         const result = await client.queryObject<PlacementAuditSnapshotRow>({
-          text: `${PLACEMENT_AUDIT_SNAPSHOT_SELECT} WHERE reviewed_placements.placement_id = $1`,
+          text:
+            `${PLACEMENT_AUDIT_SNAPSHOT_SELECT} WHERE reviewed_placements.placement_id = $1`,
           args: [placementId],
           camelCase: true,
         });
@@ -147,9 +151,11 @@ export function createReviewedPlacementRepositoryMethods(
       return await withClient(pool, async (client) => {
         return await withTransaction(
           client,
-          'bind_reviewed_placement_resource_link',
+          "bind_reviewed_placement_resource_link",
           async (transaction) => {
-            const existingResult = await transaction.queryObject<ReviewedPlacementRow>({
+            const existingResult = await transaction.queryObject<
+              ReviewedPlacementRow
+            >({
               text: `
                 ${REVIEWED_PLACEMENT_SELECT}
                 WHERE placement_id = $1
@@ -161,7 +167,9 @@ export function createReviewedPlacementRepositoryMethods(
             const existing = existingResult.rows[0];
 
             if (!existing) {
-              throw new Error(`Reviewed placement ${input.placementId} was not found.`);
+              throw new Error(
+                `Reviewed placement ${input.placementId} was not found.`,
+              );
             }
 
             if (
@@ -178,7 +186,9 @@ export function createReviewedPlacementRepositoryMethods(
             }
 
             try {
-              const updated = await transaction.queryObject<ReviewedPlacementRow>({
+              const updated = await transaction.queryObject<
+                ReviewedPlacementRow
+              >({
                 text: `
                   UPDATE reviewed_placements
                   SET

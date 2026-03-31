@@ -1,50 +1,76 @@
-import type { AttemptEvent, Capability } from '../../sdk/app-sdk.ts';
-import type { RuntimeSessionRecord } from '../lti/types.ts';
-import type { FinalizeAttemptInput } from './gateway_types.ts';
+import type { AttemptEvent, Capability } from "../../sdk/app-sdk.ts";
+import type { RuntimeSessionRecord } from "../lti/types.ts";
+import type { FinalizeAttemptInput } from "./gateway_types.ts";
 
 export function parseAttemptEvent(payload: unknown): AttemptEvent {
-  const record = requireRecord(payload, 'Attempt event payload must be an object.');
-  const type = requireString(record.type, 'Attempt event type is required.');
+  const record = requireRecord(
+    payload,
+    "Attempt event payload must be an object.",
+  );
+  const type = requireString(record.type, "Attempt event type is required.");
 
   switch (type) {
-    case 'answer':
+    case "answer":
       return {
         type,
-        questionId: requireString(record.questionId, 'Attempt answer questionId is required.'),
+        questionId: requireString(
+          record.questionId,
+          "Attempt answer questionId is required.",
+        ),
         answer: requireAnswerValue(record.answer),
-        timestamp: requireTimestamp(record.timestamp, 'Attempt answer timestamp is required.'),
+        timestamp: requireTimestamp(
+          record.timestamp,
+          "Attempt answer timestamp is required.",
+        ),
       };
-    case 'progress':
+    case "progress":
       return {
         type,
-        checkpoint: requireString(record.checkpoint, 'Attempt progress checkpoint is required.'),
-        value: requireNumber(record.value, 'Attempt progress value is required.'),
-        timestamp: requireTimestamp(record.timestamp, 'Attempt progress timestamp is required.'),
+        checkpoint: requireString(
+          record.checkpoint,
+          "Attempt progress checkpoint is required.",
+        ),
+        value: requireNumber(
+          record.value,
+          "Attempt progress value is required.",
+        ),
+        timestamp: requireTimestamp(
+          record.timestamp,
+          "Attempt progress timestamp is required.",
+        ),
       };
-    case 'complete':
+    case "complete":
       return {
         type,
-        timestamp: requireTimestamp(record.timestamp, 'Attempt complete timestamp is required.'),
+        timestamp: requireTimestamp(
+          record.timestamp,
+          "Attempt complete timestamp is required.",
+        ),
       };
     default:
       throw new Error(`Unsupported attempt event type ${type}.`);
   }
 }
 
-export function parseFinalizeAttemptInput(payload: unknown): FinalizeAttemptInput {
+export function parseFinalizeAttemptInput(
+  payload: unknown,
+): FinalizeAttemptInput {
   if (payload === null || payload === undefined) {
-    return { completionState: 'completed' };
+    return { completionState: "completed" };
   }
 
-  const record = requireRecord(payload, 'Finalize payload must be an object when provided.');
+  const record = requireRecord(
+    payload,
+    "Finalize payload must be an object when provided.",
+  );
   const completionState = record.completionState;
 
   if (completionState === undefined) {
-    return { completionState: 'completed' };
+    return { completionState: "completed" };
   }
 
-  if (completionState !== 'completed' && completionState !== 'abandoned') {
-    throw new Error('Finalize completionState must be completed or abandoned.');
+  if (completionState !== "completed" && completionState !== "abandoned") {
+    throw new Error("Finalize completionState must be completed or abandoned.");
   }
 
   return { completionState };
@@ -59,8 +85,11 @@ export function requireRuntimeCapability(
   }
 }
 
-function requireRecord(payload: unknown, message: string): Record<string, unknown> {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+function requireRecord(
+  payload: unknown,
+  message: string,
+): Record<string, unknown> {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
     throw new Error(message);
   }
 
@@ -68,7 +97,7 @@ function requireRecord(payload: unknown, message: string): Record<string, unknow
 }
 
 function requireString(value: unknown, message: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
+  if (typeof value !== "string" || value.trim() === "") {
     throw new Error(message);
   }
 
@@ -76,13 +105,13 @@ function requireString(value: unknown, message: string): string {
 }
 
 function requireAnswerValue(value: unknown): string | string[] {
-  if (typeof value === 'string' && value.trim() !== '') {
+  if (typeof value === "string" && value.trim() !== "") {
     return value;
   }
 
   if (Array.isArray(value)) {
     const answers = value.filter(
-      (item): item is string => typeof item === 'string' && item.trim() !== '',
+      (item): item is string => typeof item === "string" && item.trim() !== "",
     );
 
     if (answers.length > 0) {
@@ -90,11 +119,11 @@ function requireAnswerValue(value: unknown): string | string[] {
     }
   }
 
-  throw new Error('Attempt answer value is required.');
+  throw new Error("Attempt answer value is required.");
 }
 
 function requireNumber(value: unknown, message: string): number {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (typeof value !== "number" || Number.isNaN(value)) {
     throw new TypeError(message);
   }
 

@@ -145,15 +145,18 @@ export async function renderVerificationPage(
     status?: 200 | 400 | 500;
   } = {},
 ) {
-  const [deployments, latestBrokerVerification] = await Promise.all([
-    services.getOpsRepository().listControlPlaneDeployments(),
-    services.getOpsRepository().getLatestBrokerVerificationStatus(),
-  ]);
+  const deployments = await services.getOpsRepository()
+    .listControlPlaneDeployments();
+  const latestBrokerVerification = await services.getOpsRepository()
+    .getLatestBrokerVerificationStatus();
+  const ltiProfileSettings = await services.getRepository()
+    .getLanternLtiProfileSettings();
 
   return context.html(
     renderAdminVerificationPage({
       deployments,
       latestBrokerVerification,
+      ltiProfileSettings,
       notice: input.notice ?? null,
     }),
     input.status ?? 200,
@@ -253,6 +256,7 @@ export async function renderDeploymentError(
         deployments,
         selectedLms: input.selectedLms ?? null,
         editorState: input.editorState ?? null,
+        lanternLtiProfileSettings: detailState.ltiProfileSettings,
         canvasConfigUrl: canvasConfigUrl.url,
         canvasDynamicRegistrationUrl: detailState.canvasDynamicRegistrationUrl,
         moodleDynamicRegistrationUrl: detailState.moodleDynamicRegistrationUrl,

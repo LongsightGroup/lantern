@@ -1,4 +1,4 @@
-export const EXAMPLE_SNAPSHOT_ROOT = 'examples/apps/chapter-4-asteroids';
+export const EXAMPLE_SNAPSHOT_ROOT = "examples/apps/chapter-4-asteroids";
 
 export function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
@@ -10,7 +10,10 @@ export function restoreEnv(name: string, value: string | undefined): void {
 }
 
 export async function withFetchStub<T>(
-  handler: (input: RequestInfo | URL, init?: RequestInit) => Response | Promise<Response>,
+  handler: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+  ) => Response | Promise<Response>,
   run: () => Promise<T>,
 ): Promise<T> {
   const originalFetch = globalThis.fetch;

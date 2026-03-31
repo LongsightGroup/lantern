@@ -1,26 +1,27 @@
-import { summarizePilotUsage } from '../ops/service.ts';
-import type { ManagedDeploymentSlot } from './deployment_detail.ts';
-import type { ControlPlaneDeploymentDetailSnapshot } from '../ops/types.ts';
-import { escapeHtml } from './layout.ts';
+import { summarizePilotUsage } from "../ops/service.ts";
+import type { ManagedDeploymentSlot } from "./deployment_detail.ts";
+import type { ControlPlaneDeploymentDetailSnapshot } from "../ops/types.ts";
+import { escapeHtml } from "./layout.ts";
 import {
   renderAgsSmokeSection,
   renderBrokerVerificationSection,
   renderDiagnosticsSection,
-} from './deployment_detail_ops_evidence_sections.ts';
+} from "./deployment_detail_ops_evidence_sections.ts";
 import {
+  describeActivityLtiProfile,
   describeProblemFactSummary,
   formatActivityTimestamp,
   formatGradePublicationTimestamp,
   renderActivityFact,
   renderDimensionRow,
   renderRecentLaunchRow,
-} from './deployment_detail_ops_support.ts';
+} from "./deployment_detail_ops_support.ts";
 import {
   describeGradePublication,
   describeOverallStatus,
   describeProblemSummary,
   formatLmsLabel,
-} from './deployment_detail_ops_labels.ts';
+} from "./deployment_detail_ops_labels.ts";
 
 export function renderControlPlaneStatusSection(
   detail: ControlPlaneDeploymentDetailSnapshot | null,
@@ -33,72 +34,104 @@ export function renderControlPlaneStatusSection(
           <p class="section-label">Operations</p>
           <h2>Current status</h2>
           <div class="facts">
-            ${renderActivityFact(
-              'Overall status',
-              describeOverallStatus(health?.overallStatus ?? null),
-              health?.summary ?? 'No control-plane status has been recorded yet.',
-            )}
-            ${renderActivityFact(
-              'Last launch',
-              formatActivityTimestamp(detail?.latestLaunch),
-              detail?.latestLaunch?.summary ?? 'No launch has been recorded yet.',
-            )}
-            ${renderActivityFact(
-              'Last grade write',
-              formatGradePublicationTimestamp(detail?.latestGradePublish),
-              detail?.latestGradePublish
-                ? describeGradePublication(detail.latestGradePublish)
-                : 'No grade publish has been recorded yet.',
-            )}
-            ${renderActivityFact(
-              'Last NRPS read',
-              formatActivityTimestamp(detail?.latestNrpsRead),
-              detail?.latestNrpsRead?.summary ?? 'Roster verification has not run yet.',
-            )}
+            ${
+    renderActivityFact(
+      "Overall status",
+      describeOverallStatus(health?.overallStatus ?? null),
+      health?.summary ?? "No control-plane status has been recorded yet.",
+    )
+  }
+            ${
+    renderActivityFact(
+      "Last launch",
+      formatActivityTimestamp(detail?.latestLaunch),
+      appendLtiProfileSummary(
+        detail?.latestLaunch?.summary ?? "No launch has been recorded yet.",
+        detail?.latestLaunch?.detail,
+      ),
+    )
+  }
+            ${
+    renderActivityFact(
+      "Last grade write",
+      formatGradePublicationTimestamp(detail?.latestGradePublish),
+      detail?.latestGradePublish
+        ? describeGradePublication(detail.latestGradePublish)
+        : "No grade publish has been recorded yet.",
+    )
+  }
+            ${
+    renderActivityFact(
+      "Last NRPS read",
+      formatActivityTimestamp(detail?.latestNrpsRead),
+      appendLtiProfileSummary(
+        detail?.latestNrpsRead?.summary ??
+          "Roster verification has not run yet.",
+        detail?.latestNrpsRead?.detail,
+      ),
+    )
+  }
           </div>
         </div>
         <section class="stack">
           <p class="section-label">Checks</p>
           <h2>Status by area</h2>
           <div class="table-list">
-            ${renderDimensionRow('Review', health?.dimensions.review ?? null)}
-            ${renderDimensionRow('Enablement', health?.dimensions.enablement ?? null)}
-            ${renderDimensionRow('Launch', health?.dimensions.launch ?? null)}
-            ${renderDimensionRow('AGS publish', health?.dimensions.gradePublication ?? null)}
-            ${renderDimensionRow('NRPS', health?.dimensions.nrps ?? null)}
+            ${renderDimensionRow("Review", health?.dimensions.review ?? null)}
+            ${
+    renderDimensionRow("Enablement", health?.dimensions.enablement ?? null)
+  }
+            ${renderDimensionRow("Launch", health?.dimensions.launch ?? null)}
+            ${
+    renderDimensionRow(
+      "AGS publish",
+      health?.dimensions.gradePublication ?? null,
+    )
+  }
+            ${renderDimensionRow("NRPS", health?.dimensions.nrps ?? null)}
           </div>
         </section>
       </div>
     </section>`;
 }
 
+function appendLtiProfileSummary(
+  summary: string,
+  detail: Record<string, unknown> | null | undefined,
+): string {
+  const profile = describeActivityLtiProfile(detail);
+
+  return profile === null ? summary : `${summary} ${profile}.`;
+}
+
 export function renderPilotUsageSection(
   detail: ControlPlaneDeploymentDetailSnapshot | null,
 ): string {
-  const pilotUsageFacts =
-    detail === null
-      ? [
-          { label: 'Launches recorded', value: '0' },
-          { label: 'Attempts completed', value: '0' },
-          { label: 'Grade publishes', value: '0 passed / 0 failed' },
-          { label: 'Recent active users', value: '0' },
-        ]
-      : summarizePilotUsage(detail.pilotUsage);
+  const pilotUsageFacts = detail === null
+    ? [
+      { label: "Launches recorded", value: "0" },
+      { label: "Attempts completed", value: "0" },
+      { label: "Grade publishes", value: "0 passed / 0 failed" },
+      { label: "Recent active users", value: "0" },
+    ]
+    : summarizePilotUsage(detail.pilotUsage);
 
   return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Pilot usage</p>
         <h2>Recent usage</h2>
         <div class="facts">
-          ${pilotUsageFacts
-            .map(
-              (fact) =>
-                `<div class="fact">
+          ${
+    pilotUsageFacts
+      .map(
+        (fact) =>
+          `<div class="fact">
               <span class="fact-label">${escapeHtml(fact.label)}</span>
               <span class="fact-value">${escapeHtml(fact.value)}</span>
             </div>`,
-            )
-            .join('')}
+      )
+      .join("")
+  }
         </div>
       </div>
     </section>`;
@@ -125,48 +158,63 @@ export function renderOperationalEvidenceSection(
         <div class="two-column">
           <div class="stack">
             <h2>Recent launches</h2>
-            <p>See who opened this ${escapeHtml(
-              viewedDeploymentLabel,
-            )}. Open the details below only when you need checks or troubleshooting.</p>
+            <p>See who opened this ${
+    escapeHtml(
+      viewedDeploymentLabel,
+    )
+  }. Open the details below only when you need checks or troubleshooting.</p>
           </div>
           <div class="facts">
-            ${renderActivityFact(
-              'People recently active',
-              String(detail?.pilotUsage.recentActiveUsers ?? 0),
-              detail === null
-                ? 'No recent usage has been recorded for this LMS setup yet.'
-                : `Lantern counted ${detail.pilotUsage.recentActiveUsers} recent people on this LMS setup.`,
-            )}
-            ${renderActivityFact(
-              'Last opened',
-              formatActivityTimestamp(detail?.latestLaunch),
-              detail?.latestLaunch?.summary ?? 'No launch has been recorded yet.',
-            )}
-            ${renderActivityFact(
-              'Problems to review',
-              describeProblemSummary(diagnostics.length),
-              describeProblemFactSummary(diagnostics.length, retryableDiagnostics.length),
-            )}
+            ${
+    renderActivityFact(
+      "People recently active",
+      String(detail?.pilotUsage.recentActiveUsers ?? 0),
+      detail === null
+        ? "No recent usage has been recorded for this LMS setup yet."
+        : `Lantern counted ${detail.pilotUsage.recentActiveUsers} recent people on this LMS setup.`,
+    )
+  }
+            ${
+    renderActivityFact(
+      "Last opened",
+      formatActivityTimestamp(detail?.latestLaunch),
+      detail?.latestLaunch?.summary ?? "No launch has been recorded yet.",
+    )
+  }
+            ${
+    renderActivityFact(
+      "Problems to review",
+      describeProblemSummary(diagnostics.length),
+      describeProblemFactSummary(
+        diagnostics.length,
+        retryableDiagnostics.length,
+      ),
+    )
+  }
           </div>
         </div>
         ${
-          visibleLaunches.length === 0
-            ? `<div class="callout">
+    visibleLaunches.length === 0
+      ? `<div class="callout">
               <h3>No launches recorded yet</h3>
               <p>Lantern has not recorded a successful launch for this LMS setup yet.</p>
             </div>`
-            : `<div class="table-list">
-              ${visibleLaunches.map((item) => renderRecentLaunchRow(item)).join('')}
+      : `<div class="table-list">
+              ${
+        visibleLaunches.map((item) => renderRecentLaunchRow(item)).join("")
+      }
             </div>`
-        }
+  }
         ${
-          recentLaunches.length > visibleLaunches.length
-            ? `<p class="micro muted">Showing the ${escapeHtml(
-                String(visibleLaunches.length),
-              )} most recent launches.</p>`
-            : ''
-        }
-        <details id="activity-details" ${showDetails ? 'open' : ''}>
+    recentLaunches.length > visibleLaunches.length
+      ? `<p class="micro muted">Showing the ${
+        escapeHtml(
+          String(visibleLaunches.length),
+        )
+      } most recent launches.</p>`
+      : ""
+  }
+        <details id="activity-details" ${showDetails ? "open" : ""}>
           <summary>Open checks and troubleshooting</summary>
           <div class="detail-stack">
             ${renderControlPlaneStatusSection(detail)}

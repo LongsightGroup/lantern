@@ -1,5 +1,9 @@
 import type { Context } from "@hono/hono";
 import { createLoginRedirect } from "./lti/login.ts";
+import {
+  buildResolvedLtiProfileDetail,
+  resolveLtiProfileForDeployment,
+} from "./lti/profile_resolution.ts";
 import { isLaunchRejectionError } from "./lti/launch_rejection.ts";
 import { readLoginRequest } from "./app_request_support.ts";
 import { errorMessage, statusForError } from "./app_status_support.ts";
@@ -38,6 +42,15 @@ export async function handleLoginInitiation(
         ? ["iframe_top_level_escape"]
         : []),
     ];
+    const deployment = compatibilityPaths.length === 0
+      ? null
+      : await repository.getDeploymentBySlug(result.deploymentSlug);
+    const ltiProfile = deployment === null
+      ? null
+      : await resolveLtiProfileForDeployment({
+        repository,
+        deployment,
+      });
 
     await Promise.all(
       compatibilityPaths.map((path) =>
@@ -55,6 +68,7 @@ export async function handleLoginInitiation(
             clientId: result.loginState.clientId,
             deploymentId: result.loginState.deploymentId,
           },
+          ltiProfile,
         })
       ),
     );
@@ -91,6 +105,12 @@ export async function recordRejectedLaunchAudit(input: {
       deploymentId: loginState.deploymentId,
     })
     .catch(() => null);
+  const ltiProfile = deployment === null
+    ? null
+    : await resolveLtiProfileForDeployment({
+      repository: input.repository,
+      deployment,
+    });
   const rejection = readLaunchRejection(input.error);
 
   await input.repository.recordAuditEvent({
@@ -114,6 +134,7 @@ export async function recordRejectedLaunchAudit(input: {
       targetLinkUri: loginState?.targetLinkUri ?? null,
       internalDeploymentSlug: deployment?.slug ?? null,
       appId: deployment?.appId ?? null,
+      ...(ltiProfile === null ? {} : buildResolvedLtiProfileDetail(ltiProfile)),
     },
     occurredAt: new Date().toISOString(),
   });

@@ -7,6 +7,7 @@ import {
 } from "./app_deployment_support.ts";
 import { combineNotices, createErrorNotice } from "./app_notice_support.ts";
 import { listCanvasEnvironments } from "./lti/config.ts";
+import { resolveLtiProfileForDeployment } from "./lti/profile_resolution.ts";
 import type { AppServices } from "./app_services.ts";
 import {
   recordGradeSmokeAuditEvent,
@@ -61,6 +62,10 @@ export function registerAdminGradeSmokeRoute(
           smokeLms,
           deploymentRecordId,
         );
+        const ltiProfile = await resolveLtiProfileForDeployment({
+          repository,
+          deployment: targetDeployment,
+        });
         const binding = requireGradeSmokeBinding(targetDeployment, smokeLms);
         const latestSession = await repository
           .getLatestRuntimeSessionByDeploymentId(
@@ -93,6 +98,7 @@ export function registerAdminGradeSmokeRoute(
           binding,
           session: latestSession,
           attempt,
+          ltiProfile,
         });
 
         await recordGradeSmokeAuditEvent(
@@ -100,6 +106,7 @@ export function registerAdminGradeSmokeRoute(
           targetDeployment,
           latestSession,
           result,
+          ltiProfile,
         );
 
         if (result.status === "succeeded") {
@@ -122,6 +129,7 @@ export function registerAdminGradeSmokeRoute(
             deployments: detail.deployments,
             selectedLms: smokeLms,
             nrpsVerification: detail.nrpsVerification,
+            lanternLtiProfileSettings: detail.ltiProfileSettings,
             controlPlaneDetail,
             canvasConfigUrl: detail.canvasConfigUrl.url,
             supportedCanvasEnvironments: listCanvasEnvironments(),
@@ -172,6 +180,7 @@ export function registerAdminGradeSmokeRoute(
             deployments: detail.deployments,
             selectedLms: smokeLms,
             nrpsVerification: detail.nrpsVerification,
+            lanternLtiProfileSettings: detail.ltiProfileSettings,
             controlPlaneDetail,
             canvasConfigUrl: detail.canvasConfigUrl.url,
             supportedCanvasEnvironments: listCanvasEnvironments(),

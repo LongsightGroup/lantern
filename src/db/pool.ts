@@ -1,12 +1,14 @@
-import { Pool } from '@db/postgres';
+import { Pool } from "@db/postgres";
 
 const DEFAULT_POOL_SIZE = 3;
 
 export function requireDatabaseUrl(): string {
-  const databaseUrl = Deno.env.get('DATABASE_URL');
+  const databaseUrl = Deno.env.get("DATABASE_URL");
 
   if (!databaseUrl) {
-    throw new Error('DATABASE_URL is required for Lantern package review persistence.');
+    throw new Error(
+      "DATABASE_URL is required for Lantern package review persistence.",
+    );
   }
 
   return databaseUrl;

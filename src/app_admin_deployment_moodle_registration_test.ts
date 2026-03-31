@@ -118,7 +118,7 @@ Deno.test("GET /admin/packages/:appId/deployment/register/moodle completes autom
       redirect_uris: string[];
       scope: string;
       "https://purl.imsglobal.org/spec/lti-tool-configuration": {
-        messages: unknown[];
+        messages: Array<Record<string, unknown>>;
       };
     };
     assertEquals(
@@ -131,6 +131,7 @@ Deno.test("GET /admin/packages/:appId/deployment/register/moodle completes autom
     );
     assertEquals(registrationRequest.redirect_uris, [
       "http://localhost:8417/lti/launch",
+      "http://localhost:8417/lti/deep-linking",
     ]);
     assertEquals(
       registrationRequest.scope,
@@ -140,7 +141,13 @@ Deno.test("GET /admin/packages/:appId/deployment/register/moodle completes autom
       registrationRequest[
         "https://purl.imsglobal.org/spec/lti-tool-configuration"
       ].messages,
-      [],
+      [
+        {
+          type: "LtiDeepLinkingRequest",
+          target_link_uri: "http://localhost:8417/lti/deep-linking",
+          label: "Select Lantern activity",
+        },
+      ],
     );
 
     const deployment = await repository.getDeploymentBySlug(

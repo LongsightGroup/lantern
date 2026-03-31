@@ -1,11 +1,11 @@
-import { app } from './src/app.ts';
+import { app } from "./src/app.ts";
 
 const DEFAULT_PORT = 8417;
 
 function readPort(): number {
-  const rawPort = Deno.env.get('PORT');
+  const rawPort = Deno.env.get("PORT");
 
-  if (rawPort === undefined || rawPort === '') {
+  if (rawPort === undefined || rawPort === "") {
     return DEFAULT_PORT;
   }
 

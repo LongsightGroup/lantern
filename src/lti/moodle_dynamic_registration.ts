@@ -1,6 +1,9 @@
 import { requireAppOrigin } from "./config.ts";
 import { assertHostedDynamicRegistrationMetadata } from "./dynamic_registration_support.ts";
-import type { DeploymentBinding } from "./types.ts";
+import {
+  type DeploymentBinding,
+  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+} from "./types.ts";
 
 const LTI_TOOL_CONFIGURATION_CLAIM =
   "https://purl.imsglobal.org/spec/lti-tool-configuration";
@@ -168,13 +171,14 @@ async function submitMoodleRegistration(input: {
 function buildMoodleRegistrationRequest(appOrigin: string, appTitle: string) {
   const origin = new URL(appOrigin);
   const launchUrl = `${appOrigin}/lti/launch`;
+  const deepLinkingUrl = `${appOrigin}/lti/deep-linking`;
 
   return {
     application_type: "web",
     response_types: ["id_token"],
     grant_types: ["implicit", "client_credentials"],
     initiate_login_uri: `${appOrigin}/lti/login`,
-    redirect_uris: [launchUrl],
+    redirect_uris: [launchUrl, deepLinkingUrl],
     client_name: `${appTitle} via Lantern`,
     jwks_uri: `${appOrigin}/lti/jwks.json`,
     scope: MOODLE_SCOPE_LIST.join(" "),
@@ -193,7 +197,13 @@ function buildMoodleRegistrationRequest(appOrigin: string, appTitle: string) {
         "email",
         "preferred_username",
       ],
-      messages: [],
+      messages: [
+        {
+          type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+          target_link_uri: deepLinkingUrl,
+          label: "Select Lantern activity",
+        },
+      ],
     },
   };
 }

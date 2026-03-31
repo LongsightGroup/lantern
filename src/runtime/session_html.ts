@@ -1,4 +1,4 @@
-import type { BootstrapPayload } from '../../sdk/app-sdk.ts';
+import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
 
 export function buildRuntimeBootstrapScript(input: {
   bootstrap: BootstrapPayload;
@@ -6,15 +6,19 @@ export function buildRuntimeBootstrapScript(input: {
   previewSessionId: string | null;
 }): string {
   const bootstrapJson = serializeForInlineScript(input.bootstrap);
-  const contentUrl = serializeForInlineScript(`${input.runtimeBasePath}/content`);
-  const attemptEventsUrl = serializeForInlineScript(`${input.runtimeBasePath}/attempt-events`);
-  const finalizeUrl = serializeForInlineScript(`${input.runtimeBasePath}/finalize`);
+  const contentUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/content`,
+  );
+  const attemptEventsUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/attempt-events`,
+  );
+  const finalizeUrl = serializeForInlineScript(
+    `${input.runtimeBasePath}/finalize`,
+  );
   const previewJson = serializeForInlineScript(
-    input.previewSessionId === null
-      ? null
-      : {
-          previewSessionId: input.previewSessionId,
-        },
+    input.previewSessionId === null ? null : {
+      previewSessionId: input.previewSessionId,
+    },
   );
 
   return `window.GatewayBootstrap = ${bootstrapJson};
@@ -78,7 +82,7 @@ window.GatewayApp = {
 
 export function injectBeforeClosingTag(
   html: string,
-  tagName: 'head' | 'body',
+  tagName: "head" | "body",
   injection: string,
 ): string {
   const closingTag = `</${tagName}>`;
@@ -93,17 +97,17 @@ export function injectBeforeClosingTag(
 
 export function escapeHtmlAttribute(value: string): string {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function serializeForInlineScript(value: unknown): string {
   return JSON.stringify(value)
-    .replaceAll('<', '\\u003c')
-    .replaceAll('>', '\\u003e')
-    .replaceAll('&', '\\u0026')
-    .replaceAll('\u2028', '\\u2028')
-    .replaceAll('\u2029', '\\u2029');
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("&", "\\u0026")
+    .replaceAll("\u2028", "\\u2028")
+    .replaceAll("\u2029", "\\u2029");
 }

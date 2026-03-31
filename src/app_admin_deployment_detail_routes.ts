@@ -61,6 +61,7 @@ export function registerAdminDeploymentDetailRoutes(
           selectedLms,
           openOperationalEvidence,
           nrpsVerification: detail.nrpsVerification,
+          lanternLtiProfileSettings: detail.ltiProfileSettings,
           controlPlaneDetail,
           canvasConfigUrl: detail.canvasConfigUrl.url,
           canvasDynamicRegistrationUrl: detail.canvasDynamicRegistrationUrl,

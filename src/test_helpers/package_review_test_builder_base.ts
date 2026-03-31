@@ -1,4 +1,4 @@
-import type { ImportedPackageVersion } from '../package_review/intake.ts';
+import type { ImportedPackageVersion } from "../package_review/intake.ts";
 import type {
   AttemptEventRecord,
   AttemptRecord,
@@ -7,53 +7,53 @@ import type {
   GradePublicationRecord,
   LineItemBindingRecord,
   PackageVersionRecord,
-} from '../package_review/types.ts';
+} from "../package_review/types.ts";
 import {
   DEFAULT_IMPORTED_AT,
   DEFAULT_PHASE3_AT,
   DEFAULT_UPDATED_AT,
-} from './package_review_test_defaults.ts';
+} from "./package_review_test_defaults.ts";
 
 export function buildPackageVersionRecord(
   overrides: Partial<PackageVersionRecord> = {},
 ): PackageVersionRecord {
   return {
     id: 1,
-    appId: 'chapter-4-asteroids',
-    version: '0.1.0',
-    title: 'Chapter 4 Asteroids',
-    description: 'Shoot the correct vocabulary target.',
-    owner: { type: 'user', id: 'instructor_123' },
-    entrypoint: '/dist/index.html',
-    roles: ['learner', 'instructor'],
-    installScope: 'course',
+    appId: "chapter-4-asteroids",
+    version: "0.1.0",
+    title: "Chapter 4 Asteroids",
+    description: "Shoot the correct vocabulary target.",
+    owner: { type: "user", id: "instructor_123" },
+    entrypoint: "/dist/index.html",
+    roles: ["learner", "instructor"],
+    installScope: "course",
     capabilities: [
-      'read_launch_context',
-      'read_activity_content',
-      'submit_attempt_event',
-      'finalize_attempt',
-      'read_local_state',
-      'write_local_state',
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "finalize_attempt",
+      "read_local_state",
+      "write_local_state",
     ],
     grading: {
-      mode: 'declarative',
-      rubricFile: '/scoring/rubric.json',
+      mode: "declarative",
+      rubricFile: "/scoring/rubric.json",
       maxScore: 100,
     },
-    approvalStatus: 'pending',
+    approvalStatus: "pending",
     reviewNotes: null,
     reviewedAt: null,
     validationIssues: [],
     manifestJson: {
-      app_id: 'chapter-4-asteroids',
-      version: '0.1.0',
-      title: 'Chapter 4 Asteroids',
+      app_id: "chapter-4-asteroids",
+      version: "0.1.0",
+      title: "Chapter 4 Asteroids",
     },
     artifact: {
-      snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
-      manifestPath: 'var/packages/chapter-4-asteroids/0.1.0/manifest.json',
-      entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
-      digest: 'sha256:chapter-4-asteroids-0.1.0',
+      snapshotRoot: "var/packages/chapter-4-asteroids/0.1.0",
+      manifestPath: "var/packages/chapter-4-asteroids/0.1.0/manifest.json",
+      entrypointPath: "var/packages/chapter-4-asteroids/0.1.0/dist/index.html",
+      digest: "sha256:chapter-4-asteroids-0.1.0",
     },
     importedAt: DEFAULT_IMPORTED_AT,
     ...overrides,
@@ -84,31 +84,33 @@ export function buildImportedPackageVersion(
   };
 }
 
-export function buildDeploymentRecord(overrides: Partial<DeploymentRecord> = {}): DeploymentRecord {
-  const appId = overrides.appId ?? 'chapter-4-asteroids';
+export function buildDeploymentRecord(
+  overrides: Partial<DeploymentRecord> = {},
+): DeploymentRecord {
+  const appId = overrides.appId ?? "chapter-4-asteroids";
   const binding = overrides.binding ?? null;
-  const lmsType = overrides.lmsType ?? binding?.lms ?? 'canvas';
+  const lmsType = overrides.lmsType ?? binding?.lms ?? "canvas";
   const defaultDeploymentIdentity = (() => {
     switch (lmsType) {
-      case 'canvas':
+      case "canvas":
         return {
           slug: `${appId}-pilot`,
-          label: 'Pilot Deployment',
+          label: "Pilot Deployment",
         };
-      case 'moodle':
+      case "moodle":
         return {
           slug: `${appId}-moodle`,
-          label: 'Moodle Deployment',
+          label: "Moodle Deployment",
         };
-      case 'sakai':
+      case "sakai":
         return {
           slug: `${appId}-sakai`,
-          label: 'Sakai Deployment',
+          label: "Sakai Deployment",
         };
-      case 'preview':
+      case "preview":
         return {
           slug: `${appId}-preview`,
-          label: 'Preview Deployment',
+          label: "Preview Deployment",
         };
     }
   })();
@@ -116,38 +118,46 @@ export function buildDeploymentRecord(overrides: Partial<DeploymentRecord> = {})
   return {
     id: 1,
     slug: defaultDeploymentIdentity.slug,
-    label: `${appId.replaceAll('-', ' ')} ${defaultDeploymentIdentity.label}`
-      .split(' ')
-      .map((segment) => (segment[0] ? `${segment[0].toUpperCase()}${segment.slice(1)}` : segment))
-      .join(' '),
+    label: `${appId.replaceAll("-", " ")} ${defaultDeploymentIdentity.label}`
+      .split(" ")
+      .map((
+        segment,
+      ) => (segment[0]
+        ? `${segment[0].toUpperCase()}${segment.slice(1)}`
+        : segment)
+      )
+      .join(" "),
     appId,
     enabledPackageVersionId: 1,
-    enabledPackageVersion: '0.1.0',
+    enabledPackageVersion: "0.1.0",
     lmsType,
     binding,
+    ltiProfileOverride: null,
     updatedAt: DEFAULT_UPDATED_AT,
     ...overrides,
   };
 }
 
-export function buildAttemptRecord(overrides: Partial<AttemptRecord> = {}): AttemptRecord {
+export function buildAttemptRecord(
+  overrides: Partial<AttemptRecord> = {},
+): AttemptRecord {
   return {
     id: overrides.id ?? 1,
-    attemptId: overrides.attemptId ?? 'attempt-123',
+    attemptId: overrides.attemptId ?? "attempt-123",
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
-    deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
-    appId: overrides.appId ?? 'chapter-4-asteroids',
+    deploymentSlug: overrides.deploymentSlug ?? "chapter-4-asteroids-pilot",
+    appId: overrides.appId ?? "chapter-4-asteroids",
     packageVersionId: overrides.packageVersionId ?? 1,
-    packageVersion: overrides.packageVersion ?? '0.1.0',
-    userId: overrides.userId ?? 'canvas-user-123',
+    packageVersion: overrides.packageVersion ?? "0.1.0",
+    userId: overrides.userId ?? "canvas-user-123",
     userDisplayName: overrides.userDisplayName ?? null,
     userEmail: overrides.userEmail ?? null,
     userLogin: overrides.userLogin ?? null,
-    userRole: overrides.userRole ?? 'learner',
-    contextId: overrides.contextId ?? 'course-42',
-    resourceLinkId: overrides.resourceLinkId ?? 'resource-link-123',
-    activityId: overrides.activityId ?? 'activity-123',
-    status: overrides.status ?? 'in_progress',
+    userRole: overrides.userRole ?? "learner",
+    contextId: overrides.contextId ?? "course-42",
+    resourceLinkId: overrides.resourceLinkId ?? "resource-link-123",
+    activityId: overrides.activityId ?? "activity-123",
+    status: overrides.status ?? "in_progress",
     completionState: overrides.completionState ?? null,
     startedAt: overrides.startedAt ?? DEFAULT_PHASE3_AT,
     finalizedAt: overrides.finalizedAt ?? null,
@@ -159,13 +169,13 @@ export function buildAttemptEventRecord(
 ): AttemptEventRecord {
   return {
     id: overrides.id ?? 1,
-    attemptId: overrides.attemptId ?? 'attempt-123',
+    attemptId: overrides.attemptId ?? "attempt-123",
     sequence: overrides.sequence ?? 1,
-    eventType: overrides.eventType ?? 'answer',
+    eventType: overrides.eventType ?? "answer",
     event: overrides.event ?? {
-      type: 'answer',
-      questionId: 'q1',
-      answer: 'asteroid',
+      type: "answer",
+      questionId: "q1",
+      answer: "asteroid",
       timestamp: DEFAULT_PHASE3_AT,
     },
     receivedAt: overrides.receivedAt ?? DEFAULT_PHASE3_AT,
@@ -179,14 +189,16 @@ export function buildLineItemBindingRecord(
     id: overrides.id ?? 1,
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
     packageVersionId: overrides.packageVersionId ?? 1,
-    contextId: overrides.contextId ?? 'course-42',
-    resourceLinkId: overrides.resourceLinkId ?? 'resource-link-123',
-    activityId: overrides.activityId ?? 'activity-123',
-    lineItemsUrl: overrides.lineItemsUrl ?? 'https://canvas.example/api/lti/courses/42/line_items',
-    lineItemUrl: overrides.lineItemUrl ?? 'https://canvas.example/api/lti/courses/42/line_items/9',
-    resourceId: overrides.resourceId ?? 'chapter-4-asteroids:0.1.0',
-    tag: overrides.tag ?? 'final-grade',
-    label: overrides.label ?? 'Chapter 4 Asteroids Final Grade',
+    contextId: overrides.contextId ?? "course-42",
+    resourceLinkId: overrides.resourceLinkId ?? "resource-link-123",
+    activityId: overrides.activityId ?? "activity-123",
+    lineItemsUrl: overrides.lineItemsUrl ??
+      "https://canvas.example/api/lti/courses/42/line_items",
+    lineItemUrl: overrides.lineItemUrl ??
+      "https://canvas.example/api/lti/courses/42/line_items/9",
+    resourceId: overrides.resourceId ?? "chapter-4-asteroids:0.1.0",
+    tag: overrides.tag ?? "final-grade",
+    label: overrides.label ?? "Chapter 4 Asteroids Final Grade",
     scoreMaximum: overrides.scoreMaximum ?? 100,
     createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
     updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
@@ -198,15 +210,16 @@ export function buildGradePublicationRecord(
 ): GradePublicationRecord {
   return {
     id: overrides.id ?? 1,
-    attemptId: overrides.attemptId ?? 'attempt-123',
+    attemptId: overrides.attemptId ?? "attempt-123",
     lineItemBindingId: overrides.lineItemBindingId ?? 1,
-    lineItemUrl: overrides.lineItemUrl ?? 'https://canvas.example/api/lti/courses/42/line_items/9',
-    platformUserId: overrides.platformUserId ?? 'canvas-user-123',
+    lineItemUrl: overrides.lineItemUrl ??
+      "https://canvas.example/api/lti/courses/42/line_items/9",
+    platformUserId: overrides.platformUserId ?? "canvas-user-123",
     scoreGiven: overrides.scoreGiven ?? 85,
     scoreMaximum: overrides.scoreMaximum ?? 100,
-    activityProgress: overrides.activityProgress ?? 'Completed',
-    gradingProgress: overrides.gradingProgress ?? 'FullyGraded',
-    status: overrides.status ?? 'published',
+    activityProgress: overrides.activityProgress ?? "Completed",
+    gradingProgress: overrides.gradingProgress ?? "FullyGraded",
+    status: overrides.status ?? "published",
     createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
     updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
     publishedAt: overrides.publishedAt ?? DEFAULT_PHASE3_AT,
@@ -215,20 +228,24 @@ export function buildGradePublicationRecord(
   };
 }
 
-export function buildAuditEventRecord(overrides: Partial<AuditEventRecord> = {}): AuditEventRecord {
+export function buildAuditEventRecord(
+  overrides: Partial<AuditEventRecord> = {},
+): AuditEventRecord {
   return {
     id: overrides.id ?? 1,
-    eventType: overrides.eventType ?? 'attempt.submitted',
-    actorType: overrides.actorType ?? 'system',
+    eventType: overrides.eventType ?? "attempt.submitted",
+    actorType: overrides.actorType ?? "system",
     actorId: overrides.actorId ?? null,
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
     packageVersionId: overrides.packageVersionId ?? 1,
-    attemptId: overrides.attemptId === undefined ? 'attempt-123' : overrides.attemptId,
+    attemptId: overrides.attemptId === undefined
+      ? "attempt-123"
+      : overrides.attemptId,
     lineItemBindingId: overrides.lineItemBindingId ?? null,
-    status: overrides.status ?? 'accepted',
-    summary: overrides.summary ?? 'Accepted attempt submission.',
+    status: overrides.status ?? "accepted",
+    summary: overrides.summary ?? "Accepted attempt submission.",
     detail: overrides.detail ?? {
-      route: '/runtime/sessions/runtime-session-123/attempt-events',
+      route: "/runtime/sessions/runtime-session-123/attempt-events",
     },
     occurredAt: overrides.occurredAt ?? DEFAULT_PHASE3_AT,
   };

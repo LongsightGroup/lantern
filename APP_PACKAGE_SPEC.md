@@ -4,9 +4,11 @@ This is the concrete v1 contract for apps that run inside the gateway.
 
 Companion artifacts:
 
-- manifest schema: [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json)
+- manifest schema:
+  [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json)
 - SDK contract: [sdk/app-sdk.ts](sdk/app-sdk.ts)
-- sample package: [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
+- sample package:
+  [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
 
 The goal is simple:
 
@@ -253,7 +255,7 @@ The SDK should be tiny.
 
 ```ts
 type LaunchContext = {
-  userRole: 'learner' | 'instructor';
+  userRole: "learner" | "instructor";
   courseId: string;
   assignmentId?: string;
   activityId: string;
@@ -269,25 +271,25 @@ declare function readLocalState<T = unknown>(): Promise<T | null>;
 ```ts
 type AttemptEvent =
   | {
-      type: 'answer';
-      questionId: string;
-      answer: string | string[];
-      timestamp: string;
-    }
+    type: "answer";
+    questionId: string;
+    answer: string | string[];
+    timestamp: string;
+  }
   | {
-      type: 'progress';
-      checkpoint: string;
-      value: number;
-      timestamp: string;
-    }
+    type: "progress";
+    checkpoint: string;
+    value: number;
+    timestamp: string;
+  }
   | {
-      type: 'complete';
-      timestamp: string;
-    };
+    type: "complete";
+    timestamp: string;
+  };
 
 declare function emitAttemptEvent(event: AttemptEvent): Promise<void>;
 declare function finalizeAttempt(input?: {
-  completionState?: 'completed' | 'abandoned';
+  completionState?: "completed" | "abandoned";
 }): Promise<{ accepted: true }>;
 declare function writeLocalState<T = unknown>(value: T): Promise<void>;
 ```

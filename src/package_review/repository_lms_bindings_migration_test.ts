@@ -1,20 +1,20 @@
-import { assert, assertEquals } from '@std/assert';
-import type { Pool } from '@db/postgres';
-import { runMigrations } from '../db/migrate.ts';
-import { resolveCanvasIssuer } from '../lti/config.ts';
-import { createTestDatabasePool } from '../test_helpers/postgres.ts';
-import { createPackageReviewRepository } from './repository.ts';
+import { assert, assertEquals } from "@std/assert";
+import type { Pool } from "@db/postgres";
+import { runMigrations } from "../db/migrate.ts";
+import { resolveCanvasIssuer } from "../lti/config.ts";
+import { createTestDatabasePool } from "../test_helpers/postgres.ts";
+import { createPackageReviewRepository } from "./repository.ts";
 
 const PRE_010_MIGRATIONS = [
-  '001_package_review.sql',
-  '002_canvas_install.sql',
-  '003_lti_login_state.sql',
-  '004_gateway_activity_grading_audit.sql',
-  '005_operator_control_plane_indexes.sql',
-  '006_broker_verification_runs.sql',
-  '007_deep_linking_sessions.sql',
-  '008_reviewed_placements.sql',
-  '009_preview_sessions.sql',
+  "001_package_review.sql",
+  "002_canvas_install.sql",
+  "003_lti_login_state.sql",
+  "004_gateway_activity_grading_audit.sql",
+  "005_operator_control_plane_indexes.sql",
+  "006_broker_verification_runs.sql",
+  "007_deep_linking_sessions.sql",
+  "008_reviewed_placements.sql",
+  "009_preview_sessions.sql",
 ] as const;
 
 const DROP_PACKAGE_REVIEW_TABLES_SQL = `
@@ -37,7 +37,7 @@ const DROP_PACKAGE_REVIEW_TABLES_SQL = `
   CASCADE;
 `;
 
-Deno.test('migration backfills existing Canvas deployments to lms_type canvas without losing version pins', async () => {
+Deno.test("migration backfills existing Canvas deployments to lms_type canvas without losing version pins", async () => {
   const pool = createTestDatabasePool();
 
   try {
@@ -77,31 +77,31 @@ Deno.test('migration backfills existing Canvas deployments to lms_type canvas wi
           RETURNING id
         `,
         args: [
-          'chapter-4-asteroids',
-          '0.1.0',
-          'Chapter 4 Asteroids',
-          'Migration backfill fixture.',
-          'user',
-          'instructor_123',
-          '/dist/index.html',
-          ['learner', 'instructor'],
-          'course',
-          ['read_launch_context'],
-          'declarative',
+          "chapter-4-asteroids",
+          "0.1.0",
+          "Chapter 4 Asteroids",
+          "Migration backfill fixture.",
+          "user",
+          "instructor_123",
+          "/dist/index.html",
+          ["learner", "instructor"],
+          "course",
+          ["read_launch_context"],
+          "declarative",
           null,
           100,
-          'approved',
-          'Approved for migration backfill testing.',
-          '2026-03-26T10:00:00Z',
-          '[]',
+          "approved",
+          "Approved for migration backfill testing.",
+          "2026-03-26T10:00:00Z",
+          "[]",
           JSON.stringify({
-            app_id: 'chapter-4-asteroids',
-            version: '0.1.0',
-            title: 'Chapter 4 Asteroids',
+            app_id: "chapter-4-asteroids",
+            version: "0.1.0",
+            title: "Chapter 4 Asteroids",
           }),
-          'var/packages/chapter-4-asteroids/0.1.0',
-          'sha256:chapter-4-asteroids-0-1-0',
-          '2026-03-26T09:00:00Z',
+          "var/packages/chapter-4-asteroids/0.1.0",
+          "sha256:chapter-4-asteroids-0-1-0",
+          "2026-03-26T09:00:00Z",
         ],
         camelCase: true,
       });
@@ -122,14 +122,14 @@ Deno.test('migration backfills existing Canvas deployments to lms_type canvas wi
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `,
         [
-          'chapter-4-asteroids-pilot',
-          'Chapter 4 Asteroids Pilot Deployment',
-          'chapter-4-asteroids',
+          "chapter-4-asteroids-pilot",
+          "Chapter 4 Asteroids Pilot Deployment",
+          "chapter-4-asteroids",
           packageVersionId,
-          'production',
-          resolveCanvasIssuer('production'),
-          'canvas-client-123',
-          'canvas-deployment-123',
+          "production",
+          resolveCanvasIssuer("production"),
+          "canvas-client-123",
+          "canvas-deployment-123",
         ],
       );
     } finally {
@@ -143,17 +143,17 @@ Deno.test('migration backfills existing Canvas deployments to lms_type canvas wi
 
     const repository = createPackageReviewRepository(pool);
     const migrated = await repository.getDeploymentByBinding({
-      lms: 'canvas',
-      issuer: resolveCanvasIssuer('production'),
-      clientId: 'canvas-client-123',
-      deploymentId: 'canvas-deployment-123',
+      lms: "canvas",
+      issuer: resolveCanvasIssuer("production"),
+      clientId: "canvas-client-123",
+      deploymentId: "canvas-deployment-123",
     });
-    const listed = await repository.listDeploymentsByApp('chapter-4-asteroids');
+    const listed = await repository.listDeploymentsByApp("chapter-4-asteroids");
 
     assert(migrated);
-    assertEquals(migrated?.slug, 'chapter-4-asteroids-pilot');
+    assertEquals(migrated?.slug, "chapter-4-asteroids-pilot");
     assertEquals(migrated?.enabledPackageVersionId, packageVersionId);
-    assertEquals(migrated?.binding?.lms, 'canvas');
+    assertEquals(migrated?.binding?.lms, "canvas");
     assertEquals(listed.length, 1);
   } finally {
     await pool.end();
@@ -164,7 +164,10 @@ async function resetToPre010Schema(pool: Pool): Promise<void> {
   await resetToSchema(pool, PRE_010_MIGRATIONS);
 }
 
-async function resetToSchema(pool: Pool, migrations: readonly string[]): Promise<void> {
+async function resetToSchema(
+  pool: Pool,
+  migrations: readonly string[],
+): Promise<void> {
   const client = await pool.connect();
 
   try {
@@ -182,9 +185,12 @@ async function resetToSchema(pool: Pool, migrations: readonly string[]): Promise
       );
 
       await client.queryArray(sql);
-      await client.queryArray('INSERT INTO schema_migrations (filename) VALUES ($1)', [
-        migrationName,
-      ]);
+      await client.queryArray(
+        "INSERT INTO schema_migrations (filename) VALUES ($1)",
+        [
+          migrationName,
+        ],
+      );
     }
   } finally {
     client.release();

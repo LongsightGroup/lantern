@@ -120,6 +120,9 @@ Deno.test("GET /admin/packages/:appId/deployment/register/sakai completes automa
       initiate_login_uri: string;
       jwks_uri: string;
       redirect_uris: string[];
+      "https://purl.imsglobal.org/spec/lti-tool-configuration": {
+        messages: Array<Record<string, unknown>>;
+      };
     };
     assertEquals(
       registrationRequest.initiate_login_uri,
@@ -131,7 +134,25 @@ Deno.test("GET /admin/packages/:appId/deployment/register/sakai completes automa
     );
     assertEquals(registrationRequest.redirect_uris, [
       "http://localhost:8417/lti/launch",
+      "http://localhost:8417/lti/deep-linking",
     ]);
+    assertEquals(
+      registrationRequest[
+        "https://purl.imsglobal.org/spec/lti-tool-configuration"
+      ].messages,
+      [
+        {
+          type: "LtiResourceLinkRequest",
+          target_link_uri: "http://localhost:8417/lti/launch",
+          label: "Chapter 4 Asteroids in Lantern",
+        },
+        {
+          type: "LtiDeepLinkingRequest",
+          target_link_uri: "http://localhost:8417/lti/deep-linking",
+          label: "Select Lantern activity",
+        },
+      ],
+    );
 
     const deployment = await repository.getDeploymentBySlug(
       "chapter-4-asteroids-sakai",

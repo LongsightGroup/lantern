@@ -1,4 +1,4 @@
-import type { PackageReviewRepository } from './package_review/repository.ts';
+import type { PackageReviewRepository } from "./package_review/repository.ts";
 
 export async function requireRuntimeSession(
   repository: PackageReviewRepository,

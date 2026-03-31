@@ -1,5 +1,5 @@
-import { assert, assertEquals, assertStringIncludes } from '@std/assert';
-import { validateManifest } from './manifest.ts';
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { validateManifest } from "./manifest.ts";
 
 type ManifestFixture = {
   schema_version: string;
@@ -8,7 +8,7 @@ type ManifestFixture = {
   title: string;
   description?: string;
   owner: {
-    type: 'user';
+    type: "user";
     id: string;
   };
   entrypoint: string;
@@ -32,7 +32,7 @@ type ManifestFixture = {
   icon?: string;
 };
 
-const DEMO_SOURCE_ROOT = 'examples/apps/chapter-4-asteroids';
+const DEMO_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
 
 async function writeJson(path: string, value: unknown): Promise<void> {
   await Deno.writeTextFile(path, JSON.stringify(value, null, 2));
@@ -47,7 +47,7 @@ async function createPackageFixture(
     includePreview?: boolean;
   } = {},
 ): Promise<string> {
-  const root = await Deno.makeTempDir({ prefix: 'lantern-manifest-' });
+  const root = await Deno.makeTempDir({ prefix: "lantern-manifest-" });
   const includeEntrypoint = options.includeEntrypoint ?? true;
   const includeRubric = options.includeRubric ?? true;
   const includeContent = options.includeContent ?? true;
@@ -56,7 +56,7 @@ async function createPackageFixture(
   await Deno.mkdir(`${root}/dist`, { recursive: true });
 
   if (includeEntrypoint) {
-    await Deno.writeTextFile(`${root}/dist/index.html`, '<!doctype html>');
+    await Deno.writeTextFile(`${root}/dist/index.html`, "<!doctype html>");
   }
 
   if (includeRubric) {
@@ -82,65 +82,67 @@ async function createPackageFixture(
 
 function buildValidManifest(): ManifestFixture {
   return {
-    schema_version: '1',
-    app_id: 'chapter-4-asteroids',
-    version: '0.1.0',
-    title: 'Chapter 4 Asteroids',
-    description: 'Shoot the correct vocabulary target.',
+    schema_version: "1",
+    app_id: "chapter-4-asteroids",
+    version: "0.1.0",
+    title: "Chapter 4 Asteroids",
+    description: "Shoot the correct vocabulary target.",
     owner: {
-      type: 'user',
-      id: 'instructor_123',
+      type: "user",
+      id: "instructor_123",
     },
-    entrypoint: '/dist/index.html',
-    roles: ['learner', 'instructor'],
-    install_scope: 'course',
+    entrypoint: "/dist/index.html",
+    roles: ["learner", "instructor"],
+    install_scope: "course",
     capabilities: [
-      'read_launch_context',
-      'read_activity_content',
-      'submit_attempt_event',
-      'finalize_attempt',
-      'read_local_state',
-      'write_local_state',
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "finalize_attempt",
+      "read_local_state",
+      "write_local_state",
     ],
     grading: {
-      mode: 'declarative',
-      rubric_file: '/scoring/rubric.json',
+      mode: "declarative",
+      rubric_file: "/scoring/rubric.json",
       max_score: 100,
     },
-    content_files: ['/content/activity.json'],
+    content_files: ["/content/activity.json"],
     preview: {
-      fixtures_file: '/preview/fixtures.json',
-      tests_file: '/preview/tests.json',
+      fixtures_file: "/preview/fixtures.json",
+      tests_file: "/preview/tests.json",
     },
   };
 }
 
-Deno.test('validateManifest accepts the demo manifest and returns typed review data', async () => {
+Deno.test("validateManifest accepts the demo manifest and returns typed review data", async () => {
   const result = await validateManifest({ sourceRoot: DEMO_SOURCE_ROOT });
 
   assertEquals(result.ok, true);
 
   if (!result.ok) {
-    throw new Error(`Expected demo package to validate: ${JSON.stringify(result.issues)}`);
+    throw new Error(
+      `Expected demo package to validate: ${JSON.stringify(result.issues)}`,
+    );
   }
 
   assertEquals(result.issues, []);
-  assertEquals(result.reviewData.appId, 'chapter-4-asteroids');
-  assertEquals(result.reviewData.version, '0.1.0');
-  assertEquals(result.reviewData.title, 'Chapter 4 Asteroids');
-  assertEquals(result.reviewData.owner.id, 'instructor_123');
-  assertEquals(result.reviewData.entrypoint, '/dist/index.html');
-  assertEquals(result.reviewData.grading.mode, 'declarative');
-  assertEquals(result.reviewData.grading.rubricFile, '/scoring/rubric.json');
+  assertEquals(result.reviewData.appId, "chapter-4-asteroids");
+  assertEquals(result.reviewData.version, "0.1.0");
+  assertEquals(result.reviewData.title, "Chapter 4 Asteroids");
+  assertEquals(result.reviewData.owner.id, "instructor_123");
+  assertEquals(result.reviewData.entrypoint, "/dist/index.html");
+  assertEquals(result.reviewData.grading.mode, "declarative");
+  assertEquals(result.reviewData.grading.rubricFile, "/scoring/rubric.json");
   assertEquals(result.reviewData.validationIssues, []);
 });
 
-Deno.test('validateManifest maps schema failures into a plain-language fix list', async () => {
+Deno.test("validateManifest maps schema failures into a plain-language fix list", async () => {
   const root = await createPackageFixture({
     ...buildValidManifest(),
-    entrypoint: '/index.html',
+    entrypoint: "/index.html",
     grading: {
-      mode: 'declarative',
+      mode: "declarative",
     },
   });
 
@@ -150,26 +152,26 @@ Deno.test('validateManifest maps schema failures into a plain-language fix list'
     assertEquals(result.ok, false);
 
     if (result.ok) {
-      throw new Error('Expected manifest validation to fail.');
+      throw new Error("Expected manifest validation to fail.");
     }
 
     assertEquals(
       result.issues.map((issue: { field: string }) => issue.field),
-      ['/entrypoint', '/grading/rubric_file', '/grading/max_score'],
+      ["/entrypoint", "/grading/rubric_file", "/grading/max_score"],
     );
-    assertStringIncludes(result.issues[0]?.message ?? '', 'Entrypoint');
-    assertStringIncludes(result.issues[1]?.message ?? '', 'rubric file');
-    assertStringIncludes(result.issues[2]?.message ?? '', 'max score');
+    assertStringIncludes(result.issues[0]?.message ?? "", "Entrypoint");
+    assertStringIncludes(result.issues[1]?.message ?? "", "rubric file");
+    assertStringIncludes(result.issues[2]?.message ?? "", "max score");
     for (const issue of result.issues) {
-      assert(!issue.message.includes('must match pattern'));
-      assert(!issue.message.includes('must have required property'));
+      assert(!issue.message.includes("must match pattern"));
+      assert(!issue.message.includes("must have required property"));
     }
   } finally {
     await Deno.remove(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest reports missing referenced files as field-oriented fixes', async () => {
+Deno.test("validateManifest reports missing referenced files as field-oriented fixes", async () => {
   const root = await createPackageFixture(buildValidManifest(), {
     includeRubric: false,
     includePreview: false,
@@ -181,16 +183,25 @@ Deno.test('validateManifest reports missing referenced files as field-oriented f
     assertEquals(result.ok, false);
 
     if (result.ok) {
-      throw new Error('Expected missing package files to fail validation.');
+      throw new Error("Expected missing package files to fail validation.");
     }
 
     assertEquals(
       result.issues.map((issue: { field: string }) => issue.field),
-      ['/grading/rubric_file', '/preview/fixtures_file', '/preview/tests_file'],
+      ["/grading/rubric_file", "/preview/fixtures_file", "/preview/tests_file"],
     );
-    assertStringIncludes(result.issues[0]?.message ?? '', '/scoring/rubric.json');
-    assertStringIncludes(result.issues[1]?.message ?? '', '/preview/fixtures.json');
-    assertStringIncludes(result.issues[2]?.message ?? '', '/preview/tests.json');
+    assertStringIncludes(
+      result.issues[0]?.message ?? "",
+      "/scoring/rubric.json",
+    );
+    assertStringIncludes(
+      result.issues[1]?.message ?? "",
+      "/preview/fixtures.json",
+    );
+    assertStringIncludes(
+      result.issues[2]?.message ?? "",
+      "/preview/tests.json",
+    );
   } finally {
     await Deno.remove(root, { recursive: true });
   }

@@ -18,6 +18,10 @@ import {
   validateDeepLinkingRequest,
 } from "./lti/deep_linking.ts";
 import { formatLmsLabel } from "./lti/platform_binding.ts";
+import {
+  buildResolvedLtiProfileDetail,
+  resolveLtiProfileForDeployment,
+} from "./lti/profile_resolution.ts";
 
 export function registerDeepLinkingRoutes(
   app: Hono,
@@ -46,6 +50,12 @@ export function registerDeepLinkingRoutes(
       const deployment = await repository.getDeploymentBySlug(
         request.internalDeploymentSlug,
       );
+      const ltiProfile = deployment === null
+        ? null
+        : await resolveLtiProfileForDeployment({
+          repository,
+          deployment,
+        });
       await repository.recordAuditEvent({
         eventType: "deep_linking.request.accepted",
         actorType: "platform",
@@ -67,6 +77,9 @@ export function registerDeepLinkingRoutes(
           deploymentId: request.deploymentId,
           contextId: request.contextId,
           placement: request.placement,
+          ...(ltiProfile === null
+            ? {}
+            : buildResolvedLtiProfileDetail(ltiProfile)),
         },
         occurredAt: new Date().toISOString(),
       });

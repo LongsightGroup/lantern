@@ -1,12 +1,12 @@
-import type { Pool } from '@db/postgres';
-import { runMigrations } from '../db/migrate.ts';
-import { createDatabasePool } from '../db/pool.ts';
-import { resetPackageReviewTables } from '../test_helpers/postgres.ts';
-import type { ImportedPackageVersion } from './intake.ts';
-import { validateManifest } from './manifest.ts';
-import { createPackageReviewRepository } from './repository.ts';
+import type { Pool } from "@db/postgres";
+import { runMigrations } from "../db/migrate.ts";
+import { createDatabasePool } from "../db/pool.ts";
+import { resetPackageReviewTables } from "../test_helpers/postgres.ts";
+import type { ImportedPackageVersion } from "./intake.ts";
+import { validateManifest } from "./manifest.ts";
+import { createPackageReviewRepository } from "./repository.ts";
 
-const DEMO_SOURCE_ROOT = 'examples/apps/chapter-4-asteroids';
+const DEMO_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
 
 export async function withRepositoryTestDatabase(
   run: (context: {
@@ -37,16 +37,19 @@ export async function buildImportedPackageVersion(
 
   if (!validation.ok) {
     throw new Error(
-      `Expected demo manifest to validate in repository tests: ${JSON.stringify(
-        validation.issues,
-      )}`,
+      `Expected demo manifest to validate in repository tests: ${
+        JSON.stringify(
+          validation.issues,
+        )
+      }`,
     );
   }
 
   const appId = overrides.appId ?? validation.reviewData.appId;
   const version = overrides.version ?? validation.reviewData.version;
   const title = overrides.title ?? validation.reviewData.title;
-  const snapshotRoot = overrides.snapshotRoot ?? `var/packages/${appId}/${version}`;
+  const snapshotRoot = overrides.snapshotRoot ??
+    `var/packages/${appId}/${version}`;
 
   return {
     reviewData: {
@@ -65,7 +68,7 @@ export async function buildImportedPackageVersion(
       snapshotRoot,
       manifestPath: `${snapshotRoot}/manifest.json`,
       entrypointPath: `${snapshotRoot}${validation.reviewData.entrypoint}`,
-      digest: `sha256:${appId}-${version.replaceAll('.', '-')}`,
+      digest: `sha256:${appId}-${version.replaceAll(".", "-")}`,
     },
   };
 }

@@ -1,4 +1,5 @@
 import type { Context } from "@hono/hono";
+import { type LtiProfileId, requireLtiProfileId } from "./lti/profile.ts";
 import type { LoginRequest } from "./lti/login.ts";
 export { parseBrokerVerificationRunForm } from "./app_request_broker_verification.ts";
 
@@ -72,6 +73,25 @@ export function formValueAsString(
   value: FormDataEntryValue | null,
 ): string | null {
   return typeof value === "string" ? value : null;
+}
+
+export function parseLanternDefaultLtiProfileForm(
+  formData: FormData,
+): LtiProfileId {
+  return requireLtiProfileId(
+    requireTrimmedFormValue(
+      formData.get("defaultLtiProfile"),
+      "Choose one supported LTI profile.",
+    ),
+  );
+}
+
+export function parseDeploymentLtiProfileOverrideForm(
+  formData: FormData,
+): LtiProfileId | null {
+  const value = normalizeOptionalString(formData.get("ltiProfileOverride"));
+
+  return value === null ? null : requireLtiProfileId(value);
 }
 
 export function readBearerToken(value: string | undefined): string | null {
