@@ -109,6 +109,28 @@ export function buildPreviewSessionRecord(
   };
 }
 
+export function buildAdminPreviewSessionRecord(
+  overrides: Partial<PreviewSessionRecord> = {},
+): PreviewSessionRecord {
+  return buildPreviewSessionRecord({
+    origin: "adminTestLaunch",
+    contentPath: "/content/activity.json",
+    deepLinkingSessionId: null,
+    ...overrides,
+  });
+}
+
+export function buildAuthoringPreviewSessionRecord(
+  overrides: Partial<PreviewSessionRecord> = {},
+): PreviewSessionRecord {
+  return buildPreviewSessionRecord({
+    origin: "deepLinkingAuthoring",
+    contentPath: "/content/bonus.json",
+    deepLinkingSessionId: "deep-linking-session-123",
+    ...overrides,
+  });
+}
+
 export function buildPreviewEvidenceRecord(
   overrides: Partial<PreviewEvidenceRecord> = {},
 ): PreviewEvidenceRecord {
