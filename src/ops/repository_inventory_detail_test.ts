@@ -4,7 +4,32 @@ import { insertAuditEvent } from "./repository_test_core_support.ts";
 import { withSeededOpsRepositoryTest } from "./repository_inventory_test_support.ts";
 
 Deno.test("ops repository returns deployment detail snapshots with recent launches, the latest checks, and only failed diagnostics", async () => {
-  await withSeededOpsRepositoryTest(async (_pool, repository) => {
+  await withSeededOpsRepositoryTest(async (pool, repository) => {
+    const client = await pool.connect();
+
+    try {
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 40,
+          deploymentRecordId: 1,
+          eventType: "interop.path_used",
+          status: "accepted",
+          summary:
+            "Lantern tolerated bounded target_link_uri drift during launch validation.",
+          detail: {
+            scope: "launch",
+            path: "target_link_uri_drift",
+            ltiProfileId: "governedCompatibility",
+            ltiProfileSource: "lanternDefault",
+          },
+          occurredAt: "2026-03-24T12:34:30Z",
+        }),
+      );
+    } finally {
+      client.release();
+    }
+
     const detail = await repository.getControlPlaneDeploymentDetail(1);
 
     assertExists(detail);
@@ -34,6 +59,65 @@ Deno.test("ops repository returns deployment detail snapshots with recent launch
       "lanternDefault",
     );
     assertEquals(detail.latestGradePublish?.errorCode, "canvas_score_rejected");
+    assertExists(
+      (
+        detail as unknown as {
+          latestCompatibilityPath?: {
+            status: string;
+            summary: string;
+            detail: Record<string, unknown>;
+          } | null;
+        }
+      ).latestCompatibilityPath,
+    );
+    assertEquals(
+      (
+        detail as unknown as {
+          latestCompatibilityPath?: {
+            status: string;
+            summary: string;
+            detail: Record<string, unknown>;
+          } | null;
+        }
+      ).latestCompatibilityPath?.status,
+      "succeeded",
+    );
+    assertEquals(
+      (
+        detail as unknown as {
+          latestCompatibilityPath?: {
+            status: string;
+            summary: string;
+            detail: Record<string, unknown>;
+          } | null;
+        }
+      ).latestCompatibilityPath?.summary,
+      "Lantern tolerated bounded target_link_uri drift during launch validation.",
+    );
+    assertEquals(
+      (
+        detail as unknown as {
+          latestCompatibilityPath?: {
+            status: string;
+            summary: string;
+            detail: Record<string, unknown>;
+          } | null;
+        }
+      ).latestCompatibilityPath?.detail.path,
+      "target_link_uri_drift",
+    );
+    assertEquals(
+      (
+        detail as unknown as {
+          latestCompatibilityPath?: {
+            status: string;
+            summary: string;
+            detail: Record<string, unknown>;
+          } | null;
+        }
+      ).latestCompatibilityPath?.detail.scope,
+      "launch",
+    );
     assertEquals(detail.diagnostics.length, 1);
     assertEquals(detail.diagnostics[0]?.eventType, "grade_publish.failed");
   });

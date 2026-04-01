@@ -21,6 +21,44 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
           occurredAt: "2026-03-24T12:36:00Z",
         }),
       );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 5,
+          deploymentRecordId: 1,
+          eventType: "deep_linking.request.rejected",
+          actorType: "platform",
+          status: "failed",
+          summary: "Rejected a Canvas Deep Linking request before picker handoff.",
+          detail: {
+            lms: "canvas",
+            category: "policyDenied",
+            code: "target_link_uri_drift_not_allowed",
+            message:
+              "Deep Linking target_link_uri drift is not allowed for the active LTI profile.",
+            ltiProfileId: "certification",
+            ltiProfileSource: "deploymentOverride",
+          },
+          occurredAt: "2026-03-24T12:37:00Z",
+        }),
+      );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 6,
+          deploymentRecordId: 1,
+          eventType: "interop.path_used",
+          actorType: "platform",
+          status: "accepted",
+          summary:
+            "Lantern tolerated bounded target_link_uri drift during launch validation.",
+          detail: {
+            scope: "launch",
+            path: "target_link_uri_drift",
+          },
+          occurredAt: "2026-03-24T12:38:00Z",
+        }),
+      );
     } finally {
       client.release();
     }
@@ -32,7 +70,7 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
       detail.recentLaunches.some((item) => item.attemptId === "attempt-123"),
       true,
     );
-    assertEquals(detail.diagnostics.length, 2);
+    assertEquals(detail.diagnostics.length, 3);
     assertEquals(
       detail.diagnostics.some((item) => item.eventType === "launch.accepted"),
       false,
@@ -51,6 +89,16 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
     );
     assertEquals(
       detail.diagnostics.some((item) =>
+        item.eventType === "deep_linking.request.rejected"
+      ),
+      true,
+    );
+    assertEquals(
+      detail.diagnostics.some((item) => item.eventType === "interop.path_used"),
+      false,
+    );
+    assertEquals(
+      detail.diagnostics.some((item) =>
         item.eventType === "reviewer.follow_up_failed"
       ),
       true,
@@ -60,6 +108,24 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
         item.eventType === "reviewer.follow_up_failed"
       )?.kind,
       "reviewer",
+    );
+    assertEquals(
+      detail.diagnostics.find((item) =>
+        item.eventType === "deep_linking.request.rejected"
+      )?.kind,
+      "deepLinking",
+    );
+    assertEquals(
+      (
+        detail.diagnostics.find((item) =>
+          item.eventType === "deep_linking.request.rejected"
+        ) as
+          | ({ boundaryDenialCategory?: string | null } & {
+            eventType: string;
+          })
+          | undefined
+      )?.boundaryDenialCategory,
+      "policyDenied",
     );
   });
 });
