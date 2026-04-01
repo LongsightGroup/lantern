@@ -58,6 +58,17 @@ Deno.test("deployment page shows status panels and pilot usage without dropping 
           ltiProfileSource: "lanternDefault",
         },
       }),
+      latestCompatibilityPath: buildDeploymentActivitySnapshot({
+        occurredAt: "2026-03-24T12:31:00Z",
+        summary:
+          "Lantern tolerated bounded target_link_uri drift during launch validation.",
+        detail: {
+          scope: "launch",
+          path: "target_link_uri_drift",
+          ltiProfileId: "governedCompatibility",
+          ltiProfileSource: "deploymentOverride",
+        },
+      }),
       latestNrpsRead: buildDeploymentActivitySnapshot({
         occurredAt: "2026-03-24T12:33:00Z",
         summary: "Latest roster verification succeeded.",
@@ -91,6 +102,7 @@ Deno.test("deployment page shows status panels and pilot usage without dropping 
 
   assertStringIncludes(html, "Current status");
   assertStringIncludes(html, "Last launch");
+  assertStringIncludes(html, "Last compatibility path");
   assertStringIncludes(html, "Last grade write");
   assertStringIncludes(html, "Last NRPS read");
   assertStringIncludes(html, "Pilot usage");
@@ -108,11 +120,16 @@ Deno.test("deployment page shows status panels and pilot usage without dropping 
     html,
     "Latest roster verification succeeded. Profile Governed interoperability override.",
   );
+  assertStringIncludes(
+    html,
+    "Lantern last used launch target drift tolerance on the saved deployment path. Profile Governed interoperability override.",
+  );
   assertStringIncludes(html, 'deployment-tab-label">Canvas</span>');
   assertStringIncludes(html, "Save live version");
   assertStringIncludes(html, "chip-status-healthy");
   assertStringIncludes(html, "chip-status-failed");
   assertStringIncludes(html, "table-row-status-failed");
+  assertFalse(html.includes("target_link_uri_drift"));
 });
 
 Deno.test("deployment page shows diagnostics and an explicit retry action for retryable AGS failures", () => {
@@ -142,9 +159,29 @@ Deno.test("deployment page shows diagnostics and an explicit retry action for re
           summary: "Rejected launch before runtime handoff.",
           operatorSummary:
             "Launch failed before Lantern could hand the learner into the governed runtime.",
+          boundaryDenialCategory: "specInvalid",
+          detail: {
+            category: "specInvalid",
+          },
         }),
         buildControlPlaneDiagnosticItem({
           id: 2,
+          kind: "deepLinking",
+          eventType: "deep_linking.request.rejected",
+          status: "failed",
+          code: "target_link_uri_drift_not_allowed",
+          summary: "Rejected a Canvas Deep Linking request before picker handoff.",
+          operatorSummary:
+            "Deep Linking request matched the saved Canvas deployment, but the active LTI profile denied it before picker handoff.",
+          boundaryDenialCategory: "policyDenied",
+          detail: {
+            category: "policyDenied",
+            ltiProfileId: "certification",
+            ltiProfileSource: "lanternDefault",
+          },
+        }),
+        buildControlPlaneDiagnosticItem({
+          id: 3,
           kind: "nrps",
           eventType: "deployment.nrps_verified",
           status: "failed",
@@ -158,7 +195,7 @@ Deno.test("deployment page shows diagnostics and an explicit retry action for re
           },
         }),
         buildControlPlaneDiagnosticItem({
-          id: 3,
+          id: 4,
           kind: "gradePublication",
           eventType: "grade_publish.failed",
           status: "failed",
@@ -191,8 +228,15 @@ Deno.test("deployment page shows diagnostics and an explicit retry action for re
   );
   assertStringIncludes(
     html,
+    "Deep Linking request matched the saved Canvas deployment, but the active LTI profile denied it before picker handoff.",
+  );
+  assertStringIncludes(
+    html,
     "Roster verification failed for the saved deployment path.",
   );
+  assertStringIncludes(html, "Spec-invalid request");
+  assertStringIncludes(html, "Policy denial");
+  assertStringIncludes(html, "Deep Linking");
   assertStringIncludes(html, "Profile Certification from Lantern default");
   assertStringIncludes(
     html,
@@ -202,6 +246,9 @@ Deno.test("deployment page shows diagnostics and an explicit retry action for re
   assertStringIncludes(html, "Retry grade publish");
   assertStringIncludes(html, "chip-status-attention");
   assertStringIncludes(html, 'details id="activity-details" open');
+  assertFalse(html.includes("specInvalid"));
+  assertFalse(html.includes("policyDenied"));
+  assertFalse(html.includes("target_link_uri_drift_not_allowed"));
 });
 
 Deno.test("deployment page keeps setup history as an optional verification link-out", () => {
