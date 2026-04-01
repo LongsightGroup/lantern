@@ -94,6 +94,104 @@ Deno.test("createLoginRedirect resolves a unique saved binding when client_id is
   );
 });
 
+Deno.test("createLoginRedirect waits for the resolved deployment profile before applying login compatibility behavior", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [
+      buildDeploymentRecord({
+        binding: {
+          lms: "moodle",
+          issuer: "https://moodle.example",
+          clientId: "moodle-client-123",
+          deploymentId: "moodle-deployment-123",
+          authorizationEndpoint: "https://moodle.example/mod/lti/auth.php",
+          accessTokenUrl: "https://moodle.example/mod/lti/token.php",
+          jwksUrl: "https://moodle.example/mod/lti/certs.php",
+        },
+        ltiProfileOverride: "governedCompatibility",
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-23T22:45:00Z",
+    },
+  });
+  const result = await createLoginRedirect({
+    repository,
+    loginRequest: {
+      iss: "https://moodle.example",
+      loginHint: "opaque%2Flogin%3Fhint",
+      targetLinkUri: null,
+      clientId: "moodle-client-123",
+      deploymentId: "moodle-deployment-123",
+      ltiMessageHint: "context%23value",
+    },
+    loginCompatibility: {
+      decodedLoginHint: "opaque/login?hint",
+      decodedLtiMessageHint: "context#value",
+    },
+    appOrigin: "http://localhost:8417",
+    now: () => new Date("2026-03-23T22:45:00Z"),
+    createOpaqueToken: () => crypto.randomUUID(),
+  });
+
+  assertEquals(result.loginState.loginHint, "opaque/login?hint");
+  assertEquals(result.loginState.ltiMessageHint, "context#value");
+  assertEquals(
+    result.loginState.targetLinkUri,
+    "http://localhost:8417/lti/launch",
+  );
+  assertEquals(result.compatibilityPathsUsed, [
+    "opaque_login_hint_decode",
+    "opaque_lti_message_hint_decode",
+    "platform_default_launch_target",
+  ]);
+  assertEquals(result.ltiProfile.id, "governedCompatibility");
+  assertEquals(result.ltiProfile.source, "deploymentOverride");
+});
+
+Deno.test("createLoginRedirect rejects opaque login compatibility paths when the resolved profile is certification", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [
+      buildDeploymentRecord({
+        binding: {
+          lms: "moodle",
+          issuer: "https://moodle.example",
+          clientId: "moodle-client-123",
+          deploymentId: "moodle-deployment-123",
+          authorizationEndpoint: "https://moodle.example/mod/lti/auth.php",
+          accessTokenUrl: "https://moodle.example/mod/lti/token.php",
+          jwksUrl: "https://moodle.example/mod/lti/certs.php",
+        },
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-23T22:45:00Z",
+    },
+  });
+
+  await assertRejects(
+    () =>
+      createLoginRedirect({
+        repository,
+        loginRequest: {
+          iss: "https://moodle.example",
+          loginHint: "opaque%2Flogin%3Fhint",
+          targetLinkUri: "http://localhost:8417/lti/launch",
+          clientId: "moodle-client-123",
+          deploymentId: "moodle-deployment-123",
+          ltiMessageHint: null,
+        },
+        loginCompatibility: {
+          decodedLoginHint: "opaque/login?hint",
+          decodedLtiMessageHint: null,
+        },
+      }),
+    Error,
+    "active LTI profile does not allow opaque",
+  );
+});
+
 Deno.test("login state records carry the expected target_link_uri and expiry window", async () => {
   const repository = createInMemoryPackageReviewRepository({
     deployments: [
