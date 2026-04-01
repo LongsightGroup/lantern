@@ -46,6 +46,11 @@ export type BrokerVerificationRunStatus =
   | "failed"
   | "pending"
   | "notRun";
+export type CertificationWorkflowKey =
+  | "core"
+  | "deepLinking"
+  | "nrps"
+  | "ags";
 export type OfficialCertificationState =
   | "notCertified"
   | "ltiAdvantageCertified"
@@ -54,6 +59,13 @@ export type BrokerVerificationSupportedPath =
   | "lti13LaunchAgsNrps"
   | "lti13LaunchAgsScore"
   | "lti13LaunchAgsScore";
+
+export const CERTIFICATION_WORKFLOW_KEYS = [
+  "core",
+  "deepLinking",
+  "nrps",
+  "ags",
+] as const satisfies readonly CertificationWorkflowKey[];
 
 export interface ControlPlaneHealthDimension {
   name: ControlPlaneHealthDimensionName;
@@ -184,6 +196,28 @@ export interface BrokerVerificationStatus {
   supportedPath: BrokerVerificationSupportedPath;
   internal: InternalBrokerVerificationStatus | null;
   official: OfficialBrokerCertificationStatus;
+}
+
+export interface CertificationWorkflowInternalEvidence {
+  deploymentRecordId: number;
+  deploymentLabel: string;
+  status: Exclude<BrokerVerificationRunStatus, "notRun">;
+  checkedAt: string;
+  summary: string;
+  evidenceUrl: string | null;
+}
+
+export interface CertificationWorkflowStatus {
+  workflowKey: CertificationWorkflowKey;
+  latestInternal: CertificationWorkflowInternalEvidence | null;
+}
+
+export interface LatestOfficialCertificationEvidence {
+  workflowKey: CertificationWorkflowKey;
+  state: OfficialCertificationState;
+  checkedAt: string;
+  summary: string;
+  directoryUrl: string | null;
 }
 
 export interface ControlPlaneDeploymentInventoryRow {

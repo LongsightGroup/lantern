@@ -4,6 +4,64 @@ export {
   INVENTORY_ORDER_BY,
 } from "./repository_inventory_queries.ts";
 
+const CERTIFICATION_WORKFLOW_ORDER_SQL = `
+  CASE certification_workflows.workflow_key
+    WHEN 'core' THEN 1
+    WHEN 'deepLinking' THEN 2
+    WHEN 'nrps' THEN 3
+    WHEN 'ags' THEN 4
+    ELSE 5
+  END
+`;
+
+export const LATEST_CERTIFICATION_WORKFLOW_STATUSES_QUERY = `
+  WITH certification_workflows (workflow_key) AS (
+    VALUES ('core'), ('deepLinking'), ('nrps'), ('ags')
+  )
+  SELECT
+    certification_workflows.workflow_key,
+    internal_run.deployment_record_id,
+    deployments.label AS deployment_label,
+    internal_run.status,
+    internal_run.summary,
+    internal_run.detail_url,
+    internal_run.checked_at
+  FROM certification_workflows
+  LEFT JOIN LATERAL (
+    SELECT
+      broker_verification_runs.deployment_record_id,
+      broker_verification_runs.status,
+      broker_verification_runs.summary,
+      broker_verification_runs.detail_url,
+      broker_verification_runs.checked_at
+    FROM broker_verification_runs
+    WHERE broker_verification_runs.workflow_key =
+        certification_workflows.workflow_key
+      AND broker_verification_runs.deployment_record_id IS NOT NULL
+      AND broker_verification_runs.source IN ('manual', 'ci')
+    ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
+    LIMIT 1
+  ) AS internal_run ON TRUE
+  LEFT JOIN deployments
+    ON deployments.id = internal_run.deployment_record_id
+  ORDER BY ${CERTIFICATION_WORKFLOW_ORDER_SQL}
+`;
+
+export const LATEST_OFFICIAL_CERTIFICATION_EVIDENCE_QUERY = `
+  SELECT
+    broker_verification_runs.workflow_key,
+    broker_verification_runs.status,
+    broker_verification_runs.certification_state,
+    broker_verification_runs.summary,
+    broker_verification_runs.detail_url,
+    broker_verification_runs.checked_at
+  FROM broker_verification_runs
+  WHERE broker_verification_runs.source = '1edtech'
+    AND broker_verification_runs.workflow_key IS NOT NULL
+  ORDER BY broker_verification_runs.checked_at DESC, broker_verification_runs.id DESC
+  LIMIT 1
+`;
+
 export const LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY = `
   SELECT
     broker_verification_runs.scope,
@@ -189,13 +247,14 @@ export const INSERT_BROKER_VERIFICATION_RUN_QUERY = `
   INSERT INTO broker_verification_runs (
     deployment_record_id,
     scope,
+    workflow_key,
     source,
     status,
     summary,
     detail_url,
     certification_state,
     checked_at
-  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `;
 
 export const RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY = `

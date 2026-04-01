@@ -58,7 +58,8 @@ Deno.test("ops repository returns the latest internal certification evidence per
       checkedAt: "2026-03-24T13:05:00Z",
     });
 
-    const workflowStatuses = await repository.listCertificationWorkflowStatuses();
+    const workflowStatuses = await repository
+      .listCertificationWorkflowStatuses();
     const statusesByWorkflow = new Map(
       workflowStatuses.map((status) => [status.workflowKey, status] as const),
     );
@@ -114,9 +115,13 @@ Deno.test("ops repository keeps official certification evidence global and separ
       checkedAt: "2026-03-24T13:00:00Z",
     });
 
-    const workflowStatuses = await repository.listCertificationWorkflowStatuses();
-    const coreStatus = workflowStatuses.find((status) => status.workflowKey === "core");
-    const officialEvidence = await repository.getLatestOfficialCertificationEvidence();
+    const workflowStatuses = await repository
+      .listCertificationWorkflowStatuses();
+    const coreStatus = workflowStatuses.find((status) =>
+      status.workflowKey === "core"
+    );
+    const officialEvidence = await repository
+      .getLatestOfficialCertificationEvidence();
 
     assertEquals(coreStatus?.latestInternal?.deploymentRecordId, 1);
     assertEquals(
@@ -135,7 +140,9 @@ Deno.test("ops repository keeps official certification evidence global and separ
     const client = await pool.connect();
 
     try {
-      const result = await client.queryObject<{ deploymentRecordId: number | null }>({
+      const result = await client.queryObject<
+        { deploymentRecordId: number | null }
+      >({
         text: `
           SELECT deployment_record_id
           FROM broker_verification_runs
@@ -189,13 +196,17 @@ Deno.test("ops repository ignores legacy coarse verification rows without a work
       client.release();
     }
 
-    const workflowStatuses = await repository.listCertificationWorkflowStatuses();
+    const workflowStatuses = await repository
+      .listCertificationWorkflowStatuses();
 
     for (const workflowStatus of workflowStatuses) {
       assertEquals(workflowStatus.latestInternal, null);
     }
 
-    assertEquals(await repository.getLatestOfficialCertificationEvidence(), null);
+    assertEquals(
+      await repository.getLatestOfficialCertificationEvidence(),
+      null,
+    );
   });
 });
 

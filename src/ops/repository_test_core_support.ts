@@ -15,9 +15,10 @@ type TestClient = Awaited<ReturnType<Pool["connect"]>>;
 export type BrokerVerificationRunFixture = {
   certificationState: string | null;
   checkedAt: string;
-  deploymentRecordId: number;
+  deploymentRecordId: number | null;
   detailUrl: string | null;
   scope: string;
+  workflowKey?: string | null;
   source: string;
   status: string;
   summary: string;
@@ -254,10 +255,11 @@ export async function insertBrokerVerificationRun(
 ): Promise<void> {
   await client.queryArray({
     text:
-      "INSERT INTO broker_verification_runs (deployment_record_id, scope, source, status, summary, detail_url, certification_state, checked_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+      "INSERT INTO broker_verification_runs (deployment_record_id, scope, workflow_key, source, status, summary, detail_url, certification_state, checked_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
     args: [
       record.deploymentRecordId,
       record.scope,
+      record.workflowKey ?? null,
       record.source,
       record.status,
       record.summary,

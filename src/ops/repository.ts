@@ -2,10 +2,12 @@ import type { Pool, PoolClient } from "@db/postgres";
 import { createPackageReviewRepository } from "../package_review/repository.ts";
 import type {
   BrokerVerificationStatus,
+  CertificationWorkflowStatus,
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
+  LatestOfficialCertificationEvidence,
   RetryableGradePublicationLookup,
 } from "./types.ts";
 import {
@@ -14,6 +16,7 @@ import {
   INVENTORY_BASE_QUERY,
   INVENTORY_ORDER_BY,
   LATEST_AGS_SMOKE_QUERY,
+  LATEST_CERTIFICATION_WORKFLOW_STATUSES_QUERY,
   LATEST_COMPATIBILITY_PATH_QUERY,
   LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY,
   LATEST_GLOBAL_OFFICIAL_BROKER_VERIFICATION_QUERY,
@@ -21,15 +24,18 @@ import {
   LATEST_LAUNCH_QUERY,
   LATEST_NRPS_QUERY,
   LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
+  LATEST_OFFICIAL_CERTIFICATION_EVIDENCE_QUERY,
   RECENT_ACCEPTED_LAUNCHES_QUERY,
   RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY,
 } from "./repository_queries.ts";
 import type {
   ActivitySnapshotRow,
+  CertificationWorkflowStatusRow,
   DiagnosticRow,
   GradePublicationSnapshotRow,
   InternalBrokerVerificationRow,
   InventoryQueryRow,
+  LatestOfficialCertificationEvidenceRow,
   OfficialBrokerVerificationRow,
   OpsRepository,
   RecentLaunchRow,
@@ -40,9 +46,11 @@ import {
   assertBrokerVerificationRunInput,
   mapActivitySnapshotRow,
   mapBrokerVerificationStatusRows,
+  mapCertificationWorkflowStatusRow,
   mapDiagnosticRows,
   mapGradePublicationSnapshotRow,
   mapInventoryRow,
+  mapLatestOfficialCertificationEvidenceRow,
   mapRecentLaunchRows,
 } from "./repository_mapping.ts";
 import { mapRetryLookupRow } from "./repository_retry_mapping.ts";
@@ -126,6 +134,22 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           brokerVerification: inventory.brokerVerification,
         };
       });
+    },
+
+    async listCertificationWorkflowStatuses() {
+      return await withClient(
+        pool,
+        async (client) =>
+          await listCertificationWorkflowStatusesForClient(client),
+      );
+    },
+
+    async getLatestOfficialCertificationEvidence() {
+      return await withClient(
+        pool,
+        async (client) =>
+          await getLatestOfficialCertificationEvidenceForClient(client),
+      );
     },
 
     async getLatestBrokerVerification() {
@@ -271,6 +295,30 @@ async function getLatestBrokerVerificationStatusForClient(
   return mapBrokerVerificationStatusRows(null, officialResult.rows[0] ?? null);
 }
 
+async function listCertificationWorkflowStatusesForClient(
+  client: PoolClient,
+): Promise<CertificationWorkflowStatus[]> {
+  const result = await client.queryObject<CertificationWorkflowStatusRow>({
+    text: LATEST_CERTIFICATION_WORKFLOW_STATUSES_QUERY,
+    camelCase: true,
+  });
+
+  return result.rows.map((row) => mapCertificationWorkflowStatusRow(row));
+}
+
+async function getLatestOfficialCertificationEvidenceForClient(
+  client: PoolClient,
+): Promise<LatestOfficialCertificationEvidence | null> {
+  const result = await client.queryObject<
+    LatestOfficialCertificationEvidenceRow
+  >({
+    text: LATEST_OFFICIAL_CERTIFICATION_EVIDENCE_QUERY,
+    camelCase: true,
+  });
+
+  return mapLatestOfficialCertificationEvidenceRow(result.rows[0] ?? null);
+}
+
 async function recordBrokerVerificationRunForClient(
   client: PoolClient,
   input: RecordBrokerVerificationRunInput,
@@ -281,6 +329,7 @@ async function recordBrokerVerificationRunForClient(
     args: [
       input.deploymentRecordId,
       input.scope,
+      input.workflowKey,
       input.source,
       input.status,
       input.summary,

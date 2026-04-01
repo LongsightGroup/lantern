@@ -6,6 +6,7 @@ import type {
   LmsType,
 } from "../lti/types.ts";
 import type {
+  CertificationWorkflowKey,
   ControlPlaneActivityStatus,
   ControlPlaneBoundaryDenialCategory,
   ControlPlaneDiagnosticItem,
@@ -15,6 +16,10 @@ import type { RecordBrokerVerificationRunInput } from "./repository_types.ts";
 export function assertBrokerVerificationRunInput(
   input: RecordBrokerVerificationRunInput,
 ): void {
+  if (!isCertificationWorkflowKey(input.workflowKey)) {
+    throw new Error("Choose one supported certification workflow.");
+  }
+
   if (input.source === "1edtech") {
     if (input.deploymentRecordId !== null) {
       throw new Error(
@@ -54,6 +59,13 @@ export function assertBrokerVerificationRunInput(
       "Internal verification runs cannot carry an official certification state.",
     );
   }
+}
+
+export function isCertificationWorkflowKey(
+  value: string,
+): value is CertificationWorkflowKey {
+  return value === "core" || value === "deepLinking" || value === "nrps" ||
+    value === "ags";
 }
 
 export function mapDeploymentBinding(input: {
@@ -138,8 +150,16 @@ export function normalizeOptionalTimestamp(
   return normalizeTimestamp(value);
 }
 
-export function normalizeNumeric(value: number | string): number {
-  return typeof value === "number" ? value : Number(value);
+export function normalizeNumeric(value: number | string | bigint): number {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "bigint") {
+    return Number(value);
+  }
+
+  return Number(value);
 }
 
 export function mapAuditActivityStatus(

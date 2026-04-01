@@ -104,6 +104,7 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
       id bigserial PRIMARY KEY,
       deployment_record_id bigint REFERENCES deployments (id) ON DELETE SET NULL,
       scope text NOT NULL,
+      workflow_key text,
       source text NOT NULL,
       status text NOT NULL,
       summary text NOT NULL,
@@ -150,6 +151,27 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
       ALTER COLUMN certification_state DROP NOT NULL;
   `,
   `
+    ALTER TABLE broker_verification_runs
+      ADD COLUMN IF NOT EXISTS workflow_key text
+  `,
+  `
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'broker_verification_runs_workflow_key_check'
+      ) THEN
+        ALTER TABLE broker_verification_runs
+          ADD CONSTRAINT broker_verification_runs_workflow_key_check
+          CHECK (
+            workflow_key IS NULL OR
+            workflow_key IN ('core', 'deepLinking', 'nrps', 'ags')
+          );
+      END IF;
+    END $$;
+  `,
+  `
     DO $$
     BEGIN
       IF NOT EXISTS (
@@ -180,6 +202,10 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
   `
     CREATE INDEX IF NOT EXISTS broker_verification_runs_scope_source_checked_at_idx
       ON broker_verification_runs (scope, source, checked_at DESC)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS broker_verification_runs_workflow_key_source_checked_at_idx
+      ON broker_verification_runs (workflow_key, source, checked_at DESC, id DESC)
   `,
 ];
 

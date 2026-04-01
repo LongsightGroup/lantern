@@ -1,17 +1,21 @@
 import { deriveDeploymentHealth, formatDiagnosticItem } from "./service.ts";
 import type {
   BrokerVerificationStatus,
+  CertificationWorkflowStatus,
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   DeploymentRecentLaunch,
+  LatestOfficialCertificationEvidence,
 } from "./types.ts";
 import type {
+  CertificationWorkflowStatusRow,
   DiagnosticRow,
   GradePublicationSnapshotRow,
   InternalBrokerVerificationRow,
   InventoryQueryRow,
+  LatestOfficialCertificationEvidenceRow,
   OfficialBrokerVerificationRow,
   RecentLaunchRow,
 } from "./repository_types.ts";
@@ -215,6 +219,42 @@ export function mapBrokerVerificationStatusRows(
         checkedAt: normalizeTimestamp(officialRow.checkedAt),
         directoryUrl: officialRow.detailUrl,
       },
+  };
+}
+
+export function mapCertificationWorkflowStatusRow(
+  row: CertificationWorkflowStatusRow,
+): CertificationWorkflowStatus {
+  return {
+    workflowKey: row.workflowKey,
+    latestInternal: row.deploymentRecordId === null ||
+        row.deploymentLabel === null || row.status === null ||
+        row.summary === null || row.checkedAt === null
+      ? null
+      : {
+        deploymentRecordId: normalizeNumeric(row.deploymentRecordId),
+        deploymentLabel: row.deploymentLabel,
+        status: row.status,
+        checkedAt: normalizeTimestamp(row.checkedAt),
+        summary: row.summary,
+        evidenceUrl: row.detailUrl,
+      },
+  };
+}
+
+export function mapLatestOfficialCertificationEvidenceRow(
+  row: LatestOfficialCertificationEvidenceRow | null,
+): LatestOfficialCertificationEvidence | null {
+  if (row === null) {
+    return null;
+  }
+
+  return {
+    workflowKey: row.workflowKey,
+    state: row.certificationState ?? "notCertified",
+    checkedAt: normalizeTimestamp(row.checkedAt),
+    summary: row.summary,
+    directoryUrl: row.detailUrl,
   };
 }
 

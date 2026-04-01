@@ -10,10 +10,13 @@ import type {
   BrokerVerificationRunStatus,
   BrokerVerificationSource,
   BrokerVerificationStatus,
+  CertificationWorkflowKey,
+  CertificationWorkflowStatus,
   ControlPlaneActivityStatus,
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDeploymentInventoryRow,
   DeploymentGradePublicationSnapshot,
+  LatestOfficialCertificationEvidence,
   OfficialCertificationState,
   RetryableGradePublicationLookup,
 } from "./types.ts";
@@ -134,6 +137,7 @@ export interface RecordBrokerVerificationRunInput {
   deploymentRecordId: number | null;
   source: BrokerVerificationSource;
   scope: BrokerVerificationStatus["supportedPath"];
+  workflowKey: CertificationWorkflowKey;
   status: PersistedBrokerVerificationRunStatus;
   certificationState:
     | Exclude<OfficialCertificationState, "notCertified">
@@ -158,6 +162,27 @@ export interface OfficialBrokerVerificationRow {
   certificationState:
     | Exclude<OfficialCertificationState, "notCertified">
     | null;
+  detailUrl: string | null;
+  checkedAt: Date | string;
+}
+
+export interface CertificationWorkflowStatusRow {
+  workflowKey: CertificationWorkflowStatus["workflowKey"];
+  deploymentRecordId: number | string | bigint | null;
+  deploymentLabel: string | null;
+  status: Exclude<BrokerVerificationRunStatus, "notRun"> | null;
+  summary: string | null;
+  detailUrl: string | null;
+  checkedAt: Date | string | null;
+}
+
+export interface LatestOfficialCertificationEvidenceRow {
+  workflowKey: LatestOfficialCertificationEvidence["workflowKey"];
+  status: PersistedBrokerVerificationRunStatus;
+  certificationState:
+    | Exclude<OfficialCertificationState, "notCertified">
+    | null;
+  summary: string;
   detailUrl: string | null;
   checkedAt: Date | string;
 }
@@ -202,6 +227,10 @@ export interface OpsRepository {
   getControlPlaneDeploymentDetail(
     deploymentRecordId: number,
   ): Promise<ControlPlaneDeploymentDetailSnapshot | null>;
+  listCertificationWorkflowStatuses(): Promise<CertificationWorkflowStatus[]>;
+  getLatestOfficialCertificationEvidence(): Promise<
+    LatestOfficialCertificationEvidence | null
+  >;
   getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
   getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
   recordBrokerVerificationRun(

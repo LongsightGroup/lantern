@@ -27,6 +27,12 @@ function createFailingOpsRepository(message: string): OpsRepository {
     getLatestBrokerVerificationStatus() {
       return Promise.reject(new Error(message));
     },
+    listCertificationWorkflowStatuses() {
+      return Promise.reject(new Error(message));
+    },
+    getLatestOfficialCertificationEvidence() {
+      return Promise.reject(new Error(message));
+    },
     recordBrokerVerificationRun() {
       return Promise.reject(new Error(message));
     },

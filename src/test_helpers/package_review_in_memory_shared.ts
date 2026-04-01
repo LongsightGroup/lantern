@@ -10,6 +10,7 @@ import type {
   BrokerVerificationRunStatus,
   BrokerVerificationSource,
   BrokerVerificationStatus,
+  CertificationWorkflowKey,
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
@@ -48,6 +49,7 @@ export interface InMemoryOpsRepository {
     deploymentRecordId: number | null;
     source: BrokerVerificationSource;
     scope: BrokerVerificationStatus["supportedPath"];
+    workflowKey: CertificationWorkflowKey;
     status: BrokerVerificationRunStatus | "notCertified";
     certificationState:
       | Exclude<OfficialBrokerCertificationStatus["state"], "notCertified">
