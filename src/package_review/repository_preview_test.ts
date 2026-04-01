@@ -21,6 +21,9 @@ Deno.test("repository creates and reads preview sessions without Canvas deployme
       appId: approvedRecord.appId,
       packageVersion: approvedRecord.version,
       packageTitle: approvedRecord.title,
+      origin: "deepLinkingAuthoring",
+      contentPath: "/content/bonus.json",
+      deepLinkingSessionId: "deep-linking-session-123",
       capabilities: approvedRecord.capabilities,
       snapshotRoot: approvedRecord.artifact.snapshotRoot,
       entrypointPath: approvedRecord.artifact.entrypointPath,
@@ -52,8 +55,14 @@ Deno.test("repository creates and reads preview sessions without Canvas deployme
     assertEquals(created.sessionId, "preview-session-123");
     assertEquals(created.packageVersionId, approvedRecord.id);
     assertEquals(created.packageVersion, approvedRecord.version);
+    assertEquals(created.origin, "deepLinkingAuthoring");
+    assertEquals(created.contentPath, "/content/bonus.json");
+    assertEquals(created.deepLinkingSessionId, "deep-linking-session-123");
     assertEquals(created.launch.courseId, "preview-course-42");
     assertEquals(fetched?.sessionId, "preview-session-123");
+    assertEquals(fetched?.origin, "deepLinkingAuthoring");
+    assertEquals(fetched?.contentPath, "/content/bonus.json");
+    assertEquals(fetched?.deepLinkingSessionId, "deep-linking-session-123");
     assertEquals(fetched?.launch.userRole, "instructor");
     assertEquals(fetched?.fakeAttemptId, "preview-attempt-123");
   });
@@ -75,6 +84,9 @@ Deno.test("repository appends preview evidence rows in chronological append orde
       appId: approvedRecord.appId,
       packageVersion: approvedRecord.version,
       packageTitle: approvedRecord.title,
+      origin: "adminTestLaunch",
+      contentPath: "/content/activity.json",
+      deepLinkingSessionId: null,
       capabilities: approvedRecord.capabilities,
       snapshotRoot: approvedRecord.artifact.snapshotRoot,
       entrypointPath: approvedRecord.artifact.entrypointPath,
@@ -150,6 +162,9 @@ Deno.test("repository returns the latest preview session by package version for 
       appId: approvedRecord.appId,
       packageVersion: approvedRecord.version,
       packageTitle: approvedRecord.title,
+      origin: "adminTestLaunch",
+      contentPath: "/content/activity.json",
+      deepLinkingSessionId: null,
       capabilities: approvedRecord.capabilities,
       snapshotRoot: approvedRecord.artifact.snapshotRoot,
       entrypointPath: approvedRecord.artifact.entrypointPath,
@@ -175,12 +190,49 @@ Deno.test("repository returns the latest preview session by package version for 
       createdAt: "2026-03-25T01:00:00Z",
     });
 
+    const latestAdminCreated = await repository.createPreviewSession({
+      sessionId: "preview-session-admin-latest",
+      packageVersionId: approvedRecord.id,
+      appId: approvedRecord.appId,
+      packageVersion: approvedRecord.version,
+      packageTitle: approvedRecord.title,
+      origin: "adminTestLaunch",
+      contentPath: "/content/activity.json",
+      deepLinkingSessionId: null,
+      capabilities: approvedRecord.capabilities,
+      snapshotRoot: approvedRecord.artifact.snapshotRoot,
+      entrypointPath: approvedRecord.artifact.entrypointPath,
+      launch: {
+        userId: "preview-user-admin",
+        userRole: "instructor",
+        courseId: "preview-course-42",
+        assignmentId: null,
+        activityId: "preview-activity-9",
+      },
+      fakeAttemptId: "preview-attempt-admin",
+      fakeScoreMaximum: 100,
+      fixtureData: {
+        launch: {
+          user_role: "instructor",
+          course_id: "preview-course-42",
+          assignment_id: null,
+          activity_id: "preview-activity-9",
+        },
+        attempt_id: "preview-attempt-admin",
+        local_state: null,
+      },
+      createdAt: "2026-03-25T01:01:00Z",
+    });
+
     const latestCreated = await repository.createPreviewSession({
       sessionId: "preview-session-latest",
       packageVersionId: approvedRecord.id,
       appId: approvedRecord.appId,
       packageVersion: approvedRecord.version,
       packageTitle: approvedRecord.title,
+      origin: "deepLinkingAuthoring",
+      contentPath: "/content/bonus.json",
+      deepLinkingSessionId: "deep-linking-session-latest",
       capabilities: approvedRecord.capabilities,
       snapshotRoot: approvedRecord.artifact.snapshotRoot,
       entrypointPath: approvedRecord.artifact.entrypointPath,
@@ -209,9 +261,23 @@ Deno.test("repository returns the latest preview session by package version for 
     const latest = await repository.getLatestPreviewSessionByPackageVersion(
       approvedRecord.id,
     );
+    const latestAdmin = await repository.getLatestPreviewSessionByPackageVersion(
+      approvedRecord.id,
+      "adminTestLaunch",
+    );
+    const latestAuthoring =
+      await repository.getLatestPreviewSessionByPackageVersion(
+        approvedRecord.id,
+        "deepLinkingAuthoring",
+      );
 
     assertEquals(latest?.sessionId, latestCreated.sessionId);
+    assertEquals(latest?.origin, "deepLinkingAuthoring");
     assertEquals(latest?.launch.userRole, "instructor");
+    assertEquals(latestAdmin?.sessionId, latestAdminCreated.sessionId);
+    assertEquals(latestAdmin?.origin, "adminTestLaunch");
+    assertEquals(latestAuthoring?.sessionId, latestCreated.sessionId);
+    assertEquals(latestAuthoring?.deepLinkingSessionId, "deep-linking-session-latest");
   });
 });
 
@@ -225,6 +291,9 @@ Deno.test("repository rejects preview writes that reference missing sessions or 
           appId: "chapter-4-asteroids",
           packageVersion: "0.9.9",
           packageTitle: "Missing package version",
+          origin: "adminTestLaunch",
+          contentPath: "/content/activity.json",
+          deepLinkingSessionId: null,
           capabilities: [],
           snapshotRoot: "var/packages/chapter-4-asteroids/0.9.9",
           entrypointPath:
