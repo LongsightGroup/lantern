@@ -1,3 +1,5 @@
+import { getLtiProfileDefinition } from "../lti/profile.ts";
+import { resolveLtiProfileForDeployment } from "../lti/profile_resolution.ts";
 import type {
   PublishFinalScoreInput,
   PublishFinalScoreResult,
@@ -26,7 +28,10 @@ export interface RetryAccessTokenRequester {
 export interface RetryLookupRepository extends
   Pick<
     PackageReviewRepository,
-    "recordAuditEvent" | "updateGradePublication"
+    | "getDeploymentByBinding"
+    | "getLanternLtiProfileSettings"
+    | "recordAuditEvent"
+    | "updateGradePublication"
   > {
   getRetryableGradePublicationLookup(
     attemptId: string,
@@ -71,6 +76,20 @@ export async function retryFailedGradePublication(input: {
       "Retry blocked: Lantern no longer has the saved Canvas binding for this grade publication.",
     );
   }
+  const deployment = await input.repository.getDeploymentByBinding(
+    lookup.binding,
+  );
+
+  if (deployment === null || deployment.id !== lookup.deploymentRecordId) {
+    throw new Error(
+      "Retry blocked: Lantern could not resolve the saved deployment profile for this grade publication.",
+    );
+  }
+
+  const ltiProfile = await resolveLtiProfileForDeployment({
+    repository: input.repository,
+    deployment,
+  });
 
   const requestAccessToken = input.requestAccessToken ??
     requestCanvasServiceAccessToken;
@@ -81,37 +100,41 @@ export async function retryFailedGradePublication(input: {
     deploymentId: lookup.binding.deploymentId,
     scopes: ags.scope,
   });
-  const retryUnauthorized = async () => {
-    await recordInteropPathUsed({
-      repository: input.repository,
-      scope: "service",
-      path: "service_401_retry",
-      actorType: "system",
-      deploymentRecordId: runtimeSession.deploymentRecordId,
-      packageVersionId: runtimeSession.packageVersionId,
-      attemptId: lookup.attemptId,
-      summary: "Lantern retried an LMS service request after a 401.",
-      detail: {
-        lms: lookup.binding!.lms,
-        deploymentSlug: runtimeSession.deploymentSlug,
-      },
-    });
-    const refreshed = await requestAccessToken({
-      issuer: lookup.binding!.issuer,
-      clientId: lookup.binding!.clientId,
-      deploymentId: lookup.binding!.deploymentId,
-      scopes: ags.scope,
-    });
+  const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
+      .retryServiceUnauthorizedOnce
+    ? async () => {
+      await recordInteropPathUsed({
+        repository: input.repository,
+        scope: "service",
+        path: "service_401_retry",
+        actorType: "system",
+        deploymentRecordId: runtimeSession.deploymentRecordId,
+        packageVersionId: runtimeSession.packageVersionId,
+        attemptId: lookup.attemptId,
+        summary: "Lantern retried an LMS service request after a 401.",
+        detail: {
+          lms: lookup.binding!.lms,
+          deploymentSlug: runtimeSession.deploymentSlug,
+        },
+        ltiProfile,
+      });
+      const refreshed = await requestAccessToken({
+        issuer: lookup.binding!.issuer,
+        clientId: lookup.binding!.clientId,
+        deploymentId: lookup.binding!.deploymentId,
+        scopes: ags.scope,
+      });
 
-    return refreshed.accessToken;
-  };
+      return refreshed.accessToken;
+    }
+    : undefined;
   const published = await publishGovernedGradePublication({
     repository: input.repository,
     attemptId: lookup.attemptId,
     publication: lookup.publication,
     accessToken: token.accessToken,
-    retryUnauthorized,
     now,
+    ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
     ...(input.publishScore === undefined
       ? {}
       : { publishScore: input.publishScore }),

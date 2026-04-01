@@ -57,6 +57,10 @@ export function registerAdminDeploymentRetryRoutes(
         );
         const retryResult = await retryFailedGradePublication({
           repository: {
+            getDeploymentByBinding: (binding) =>
+              repository.getDeploymentByBinding(binding),
+            getLanternLtiProfileSettings: () =>
+              repository.getLanternLtiProfileSettings(),
             getRetryableGradePublicationLookup: (candidateAttemptId) =>
               opsRepository.getRetryableGradePublicationLookup(
                 candidateAttemptId,

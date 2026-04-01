@@ -8,6 +8,8 @@ import {
   LTI_AGS_SCORE_SCOPE,
   type RuntimeSessionRecord,
 } from "../lti/types.ts";
+import { getLtiProfileDefinition } from "../lti/profile.ts";
+import { resolveLtiProfileForDeployment } from "../lti/profile_resolution.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
   AttemptRecord,
@@ -104,6 +106,10 @@ export async function publishRuntimeAttemptScore(input: {
     input.repository,
     input.session,
   );
+  const ltiProfile = await resolveLtiProfileForDeployment({
+    repository: input.repository,
+    deployment,
+  });
 
   if (deployment.binding === null) {
     return {
@@ -178,35 +184,39 @@ export async function publishRuntimeAttemptScore(input: {
     return accessToken;
   }
 
-  const retryUnauthorized = async () => {
-    await recordInteropPathUsed({
-      repository: input.repository,
-      scope: "service",
-      path: "service_401_retry",
-      actorType: "system",
-      deploymentRecordId: deployment.id,
-      packageVersionId: deployment.enabledPackageVersionId,
-      attemptId: input.attempt.attemptId,
-      summary: "Lantern retried an LMS service request after a 401.",
-      detail: {
-        lms: deployment.binding!.lms,
-        deploymentSlug: deployment.slug,
-      },
-    });
-    const refreshed = await requestServiceAccessToken({
-      binding: deployment.binding!,
-      scopes: ags.scope,
-    });
+  const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
+      .retryServiceUnauthorizedOnce
+    ? async () => {
+      await recordInteropPathUsed({
+        repository: input.repository,
+        scope: "service",
+        path: "service_401_retry",
+        actorType: "system",
+        deploymentRecordId: deployment.id,
+        packageVersionId: deployment.enabledPackageVersionId,
+        attemptId: input.attempt.attemptId,
+        summary: "Lantern retried an LMS service request after a 401.",
+        detail: {
+          lms: deployment.binding!.lms,
+          deploymentSlug: deployment.slug,
+        },
+        ltiProfile,
+      });
+      const refreshed = await requestServiceAccessToken({
+        binding: deployment.binding!,
+        scopes: ags.scope,
+      });
 
-    return refreshed.accessToken;
-  };
+      return refreshed.accessToken;
+    }
+    : undefined;
 
   const lineItemBinding = await ensureLineItemBinding(
     existingBinding,
     accessToken,
     {
       ...input,
-      retryUnauthorized,
+      ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
     },
   );
 
@@ -250,8 +260,8 @@ export async function publishRuntimeAttemptScore(input: {
     attemptId: input.attempt.attemptId,
     publication: gradePublication,
     accessToken,
-    retryUnauthorized,
     now: input.now,
+    ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
   });
 
   return {
