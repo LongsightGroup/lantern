@@ -253,12 +253,19 @@ export interface PreviewFixtureData {
   local_state: Record<string, unknown> | null;
 }
 
+export type PreviewSessionOrigin =
+  | "adminTestLaunch"
+  | "deepLinkingAuthoring";
+
 export interface PreviewSessionRecord {
   sessionId: string;
   packageVersionId: number;
   appId: string;
   packageVersion: string;
   packageTitle: string;
+  origin: PreviewSessionOrigin;
+  contentPath: string;
+  deepLinkingSessionId: string | null;
   capabilities: Capability[];
   snapshotRoot: string;
   entrypointPath: string;

@@ -172,6 +172,9 @@ export interface PreviewSessionRow {
   appId: string;
   packageVersion: string;
   packageTitle: string;
+  origin: PreviewSessionRecord["origin"];
+  contentPath: string;
+  deepLinkingSessionId: string | null;
   capabilities: PreviewSessionRecord["capabilities"];
   snapshotRoot: string;
   entrypointPath: string;

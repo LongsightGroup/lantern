@@ -49,9 +49,12 @@ export function createInMemoryPreviewRepository(
       return Promise.resolve(record ? cloneRecord(record) : null);
     },
 
-    getLatestPreviewSessionByPackageVersion(packageVersionId) {
+    getLatestPreviewSessionByPackageVersion(packageVersionId, origin) {
       const latest = state.previewSessions
-        .filter((candidate) => candidate.packageVersionId === packageVersionId)
+        .filter((candidate) =>
+          candidate.packageVersionId === packageVersionId &&
+          (origin === undefined || candidate.origin === origin)
+        )
         .sort((left, right) =>
           Date.parse(right.createdAt) - Date.parse(left.createdAt)
         )[0];

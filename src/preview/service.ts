@@ -6,6 +6,7 @@ import type {
 } from "../package_review/types.ts";
 import {
   loadPreviewFixtureData,
+  resolvePreviewContentPath,
   resolvePreviewRuntimeContentPath,
 } from "./fixture.ts";
 
@@ -185,6 +186,7 @@ export async function preparePreviewSession(input: {
   }
 
   const fixtureData = await loadPreviewFixtureData(packageVersion);
+  const contentPath = await resolvePreviewContentPath(packageVersion);
   const createdAt = now().toISOString();
   const sessionId = `preview-session-${createOpaqueToken()}`;
   const launchUserId = `preview-user-${createOpaqueToken()}`;
@@ -200,6 +202,9 @@ export async function preparePreviewSession(input: {
     appId: packageVersion.appId,
     packageVersion: packageVersion.version,
     packageTitle: packageVersion.title,
+    origin: "adminTestLaunch",
+    contentPath,
+    deepLinkingSessionId: null,
     capabilities: packageVersion.capabilities,
     snapshotRoot: packageVersion.artifact.snapshotRoot,
     entrypointPath: packageVersion.artifact.entrypointPath,

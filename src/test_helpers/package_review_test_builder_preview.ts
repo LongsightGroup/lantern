@@ -73,6 +73,9 @@ export function buildPreviewSessionRecord(
     appId: overrides.appId ?? "chapter-4-asteroids",
     packageVersion: overrides.packageVersion ?? "0.1.0",
     packageTitle: overrides.packageTitle ?? "Chapter 4 Asteroids",
+    origin: overrides.origin ?? "adminTestLaunch",
+    contentPath: overrides.contentPath ?? "/content/activity.json",
+    deepLinkingSessionId: overrides.deepLinkingSessionId ?? null,
     capabilities: overrides.capabilities ?? [
       "read_launch_context",
       "read_activity_content",

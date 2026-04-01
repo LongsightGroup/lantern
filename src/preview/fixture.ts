@@ -49,12 +49,18 @@ export async function loadPreviewFixtureData(
 export async function resolvePreviewRuntimeContentPath(
   packageVersion: PackageVersionRecord,
 ): Promise<string> {
-  const manifestJson = await loadReviewedManifestJson(packageVersion);
-  const canonicalContentPath = readCanonicalContentPath(manifestJson);
+  const canonicalContentPath = await resolvePreviewContentPath(packageVersion);
 
   return `${packageVersion.artifact.snapshotRoot}${
     ensureLeadingSlash(canonicalContentPath)
   }`;
+}
+
+export async function resolvePreviewContentPath(
+  packageVersion: PackageVersionRecord,
+): Promise<string> {
+  const manifestJson = await loadReviewedManifestJson(packageVersion);
+  return ensureLeadingSlash(readCanonicalContentPath(manifestJson));
 }
 
 async function loadReviewedManifestJson(

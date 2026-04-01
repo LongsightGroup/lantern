@@ -41,13 +41,16 @@ export async function insertPreviewSession(
 ): Promise<void> {
   await client.queryArray({
     text:
-      "INSERT INTO preview_sessions (session_id, package_version_id, app_id, package_version, package_title, capabilities, snapshot_root, entrypoint_path, launch_user_id, launch_user_role, launch_course_id, launch_assignment_id, launch_activity_id, fake_attempt_id, fake_score_maximum, fixture_data, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, $17)",
+      "INSERT INTO preview_sessions (session_id, package_version_id, app_id, package_version, package_title, origin, content_path, deep_linking_session_id, capabilities, snapshot_root, entrypoint_path, launch_user_id, launch_user_role, launch_course_id, launch_assignment_id, launch_activity_id, fake_attempt_id, fake_score_maximum, fixture_data, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20)",
     args: [
       record.sessionId,
       record.packageVersionId,
       record.appId,
       record.packageVersion,
       record.packageTitle,
+      record.origin,
+      record.contentPath,
+      record.deepLinkingSessionId,
       record.capabilities,
       record.snapshotRoot,
       record.entrypointPath,

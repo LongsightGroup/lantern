@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
+import { buildDeepLinkingSessionRecord } from "../test_helpers/lti_session_builders.ts";
 import {
   buildImportedPackageVersion,
   withRepositoryTestDatabase,
@@ -14,6 +15,26 @@ Deno.test("repository creates and reads preview sessions without Canvas deployme
       ).id,
       reviewNotes: "Approved for governed preview sessions.",
     });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-authoring",
+      label: "Chapter 4 Asteroids Authoring Deployment",
+      appId: approvedRecord.appId,
+      packageVersionId: approvedRecord.id,
+    });
+    await repository.createDeepLinkingSession(
+      buildDeepLinkingSessionRecord({
+        sessionId: "deep-linking-session-123",
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        appId: approvedRecord.appId,
+        selection: {
+          packageVersionId: approvedRecord.id,
+          packageVersion: approvedRecord.version,
+          activityId: "/content/bonus.json",
+          contentPath: "/content/bonus.json",
+        },
+      }),
+    );
 
     const created = await repository.createPreviewSession({
       sessionId: "preview-session-123",
@@ -155,6 +176,26 @@ Deno.test("repository returns the latest preview session by package version for 
       ).id,
       reviewNotes: "Approved for preview capability-log lookup.",
     });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-authoring",
+      label: "Chapter 4 Asteroids Authoring Deployment",
+      appId: approvedRecord.appId,
+      packageVersionId: approvedRecord.id,
+    });
+    await repository.createDeepLinkingSession(
+      buildDeepLinkingSessionRecord({
+        sessionId: "deep-linking-session-latest",
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        appId: approvedRecord.appId,
+        selection: {
+          packageVersionId: approvedRecord.id,
+          packageVersion: approvedRecord.version,
+          activityId: "/content/bonus.json",
+          contentPath: "/content/bonus.json",
+        },
+      }),
+    );
 
     await repository.createPreviewSession({
       sessionId: "preview-session-oldest",
@@ -255,18 +296,19 @@ Deno.test("repository returns the latest preview session by package version for 
         attempt_id: "preview-attempt-new",
         local_state: null,
       },
-      createdAt: "2026-03-25T01:01:00Z",
+      createdAt: "2026-03-25T01:02:00Z",
     });
 
     const latest = await repository.getLatestPreviewSessionByPackageVersion(
       approvedRecord.id,
     );
-    const latestAdmin = await repository.getLatestPreviewSessionByPackageVersion(
-      approvedRecord.id,
-      "adminTestLaunch",
-    );
-    const latestAuthoring =
-      await repository.getLatestPreviewSessionByPackageVersion(
+    const latestAdmin = await repository
+      .getLatestPreviewSessionByPackageVersion(
+        approvedRecord.id,
+        "adminTestLaunch",
+      );
+    const latestAuthoring = await repository
+      .getLatestPreviewSessionByPackageVersion(
         approvedRecord.id,
         "deepLinkingAuthoring",
       );
@@ -277,7 +319,10 @@ Deno.test("repository returns the latest preview session by package version for 
     assertEquals(latestAdmin?.sessionId, latestAdminCreated.sessionId);
     assertEquals(latestAdmin?.origin, "adminTestLaunch");
     assertEquals(latestAuthoring?.sessionId, latestCreated.sessionId);
-    assertEquals(latestAuthoring?.deepLinkingSessionId, "deep-linking-session-latest");
+    assertEquals(
+      latestAuthoring?.deepLinkingSessionId,
+      "deep-linking-session-latest",
+    );
   });
 });
 

@@ -65,6 +65,9 @@ export function createPreviewRepositoryMethods(
                     app_id,
                     package_version,
                     package_title,
+                    origin,
+                    content_path,
+                    deep_linking_session_id,
                     capabilities,
                     snapshot_root,
                     entrypoint_path,
@@ -78,8 +81,8 @@ export function createPreviewRepositoryMethods(
                     fixture_data,
                     created_at
                   ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9,
-                    $10, $11, $12, $13, $14, $15, $16::jsonb, $17
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+                    $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, $20
                   )
                   RETURNING
                     session_id,
@@ -87,6 +90,9 @@ export function createPreviewRepositoryMethods(
                     app_id,
                     package_version,
                     package_title,
+                    origin,
+                    content_path,
+                    deep_linking_session_id,
                     capabilities,
                     snapshot_root,
                     entrypoint_path,
@@ -106,6 +112,9 @@ export function createPreviewRepositoryMethods(
                   record.appId,
                   record.packageVersion,
                   record.packageTitle,
+                  record.origin,
+                  record.contentPath,
+                  record.deepLinkingSessionId,
                   record.capabilities,
                   record.snapshotRoot,
                   record.entrypointPath,
@@ -149,16 +158,19 @@ export function createPreviewRepositoryMethods(
       });
     },
 
-    async getLatestPreviewSessionByPackageVersion(packageVersionId) {
+    async getLatestPreviewSessionByPackageVersion(packageVersionId, origin) {
       return await withClient(pool, async (client) => {
         const result = await client.queryObject<PreviewSessionRow>({
           text: `
             ${PREVIEW_SESSION_SELECT}
             WHERE package_version_id = $1
+            ${origin === undefined ? "" : "AND origin = $2"}
             ORDER BY created_at DESC
             LIMIT 1
           `,
-          args: [packageVersionId],
+          args: origin === undefined
+            ? [packageVersionId]
+            : [packageVersionId, origin],
           camelCase: true,
         });
 

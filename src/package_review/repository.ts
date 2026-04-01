@@ -10,6 +10,7 @@ import type {
   PackageVersionRecord,
   PlacementAuditSnapshot,
   PreviewEvidenceRecord,
+  PreviewSessionOrigin,
   PreviewSessionRecord,
   ReviewedPlacementRecord,
 } from "./types.ts";
@@ -133,6 +134,7 @@ export interface PackageReviewRepository {
   ): Promise<PreviewSessionRecord | null>;
   getLatestPreviewSessionByPackageVersion(
     packageVersionId: number,
+    origin?: PreviewSessionOrigin,
   ): Promise<PreviewSessionRecord | null>;
   appendPreviewEvidence(input: {
     previewSessionId: string;
