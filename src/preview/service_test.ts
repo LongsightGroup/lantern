@@ -342,7 +342,10 @@ Deno.test("preview service keeps explicit authoring origin and selected content 
       launched.runtimeSession.contentPath,
       `${snapshotRoot}/content/bonus.json`,
     );
-    assertEquals(launched.runtimeSession.launch.activityId, "/content/bonus.json");
+    assertEquals(
+      launched.runtimeSession.launch.activityId,
+      "/content/bonus.json",
+    );
   } finally {
     await Deno.remove(snapshotRoot, { recursive: true });
   }

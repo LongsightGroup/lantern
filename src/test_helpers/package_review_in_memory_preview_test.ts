@@ -78,7 +78,9 @@ Deno.test("in-memory preview lookup honors the same origin filter as the reposit
 
   assertEquals(
     (
-      await repository.getLatestPreviewSessionByPackageVersion(packageVersion.id)
+      await repository.getLatestPreviewSessionByPackageVersion(
+        packageVersion.id,
+      )
     )?.sessionId,
     authoringSession.sessionId,
   );
@@ -112,5 +114,8 @@ Deno.test("preview test builders expose explicit origin and selected content def
 
   assertEquals(authoringSession.origin, "deepLinkingAuthoring");
   assertEquals(authoringSession.contentPath, "/content/bonus.json");
-  assertEquals(authoringSession.deepLinkingSessionId, "deep-linking-session-123");
+  assertEquals(
+    authoringSession.deepLinkingSessionId,
+    "deep-linking-session-123",
+  );
 });
