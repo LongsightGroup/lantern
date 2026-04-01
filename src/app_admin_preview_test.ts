@@ -2,7 +2,10 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import { EXAMPLE_SNAPSHOT_ROOT } from "./app_test_support.ts";
 import {
+  buildAdminPreviewSessionRecord,
+  buildAuthoringPreviewSessionRecord,
   buildPackageVersionRecord,
+  buildPreviewEvidenceRecord,
   createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
 
@@ -209,4 +212,81 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview writes durable 
   );
   assertEquals(previewEvidence.length, 1);
   assertEquals(previewEvidence[0]?.eventType, "preview.launch");
+});
+
+Deno.test("GET /admin/packages/:appId/versions/:version/preview keeps reviewer history tied to admin test launches", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 48,
+        appId: "chapter-4-asteroids",
+        version: "0.4.0",
+        approvalStatus: "approved",
+        reviewedAt: "2026-04-01T09:00:00Z",
+        manifestJson: {
+          app_id: "chapter-4-asteroids",
+          version: "0.4.0",
+          title: "Chapter 4 Asteroids",
+          preview: {
+            fixtures_file: "/preview/fixtures.json",
+            tests_file: "/preview/tests.json",
+          },
+        },
+        artifact: {
+          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+          manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+          digest: "sha256:example-approved-preview-history-filter",
+        },
+      }),
+    ],
+    previewSessions: [
+      buildAdminPreviewSessionRecord({
+        sessionId: "preview-session-admin-history",
+        packageVersionId: 48,
+        appId: "chapter-4-asteroids",
+        packageVersion: "0.4.0",
+        packageTitle: "Chapter 4 Asteroids",
+        snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+        entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+        createdAt: "2026-04-01T09:10:00Z",
+      }),
+      buildAuthoringPreviewSessionRecord({
+        sessionId: "preview-session-authoring-history",
+        packageVersionId: 48,
+        appId: "chapter-4-asteroids",
+        packageVersion: "0.4.0",
+        packageTitle: "Chapter 4 Asteroids",
+        snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+        entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+        createdAt: "2026-04-01T09:15:00Z",
+      }),
+    ],
+    previewEvidence: [
+      buildPreviewEvidenceRecord({
+        id: 1,
+        previewSessionId: "preview-session-admin-history",
+        summary: "Admin reviewer launch evidence",
+      }),
+      buildPreviewEvidenceRecord({
+        id: 2,
+        previewSessionId: "preview-session-authoring-history",
+        summary: "Authoring preview evidence",
+      }),
+    ],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.4.0/preview",
+  );
+
+  assertEquals(response.status, 200);
+  const body = await response.text();
+
+  assertStringIncludes(body, "preview-session-admin-history");
+  assertStringIncludes(body, "Admin reviewer launch evidence");
+  assertEquals(body.includes("preview-session-authoring-history"), false);
+  assertEquals(body.includes("Authoring preview evidence"), false);
 });

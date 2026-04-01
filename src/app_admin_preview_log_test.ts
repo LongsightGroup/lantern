@@ -2,8 +2,9 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import { EXAMPLE_SNAPSHOT_ROOT } from "./app_test_support.ts";
 import {
+  buildAdminPreviewSessionRecord,
+  buildAuthoringPreviewSessionRecord,
   buildPackageVersionRecord,
-  buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
 
@@ -155,7 +156,7 @@ Deno.test("GET /admin/packages/:appId/versions/:version/preview records a review
       }),
     ],
     previewSessions: [
-      buildPreviewSessionRecord({
+      buildAdminPreviewSessionRecord({
         sessionId: "preview-session-reviewer-action",
         packageVersionId: 47,
         appId: "chapter-4-asteroids",
@@ -204,4 +205,70 @@ Deno.test("GET /admin/packages/:appId/versions/:version/preview records a review
     "preview-session-reviewer-action",
   );
   assertEquals("runtimeSessionId" in (auditEvents[0]?.detail ?? {}), false);
+});
+
+Deno.test("GET /admin/packages/:appId/versions/:version/preview records reviewer detail against the latest admin test launch only", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 49,
+        appId: "chapter-4-asteroids",
+        version: "0.5.0",
+        approvalStatus: "approved",
+        reviewedAt: "2026-04-01T09:30:00Z",
+        manifestJson: {
+          app_id: "chapter-4-asteroids",
+          version: "0.5.0",
+          title: "Chapter 4 Asteroids",
+          preview: {
+            fixtures_file: "/preview/fixtures.json",
+            tests_file: "/preview/tests.json",
+          },
+        },
+        artifact: {
+          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+          manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+          digest: "sha256:example-approved-preview-reviewer-filter",
+        },
+      }),
+    ],
+    previewSessions: [
+      buildAdminPreviewSessionRecord({
+        sessionId: "preview-session-reviewer-admin",
+        packageVersionId: 49,
+        appId: "chapter-4-asteroids",
+        packageVersion: "0.5.0",
+        packageTitle: "Chapter 4 Asteroids",
+        snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+        entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+        createdAt: "2026-04-01T09:31:00Z",
+      }),
+      buildAuthoringPreviewSessionRecord({
+        sessionId: "preview-session-reviewer-authoring",
+        packageVersionId: 49,
+        appId: "chapter-4-asteroids",
+        packageVersion: "0.5.0",
+        packageTitle: "Chapter 4 Asteroids",
+        snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+        entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+        createdAt: "2026-04-01T09:32:00Z",
+      }),
+    ],
+  });
+  const app = createApp({ getRepository: () => repository });
+
+  const response = await app.request(
+    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.5.0/preview",
+  );
+  const auditEvents = await repository.listAuditEventsByEventType(
+    "reviewer.preview_viewed",
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(auditEvents.length, 1);
+  assertEquals(
+    String(auditEvents[0]?.detail.previewSessionId ?? ""),
+    "preview-session-reviewer-admin",
+  );
 });
