@@ -23,6 +23,7 @@ export async function handleLoginInitiation(
     const result = await createLoginRedirect({
       repository,
       loginRequest: loginRequest.request,
+      loginCompatibility: loginRequest.compatibility,
       appOrigin: resolveConfiguredPublicOrigin({
         requestUrl: context.req.url,
         forwardedHeader: context.req.header("forwarded") ?? null,
@@ -32,25 +33,11 @@ export async function handleLoginInitiation(
       }),
     });
     const compatibilityPaths = [
-      ...(loginRequest.compatibility.decodedLoginHint
-        ? ["opaque_login_hint_decode"]
-        : []),
-      ...(loginRequest.compatibility.decodedLtiMessageHint
-        ? ["opaque_lti_message_hint_decode"]
-        : []),
+      ...result.compatibilityPathsUsed,
       ...(context.req.header("sec-fetch-dest") === "iframe"
         ? ["iframe_top_level_escape"]
         : []),
     ];
-    const deployment = compatibilityPaths.length === 0
-      ? null
-      : await repository.getDeploymentBySlug(result.deploymentSlug);
-    const ltiProfile = deployment === null
-      ? null
-      : await resolveLtiProfileForDeployment({
-        repository,
-        deployment,
-      });
 
     await Promise.all(
       compatibilityPaths.map((path) =>
@@ -68,7 +55,7 @@ export async function handleLoginInitiation(
             clientId: result.loginState.clientId,
             deploymentId: result.loginState.deploymentId,
           },
-          ltiProfile,
+          ltiProfile: result.ltiProfile,
         })
       ),
     );

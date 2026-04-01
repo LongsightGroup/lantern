@@ -404,7 +404,7 @@ Deno.test("GET /lti/login applies deployment override compatibility behavior onl
   assertEquals(redirected.searchParams.get("login_hint"), "opaque/login?hint");
   assertEquals(saved?.loginHint, "opaque/login?hint");
   assertEquals(saved?.ltiMessageHint, "context#value");
-  assertEquals(saved?.targetLinkUri, "http://localhost:8417/lti/launch");
+  assertEquals(saved?.targetLinkUri, "http://localhost/lti/launch");
   assertEquals(
     interopEvents.some((event) =>
       event.detail.path === "opaque_login_hint_decode" &&

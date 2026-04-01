@@ -36,6 +36,7 @@ export function statusForError(error: unknown): 409 | 500 {
     error.message.includes("must send client_id") ||
     error.message.includes("Choose one supported Canvas environment") ||
     error.message.includes("Choose one supported LMS deployment") ||
+    error.message.includes("active LTI profile") ||
     error.message.includes("dynamic registration") ||
     error.message.includes("callback route") ||
     error.message.includes("already been used") ||

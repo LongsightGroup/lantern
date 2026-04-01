@@ -1,12 +1,10 @@
 import type { Context } from "@hono/hono";
 import { type LtiProfileId, requireLtiProfileId } from "./lti/profile.ts";
-import type { LoginRequest } from "./lti/login.ts";
+import type {
+  LoginRequest,
+  LoginRequestCompatibility,
+} from "./lti/login.ts";
 export { parseBrokerVerificationRunForm } from "./app_request_broker_verification.ts";
-
-export interface LoginRequestCompatibility {
-  decodedLoginHint: boolean;
-  decodedLtiMessageHint: boolean;
-}
 
 export interface ReadLoginRequestResult {
   request: LoginRequest;
@@ -246,7 +244,7 @@ function requireOpaqueFormValue(
 
 function requireOpaqueHint(value: string | null, message: string): {
   value: string;
-  decoded: boolean;
+  decoded: string | null;
 } {
   const normalized = normalizeOpaqueHint(value);
 
@@ -262,18 +260,23 @@ function requireOpaqueHint(value: string | null, message: string): {
 
 function normalizeOpaqueHint(value: string | null): {
   value: string | null;
-  decoded: boolean;
+  decoded: string | null;
 } {
   const normalized = normalizeNullableString(value);
 
   if (normalized === null) {
     return {
       value: null,
-      decoded: false,
+      decoded: null,
     };
   }
 
-  return decodeOpaqueHintOnce(normalized);
+  const decoded = decodeOpaqueHintOnce(normalized);
+
+  return {
+    value: normalized,
+    decoded: decoded.decoded ? decoded.value : null,
+  };
 }
 
 function decodeOpaqueHintOnce(value: string): {

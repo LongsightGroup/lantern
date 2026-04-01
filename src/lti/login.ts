@@ -1,9 +1,16 @@
 import type { PackageReviewRepository } from "../package_review/repository.ts";
+import { getLtiProfileDefinition, type ResolvedLtiProfile } from "./profile.ts";
+import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
 import { buildLanternTargetLinkUri } from "./target_link_uri.ts";
 import type { LoginStateRecord } from "./types.ts";
 import { resolveAuthorizationEndpoint } from "./platform_binding.ts";
 
 const LOGIN_STATE_TTL_MS = 5 * 60 * 1000;
+
+export type LoginCompatibilityPath =
+  | "opaque_login_hint_decode"
+  | "opaque_lti_message_hint_decode"
+  | "platform_default_launch_target";
 
 export interface LoginRequest {
   iss: string;
@@ -14,17 +21,25 @@ export interface LoginRequest {
   ltiMessageHint: string | null;
 }
 
+export interface LoginRequestCompatibility {
+  decodedLoginHint: string | null;
+  decodedLtiMessageHint: string | null;
+}
+
 export interface LoginRedirectResult {
   location: string;
   loginState: LoginStateRecord;
   deploymentRecordId: number;
   deploymentSlug: string;
   packageVersionId: number | null;
+  ltiProfile: ResolvedLtiProfile;
+  compatibilityPathsUsed: LoginCompatibilityPath[];
 }
 
 export async function createLoginRedirect(input: {
   repository: PackageReviewRepository;
   loginRequest: LoginRequest;
+  loginCompatibility?: LoginRequestCompatibility;
   appOrigin?: string;
   now?: () => Date;
   createOpaqueToken?: () => string;
@@ -32,6 +47,9 @@ export async function createLoginRedirect(input: {
   const now = input.now ?? (() => new Date());
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const loginRequest = normalizeLoginRequest(input.loginRequest);
+  const loginCompatibility = normalizeLoginRequestCompatibility(
+    input.loginCompatibility,
+  );
   let deployment;
 
   try {
@@ -77,12 +95,40 @@ export async function createLoginRedirect(input: {
   }
 
   const binding = deployment.binding;
+  const ltiProfile = await resolveLtiProfileForDeployment({
+    repository: input.repository,
+    deployment,
+  });
+  const behavior = getLtiProfileDefinition(ltiProfile.id).behavior;
+  const compatibilityPathsUsed: LoginCompatibilityPath[] = [];
+  const loginHint = resolveOpaqueLoginCompatibility({
+    field: "login_hint",
+    rawValue: loginRequest.loginHint,
+    decodedValue: loginCompatibility.decodedLoginHint,
+    allowDecode: behavior.decodeOpaqueHints,
+    path: "opaque_login_hint_decode",
+    compatibilityPathsUsed,
+  });
+  const ltiMessageHint = resolveOptionalOpaqueLoginCompatibility({
+    field: "lti_message_hint",
+    rawValue: loginRequest.ltiMessageHint,
+    decodedValue: loginCompatibility.decodedLtiMessageHint,
+    allowDecode: behavior.decodeOpaqueHints,
+    path: "opaque_lti_message_hint_decode",
+    compatibilityPathsUsed,
+  });
   const createdAt = now();
   const targetLinkUri = resolveLoginTargetLinkUri({
     targetLinkUri: loginRequest.targetLinkUri,
     lms: binding.lms,
     appOrigin: input.appOrigin,
+    allowPlatformDefaultLaunchTarget: behavior.allowPlatformDefaultLaunchTarget,
   });
+
+  if (targetLinkUri.usedCompatibilityPath) {
+    compatibilityPathsUsed.push("platform_default_launch_target");
+  }
+
   const loginState = await input.repository.createLoginState({
     lms: binding.lms,
     state: createOpaqueToken(),
@@ -93,9 +139,9 @@ export async function createLoginRedirect(input: {
     issuer: binding.issuer,
     clientId: binding.clientId,
     deploymentId: binding.deploymentId,
-    loginHint: loginRequest.loginHint,
-    targetLinkUri,
-    ltiMessageHint: loginRequest.ltiMessageHint,
+    loginHint,
+    targetLinkUri: targetLinkUri.value,
+    ltiMessageHint,
     createdAt: createdAt.toISOString(),
     expiresAt: new Date(createdAt.getTime() + LOGIN_STATE_TTL_MS).toISOString(),
     usedAt: null,
@@ -121,6 +167,8 @@ export async function createLoginRedirect(input: {
     deploymentRecordId: deployment.id,
     deploymentSlug: deployment.slug,
     packageVersionId: deployment.enabledPackageVersionId,
+    ltiProfile,
+    compatibilityPathsUsed,
   };
 }
 
@@ -141,13 +189,77 @@ function normalizeLoginRequest(request: LoginRequest): LoginRequest {
   };
 }
 
+function normalizeLoginRequestCompatibility(
+  compatibility: LoginRequestCompatibility | undefined,
+): LoginRequestCompatibility {
+  return {
+    decodedLoginHint: normalizeOptionalValue(
+      compatibility?.decodedLoginHint ?? null,
+    ),
+    decodedLtiMessageHint: normalizeOptionalValue(
+      compatibility?.decodedLtiMessageHint ?? null,
+    ),
+  };
+}
+
+function resolveOpaqueLoginCompatibility(input: {
+  field: "login_hint" | "lti_message_hint";
+  rawValue: string;
+  decodedValue: string | null;
+  allowDecode: boolean;
+  path: LoginCompatibilityPath;
+  compatibilityPathsUsed: LoginCompatibilityPath[];
+}): string {
+  if (input.decodedValue === null || input.decodedValue === input.rawValue) {
+    return input.rawValue;
+  }
+
+  if (!input.allowDecode) {
+    throw new Error(
+      `The active LTI profile does not allow opaque ${input.field} compatibility decoding.`,
+    );
+  }
+
+  input.compatibilityPathsUsed.push(input.path);
+  return input.decodedValue;
+}
+
+function resolveOptionalOpaqueLoginCompatibility(input: {
+  field: "lti_message_hint";
+  rawValue: string | null;
+  decodedValue: string | null;
+  allowDecode: boolean;
+  path: LoginCompatibilityPath;
+  compatibilityPathsUsed: LoginCompatibilityPath[];
+}): string | null {
+  if (input.rawValue === null) {
+    return null;
+  }
+
+  return resolveOpaqueLoginCompatibility({
+    field: input.field,
+    rawValue: input.rawValue,
+    decodedValue: input.decodedValue,
+    allowDecode: input.allowDecode,
+    path: input.path,
+    compatibilityPathsUsed: input.compatibilityPathsUsed,
+  });
+}
+
 function resolveLoginTargetLinkUri(input: {
   targetLinkUri: string | null;
   lms: LoginStateRecord["lms"];
   appOrigin: string | undefined;
-}): string {
+  allowPlatformDefaultLaunchTarget: boolean;
+}): {
+  value: string;
+  usedCompatibilityPath: boolean;
+} {
   if (input.targetLinkUri !== null) {
-    return input.targetLinkUri;
+    return {
+      value: input.targetLinkUri,
+      usedCompatibilityPath: false,
+    };
   }
 
   if (input.lms === "canvas") {
@@ -156,7 +268,16 @@ function resolveLoginTargetLinkUri(input: {
     );
   }
 
-  return buildLanternTargetLinkUri("launch", input.appOrigin);
+  if (!input.allowPlatformDefaultLaunchTarget) {
+    throw new Error(
+      "The active LTI profile requires target_link_uri for this login.",
+    );
+  }
+
+  return {
+    value: buildLanternTargetLinkUri("launch", input.appOrigin),
+    usedCompatibilityPath: true,
+  };
 }
 
 function normalizeOptionalValue(value: string | null): string | null {
