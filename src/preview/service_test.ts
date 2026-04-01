@@ -1,7 +1,11 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { buildPackageVersionRecord } from "../test_helpers/package_review.ts";
 import { createInMemoryPackageReviewRepository } from "../test_helpers/package_review.ts";
-import { createPreviewSession, preparePreviewSession } from "./service.ts";
+import {
+  createPreviewSession,
+  launchPreviewRuntimeSession,
+  preparePreviewSession,
+} from "./service.ts";
 
 Deno.test("preview service loads preview.fixtures_file and validates required fields before preparing launch context", async () => {
   const snapshotRoot = await Deno.makeTempDir({ prefix: "lantern-preview-" });
@@ -210,6 +214,207 @@ Deno.test("preview service returns fake identity/session defaults shaped for run
     assertEquals(created.fakeScoring.scoreMaximum, 80);
     assertEquals(created.fakeScoring.activityProgress, "Completed");
     assertEquals(created.fakeScoring.gradingProgress, "FullyGraded");
+  } finally {
+    await Deno.remove(snapshotRoot, { recursive: true });
+  }
+});
+
+Deno.test("preview service defaults admin launches to admin origin and canonical preview content", async () => {
+  const snapshotRoot = await Deno.makeTempDir({ prefix: "lantern-preview-" });
+
+  try {
+    await writePreviewManifest(snapshotRoot, "/preview/fixtures.json");
+    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await Deno.writeTextFile(
+      `${snapshotRoot}/preview/fixtures.json`,
+      JSON.stringify({
+        launch: {
+          user_role: "instructor",
+          course_id: "course-preview-42",
+          assignment_id: null,
+          activity_id: "activity-preview-9",
+        },
+        attempt_id: "attempt-preview-789",
+        local_state: null,
+      }),
+    );
+
+    const approvedPackage = buildPackageVersionRecord({
+      id: 15,
+      approvalStatus: "approved",
+      artifact: {
+        snapshotRoot,
+        manifestPath: `${snapshotRoot}/manifest.json`,
+        entrypointPath: `${snapshotRoot}/dist/index.html`,
+        digest: "sha256:preview-default-origin",
+      },
+      manifestJson: {
+        app_id: "chapter-4-asteroids",
+        version: "0.1.0",
+        title: "Chapter 4 Asteroids",
+        content_files: ["/content/activity.json", "/content/bonus.json"],
+      },
+    });
+
+    const prepared = await preparePreviewSession({
+      packageVersion: approvedPackage,
+      now: () => new Date("2026-04-01T10:00:00Z"),
+      createOpaqueToken: () => "opaque-admin",
+    });
+
+    assertEquals(prepared.origin, "adminTestLaunch");
+    assertEquals(prepared.contentPath, "/content/activity.json");
+    assertEquals(prepared.deepLinkingSessionId, null);
+  } finally {
+    await Deno.remove(snapshotRoot, { recursive: true });
+  }
+});
+
+Deno.test("preview service keeps explicit authoring origin and selected content in the runtime session", async () => {
+  const snapshotRoot = await Deno.makeTempDir({ prefix: "lantern-preview-" });
+
+  try {
+    await writePreviewManifest(snapshotRoot, "/preview/fixtures.json");
+    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await Deno.writeTextFile(
+      `${snapshotRoot}/preview/fixtures.json`,
+      JSON.stringify({
+        launch: {
+          user_role: "learner",
+          course_id: "course-preview-42",
+          assignment_id: null,
+          activity_id: "activity-preview-9",
+        },
+        attempt_id: "attempt-preview-900",
+        local_state: null,
+      }),
+    );
+
+    const approvedPackage = buildPackageVersionRecord({
+      id: 16,
+      approvalStatus: "approved",
+      roles: ["learner", "instructor"],
+      artifact: {
+        snapshotRoot,
+        manifestPath: `${snapshotRoot}/manifest.json`,
+        entrypointPath: `${snapshotRoot}/dist/index.html`,
+        digest: "sha256:preview-authoring-origin",
+      },
+      manifestJson: {
+        app_id: "chapter-4-asteroids",
+        version: "0.1.0",
+        title: "Chapter 4 Asteroids",
+        content_files: ["/content/activity.json", "/content/bonus.json"],
+      },
+    });
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [approvedPackage],
+    });
+    const tokens = ["opaque-a", "opaque-b", "opaque-c", "opaque-d"];
+    let index = 0;
+    const launched = await launchPreviewRuntimeSession({
+      repository,
+      packageVersion: approvedPackage,
+      launch: {
+        userRole: "instructor",
+        courseId: "physics-201",
+        assignmentId: null,
+        activityId: "/content/bonus.json",
+        contentPath: "/content/bonus.json",
+      },
+      previewOrigin: "deepLinkingAuthoring",
+      deepLinkingSessionId: "deep-linking-session-42",
+      now: () => new Date("2026-04-01T10:05:00Z"),
+      createOpaqueToken: () => {
+        const token = tokens[index] ?? "opaque-fallback";
+        index += 1;
+        return token;
+      },
+    });
+
+    assertEquals(launched.previewSession.origin, "deepLinkingAuthoring");
+    assertEquals(launched.previewSession.contentPath, "/content/bonus.json");
+    assertEquals(
+      launched.previewSession.deepLinkingSessionId,
+      "deep-linking-session-42",
+    );
+    assertEquals(
+      launched.runtimeSession.contentPath,
+      `${snapshotRoot}/content/bonus.json`,
+    );
+    assertEquals(launched.runtimeSession.launch.activityId, "/content/bonus.json");
+  } finally {
+    await Deno.remove(snapshotRoot, { recursive: true });
+  }
+});
+
+Deno.test("preview runtime sessions from admin and authoring origins both keep live LMS services disabled", async () => {
+  const snapshotRoot = await Deno.makeTempDir({ prefix: "lantern-preview-" });
+
+  try {
+    await writePreviewManifest(snapshotRoot, "/preview/fixtures.json");
+    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await Deno.writeTextFile(
+      `${snapshotRoot}/preview/fixtures.json`,
+      JSON.stringify({
+        launch: {
+          user_role: "instructor",
+          course_id: "course-preview-42",
+          assignment_id: null,
+          activity_id: "activity-preview-9",
+        },
+        attempt_id: "attempt-preview-901",
+        local_state: null,
+      }),
+    );
+
+    const approvedPackage = buildPackageVersionRecord({
+      id: 17,
+      approvalStatus: "approved",
+      roles: ["learner", "instructor"],
+      artifact: {
+        snapshotRoot,
+        manifestPath: `${snapshotRoot}/manifest.json`,
+        entrypointPath: `${snapshotRoot}/dist/index.html`,
+        digest: "sha256:preview-services-null",
+      },
+      manifestJson: {
+        app_id: "chapter-4-asteroids",
+        version: "0.1.0",
+        title: "Chapter 4 Asteroids",
+        content_files: ["/content/activity.json", "/content/bonus.json"],
+      },
+    });
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [approvedPackage],
+    });
+
+    const adminLaunch = await launchPreviewRuntimeSession({
+      repository,
+      packageVersion: approvedPackage,
+      now: () => new Date("2026-04-01T10:07:00Z"),
+      createOpaqueToken: () => crypto.randomUUID(),
+    });
+    const authoringLaunch = await launchPreviewRuntimeSession({
+      repository,
+      packageVersion: approvedPackage,
+      launch: {
+        userRole: "instructor",
+        courseId: "physics-202",
+        assignmentId: null,
+        activityId: "/content/bonus.json",
+        contentPath: "/content/bonus.json",
+      },
+      previewOrigin: "deepLinkingAuthoring",
+      deepLinkingSessionId: "deep-linking-session-84",
+      now: () => new Date("2026-04-01T10:08:00Z"),
+      createOpaqueToken: () => crypto.randomUUID(),
+    });
+
+    assertEquals(adminLaunch.runtimeSession.services.ags, null);
+    assertEquals(adminLaunch.runtimeSession.services.nrps, null);
+    assertEquals(authoringLaunch.runtimeSession.services.ags, null);
+    assertEquals(authoringLaunch.runtimeSession.services.nrps, null);
   } finally {
     await Deno.remove(snapshotRoot, { recursive: true });
   }
