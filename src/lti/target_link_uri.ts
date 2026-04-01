@@ -31,12 +31,17 @@ export function resolveLanternTargetLinkKind(
 export function targetLinkUrisMatch(input: {
   expected: string;
   actual: string;
+  allowLanternDrift?: boolean;
 }): boolean {
   const expected = parseAbsoluteUrl(input.expected);
   const actual = parseAbsoluteUrl(input.actual);
 
   if (!expected || !actual) {
     return false;
+  }
+
+  if (input.allowLanternDrift === false) {
+    return expected.toString() === actual.toString();
   }
 
   const expectedKind = resolveLanternTargetLinkKind(expected.toString());
@@ -63,6 +68,22 @@ export function targetLinkUrisMatch(input: {
 
   return expected.hostname === actual.hostname &&
     normalizePathname(expected.pathname) === normalizePathname(actual.pathname);
+}
+
+export function targetLinkUriUsesLanternDriftTolerance(input: {
+  expected: string;
+  actual: string;
+}): boolean {
+  return targetLinkUrisMatch({
+    expected: input.expected,
+    actual: input.actual,
+    allowLanternDrift: true,
+  }) &&
+    !targetLinkUrisMatch({
+      expected: input.expected,
+      actual: input.actual,
+      allowLanternDrift: false,
+    });
 }
 
 export function assertLanternTargetLinkKind(input: {

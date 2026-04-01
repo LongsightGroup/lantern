@@ -23,10 +23,14 @@ import {
   requireBaselineStringClaim,
 } from "./launch_support_matrix.ts";
 import { resolveLaunchTarget } from "./launch_target_resolution.ts";
+import { getLtiProfileDefinition } from "./profile.ts";
 import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
 import { verifyIdTokenWithJwksRetry } from "./id_token_verification.ts";
 import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
-import { targetLinkUrisMatch } from "./target_link_uri.ts";
+import {
+  targetLinkUriUsesLanternDriftTolerance,
+  targetLinkUrisMatch,
+} from "./target_link_uri.ts";
 import { createOpaqueToken, loadJwks } from "./token_support.ts";
 import type { ValidatedLaunch } from "./types.ts";
 
@@ -91,6 +95,12 @@ export async function validateLaunchRequest(input: {
     });
   }
 
+  const ltiProfile = await resolveLtiProfileForDeployment({
+    repository: input.repository,
+    deployment,
+  });
+  const behavior = getLtiProfileDefinition(ltiProfile.id).behavior;
+
   let payload: Awaited<ReturnType<typeof verifyIdTokenWithJwksRetry>>;
 
   try {
@@ -101,12 +111,8 @@ export async function validateLaunchRequest(input: {
       audience: loginState.clientId,
       now,
       loadJwks: loadLaunchJwks,
+      allowRetry: behavior.retryJwksRefetchOnce,
       onRetry: async () => {
-        const ltiProfile = await resolveLtiProfileForDeployment({
-          repository: input.repository,
-          deployment,
-        });
-
         await recordInteropPathUsed({
           repository: input.repository,
           scope: "launch",
@@ -165,11 +171,40 @@ export async function validateLaunchRequest(input: {
     !targetLinkUrisMatch({
       expected: loginState.targetLinkUri,
       actual: targetLinkUri,
+      allowLanternDrift: behavior.tolerateTargetLinkUriDrift,
     })
   ) {
     rejectDeploymentMismatch({
       field: "target_link_uri",
       target: "saved login state",
+    });
+  }
+
+  if (
+    behavior.tolerateTargetLinkUriDrift &&
+    targetLinkUriUsesLanternDriftTolerance({
+      expected: loginState.targetLinkUri,
+      actual: targetLinkUri,
+    })
+  ) {
+    await recordInteropPathUsed({
+      repository: input.repository,
+      scope: "launch",
+      path: "target_link_uri_drift",
+      actorType: "platform",
+      deploymentRecordId: deployment.id,
+      packageVersionId: deployment.enabledPackageVersionId,
+      summary:
+        "Lantern tolerated bounded target_link_uri drift during launch validation.",
+      detail: {
+        deploymentSlug: deployment.slug,
+        issuer: loginState.issuer,
+        clientId: loginState.clientId,
+        deploymentId: loginState.deploymentId,
+        expectedTargetLinkUri: loginState.targetLinkUri,
+        actualTargetLinkUri: targetLinkUri,
+      },
+      ltiProfile,
     });
   }
 

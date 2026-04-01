@@ -7,13 +7,18 @@ export async function verifyIdTokenWithJwksRetry(input: {
   jwksUrl: string;
   now: () => Date;
   loadJwks: (url: string) => Promise<JSONWebKeySet>;
+  allowRetry?: boolean;
   onRetry?: () => void | Promise<void>;
 }): Promise<Awaited<ReturnType<typeof jwtVerify>>["payload"]> {
   const initialJwks = await input.loadJwks(input.jwksUrl);
 
   try {
     return await verifyIdToken(input, initialJwks);
-  } catch {
+  } catch (error) {
+    if (input.allowRetry === false) {
+      throw error;
+    }
+
     await input.onRetry?.();
     const refreshedJwks = await input.loadJwks(input.jwksUrl);
 
