@@ -1,9 +1,6 @@
 import type { Context } from "@hono/hono";
 import { type LtiProfileId, requireLtiProfileId } from "./lti/profile.ts";
-import type {
-  LoginRequest,
-  LoginRequestCompatibility,
-} from "./lti/login.ts";
+import type { LoginRequest, LoginRequestCompatibility } from "./lti/login.ts";
 export { parseBrokerVerificationRunForm } from "./app_request_broker_verification.ts";
 
 export interface ReadLoginRequestResult {

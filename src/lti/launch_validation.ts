@@ -28,8 +28,8 @@ import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
 import { verifyIdTokenWithJwksRetry } from "./id_token_verification.ts";
 import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
 import {
-  targetLinkUriUsesLanternDriftTolerance,
   targetLinkUrisMatch,
+  targetLinkUriUsesLanternDriftTolerance,
 } from "./target_link_uri.ts";
 import { createOpaqueToken, loadJwks } from "./token_support.ts";
 import type { ValidatedLaunch } from "./types.ts";

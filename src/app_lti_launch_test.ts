@@ -176,7 +176,9 @@ Deno.test("POST /lti/launch rejects certification-profile launches when validati
 
       return Promise.resolve(
         new Response(
-          JSON.stringify(jwksRequests === 1 ? { keys: [] } : getTestCanvasJwks()),
+          JSON.stringify(
+            jwksRequests === 1 ? { keys: [] } : getTestCanvasJwks(),
+          ),
           {
             status: 200,
             headers: { "content-type": "application/json" },
