@@ -528,7 +528,9 @@ Deno.test("deep linking validator tolerates target_link_uri scheme, query, and t
   );
 
   assertEquals(
-    interopEvents.some((event) => event.detail.path === "target_link_uri_drift"),
+    interopEvents.some((event) =>
+      event.detail.path === "target_link_uri_drift"
+    ),
     true,
   );
 });

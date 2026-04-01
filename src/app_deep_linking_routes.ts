@@ -202,7 +202,9 @@ async function recordRejectedDeepLinkingRequestAudit(input: {
 
   const loginState = input.state === null
     ? null
-    : await input.repository.getLoginStateByState(input.state).catch(() => null);
+    : await input.repository.getLoginStateByState(input.state).catch(() =>
+      null
+    );
   const deployment = loginState === null ? null : await input.repository
     .getDeploymentByBinding({
       lms: loginState.lms,
@@ -229,7 +231,9 @@ async function recordRejectedDeepLinkingRequestAudit(input: {
     status: "failed",
     summary: loginState === null
       ? "Rejected a Deep Linking request before Lantern could match the saved login state."
-      : `Rejected a ${formatLmsLabel(loginState.lms)} Deep Linking request before picker handoff.`,
+      : `Rejected a ${
+        formatLmsLabel(loginState.lms)
+      } Deep Linking request before picker handoff.`,
     detail: {
       lms: loginState?.lms ?? null,
       category: input.error.category,

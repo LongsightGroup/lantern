@@ -3,8 +3,8 @@ import type { PackageReviewRepository } from "../package_review/repository.ts";
 import { recordInteropPathUsed } from "../interop_audit.ts";
 import {
   buildRejectionDetailRecord,
-  LtiBoundaryDenialError,
   type LtiBoundaryDenial,
+  LtiBoundaryDenialError,
 } from "./launch_rejection.ts";
 import {
   optionalRecordClaim,
@@ -147,10 +147,9 @@ export async function validateDeepLinkingRequest(input: {
   if (!deployment?.binding) {
     rejectDeepLinkingSpecInvalid({
       code: "deployment_binding_missing",
-      message:
-        `${
-          formatLmsLabel(loginState.lms)
-        } deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
+      message: `${
+        formatLmsLabel(loginState.lms)
+      } deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
       detail: {
         issuer: loginState.issuer,
         clientId: loginState.clientId,
@@ -240,7 +239,8 @@ export async function validateDeepLinkingRequest(input: {
     rejectDeepLinkingRequestMismatch({
       field: "deployment_id",
       target: "saved login state",
-      message: "Deep Linking deployment_id did not match the saved login state.",
+      message:
+        "Deep Linking deployment_id did not match the saved login state.",
     });
   }
 
@@ -531,7 +531,9 @@ function parseAcceptTypes(value: unknown): DeepLinkingAcceptType[] {
   if (unsupported.length > 0) {
     rejectDeepLinkingSpecInvalid({
       code: "unsupported_deep_linking_accept_type",
-      message: `Unsupported Deep Linking accept_types: ${unsupported.join(", ")}.`,
+      message: `Unsupported Deep Linking accept_types: ${
+        unsupported.join(", ")
+      }.`,
       detail: { acceptTypes: unsupported.join(", ") },
     });
   }
