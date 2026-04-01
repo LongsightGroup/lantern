@@ -236,6 +236,7 @@ Deno.test("POST /admin/verification records deployment-scoped broker verificatio
   formData.set("source", "manual");
   formData.set("deploymentRecordId", "2");
   formData.set("scope", "lti13LaunchAgsScore");
+  formData.set("workflowKey", "ags");
   formData.set("status", "passed");
   formData.set(
     "summary",

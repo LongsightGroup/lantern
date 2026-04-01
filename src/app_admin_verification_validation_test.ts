@@ -32,6 +32,7 @@ Deno.test("POST /admin/verification rejects internal verification rows that incl
   formData.set("source", "manual");
   formData.set("deploymentRecordId", "1");
   formData.set("scope", "lti13LaunchAgsNrps");
+  formData.set("workflowKey", "core");
   formData.set("status", "passed");
   formData.set("certificationState", "ltiAdvantageCertified");
   formData.set("summary", "Manual verification passed.");
@@ -76,6 +77,7 @@ Deno.test("POST /admin/verification rejects internal verification rows without a
 
   formData.set("source", "manual");
   formData.set("scope", "lti13LaunchAgsScore");
+  formData.set("workflowKey", "ags");
   formData.set("status", "passed");
   formData.set("summary", "Manual verification passed.");
   formData.set("checkedAt", "2026-03-24T12:50:00Z");

@@ -25,6 +25,8 @@ type OpsRepository = Pick<
   | "listControlPlaneDeployments"
   | "getControlPlaneDeploymentDetail"
   | "listControlPlaneDiagnostics"
+  | "listCertificationWorkflowStatuses"
+  | "getLatestOfficialCertificationEvidence"
   | "getLatestBrokerVerification"
   | "getLatestBrokerVerificationStatus"
   | "recordBrokerVerificationRun"
@@ -76,6 +78,20 @@ export function createInMemoryOpsRepositorySection(
       );
     },
 
+    listCertificationWorkflowStatuses() {
+      return Promise.resolve(
+        state.certificationWorkflowStatuses.map(cloneRecord),
+      );
+    },
+
+    getLatestOfficialCertificationEvidence() {
+      return Promise.resolve(
+        state.latestOfficialCertificationEvidence
+          ? cloneRecord(state.latestOfficialCertificationEvidence)
+          : null,
+      );
+    },
+
     getLatestBrokerVerification() {
       const record = getLatestBrokerVerificationRecord(
         state.brokerVerifications,
@@ -119,6 +135,56 @@ export function createInMemoryOpsRepositorySection(
         });
 
       state.brokerVerifications.push(cloneRecord(nextRecord));
+
+      if (input.source === "1edtech") {
+        const nextOfficialEvidence = {
+          workflowKey: input.workflowKey,
+          state: (input.certificationState ??
+            "notCertified") as OfficialBrokerCertificationStatus["state"],
+          checkedAt: input.checkedAt,
+          summary: input.summary,
+          directoryUrl: input.detailUrl,
+        };
+
+        if (
+          shouldReplaceLatestOfficialEvidence(
+            state.latestOfficialCertificationEvidence,
+            nextOfficialEvidence.checkedAt,
+          )
+        ) {
+          state.latestOfficialCertificationEvidence = cloneRecord(
+            nextOfficialEvidence,
+          );
+        }
+      } else if (input.deploymentRecordId !== null) {
+        const deploymentRecordId = input.deploymentRecordId;
+
+        state.certificationWorkflowStatuses = state
+          .certificationWorkflowStatuses
+          .map((workflowStatus) =>
+            workflowStatus.workflowKey === input.workflowKey &&
+              shouldReplaceWorkflowEvidence(
+                workflowStatus.latestInternal?.checkedAt ?? null,
+                input.checkedAt,
+              )
+              ? {
+                workflowKey: workflowStatus.workflowKey,
+                latestInternal: {
+                  deploymentRecordId,
+                  deploymentLabel: resolveDeploymentLabel(
+                    state,
+                    deploymentRecordId,
+                  ),
+                  status: input.status as "failed" | "passed" | "pending",
+                  checkedAt: input.checkedAt,
+                  summary: input.summary,
+                  evidenceUrl: input.detailUrl,
+                },
+              }
+              : workflowStatus
+          )
+          .map(cloneRecord);
+      }
 
       if (input.source === "1edtech") {
         state.controlPlaneDeployments = state.controlPlaneDeployments.map((
@@ -229,4 +295,30 @@ export function createInMemoryOpsRepositorySection(
       );
     },
   };
+}
+
+function shouldReplaceWorkflowEvidence(
+  currentCheckedAt: string | null,
+  nextCheckedAt: string,
+): boolean {
+  return currentCheckedAt === null || nextCheckedAt >= currentCheckedAt;
+}
+
+function shouldReplaceLatestOfficialEvidence(
+  current:
+    | InMemoryRepositoryState["latestOfficialCertificationEvidence"]
+    | null,
+  nextCheckedAt: string,
+): boolean {
+  return current === null || nextCheckedAt >= current.checkedAt;
+}
+
+function resolveDeploymentLabel(
+  state: InMemoryRepositoryState,
+  deploymentRecordId: number,
+): string {
+  return state.controlPlaneDeployments.find((deployment) =>
+    deployment.deploymentId === deploymentRecordId
+  )?.deploymentLabel ??
+    `Deployment ${deploymentRecordId}`;
 }

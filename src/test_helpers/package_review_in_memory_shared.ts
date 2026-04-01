@@ -1,4 +1,5 @@
 import { compare, parse } from "@std/semver";
+import { CERTIFICATION_WORKFLOW_KEYS } from "../ops/types.ts";
 import type {
   DeepLinkingSessionRecord,
   DynamicRegistrationStateRecord,
@@ -11,9 +12,11 @@ import type {
   BrokerVerificationSource,
   BrokerVerificationStatus,
   CertificationWorkflowKey,
+  CertificationWorkflowStatus,
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
+  LatestOfficialCertificationEvidence,
   OfficialBrokerCertificationStatus,
   RetryableGradePublicationLookup,
 } from "../ops/types.ts";
@@ -43,6 +46,10 @@ export interface InMemoryOpsRepository {
   listControlPlaneDiagnostics(
     deploymentRecordId: number,
   ): Promise<ControlPlaneDiagnosticItem[]>;
+  listCertificationWorkflowStatuses(): Promise<CertificationWorkflowStatus[]>;
+  getLatestOfficialCertificationEvidence(): Promise<
+    LatestOfficialCertificationEvidence | null
+  >;
   getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
   getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
   recordBrokerVerificationRun(input: {
@@ -122,6 +129,10 @@ export type InMemoryPackageReviewRepositoryOptions = {
   controlPlaneDeploymentDetails?: ControlPlaneDeploymentDetailSnapshot[];
   controlPlaneDiagnostics?: ControlPlaneDiagnosticItem[];
   brokerVerifications?: BrokerVerificationStatus[];
+  certificationWorkflowStatuses?: CertificationWorkflowStatus[];
+  latestOfficialCertificationEvidence?:
+    | LatestOfficialCertificationEvidence
+    | null;
   retryableGradePublications?: RetryableGradePublicationLookup[];
   lanternLtiProfileSettings?: LanternLtiProfileSettingsRecord;
 };
@@ -163,6 +174,13 @@ export function createState(
     ),
     controlPlaneDiagnostics: cloneRecord(options.controlPlaneDiagnostics ?? []),
     brokerVerifications: cloneRecord(options.brokerVerifications ?? []),
+    certificationWorkflowStatuses: cloneRecord(
+      options.certificationWorkflowStatuses ??
+        createDefaultCertificationWorkflowStatuses(),
+    ),
+    latestOfficialCertificationEvidence: cloneRecord(
+      options.latestOfficialCertificationEvidence ?? null,
+    ),
     retryableGradePublications: cloneRecord(
       options.retryableGradePublications ?? [],
     ),
@@ -177,6 +195,13 @@ export function createState(
 
 export function nextId(records: Array<{ id: number }>): number {
   return records.reduce((max, record) => Math.max(max, record.id), 0) + 1;
+}
+
+function createDefaultCertificationWorkflowStatuses(): CertificationWorkflowStatus[] {
+  return CERTIFICATION_WORKFLOW_KEYS.map((workflowKey) => ({
+    workflowKey,
+    latestInternal: null,
+  }));
 }
 
 export function sortPackageVersions(

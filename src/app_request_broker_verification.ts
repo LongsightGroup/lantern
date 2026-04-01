@@ -32,6 +32,12 @@ export function parseBrokerVerificationRunForm(
       "Broker verification scope is required.",
     ),
   );
+  const workflowKey = parseCertificationWorkflowKey(
+    requireTrimmedFormValue(
+      formData.get("workflowKey"),
+      "Certification workflow is required.",
+    ),
+  );
 
   if (source !== "1edtech" && certificationState !== null) {
     throw new Error(
@@ -49,6 +55,7 @@ export function parseBrokerVerificationRunForm(
     deploymentRecordId,
     source,
     scope,
+    workflowKey,
     status,
     certificationState,
     summary: requireTrimmedFormValue(
@@ -89,6 +96,20 @@ function parseBrokerVerificationScope(
   }
 
   throw new Error("Choose one supported broker verification scope.");
+}
+
+function parseCertificationWorkflowKey(
+  value: string,
+): RecordBrokerVerificationRunInput["workflowKey"] {
+  switch (value) {
+    case "core":
+    case "deepLinking":
+    case "nrps":
+    case "ags":
+      return value;
+    default:
+      throw new Error("Choose one supported certification workflow.");
+  }
 }
 
 function parseBrokerVerificationStatus(

@@ -1,6 +1,7 @@
 import type { RetryRuntimeSessionLookup } from "../ops/types.ts";
 import type {
   BrokerVerificationStatus,
+  CertificationWorkflowStatus,
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDeploymentHealth,
   ControlPlaneDeploymentInventoryRow,
@@ -9,6 +10,7 @@ import type {
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   InternalBrokerVerificationStatus,
+  LatestOfficialCertificationEvidence,
   OfficialBrokerCertificationStatus,
   PilotUsageMetrics,
   RetryableGradePublicationLookup,
@@ -230,6 +232,29 @@ export function buildBrokerVerificationStatus(
     supportedPath: overrides.supportedPath ?? "lti13LaunchAgsNrps",
     internal: overrides.internal ?? buildInternalBrokerVerificationStatus(),
     official: overrides.official ?? buildOfficialBrokerCertificationStatus(),
+  };
+}
+
+export function buildCertificationWorkflowStatus(
+  overrides: Partial<CertificationWorkflowStatus> = {},
+): CertificationWorkflowStatus {
+  return {
+    workflowKey: overrides.workflowKey ?? "core",
+    latestInternal: overrides.latestInternal ?? null,
+  };
+}
+
+export function buildLatestOfficialCertificationEvidence(
+  overrides: Partial<LatestOfficialCertificationEvidence> = {},
+): LatestOfficialCertificationEvidence {
+  return {
+    workflowKey: overrides.workflowKey ?? "core",
+    state: overrides.state ?? "ltiAdvantageCertified",
+    checkedAt: overrides.checkedAt ?? DEFAULT_PHASE4_AT,
+    summary: overrides.summary ??
+      "1EdTech lists Lantern as LTI Advantage Certified.",
+    directoryUrl: overrides.directoryUrl ??
+      "https://example.test/verification/1edtech-directory",
   };
 }
 

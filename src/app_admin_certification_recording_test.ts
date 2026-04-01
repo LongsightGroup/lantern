@@ -1,8 +1,4 @@
-import {
-  assertEquals,
-  assertExists,
-  assertStringIncludes,
-} from "@std/assert";
+import { assertEquals, assertExists, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import {
   buildControlPlaneDeploymentInventoryRow,
@@ -142,8 +138,14 @@ Deno.test("POST /admin/verification records official certification evidence glob
   officialFormData.set("workflowKey", "core");
   officialFormData.set("status", "passed");
   officialFormData.set("certificationState", "ltiAdvantageCertified");
-  officialFormData.set("summary", "1EdTech lists Lantern as LTI Advantage Certified.");
-  officialFormData.set("detailUrl", "https://example.test/certification/1edtech");
+  officialFormData.set(
+    "summary",
+    "1EdTech lists Lantern as LTI Advantage Certified.",
+  );
+  officialFormData.set(
+    "detailUrl",
+    "https://example.test/certification/1edtech",
+  );
   officialFormData.set("checkedAt", "2026-03-24T13:00:00Z");
 
   const officialResponse = await app.request(
@@ -161,7 +163,8 @@ Deno.test("POST /admin/verification records official certification evidence glob
   const statusesByWorkflow = new Map(
     workflowStatuses.map((status) => [status.workflowKey, status] as const),
   );
-  const officialEvidence = await repository.getLatestOfficialCertificationEvidence();
+  const officialEvidence = await repository
+    .getLatestOfficialCertificationEvidence();
 
   assertExists(officialEvidence);
   assertEquals(officialEvidence.workflowKey, "core");
