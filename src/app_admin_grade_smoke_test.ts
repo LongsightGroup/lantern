@@ -1,4 +1,9 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  restoreEnv,
+  withFetchStub,
+} from "./admin/deployment_detail_test_helpers.ts";
+import { runGradeSmokeVerification } from "./app_admin_grade_smoke_support.ts";
 import type { EnsureLineItemInput } from "./lti/services.ts";
 import {
   buildFinalGradeLineItemSpec,
@@ -7,10 +12,16 @@ import {
   requestAccessToken,
 } from "./runtime/gateway_publication_support.ts";
 import {
+  buildAttemptRecord,
   buildPackageVersionRecord,
   buildRuntimeSessionRecord,
+  createInMemoryPackageReviewRepository,
 } from "./test_helpers/package_review.ts";
-import { buildSmokeFixture } from "./app_admin_grade_smoke_test_support.ts";
+import { getTestToolPrivateJwkEnvValue } from "./test_helpers/lti.ts";
+import {
+  buildSmokeFixture,
+  buildSmokeRouteFixture,
+} from "./app_admin_grade_smoke_test_support.ts";
 
 Deno.test("grade smoke scaffolding seeds one blessed Moodle smoke path with a dedicated smoke line item identity", () => {
   const fixture = buildSmokeFixture("moodle");
@@ -209,4 +220,320 @@ Deno.test("runtime final-grade publication stays on the same shared managed line
       scoreMaximum: 100,
     },
   ]);
+});
+
+Deno.test("grade smoke verification retries one AGS 401 only when governed compatibility allows the saved service retry path", async () => {
+  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+  const fixture = buildSmokeRouteFixture("moodle");
+  const repository = createInMemoryPackageReviewRepository({});
+  const attempt = buildAttemptRecord({
+    attemptId: fixture.attemptId,
+    deploymentRecordId: fixture.deploymentId,
+    deploymentSlug: fixture.deploymentSlug,
+    contextId: fixture.session.launch.courseId,
+    activityId: fixture.session.launch.activityId,
+  });
+  const scoreAuthorizations: string[] = [];
+  let tokenRequests = 0;
+
+  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+  try {
+    const result = await withFetchStub(
+      (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        const headers = new Headers(init?.headers);
+
+        if (url === fixture.binding.accessTokenUrl) {
+          tokenRequests += 1;
+
+          return new Response(
+            JSON.stringify({
+              access_token: `moodle-access-token-${tokenRequests}`,
+              token_type: "bearer",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        if (
+          url === fixture.session.services.ags?.lineitemsUrl && method === "GET"
+        ) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: fixture.smokeLineItemUrl,
+                resourceLinkId: attempt.resourceLinkId,
+                resourceId: fixture.expectedSmokeLineItem.resourceId,
+                tag: fixture.expectedSmokeLineItem.tag,
+                label: fixture.expectedSmokeLineItem.label,
+                scoreMaximum: fixture.expectedSmokeLineItem.scoreMaximum,
+              },
+            ]),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        if (url === `${fixture.smokeLineItemUrl}/scores` && method === "POST") {
+          scoreAuthorizations.push(headers.get("authorization") ?? "");
+
+          if (headers.get("authorization") === "Bearer moodle-access-token-1") {
+            return new Response(null, { status: 401 });
+          }
+
+          return new Response("{}", {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        }
+
+        throw new Error(`Unexpected smoke request ${method} ${url}`);
+      },
+      async () =>
+        await runGradeSmokeVerification({
+          repository,
+          appTitle: fixture.appTitle,
+          binding: fixture.binding,
+          session: fixture.session,
+          attempt,
+          ltiProfile: {
+            id: "governedCompatibility",
+            source: "lanternDefault",
+            deploymentRecordId: fixture.deploymentId,
+          },
+        }),
+    );
+    const interopEvents = await repository.listAuditEventsByEventType(
+      "interop.path_used",
+    );
+
+    assertEquals(result.status, "succeeded");
+    assertEquals(tokenRequests, 2);
+    assertEquals(scoreAuthorizations, [
+      "Bearer moodle-access-token-1",
+      "Bearer moodle-access-token-2",
+    ]);
+    assertEquals(interopEvents.length, 1);
+    assertEquals(interopEvents[0]?.detail.path, "service_401_retry");
+    assertEquals(
+      interopEvents[0]?.detail.ltiProfileId,
+      "governedCompatibility",
+    );
+  } finally {
+    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+  }
+});
+
+Deno.test("grade smoke verification does not record service retry evidence when no AGS retry path runs", async () => {
+  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+  const fixture = buildSmokeRouteFixture("moodle");
+  const repository = createInMemoryPackageReviewRepository({});
+  const attempt = buildAttemptRecord({
+    attemptId: fixture.attemptId,
+    deploymentRecordId: fixture.deploymentId,
+    deploymentSlug: fixture.deploymentSlug,
+    contextId: fixture.session.launch.courseId,
+    activityId: fixture.session.launch.activityId,
+  });
+  let tokenRequests = 0;
+
+  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+  try {
+    const result = await withFetchStub(
+      (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+
+        if (url === fixture.binding.accessTokenUrl) {
+          tokenRequests += 1;
+
+          return new Response(
+            JSON.stringify({
+              access_token: "moodle-access-token-1",
+              token_type: "bearer",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        if (
+          url === fixture.session.services.ags?.lineitemsUrl && method === "GET"
+        ) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: fixture.smokeLineItemUrl,
+                resourceLinkId: attempt.resourceLinkId,
+                resourceId: fixture.expectedSmokeLineItem.resourceId,
+                tag: fixture.expectedSmokeLineItem.tag,
+                label: fixture.expectedSmokeLineItem.label,
+                scoreMaximum: fixture.expectedSmokeLineItem.scoreMaximum,
+              },
+            ]),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        if (url === `${fixture.smokeLineItemUrl}/scores` && method === "POST") {
+          return new Response("{}", {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        }
+
+        throw new Error(`Unexpected smoke request ${method} ${url}`);
+      },
+      async () =>
+        await runGradeSmokeVerification({
+          repository,
+          appTitle: fixture.appTitle,
+          binding: fixture.binding,
+          session: fixture.session,
+          attempt,
+          ltiProfile: {
+            id: "governedCompatibility",
+            source: "lanternDefault",
+            deploymentRecordId: fixture.deploymentId,
+          },
+        }),
+    );
+    const interopEvents = await repository.listAuditEventsByEventType(
+      "interop.path_used",
+    );
+
+    assertEquals(result.status, "succeeded");
+    assertEquals(tokenRequests, 1);
+    assertEquals(interopEvents.length, 0);
+  } finally {
+    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+  }
+});
+
+Deno.test("grade smoke verification fails on AGS 401 without retry when certification disables the saved service retry path", async () => {
+  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+  const fixture = buildSmokeRouteFixture("moodle");
+  const repository = createInMemoryPackageReviewRepository({});
+  const attempt = buildAttemptRecord({
+    attemptId: fixture.attemptId,
+    deploymentRecordId: fixture.deploymentId,
+    deploymentSlug: fixture.deploymentSlug,
+    contextId: fixture.session.launch.courseId,
+    activityId: fixture.session.launch.activityId,
+  });
+  const scoreAuthorizations: string[] = [];
+  let tokenRequests = 0;
+
+  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+  try {
+    const result = await withFetchStub(
+      (input, init) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        const headers = new Headers(init?.headers);
+
+        if (url === fixture.binding.accessTokenUrl) {
+          tokenRequests += 1;
+
+          return new Response(
+            JSON.stringify({
+              access_token: "moodle-access-token-1",
+              token_type: "bearer",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        if (
+          url === fixture.session.services.ags?.lineitemsUrl && method === "GET"
+        ) {
+          return new Response(
+            JSON.stringify([
+              {
+                id: fixture.smokeLineItemUrl,
+                resourceLinkId: attempt.resourceLinkId,
+                resourceId: fixture.expectedSmokeLineItem.resourceId,
+                tag: fixture.expectedSmokeLineItem.tag,
+                label: fixture.expectedSmokeLineItem.label,
+                scoreMaximum: fixture.expectedSmokeLineItem.scoreMaximum,
+              },
+            ]),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        if (url === `${fixture.smokeLineItemUrl}/scores` && method === "POST") {
+          scoreAuthorizations.push(headers.get("authorization") ?? "");
+          return new Response(null, { status: 401 });
+        }
+
+        throw new Error(`Unexpected smoke request ${method} ${url}`);
+      },
+      async () =>
+        await runGradeSmokeVerification({
+          repository,
+          appTitle: fixture.appTitle,
+          binding: fixture.binding,
+          session: fixture.session,
+          attempt,
+          ltiProfile: {
+            id: "certification",
+            source: "lanternDefault",
+            deploymentRecordId: fixture.deploymentId,
+          },
+        }),
+    );
+    const interopEvents = await repository.listAuditEventsByEventType(
+      "interop.path_used",
+    );
+
+    assertEquals(result.status, "failed");
+    assertEquals(result.detail.publicationStatus, "failed");
+    assertEquals(result.detail.error?.code, "score_publish_failed");
+    assertStringIncludes(
+      result.detail.error?.message ?? "",
+      "status 401",
+    );
+    assertEquals(tokenRequests, 1);
+    assertEquals(scoreAuthorizations, ["Bearer moodle-access-token-1"]);
+    assertEquals(interopEvents.length, 0);
+  } finally {
+    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+  }
 });

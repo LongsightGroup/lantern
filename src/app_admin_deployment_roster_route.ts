@@ -9,6 +9,7 @@ import {
 import { combineNotices, createErrorNotice } from "./app_notice_support.ts";
 import { errorMessage, statusForNrpsError } from "./app_status_support.ts";
 import { listCanvasEnvironments } from "./lti/config.ts";
+import { getLtiProfileDefinition } from "./lti/profile.ts";
 import {
   buildResolvedLtiProfileDetail,
   resolveLtiProfileForDeployment,
@@ -82,6 +83,35 @@ export function registerAdminDeploymentRosterRoute(
           repository,
           deployment: canvasDeployment,
         });
+        const retryUnauthorized =
+          getLtiProfileDefinition(ltiProfile.id).behavior
+              .retryServiceUnauthorizedOnce
+            ? async () => {
+              await recordInteropPathUsed({
+                repository,
+                scope: "service",
+                path: "service_401_retry",
+                actorType: "system",
+                deploymentRecordId: canvasDeployment.id,
+                packageVersionId: canvasDeployment.enabledPackageVersionId,
+                attemptId: latestSession.attemptId,
+                summary: "Lantern retried an LMS service request after a 401.",
+                detail: {
+                  lms: "canvas",
+                  deploymentSlug: canvasDeployment.slug,
+                },
+                ltiProfile,
+              });
+              const refreshed = await requestCanvasServiceAccessToken({
+                issuer: canvasDeployment.binding!.issuer,
+                clientId: canvasDeployment.binding!.clientId,
+                deploymentId: canvasDeployment.binding!.deploymentId,
+                scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
+              });
+
+              return refreshed.accessToken;
+            }
+            : undefined;
 
         const token = await requestCanvasServiceAccessToken({
           issuer: canvasDeployment.binding.issuer,
@@ -89,36 +119,11 @@ export function registerAdminDeploymentRosterRoute(
           deploymentId: canvasDeployment.binding.deploymentId,
           scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
         });
-        const retryUnauthorized = async () => {
-          await recordInteropPathUsed({
-            repository,
-            scope: "service",
-            path: "service_401_retry",
-            actorType: "system",
-            deploymentRecordId: canvasDeployment.id,
-            packageVersionId: canvasDeployment.enabledPackageVersionId,
-            attemptId: latestSession.attemptId,
-            summary: "Lantern retried an LMS service request after a 401.",
-            detail: {
-              lms: "canvas",
-              deploymentSlug: canvasDeployment.slug,
-            },
-            ltiProfile,
-          });
-          const refreshed = await requestCanvasServiceAccessToken({
-            issuer: canvasDeployment.binding!.issuer,
-            clientId: canvasDeployment.binding!.clientId,
-            deploymentId: canvasDeployment.binding!.deploymentId,
-            scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
-          });
-
-          return refreshed.accessToken;
-        };
         const members = await readContextMemberships({
           accessToken: token.accessToken,
-          retryUnauthorized,
           contextMembershipsUrl:
             latestSession.services.nrps.contextMembershipsUrl,
+          ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
         });
 
         await repository.recordAuditEvent({

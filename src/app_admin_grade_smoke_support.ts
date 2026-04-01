@@ -1,4 +1,5 @@
 import { errorMessage } from "./app_status_support.ts";
+import { getLtiProfileDefinition } from "./lti/profile.ts";
 import { buildResolvedLtiProfileDetail } from "./lti/profile_resolution.ts";
 import type { ResolvedLtiProfile } from "./lti/profile.ts";
 import type { DeploymentBinding, RuntimeSessionRecord } from "./lti/types.ts";
@@ -104,34 +105,38 @@ export async function runGradeSmokeVerification(input: {
   }
 
   let lineItemUrl: string | null = null;
-  const retryUnauthorized = async () => {
-    await recordInteropPathUsed({
-      repository: input.repository,
-      scope: "service",
-      path: "service_401_retry",
-      actorType: "system",
-      deploymentRecordId: input.session.deploymentRecordId,
-      packageVersionId: input.session.packageVersionId,
-      attemptId: input.attempt.attemptId,
-      summary: "Lantern retried an LMS service request after a 401.",
-      detail: {
-        lms: input.binding.lms,
-        deploymentSlug: input.session.deploymentSlug,
-      },
-      ltiProfile: input.ltiProfile ?? null,
-    });
-    const refreshed = await requestServiceAccessToken({
-      binding: input.binding,
-      scopes: ags.scope,
-    });
+  const retryUnauthorized = input.ltiProfile !== null &&
+      input.ltiProfile !== undefined &&
+      !getLtiProfileDefinition(input.ltiProfile.id).behavior
+        .retryServiceUnauthorizedOnce
+    ? undefined
+    : async () => {
+      await recordInteropPathUsed({
+        repository: input.repository,
+        scope: "service",
+        path: "service_401_retry",
+        actorType: "system",
+        deploymentRecordId: input.session.deploymentRecordId,
+        packageVersionId: input.session.packageVersionId,
+        attemptId: input.attempt.attemptId,
+        summary: "Lantern retried an LMS service request after a 401.",
+        detail: {
+          lms: input.binding.lms,
+          deploymentSlug: input.session.deploymentSlug,
+        },
+        ltiProfile: input.ltiProfile ?? null,
+      });
+      const refreshed = await requestServiceAccessToken({
+        binding: input.binding,
+        scopes: ags.scope,
+      });
 
-    return refreshed.accessToken;
-  };
+      return refreshed.accessToken;
+    };
 
   try {
     const ensuredLineItem = await ensureManagedLineItem({
       accessToken,
-      retryUnauthorized,
       ags: {
         ...ags,
         lineitemUrl: null,
@@ -142,6 +147,7 @@ export async function runGradeSmokeVerification(input: {
         appTitle: input.appTitle,
         lms: input.binding.lms,
       }),
+      ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
     });
 
     lineItemUrl = ensuredLineItem.lineItemUrl;
@@ -161,13 +167,13 @@ export async function runGradeSmokeVerification(input: {
   try {
     await publishFinalScore({
       accessToken,
-      retryUnauthorized,
       lineItemUrl,
       platformUserId: input.attempt.userId,
       scoreGiven: 1,
       scoreMaximum: 1,
       activityProgress: "Completed",
       gradingProgress: "FullyGraded",
+      ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
     });
   } catch (error) {
     return buildGradeSmokeFailureResult({
