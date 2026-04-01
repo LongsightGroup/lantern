@@ -6,8 +6,8 @@ import type {
   LmsType,
 } from "../lti/types.ts";
 import type {
-  ControlPlaneBoundaryDenialCategory,
   ControlPlaneActivityStatus,
+  ControlPlaneBoundaryDenialCategory,
   ControlPlaneDiagnosticItem,
 } from "./types.ts";
 import type { RecordBrokerVerificationRunInput } from "./repository_types.ts";

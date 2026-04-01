@@ -17,12 +17,12 @@ import type {
 } from "./repository_types.ts";
 import {
   mapAuditActivityStatus,
-  readBoundaryDenialCategoryDetail,
   mapDeploymentBinding,
   mapDiagnosticKind,
   normalizeNumeric,
   normalizeOptionalTimestamp,
   normalizeTimestamp,
+  readBoundaryDenialCategoryDetail,
   readLtiProfileIdDetail,
   readLtiProfileSourceDetail,
   readStringDetail,

@@ -170,7 +170,8 @@ Deno.test("deployment page shows diagnostics and an explicit retry action for re
           eventType: "deep_linking.request.rejected",
           status: "failed",
           code: "target_link_uri_drift_not_allowed",
-          summary: "Rejected a Canvas Deep Linking request before picker handoff.",
+          summary:
+            "Rejected a Canvas Deep Linking request before picker handoff.",
           operatorSummary:
             "Deep Linking request matched the saved Canvas deployment, but the active LTI profile denied it before picker handoff.",
           boundaryDenialCategory: "policyDenied",

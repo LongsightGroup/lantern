@@ -29,7 +29,8 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
           eventType: "deep_linking.request.rejected",
           actorType: "platform",
           status: "failed",
-          summary: "Rejected a Canvas Deep Linking request before picker handoff.",
+          summary:
+            "Rejected a Canvas Deep Linking request before picker handoff.",
           detail: {
             lms: "canvas",
             category: "policyDenied",
