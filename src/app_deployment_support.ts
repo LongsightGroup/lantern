@@ -222,6 +222,7 @@ export async function loadPreviewCapabilityLog(input: {
   const session = await input.repository
     .getLatestPreviewSessionByPackageVersion(
       input.packageVersionId,
+      "adminTestLaunch",
     );
 
   if (session === null) {
