@@ -66,8 +66,11 @@ export function renderDiagnosticRow(
 ): string {
   const tone = describeDiagnosticTone(item);
   const details = [
+    describeBoundaryDenialCategory(item.boundaryDenialCategory),
     describeActivityLtiProfile(item.detail),
-    item.code === null ? null : `Code ${item.code}`,
+    item.boundaryDenialCategory === null && item.code !== null
+      ? `Code ${item.code}`
+      : null,
     item.attemptId === null ? null : `Attempt ${item.attemptId}`,
   ].filter((value): value is string => value !== null);
   const retryAction = item.retryable && retryAttemptId !== null
@@ -242,6 +245,53 @@ export function describeActivityLtiProfile(
     id: readLtiProfileId(detail),
     source: readLtiProfileSource(detail),
   });
+}
+
+export function describeBoundaryDenialCategory(
+  category: ControlPlaneDiagnosticItem["boundaryDenialCategory"],
+): string | null {
+  switch (category) {
+    case "specInvalid":
+      return "Spec-invalid request";
+    case "policyDenied":
+      return "Policy denial";
+    case null:
+      return null;
+  }
+}
+
+export function describeCompatibilityPathSummary(
+  snapshot: DeploymentActivitySnapshot | null | undefined,
+): string {
+  if (snapshot === null || snapshot === undefined) {
+    return "Lantern has not recorded a governed compatibility path for this setup yet.";
+  }
+
+  const scope = readStringDetail(snapshot.detail, "scope");
+  const path = readStringDetail(snapshot.detail, "path");
+
+  switch (`${scope}:${path}`) {
+    case "login:opaque_login_hint_decode":
+      return "Lantern last decoded an opaque login hint on the saved deployment path.";
+    case "login:opaque_lti_message_hint_decode":
+      return "Lantern last decoded an opaque LTI message hint on the saved deployment path.";
+    case "login:platform_default_launch_target":
+      return "Lantern last filled the default launch target on the saved deployment path.";
+    case "launch:jwks_refetch":
+      return "Lantern last retried launch JWKS lookup on the saved deployment path.";
+    case "launch:target_link_uri_drift":
+      return "Lantern last used launch target drift tolerance on the saved deployment path.";
+    case "deep_linking:jti_nonce_bridge":
+      return "Lantern last bridged the Deep Linking nonce from jti on the saved deployment path.";
+    case "deep_linking:jwks_refetch":
+      return "Lantern last retried Deep Linking JWKS lookup on the saved deployment path.";
+    case "deep_linking:target_link_uri_drift":
+      return "Lantern last used Deep Linking target drift tolerance on the saved deployment path.";
+    case "service:service_401_retry":
+      return "Lantern last retried an LMS service request after a 401 on the saved deployment path.";
+    default:
+      return snapshot.summary;
+  }
 }
 
 export function readStringDetail(

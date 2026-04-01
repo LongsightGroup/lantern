@@ -175,6 +175,8 @@ export function describeDiagnosticKind(
   switch (kind) {
     case "launch":
       return "Launch";
+    case "deepLinking":
+      return "Deep Linking";
     case "nrps":
       return "Roster read";
     case "brokerVerification":

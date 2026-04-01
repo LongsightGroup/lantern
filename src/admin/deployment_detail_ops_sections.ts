@@ -9,6 +9,7 @@ import {
 } from "./deployment_detail_ops_evidence_sections.ts";
 import {
   describeActivityLtiProfile,
+  describeCompatibilityPathSummary,
   describeProblemFactSummary,
   formatActivityTimestamp,
   formatGradePublicationTimestamp,
@@ -48,6 +49,16 @@ export function renderControlPlaneStatusSection(
       appendLtiProfileSummary(
         detail?.latestLaunch?.summary ?? "No launch has been recorded yet.",
         detail?.latestLaunch?.detail,
+      ),
+    )
+  }
+            ${
+    renderActivityFact(
+      "Last compatibility path",
+      formatActivityTimestamp(detail?.latestCompatibilityPath),
+      appendLtiProfileSummary(
+        describeCompatibilityPathSummary(detail?.latestCompatibilityPath),
+        detail?.latestCompatibilityPath?.detail,
       ),
     )
   }
