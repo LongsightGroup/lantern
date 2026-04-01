@@ -132,9 +132,14 @@ Deno.test("validateLaunchRequest retries JWKS once before rejecting a valid laun
         enabledPackageVersionId: 1,
         enabledPackageVersion: "0.1.0",
         binding: buildDeploymentBinding(),
+        ltiProfileOverride: "governedCompatibility",
       }),
     ],
     loginStates: [buildLoginStateRecord()],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-23T18:05:00Z",
+    },
   });
   const idToken = await signCanvasIdToken({
     nonce: "nonce-123",
@@ -155,12 +160,140 @@ Deno.test("validateLaunchRequest retries JWKS once before rejecting a valid laun
       );
     },
   });
+  const interopEvents = await repository.listAuditEventsByEventType(
+    "interop.path_used",
+  );
 
   assertEquals(jwksRequests, 2);
   assertEquals(launch.clientId, "10000000000001");
+  assertEquals(
+    interopEvents.some((event) =>
+      event.detail.path === "jwks_refetch" &&
+      event.detail.ltiProfileId === "governedCompatibility" &&
+      event.detail.ltiProfileSource === "deploymentOverride"
+    ),
+    true,
+  );
 });
 
 Deno.test("validateLaunchRequest tolerates target_link_uri scheme, query, and trailing-slash drift when the callback host and route still match", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+        ltiProfileOverride: "governedCompatibility",
+      }),
+    ],
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-normalized-target",
+        nonce: "nonce-normalized-target",
+        targetLinkUri: "https://lantern.example/lti/launch/",
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-23T18:05:00Z",
+    },
+  });
+  const idToken = await signCanvasIdToken({
+    nonce: "nonce-normalized-target",
+    targetLinkUri:
+      "http://lantern.example/lti/launch?placement=course_navigation",
+  });
+
+  const launch = await validateLaunchRequest({
+    repository,
+    state: "state-normalized-target",
+    idToken,
+    now: () => new Date("2026-03-23T22:45:00Z"),
+    loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+  });
+  const interopEvents = await repository.listAuditEventsByEventType(
+    "interop.path_used",
+  );
+
+  assertEquals(
+    launch.targetLinkUri,
+    "http://lantern.example/lti/launch?placement=course_navigation",
+  );
+  assertEquals(
+    interopEvents.some((event) =>
+      event.detail.path === "target_link_uri_drift" &&
+      event.detail.ltiProfileId === "governedCompatibility" &&
+      event.detail.ltiProfileSource === "deploymentOverride"
+    ),
+    true,
+  );
+});
+
+Deno.test("validateLaunchRequest rejects JWKS retry when the resolved profile is certification", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    loginStates: [buildLoginStateRecord()],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-23T18:05:00Z",
+    },
+  });
+  const idToken = await signCanvasIdToken({
+    nonce: "nonce-123",
+    audience: "10000000000001",
+  });
+  let jwksRequests = 0;
+
+  await assertRejects(
+    () =>
+      validateLaunchRequest({
+        repository,
+        state: "state-123",
+        idToken,
+        now: () => new Date("2026-03-23T22:45:00Z"),
+        loadJwks: () => {
+          jwksRequests += 1;
+
+          return Promise.resolve(
+            jwksRequests === 1 ? { keys: [] } : getTestCanvasJwks(),
+          );
+        },
+      }),
+    Error,
+    "Launch id_token signature or issuer validation failed.",
+  );
+
+  const interopEvents = await repository.listAuditEventsByEventType(
+    "interop.path_used",
+  );
+
+  assertEquals(jwksRequests, 1);
+  assertEquals(interopEvents.length, 0);
+});
+
+Deno.test("validateLaunchRequest rejects target_link_uri drift when the resolved profile is certification", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -179,29 +312,33 @@ Deno.test("validateLaunchRequest tolerates target_link_uri scheme, query, and tr
     ],
     loginStates: [
       buildLoginStateRecord({
-        state: "state-normalized-target",
-        nonce: "nonce-normalized-target",
+        state: "state-cert-target",
+        nonce: "nonce-cert-target",
         targetLinkUri: "https://lantern.example/lti/launch/",
       }),
     ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-23T18:05:00Z",
+    },
   });
   const idToken = await signCanvasIdToken({
-    nonce: "nonce-normalized-target",
+    nonce: "nonce-cert-target",
     targetLinkUri:
       "http://lantern.example/lti/launch?placement=course_navigation",
   });
 
-  const launch = await validateLaunchRequest({
-    repository,
-    state: "state-normalized-target",
-    idToken,
-    now: () => new Date("2026-03-23T22:45:00Z"),
-    loadJwks: () => Promise.resolve(getTestCanvasJwks()),
-  });
-
-  assertEquals(
-    launch.targetLinkUri,
-    "http://lantern.example/lti/launch?placement=course_navigation",
+  await assertRejects(
+    () =>
+      validateLaunchRequest({
+        repository,
+        state: "state-cert-target",
+        idToken,
+        now: () => new Date("2026-03-23T22:45:00Z"),
+        loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+      }),
+    Error,
+    "Launch target_link_uri did not match the saved login state.",
   );
 });
 

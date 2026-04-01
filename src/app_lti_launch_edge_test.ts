@@ -234,3 +234,84 @@ Deno.test("POST /lti/launch rejects bad signed launches before any runtime hando
     },
   );
 });
+
+Deno.test("POST /lti/launch records interop evidence only when governed compatibility tolerates target_link_uri drift", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 5,
+        approvalStatus: "approved",
+        reviewNotes: "Ready for pilot.",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 3,
+        slug: "chapter-4-asteroids-pilot",
+        label: "Chapter 4 Asteroids Pilot Deployment",
+        enabledPackageVersionId: 5,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+        ltiProfileOverride: "governedCompatibility",
+      }),
+    ],
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-target-drift-launch",
+        nonce: "nonce-target-drift-launch",
+        expiresAt: "2030-03-26T02:45:00Z",
+        targetLinkUri: "https://lantern.example/lti/launch/",
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-23T18:05:00Z",
+    },
+  });
+  const formData = new FormData();
+
+  formData.set("state", "state-target-drift-launch");
+  formData.set(
+    "id_token",
+    await signCanvasIdToken({
+      nonce: "nonce-target-drift-launch",
+      audience: "10000000000001",
+      issuedAt: "2026-03-24T00:45:00Z",
+      expirationTime: "2h",
+      targetLinkUri:
+        "http://lantern.example/lti/launch?placement=course_navigation",
+    }),
+  );
+
+  await withFetchStub(
+    () =>
+      Promise.resolve(
+        new Response(JSON.stringify(getTestCanvasJwks()), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    async () => {
+      const response = await createApp({
+        getRepository: () => repository,
+      }).request("http://localhost/lti/launch", {
+        method: "POST",
+        body: formData,
+      });
+      const interopEvents = await repository.listAuditEventsByEventType(
+        "interop.path_used",
+      );
+
+      assertEquals(response.status, 303);
+      assertEquals(
+        interopEvents.some((event) =>
+          event.detail.path === "target_link_uri_drift" &&
+          event.detail.ltiProfileId === "governedCompatibility" &&
+          event.detail.ltiProfileSource === "deploymentOverride"
+        ),
+        true,
+      );
+    },
+  );
+});
