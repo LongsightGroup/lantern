@@ -230,7 +230,9 @@ function buildDeepLinkingReturnTitle(
     case "failed":
       return `${resourceLabel} return failed`;
     case "returning":
-      return `Returning ${describeDeepLinkingPlacement(placement).resource} to LMS`;
+      return `Returning ${
+        describeDeepLinkingPlacement(placement).resource
+      } to LMS`;
   }
 }
 
