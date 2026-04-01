@@ -110,7 +110,11 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
       'action="https://canvas.example/courses/42/deep_link_return"',
     );
     assertStringIncludes(body, 'id="lms-return-form"');
-    assertStringIncludes(body, "Returning to LMS");
+    assertStringIncludes(body, "Returning assignment resource to LMS");
+    assertStringIncludes(
+      body,
+      "Lantern created the reviewed placement and is posting this reviewed assignment resource back to the LMS.",
+    );
     assertEquals(
       verified
         .payload["https://purl.imsglobal.org/spec/lti/claim/message_type"],
@@ -179,7 +183,7 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit keeps missing reviewed sel
   assertStringIncludes(body, "Return blocked");
   assertStringIncludes(
     body,
-    "Save one reviewed selection before returning to the LMS.",
+    "Save one reviewed assignment resource before returning it to the LMS.",
   );
 });
 
@@ -214,8 +218,62 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit blocks missing session tok
   assertStringIncludes(body, "Session verification failed");
   assertStringIncludes(
     body,
-    "Reopen the assignment picker from the LMS and try again.",
+    "Reopen Deep Linking authoring from the LMS and try again.",
   );
+});
+
+Deno.test("POST /lti/deep-linking/sessions/:id/submit keeps resource-selection replay copy placement-aware", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deepLinkingSessions: [
+      buildDeepLinkingSessionRecord({
+        sessionId: "deep-linking-session-submit-resource-replay",
+        sessionToken: "deep-linking-token-submit-resource-replay",
+        placement: "resource_selection",
+        selection: {
+          packageVersionId: 3,
+          packageVersion: "0.3.0",
+          activityId: "/content/course.json",
+          contentPath: "/content/course.json",
+        },
+        usedAt: "2026-03-25T16:21:00Z",
+        expiresAt: "2030-03-25T16:20:00Z",
+      }),
+    ],
+    deepLinkingResourceOptions: [
+      buildDeepLinkingResourceOption({
+        packageVersionId: 3,
+        packageVersion: "0.3.0",
+        installScope: "course",
+        contentPath: "/content/course.json",
+        activityId: "/content/course.json",
+        contentTitle: "Course Activity",
+      }),
+    ],
+  });
+  const formData = new FormData();
+
+  formData.set("token", "deep-linking-token-submit-resource-replay");
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    "http://localhost/lti/deep-linking/sessions/deep-linking-session-submit-resource-replay/submit",
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+
+  assertEquals(response.status, 409);
+
+  const body = await response.text();
+
+  assertStringIncludes(body, "Course resource return already used");
+  assertStringIncludes(
+    body,
+    "confirm the reviewed course resource, and return once.",
+  );
+  assertEquals(body.includes("assignment picker"), false);
 });
 
 Deno.test("POST /lti/deep-linking/sessions/:id/submit keeps placement-creation failures on a Lantern-owned error surface", async () => {
@@ -285,7 +343,7 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit keeps placement-creation f
     const body = await response.text();
 
     assertStringIncludes(body, "<!doctype html>");
-    assertStringIncludes(body, "LMS return failed");
+    assertStringIncludes(body, "Assignment resource return failed");
     assertStringIncludes(
       body,
       "Lantern could not create the reviewed placement.",
