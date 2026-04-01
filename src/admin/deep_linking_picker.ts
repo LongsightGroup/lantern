@@ -28,6 +28,9 @@ export function renderDeepLinkingPickerPage(input: {
   const scopeLabel = session.placement === "resource_selection"
     ? "course"
     : "assignment";
+  const scopeResourceLabel = session.placement === "resource_selection"
+    ? "course resource"
+    : "assignment resource";
   const placementLabel = session.placement === "resource_selection"
     ? "course placement"
     : "assignment placement";
@@ -41,10 +44,10 @@ export function renderDeepLinkingPickerPage(input: {
   const canReturn = input.selection !== null && input.sessionId !== undefined &&
     input.token !== undefined;
   const returnStateCopy = input.selection === null
-    ? "Save one reviewed selection before returning to the LMS."
+    ? `Save one reviewed ${scopeResourceLabel} before returning it to the LMS.`
     : input.sessionId === undefined || input.token === undefined
     ? "Return to LMS is unavailable until Lantern can verify this session."
-    : "Ready to return to the LMS from this saved reviewed selection.";
+    : `Ready to return this reviewed ${scopeResourceLabel} to the LMS.`;
 
   return `<!doctype html>
 <html lang="en">
