@@ -1,5 +1,11 @@
 import type { RuntimeSessionRecord } from "../lti/types.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
+import {
+  assertPathInsideSnapshot,
+  ensureLeadingSlash,
+  joinSnapshotPath,
+  trimLeadingSlash,
+} from "../package_review/snapshot_path.ts";
 import type {
   PackageVersionRecord,
   PreviewSessionRecord,
@@ -7,7 +13,6 @@ import type {
 import {
   loadPreviewFixtureData,
   resolvePreviewContentPath,
-  resolvePreviewRuntimeContentPath,
 } from "./fixture.ts";
 
 export interface PreviewFakeScoringDefaults {
@@ -27,12 +32,15 @@ export interface PreviewLaunchOverrides {
   courseId?: string;
   assignmentId?: string | null;
   activityId?: string;
+  contentPath?: string;
 }
 
 export async function createPreviewSession(input: {
   repository: PackageReviewRepository;
   packageVersion: PackageVersionRecord;
   launch?: PreviewLaunchOverrides | null;
+  previewOrigin?: PreviewSessionRecord["origin"];
+  deepLinkingSessionId?: string | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<CreatedPreviewSession> {
@@ -57,6 +65,8 @@ export async function launchPreviewRuntimeSession(input: {
   repository: PackageReviewRepository;
   packageVersion: PackageVersionRecord;
   launch?: PreviewLaunchOverrides | null;
+  previewOrigin?: PreviewSessionRecord["origin"];
+  deepLinkingSessionId?: string | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<{
@@ -70,6 +80,12 @@ export async function launchPreviewRuntimeSession(input: {
     repository: input.repository,
     packageVersion: input.packageVersion,
     launch: input.launch ?? null,
+    ...(input.previewOrigin === undefined
+      ? {}
+      : { previewOrigin: input.previewOrigin }),
+    ...(input.deepLinkingSessionId === undefined
+      ? {}
+      : { deepLinkingSessionId: input.deepLinkingSessionId }),
     now,
     createOpaqueToken,
   });
@@ -115,7 +131,10 @@ export async function launchPreviewRuntimeSession(input: {
     capabilities: created.previewSession.capabilities,
     snapshotRoot: created.previewSession.snapshotRoot,
     entrypointPath: created.previewSession.entrypointPath,
-    contentPath: await resolvePreviewRuntimeContentPath(input.packageVersion),
+    contentPath: resolvePreviewRuntimeContentPath(
+      created.previewSession.snapshotRoot,
+      created.previewSession.contentPath,
+    ),
     services: {
       ags: null,
       nrps: null,
@@ -140,12 +159,11 @@ export async function launchPreviewRuntimeSession(input: {
     previewSessionId: created.previewSession.sessionId,
     eventType: "preview.launch",
     capability: null,
-    summary: "Started a test launch in Lantern's runtime.",
-    detail: {
-      runtimeSessionId: runtimeSession.sessionId,
-      route:
-        `/admin/packages/${created.previewSession.appId}/versions/${created.previewSession.packageVersion}/preview`,
-    },
+    summary: buildPreviewLaunchSummary(created.previewSession),
+    detail: buildPreviewLaunchDetail(
+      created.previewSession,
+      runtimeSession.sessionId,
+    ),
     occurredAt: createdAt.toISOString(),
   });
 
@@ -172,6 +190,8 @@ function buildPreviewDeploymentLabel(packageTitle: string): string {
 export async function preparePreviewSession(input: {
   packageVersion: PackageVersionRecord;
   launch?: PreviewLaunchOverrides | null;
+  previewOrigin?: PreviewSessionRecord["origin"];
+  deepLinkingSessionId?: string | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<PreviewSessionRecord> {
@@ -186,7 +206,11 @@ export async function preparePreviewSession(input: {
   }
 
   const fixtureData = await loadPreviewFixtureData(packageVersion);
-  const contentPath = await resolvePreviewContentPath(packageVersion);
+  const origin = input.previewOrigin ?? "adminTestLaunch";
+  const contentPath = await resolvePreparedPreviewContentPath(
+    packageVersion,
+    input.launch?.contentPath,
+  );
   const createdAt = now().toISOString();
   const sessionId = `preview-session-${createOpaqueToken()}`;
   const launchUserId = `preview-user-${createOpaqueToken()}`;
@@ -202,9 +226,9 @@ export async function preparePreviewSession(input: {
     appId: packageVersion.appId,
     packageVersion: packageVersion.version,
     packageTitle: packageVersion.title,
-    origin: "adminTestLaunch",
+    origin,
     contentPath,
-    deepLinkingSessionId: null,
+    deepLinkingSessionId: input.deepLinkingSessionId ?? null,
     capabilities: packageVersion.capabilities,
     snapshotRoot: packageVersion.artifact.snapshotRoot,
     entrypointPath: packageVersion.artifact.entrypointPath,
@@ -274,4 +298,63 @@ function normalizeOptionalTestLaunchValue(value: string | null): string | null {
 
   const trimmed = value.trim();
   return trimmed === "" ? null : trimmed;
+}
+
+async function resolvePreparedPreviewContentPath(
+  packageVersion: PackageVersionRecord,
+  overrideContentPath: string | undefined,
+): Promise<string> {
+  if (overrideContentPath === undefined) {
+    return await resolvePreviewContentPath(packageVersion);
+  }
+
+  const trimmed = overrideContentPath.trim();
+
+  if (trimmed === "") {
+    throw new Error("Preview content path is required.");
+  }
+
+  return ensureLeadingSlash(trimmed);
+}
+
+function resolvePreviewRuntimeContentPath(
+  snapshotRoot: string,
+  contentPath: string,
+): string {
+  const outsideMessage =
+    "Preview content path must stay inside the reviewed app files.";
+  const absolutePath = joinSnapshotPath(
+    snapshotRoot,
+    trimLeadingSlash(contentPath),
+    outsideMessage,
+  );
+
+  assertPathInsideSnapshot(snapshotRoot, absolutePath, outsideMessage);
+
+  return absolutePath;
+}
+
+function buildPreviewLaunchSummary(
+  previewSession: PreviewSessionRecord,
+): string {
+  return previewSession.origin === "deepLinkingAuthoring"
+    ? "Started an authoring preview in Lantern's runtime."
+    : "Started a test launch in Lantern's runtime.";
+}
+
+function buildPreviewLaunchDetail(
+  previewSession: PreviewSessionRecord,
+  runtimeSessionId: string,
+): Record<string, unknown> {
+  return {
+    runtimeSessionId,
+    origin: previewSession.origin,
+    contentPath: previewSession.contentPath,
+    deepLinkingSessionId: previewSession.deepLinkingSessionId,
+    route: previewSession.origin === "deepLinkingAuthoring"
+      ? previewSession.deepLinkingSessionId === null
+        ? null
+        : `/lti/deep-linking/sessions/${previewSession.deepLinkingSessionId}/preview`
+      : `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/preview`,
+  };
 }
