@@ -202,6 +202,93 @@ Deno.test("deep linking helpers list course-scoped resources for resource_select
   assertEquals(resources[0]?.contentTitle, "Course Activity");
 });
 
+Deno.test("deep linking helpers keep the same governed list-and-save flow for assignment and resource selection", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deepLinkingSessions: [
+      buildDeepLinkingSessionRecord({
+        sessionId: "deep-linking-session-assignment",
+        sessionToken: "deep-linking-token-assignment",
+        placement: "assignment_selection",
+      }),
+      buildDeepLinkingSessionRecord({
+        sessionId: "deep-linking-session-resource",
+        sessionToken: "deep-linking-token-resource",
+        placement: "resource_selection",
+      }),
+    ],
+    deepLinkingResourceOptions: [
+      buildDeepLinkingResourceOption({
+        packageVersionId: 2,
+        packageVersion: "0.2.0",
+        installScope: "assignment",
+        activityId: "/content/assignment.json",
+        contentPath: "/content/assignment.json",
+        contentTitle: "Assignment Activity",
+      }),
+      buildDeepLinkingResourceOption({
+        packageVersionId: 3,
+        packageVersion: "0.3.0",
+        installScope: "course",
+        activityId: "/content/course.json",
+        contentPath: "/content/course.json",
+        contentTitle: "Course Activity",
+      }),
+    ],
+  });
+
+  const assignmentSession = await requireAuthorizedDeepLinkingSession({
+    repository,
+    sessionId: "deep-linking-session-assignment",
+    token: "deep-linking-token-assignment",
+    now: () => new Date("2026-03-23T22:46:00Z"),
+  });
+  const resourceSession = await requireAuthorizedDeepLinkingSession({
+    repository,
+    sessionId: "deep-linking-session-resource",
+    token: "deep-linking-token-resource",
+    now: () => new Date("2026-03-23T22:46:00Z"),
+  });
+  const assignmentSaved = await saveDeepLinkingSessionSelection({
+    repository,
+    session: assignmentSession,
+    selectionValue: buildDeepLinkingSelectionValue({
+      packageVersionId: 2,
+      contentPath: "/content/assignment.json",
+    }),
+  });
+  const resourceSaved = await saveDeepLinkingSessionSelection({
+    repository,
+    session: resourceSession,
+    selectionValue: buildDeepLinkingSelectionValue({
+      packageVersionId: 3,
+      contentPath: "/content/course.json",
+    }),
+  });
+
+  const assignmentResources = await listDeepLinkingResources({
+    repository,
+    session: assignmentSaved.session,
+  });
+  const resourceResources = await listDeepLinkingResources({
+    repository,
+    session: resourceSaved.session,
+  });
+
+  assertEquals(assignmentResources.map((resource) => resource.contentPath), [
+    "/content/assignment.json",
+  ]);
+  assertEquals(resourceResources.map((resource) => resource.contentPath), [
+    "/content/course.json",
+  ]);
+  assertEquals(
+    assignmentSaved.selection.contentTitle,
+    "Assignment Activity",
+  );
+  assertEquals(resourceSaved.selection.contentTitle, "Course Activity");
+  assertEquals(assignmentSaved.session.selection?.packageVersionId, 2);
+  assertEquals(resourceSaved.session.selection?.packageVersionId, 3);
+});
+
 Deno.test("deep linking helpers create one durable reviewed placement from the saved reviewed selection", async () => {
   const repository = createInMemoryPackageReviewRepository({
     deepLinkingSessions: [

@@ -39,6 +39,10 @@ Deno.test("deep linking picker adjusts copy for resource_selection course placem
     "Select one reviewed resource for course placement.",
   );
   assertStringIncludes(html, "Choose one approved course resource below.");
+  assertStringIncludes(
+    html,
+    "Save one reviewed course resource before returning it to the LMS.",
+  );
   assertEquals(
     html.includes(
       "No approved course-scope reviewed resources are available for this app yet.",
@@ -112,13 +116,13 @@ Deno.test("deep linking picker separates save from LMS return and only enables r
   );
   assertStringIncludes(
     readyHtml,
-    "Ready to return to the LMS from this saved reviewed selection.",
+    "Ready to return this reviewed assignment resource to the LMS.",
   );
   assertStringIncludes(readyHtml, "Return to LMS");
   assertStringIncludes(readyHtml, "deep-linking-token-123");
   assertStringIncludes(
     blockedHtml,
-    "Save one reviewed selection before returning to the LMS.",
+    "Save one reviewed assignment resource before returning it to the LMS.",
   );
   assertStringIncludes(blockedHtml, "disabled>Return to LMS</button>");
 });

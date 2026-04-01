@@ -49,7 +49,7 @@ Deno.test("GET /lti/deep-linking/sessions/:id renders only approved assignment r
   assertStringIncludes(body, "/content/bonus.json");
   assertStringIncludes(
     body,
-    "Save one reviewed selection before returning to the LMS.",
+    "Save one reviewed assignment resource before returning it to the LMS.",
   );
   assertEquals(body.includes("Other App"), false);
 });
@@ -99,6 +99,10 @@ Deno.test("GET /lti/deep-linking/sessions/:id renders only approved course resou
   assertStringIncludes(body, "Course Activity");
   assertEquals(body.includes("Assignment Activity"), false);
   assertStringIncludes(body, "Choose one approved course resource below.");
+  assertStringIncludes(
+    body,
+    "Save one reviewed course resource before returning it to the LMS.",
+  );
 });
 
 Deno.test("POST /lti/deep-linking/sessions/:id stores one explicit reviewed selection and re-renders the summary", async () => {
@@ -157,7 +161,7 @@ Deno.test("POST /lti/deep-linking/sessions/:id stores one explicit reviewed sele
   assertStringIncludes(body, "/content/bonus.json");
   assertStringIncludes(
     body,
-    "Ready to return to the LMS from this saved reviewed selection.",
+    "Ready to return this reviewed assignment resource to the LMS.",
   );
 });
 
