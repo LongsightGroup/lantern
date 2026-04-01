@@ -1,5 +1,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
+import { rejectPackageNotApproved } from "./lti/launch_support_matrix.ts";
+import { expectLaunchRejection } from "./lti/launch_test_support.ts";
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -13,6 +15,25 @@ import {
   signCanvasIdToken,
 } from "./test_helpers/lti.ts";
 import { withFetchStub } from "./app_test_support.ts";
+
+Deno.test("launch rejection helpers classify governed approval denials as policy denials", () => {
+  try {
+    rejectPackageNotApproved({
+      appId: "chapter-4-asteroids",
+      packageVersion: "0.1.0",
+    });
+  } catch (error) {
+    const rejection = expectLaunchRejection(error);
+
+    assertEquals(rejection.category, "policyDenied");
+    assertEquals(rejection.code, "package_not_approved");
+    assertEquals(rejection.detail.appId, "chapter-4-asteroids");
+    assertEquals(rejection.detail.packageVersion, "0.1.0");
+    return;
+  }
+
+  throw new Error("Expected launch rejection.");
+});
 
 Deno.test("POST /lti/launch keeps reviewed assignment launches on the reviewed version and content after the deployment pin changes", async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -224,6 +245,7 @@ Deno.test("POST /lti/launch rejects bad signed launches before any runtime hando
       assertEquals(auditEvents.length, 1);
       assertEquals(auditEvents[0]?.deploymentRecordId, 3);
       assertEquals(auditEvents[0]?.packageVersionId, 5);
+      assertEquals(auditEvents[0]?.detail.category, "specInvalid");
       assertEquals(auditEvents[0]?.detail.code, "signature_validation_failed");
       assertEquals(
         JSON.stringify(auditEvents[0]?.detail ?? {}).includes(

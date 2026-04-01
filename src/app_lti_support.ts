@@ -112,6 +112,7 @@ export async function recordRejectedLaunchAudit(input: {
     summary: "Rejected the governed LTI launch before runtime handoff.",
     detail: {
       lms: loginState?.lms ?? null,
+      category: rejection?.category ?? null,
       code: rejection?.code ?? "launch_validation_failed",
       message: rejection?.message ?? errorMessage(input.error),
       ...rejection?.detail,
@@ -128,6 +129,7 @@ export async function recordRejectedLaunchAudit(input: {
 }
 
 function readLaunchRejection(input: unknown): {
+  category: string;
   code: string;
   message: string;
   detail: Record<string, string | null>;
@@ -137,6 +139,7 @@ function readLaunchRejection(input: unknown): {
   }
 
   return {
+    category: input.category,
     code: input.code,
     message: input.message,
     detail: input.detail,

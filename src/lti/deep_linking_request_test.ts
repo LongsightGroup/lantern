@@ -4,6 +4,7 @@ import {
   assertRejectsDeepLinking,
   decodeJwtPayload,
 } from "./deep_linking_test_helpers.ts";
+import { isLtiBoundaryDenialError } from "./launch_rejection.ts";
 import {
   buildDeploymentBinding,
   buildLoginStateRecord,
@@ -152,6 +153,60 @@ Deno.test("deep linking validator rejects unsupported content-item types without
   );
 
   assertEquals(savedState?.usedAt, null);
+});
+
+Deno.test("deep linking validator rejects unsupported content-item types with a typed spec-invalid denial", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        appId: "chapter-4-asteroids",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-deep-linking-typed-denial",
+        nonce: "nonce-deep-linking-typed-denial",
+        targetLinkUri: "http://localhost:8417/lti/deep-linking",
+        createdAt: "2026-03-24T16:10:00Z",
+        expiresAt: "2026-03-24T16:20:00Z",
+      }),
+    ],
+  });
+  const idToken = await signCanvasIdToken({
+    nonce: "nonce-deep-linking-typed-denial",
+    subject: null,
+    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+    targetLinkUri: "http://localhost:8417/lti/deep-linking",
+    deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
+    deepLinkAcceptTypes: ["html"],
+  });
+
+  try {
+    await validateDeepLinkingRequest({
+      repository,
+      state: "state-deep-linking-typed-denial",
+      idToken,
+      now: () => new Date("2026-03-24T16:15:00Z"),
+      loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+    });
+  } catch (error) {
+    if (!isLtiBoundaryDenialError(error)) {
+      throw error;
+    }
+
+    assertEquals(error.code, "unsupported_deep_linking_accept_type");
+    assertEquals(error.category, "specInvalid");
+    assertEquals(
+      error.message,
+      "Unsupported Deep Linking accept_types: html.",
+    );
+    assertEquals(error.detail.acceptTypes, "html");
+    return;
+  }
+
+  throw new Error("Expected typed Deep Linking denial.");
 });
 
 Deno.test("deep linking validator retries JWKS once before rejecting a valid authoring request during key rollover", async () => {
