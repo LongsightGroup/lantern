@@ -14,6 +14,7 @@ import {
   INVENTORY_BASE_QUERY,
   INVENTORY_ORDER_BY,
   LATEST_AGS_SMOKE_QUERY,
+  LATEST_COMPATIBILITY_PATH_QUERY,
   LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY,
   LATEST_GLOBAL_OFFICIAL_BROKER_VERIFICATION_QUERY,
   LATEST_GRADE_PUBLICATION_QUERY,
@@ -77,12 +78,18 @@ export function createOpsRepository(pool: Pool): OpsRepository {
         const [
           latestLaunch,
           recentLaunches,
+          latestCompatibilityPath,
           latestAgsSmoke,
           latestNrpsRead,
           latestGradePublish,
         ] = await Promise.all([
           getActivitySnapshot(client, LATEST_LAUNCH_QUERY, deploymentRecordId),
           listRecentAcceptedLaunches(client, deploymentRecordId),
+          getActivitySnapshot(
+            client,
+            LATEST_COMPATIBILITY_PATH_QUERY,
+            deploymentRecordId,
+          ),
           getActivitySnapshot(
             client,
             LATEST_AGS_SMOKE_QUERY,
@@ -109,6 +116,7 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           latestInstallEvidence: inventory.installEvidence,
           latestLaunch,
           recentLaunches,
+          latestCompatibilityPath,
           latestAgsSmoke,
           latestNrpsRead,
           latestGradePublish,

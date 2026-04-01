@@ -49,6 +49,10 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
     return buildLaunchOperatorSummary(item);
   }
 
+  if (item.kind === "deepLinking") {
+    return buildDeepLinkingOperatorSummary(item);
+  }
+
   if (item.kind === "nrps") {
     return item.status === "failed"
       ? "Roster verification failed for the saved deployment path."
@@ -125,6 +129,18 @@ function buildLaunchOperatorSummary(item: ControlPlaneDiagnosticItem): string {
         ? "Launch failed before Lantern could hand the learner into the governed resource-link runtime."
         : "Launch evidence was recorded for this deployment.";
   }
+}
+
+function buildDeepLinkingOperatorSummary(
+  item: ControlPlaneDiagnosticItem,
+): string {
+  const savedDeployment = describeSavedDeploymentPath(item.detail);
+
+  if (item.boundaryDenialCategory === "policyDenied") {
+    return `Deep Linking request matched ${savedDeployment}, but the active LTI profile denied it before picker handoff.`;
+  }
+
+  return `Deep Linking request was invalid for ${savedDeployment}, so Lantern stopped before opening the governed picker.`;
 }
 
 function isRetryableDiagnostic(

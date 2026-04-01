@@ -64,6 +64,26 @@ export const RECENT_ACCEPTED_LAUNCHES_QUERY = `
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
   LIMIT 10
 `;
+export const LATEST_COMPATIBILITY_PATH_QUERY = `
+  SELECT
+    audit_events.event_type,
+    audit_events.status,
+    audit_events.summary,
+    audit_events.attempt_id,
+    audit_events.detail,
+    audit_events.occurred_at
+  FROM audit_events
+  WHERE audit_events.deployment_record_id = $1
+    AND audit_events.event_type = 'interop.path_used'
+    AND COALESCE(audit_events.detail ->> 'scope', '') IN (
+      'login',
+      'launch',
+      'deep_linking',
+      'service'
+    )
+  ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
+  LIMIT 1
+`;
 export const LATEST_NRPS_QUERY = `
   SELECT
     audit_events.event_type,
@@ -130,6 +150,7 @@ export const DIAGNOSTICS_QUERY = `
     AND audit_events.status = 'failed'
     AND (
       audit_events.event_type LIKE 'launch.%'
+      OR audit_events.event_type = 'deep_linking.request.rejected'
       OR audit_events.event_type = 'deployment.nrps_verified'
       OR audit_events.event_type LIKE 'grade_publish.%'
       OR audit_events.event_type LIKE 'broker_verification.%'

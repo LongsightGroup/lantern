@@ -17,6 +17,7 @@ import type {
 } from "./repository_types.ts";
 import {
   mapAuditActivityStatus,
+  readBoundaryDenialCategoryDetail,
   mapDeploymentBinding,
   mapDiagnosticKind,
   normalizeNumeric,
@@ -170,6 +171,7 @@ export function mapDiagnosticRows(
         deploymentRecordId: row.deploymentRecordId,
         attemptId: row.attemptId,
         code: readStringDetail(row.detail, "code"),
+        boundaryDenialCategory: readBoundaryDenialCategoryDetail(row.detail),
         summary: row.summary,
         operatorSummary: row.summary,
         retryable: false,

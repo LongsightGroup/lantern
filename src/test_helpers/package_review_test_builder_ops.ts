@@ -137,6 +137,7 @@ export function buildControlPlaneDiagnosticItem(
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
     attemptId: overrides.attemptId ?? "attempt-123",
     code: overrides.code ?? "canvas_score_rejected",
+    boundaryDenialCategory: overrides.boundaryDenialCategory ?? null,
     summary: overrides.summary ?? "Canvas rejected the score publish.",
     operatorSummary: overrides.operatorSummary ??
       "Grade publish failed and can be retried from the control plane.",
@@ -280,6 +281,7 @@ export function buildControlPlaneDeploymentDetailSnapshot(
         summary: "Latest launch completed and reached the runtime handoff.",
       }),
     recentLaunches: overrides.recentLaunches ?? [buildDeploymentRecentLaunch()],
+    latestCompatibilityPath: overrides.latestCompatibilityPath ?? null,
     latestAgsSmoke: overrides.latestAgsSmoke ?? null,
     latestNrpsRead: overrides.latestNrpsRead ??
       buildDeploymentActivitySnapshot({

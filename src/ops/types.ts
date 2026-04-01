@@ -30,10 +30,15 @@ export type ControlPlaneActivityStatus =
 
 export type ControlPlaneDiagnosticKind =
   | "launch"
+  | "deepLinking"
   | "nrps"
   | "gradePublication"
   | "brokerVerification"
   | "reviewer";
+
+export type ControlPlaneBoundaryDenialCategory =
+  | "specInvalid"
+  | "policyDenied";
 
 export type BrokerVerificationSource = "manual" | "ci" | "1edtech";
 export type BrokerVerificationRunStatus =
@@ -131,6 +136,7 @@ export interface ControlPlaneDiagnosticItem {
   deploymentRecordId: number | null;
   attemptId: string | null;
   code: string | null;
+  boundaryDenialCategory: ControlPlaneBoundaryDenialCategory | null;
   summary: string;
   operatorSummary: string;
   retryable: boolean;
@@ -209,6 +215,7 @@ export interface ControlPlaneDeploymentDetailSnapshot {
   latestInstallEvidence: DeploymentActivitySnapshot | null;
   latestLaunch: DeploymentActivitySnapshot | null;
   recentLaunches: DeploymentRecentLaunch[];
+  latestCompatibilityPath?: DeploymentActivitySnapshot | null;
   latestAgsSmoke: DeploymentActivitySnapshot | null;
   latestNrpsRead: DeploymentActivitySnapshot | null;
   latestGradePublish: DeploymentGradePublicationSnapshot | null;

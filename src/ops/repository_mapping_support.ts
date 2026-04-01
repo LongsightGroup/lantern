@@ -6,6 +6,7 @@ import type {
   LmsType,
 } from "../lti/types.ts";
 import type {
+  ControlPlaneBoundaryDenialCategory,
   ControlPlaneActivityStatus,
   ControlPlaneDiagnosticItem,
 } from "./types.ts";
@@ -163,6 +164,10 @@ export function mapDiagnosticKind(
     return "launch";
   }
 
+  if (eventType.startsWith("deep_linking.")) {
+    return "deepLinking";
+  }
+
   if (eventType === "deployment.nrps_verified") {
     return "nrps";
   }
@@ -184,6 +189,14 @@ export function readStringDetail(
 ): string | null {
   const value = detail[key];
   return typeof value === "string" ? value : null;
+}
+
+export function readBoundaryDenialCategoryDetail(
+  detail: Record<string, unknown>,
+): ControlPlaneBoundaryDenialCategory | null {
+  const value = readStringDetail(detail, "category");
+
+  return value === "policyDenied" || value === "specInvalid" ? value : null;
 }
 
 export function readLtiProfileIdDetail(
