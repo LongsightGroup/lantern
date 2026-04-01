@@ -50,7 +50,7 @@ export function renderDeepLinkingSubmitStatusPage(input: {
   detail: string;
   session?: Pick<
     DeepLinkingSessionRecord,
-    "appId" | "contextTitle" | "deploymentSlug"
+    "appId" | "contextTitle" | "deploymentSlug" | "placement"
   >;
   selection?: DeepLinkingResourceSelection | null;
   submission?: DeepLinkingResponseSubmissionView;
@@ -59,6 +59,12 @@ export function renderDeepLinkingSubmitStatusPage(input: {
   const session = input.session ?? null;
   const selection = input.selection ?? null;
   const submission = input.submission ?? null;
+  const selectionSummaryLabel = session?.placement === "resource_selection"
+    ? "Saved reviewed course resource"
+    : "Saved reviewed assignment resource";
+  const returnSummaryLabel = session?.placement === "resource_selection"
+    ? "Course resource return"
+    : "Assignment resource return";
 
   return `<!doctype html>
 <html lang="en">
@@ -249,7 +255,7 @@ export function renderDeepLinkingSubmitStatusPage(input: {
   }
           ${
     selection === null ? "" : `<section class="summary-card">
-          <p class="summary-label">Saved reviewed selection</p>
+          <p class="summary-label">${escapeHtml(selectionSummaryLabel)}</p>
           <p class="summary-item"><strong>${
       escapeHtml(
         selection.contentTitle ??
@@ -263,7 +269,7 @@ export function renderDeepLinkingSubmitStatusPage(input: {
   }
           ${
     submission === null ? "" : `<section class="summary-card">
-          <p class="summary-label">LMS return</p>
+          <p class="summary-label">${escapeHtml(returnSummaryLabel)}</p>
           <p class="summary-item"><strong>Signed Deep Linking response</strong>Lantern is posting the reviewed placement back now.</p>
           <form id="lms-return-form" method="post" action="${
       escapeHtml(submission.returnUrl)

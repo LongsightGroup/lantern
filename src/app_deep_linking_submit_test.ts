@@ -144,7 +144,7 @@ Deno.test("POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
     assertEquals(replay.status, 409);
     assertStringIncludes(
       await replay.text(),
-      "LMS return already used",
+      "Assignment resource return already used",
     );
   });
 });

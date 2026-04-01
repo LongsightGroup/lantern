@@ -13,12 +13,11 @@ import {
   listDeepLinkingResources,
   resolveDeepLinkingSelection,
 } from "./lti/deep_linking.ts";
+import type { DeepLinkingSessionRecord, LtiPlacement } from "./lti/types.ts";
 import { resolveConfiguredPublicOrigin } from "./public_origin.ts";
 
 const sessionVerificationFailureDetail =
-  "Lantern could not verify this Deep Linking session. Reopen the assignment picker from the LMS and try again.";
-const sessionReplayFailureDetail =
-  "This Deep Linking return has already been used. Reopen the assignment picker from the LMS, confirm the reviewed selection, and return once.";
+  "Lantern could not verify this Deep Linking session. Reopen Deep Linking authoring from the LMS and try again.";
 
 export function registerDeepLinkingSubmitRoutes(
   app: Hono,
@@ -52,8 +51,11 @@ export function registerDeepLinkingSubmitRoutes(
         return context.html(
           renderDeepLinkingSubmitStatusPage({
             tone: "error",
-            title: "LMS return already used",
-            detail: sessionReplayFailureDetail,
+            title: buildDeepLinkingReturnTitle(
+              session.placement,
+              "alreadyUsed",
+            ),
+            detail: buildDeepLinkingReplayFailureDetail(session.placement),
             session,
             selection: resolveDeepLinkingSelection({
               session,
@@ -88,7 +90,7 @@ export function registerDeepLinkingSubmitRoutes(
           notice: {
             tone: "error",
             title: "Return blocked",
-            detail: "Save one reviewed selection before returning to the LMS.",
+            detail: buildDeepLinkingMissingSelectionDetail(session.placement),
           },
           status: 409,
         });
@@ -123,8 +125,11 @@ export function registerDeepLinkingSubmitRoutes(
         return context.html(
           renderDeepLinkingSubmitStatusPage({
             tone: "error",
-            title: "LMS return already used",
-            detail: sessionReplayFailureDetail,
+            title: buildDeepLinkingReturnTitle(
+              session.placement,
+              "alreadyUsed",
+            ),
+            detail: buildDeepLinkingReplayFailureDetail(session.placement),
             session,
             selection,
           }),
@@ -174,9 +179,8 @@ export function registerDeepLinkingSubmitRoutes(
       return context.html(
         renderDeepLinkingSubmitStatusPage({
           tone: "success",
-          title: "Returning to LMS",
-          detail:
-            "Lantern created the reviewed placement and is posting the signed Deep Linking response back to the LMS.",
+          title: buildDeepLinkingReturnTitle(session.placement, "returning"),
+          detail: buildDeepLinkingSuccessDetail(session.placement),
           session,
           selection,
           submission,
@@ -186,7 +190,7 @@ export function registerDeepLinkingSubmitRoutes(
       return context.html(
         renderDeepLinkingSubmitStatusPage({
           tone: "error",
-          title: "LMS return failed",
+          title: buildDeepLinkingReturnTitle(session.placement, "failed"),
           detail: deepLinkingReturnErrorMessage(error),
           session,
           selection: resolveDeepLinkingSelection({
@@ -212,4 +216,57 @@ function renderSessionVerificationFailure(context: Context, status: 404 | 409) {
     }),
     status,
   );
+}
+
+function buildDeepLinkingReturnTitle(
+  placement: LtiPlacement,
+  state: "alreadyUsed" | "failed" | "returning",
+): string {
+  const resourceLabel = describeDeepLinkingPlacement(placement).capitalized;
+
+  switch (state) {
+    case "alreadyUsed":
+      return `${resourceLabel} return already used`;
+    case "failed":
+      return `${resourceLabel} return failed`;
+    case "returning":
+      return `Returning ${describeDeepLinkingPlacement(placement).resource} to LMS`;
+  }
+}
+
+function buildDeepLinkingReplayFailureDetail(placement: LtiPlacement): string {
+  return "This Deep Linking return has already been used. Reopen Deep Linking authoring from the LMS, confirm the reviewed " +
+    describeDeepLinkingPlacement(placement).resource + ", and return once.";
+}
+
+function buildDeepLinkingMissingSelectionDetail(
+  placement: LtiPlacement,
+): string {
+  return "Save one reviewed " +
+    describeDeepLinkingPlacement(placement).resource +
+    " before returning it to the LMS.";
+}
+
+function buildDeepLinkingSuccessDetail(placement: LtiPlacement): string {
+  return "Lantern created the reviewed placement and is posting this reviewed " +
+    describeDeepLinkingPlacement(placement).resource + " back to the LMS.";
+}
+
+function describeDeepLinkingPlacement(
+  placement: Pick<DeepLinkingSessionRecord, "placement">["placement"],
+): {
+  resource: string;
+  capitalized: string;
+} {
+  if (placement === "resource_selection") {
+    return {
+      resource: "course resource",
+      capitalized: "Course resource",
+    };
+  }
+
+  return {
+    resource: "assignment resource",
+    capitalized: "Assignment resource",
+  };
 }
