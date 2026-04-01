@@ -153,11 +153,89 @@ Deno.test("POST /lti/deep-linking rejects unsupported Deep Linking payloads befo
   const runtimeSession = await repository.getLatestRuntimeSessionByDeploymentId(
     7,
   );
+  const auditEvents = await repository.listAuditEventsByEventType(
+    "deep_linking.request.rejected",
+  );
 
   assertEquals(response.status, 400);
   assertStringIncludes(await response.text(), "Unsupported");
   assertEquals(savedState?.usedAt, null);
   assertEquals(runtimeSession, null);
+  assertEquals(auditEvents.length, 1);
+  assertEquals(auditEvents[0]?.detail.category, "specInvalid");
+  assertEquals(
+    auditEvents[0]?.detail.code,
+    "unsupported_deep_linking_accept_type",
+  );
+  assertEquals(auditEvents[0]?.detail.ltiProfileId, "governedCompatibility");
+});
+
+Deno.test("POST /lti/deep-linking returns 409 and records a typed policy denial when certification blocks the nonce bridge", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        installScope: "assignment",
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-24T16:15:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-deep-linking-policy-denial",
+        nonce: "nonce-deep-linking-policy-denial",
+        targetLinkUri: "http://localhost:8417/lti/deep-linking",
+        createdAt: "2026-03-24T16:10:00Z",
+        expiresAt: "2030-03-25T16:20:00Z",
+      }),
+    ],
+  });
+  const formData = new FormData();
+  const idToken = await signCanvasIdToken({
+    nonce: null,
+    jwtId: "nonce-deep-linking-policy-denial",
+    subject: null,
+    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+    targetLinkUri: "http://localhost:8417/lti/deep-linking",
+    deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
+  });
+
+  formData.set("state", "state-deep-linking-policy-denial");
+  formData.set("id_token", idToken);
+
+  const response = await createApp({
+    getRepository: () => repository,
+    loadCanvasJwks: () => Promise.resolve(getTestCanvasJwks()),
+  }).request("http://localhost/lti/deep-linking", {
+    method: "POST",
+    body: formData,
+  });
+  const savedState = await repository.getLoginStateByState(
+    "state-deep-linking-policy-denial",
+  );
+  const auditEvents = await repository.listAuditEventsByEventType(
+    "deep_linking.request.rejected",
+  );
+
+  assertEquals(response.status, 409);
+  assertStringIncludes(await response.text(), "nonce");
+  assertEquals(savedState?.usedAt, null);
+  assertEquals(auditEvents.length, 1);
+  assertEquals(auditEvents[0]?.detail.category, "policyDenied");
+  assertEquals(auditEvents[0]?.detail.code, "nonce_bridge_not_allowed");
+  assertEquals(auditEvents[0]?.detail.ltiProfileId, "certification");
 });
 
 Deno.test("POST /lti/deep-linking accepts Moodle Deep Linking launches through the generic route", async () => {

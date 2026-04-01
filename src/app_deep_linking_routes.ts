@@ -11,12 +11,14 @@ import {
   statusForDeepLinkingSessionError,
 } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
+import type { PackageReviewRepository } from "./package_review/repository.ts";
 import {
   createDeepLinkingSession,
   requireAuthorizedDeepLinkingSession,
   saveDeepLinkingSessionSelection,
   validateDeepLinkingRequest,
 } from "./lti/deep_linking.ts";
+import { isLtiBoundaryDenialError } from "./lti/launch_rejection.ts";
 import { formatLmsLabel } from "./lti/platform_binding.ts";
 import {
   buildResolvedLtiProfileDetail,
@@ -36,11 +38,8 @@ export function registerDeepLinkingRoutes(
     try {
       const request = await validateDeepLinkingRequest({
         repository,
-        state: requireTrimmedString(state, "Deep Linking state is required."),
-        idToken: requireTrimmedString(
-          idToken,
-          "Deep Linking id_token is required.",
-        ),
+        state: state ?? "",
+        idToken: idToken ?? "",
         loadJwks: services.loadCanvasJwks,
       });
       const session = await createDeepLinkingSession({
@@ -93,6 +92,11 @@ export function registerDeepLinkingRoutes(
         303,
       );
     } catch (error) {
+      await recordRejectedDeepLinkingRequestAudit({
+        repository,
+        state,
+        error,
+      });
       return context.text(
         errorMessage(error),
         statusForDeepLinkingError(error),
@@ -184,5 +188,62 @@ export function registerDeepLinkingRoutes(
         statusForDeepLinkingSessionError(error),
       );
     }
+  });
+}
+
+async function recordRejectedDeepLinkingRequestAudit(input: {
+  repository: PackageReviewRepository;
+  state: string | null;
+  error: unknown;
+}): Promise<void> {
+  if (!isLtiBoundaryDenialError(input.error)) {
+    return;
+  }
+
+  const loginState = input.state === null
+    ? null
+    : await input.repository.getLoginStateByState(input.state).catch(() => null);
+  const deployment = loginState === null ? null : await input.repository
+    .getDeploymentByBinding({
+      lms: loginState.lms,
+      issuer: loginState.issuer,
+      clientId: loginState.clientId,
+      deploymentId: loginState.deploymentId,
+    })
+    .catch(() => null);
+  const ltiProfile = deployment === null
+    ? null
+    : await resolveLtiProfileForDeployment({
+      repository: input.repository,
+      deployment,
+    });
+
+  await input.repository.recordAuditEvent({
+    eventType: "deep_linking.request.rejected",
+    actorType: "platform",
+    actorId: null,
+    deploymentRecordId: deployment?.id ?? null,
+    packageVersionId: deployment?.enabledPackageVersionId ?? null,
+    attemptId: null,
+    lineItemBindingId: null,
+    status: "failed",
+    summary: loginState === null
+      ? "Rejected a Deep Linking request before Lantern could match the saved login state."
+      : `Rejected a ${formatLmsLabel(loginState.lms)} Deep Linking request before picker handoff.`,
+    detail: {
+      lms: loginState?.lms ?? null,
+      category: input.error.category,
+      code: input.error.code,
+      message: input.error.message,
+      ...input.error.detail,
+      issuer: loginState?.issuer ?? null,
+      clientId: loginState?.clientId ?? null,
+      deploymentId: loginState?.deploymentId ?? null,
+      targetLinkUri: loginState?.targetLinkUri ?? null,
+      internalDeploymentSlug: deployment?.slug ?? null,
+      appId: deployment?.appId ?? null,
+      ...(ltiProfile === null ? {} : buildResolvedLtiProfileDetail(ltiProfile)),
+    },
+    occurredAt: new Date().toISOString(),
   });
 }

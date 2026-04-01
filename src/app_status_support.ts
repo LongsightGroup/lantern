@@ -1,4 +1,7 @@
-import { isLaunchRejectionError } from "./lti/launch_rejection.ts";
+import {
+  isLaunchRejectionError,
+  isLtiBoundaryDenialError,
+} from "./lti/launch_rejection.ts";
 
 export function deepLinkingReturnErrorMessage(error: unknown): string {
   const message = errorMessage(error);
@@ -55,20 +58,9 @@ export function statusForError(error: unknown): 409 | 500 {
   return 500;
 }
 
-export function statusForDeepLinkingError(error: unknown): 400 | 500 {
-  if (!(error instanceof Error)) {
-    return 500;
-  }
-
-  if (
-    error.message.includes("required") ||
-    error.message.includes("Unsupported") ||
-    error.message.includes("Canvas deployment") ||
-    error.message.includes("Canvas issuer") ||
-    error.message.includes("Login state") ||
-    error.message.includes("Deep Linking")
-  ) {
-    return 400;
+export function statusForDeepLinkingError(error: unknown): 400 | 409 | 500 {
+  if (isLtiBoundaryDenialError(error)) {
+    return error.category === "policyDenied" ? 409 : 400;
   }
 
   return 500;

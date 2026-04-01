@@ -23,7 +23,9 @@ import {
   assertLanternTargetLinkKind,
   resolveLanternDeepLinkingPlacement,
   targetLinkUrisMatch,
+  targetLinkUriUsesLanternDriftTolerance,
 } from "./target_link_uri.ts";
+import { getLtiProfileDefinition } from "./profile.ts";
 import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
 import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
 import { loadJwks } from "./token_support.ts";
@@ -56,8 +58,10 @@ export type DeepLinkingRejectionCode =
   | "login_state_missing"
   | "login_state_used"
   | "missing_required_value"
+  | "nonce_bridge_not_allowed"
   | "request_mismatch"
   | "signature_validation_failed"
+  | "target_link_uri_drift_not_allowed"
   | "unsupported_deep_linking_accept_type"
   | "unsupported_deep_linking_presentation_target"
   | "unsupported_lti_version"
@@ -154,6 +158,11 @@ export async function validateDeepLinkingRequest(input: {
       },
     });
   }
+  const ltiProfile = await resolveLtiProfileForDeployment({
+    repository: input.repository,
+    deployment,
+  });
+  const behavior = getLtiProfileDefinition(ltiProfile.id).behavior;
 
   let payload: Awaited<ReturnType<typeof verifyIdTokenWithJwksRetry>>;
 
@@ -165,23 +174,19 @@ export async function validateDeepLinkingRequest(input: {
       audience: loginState.clientId,
       now,
       loadJwks: loadDeepLinkingJwks,
+      allowRetry: behavior.retryJwksRefetchOnce,
       onRetry: async () => {
-        const ltiProfile = await resolveLtiProfileForDeployment({
-          repository: input.repository,
-          deployment,
-        });
-
         await recordInteropPathUsed({
           repository: input.repository,
           scope: "deep_linking",
           path: "jwks_refetch",
           actorType: "platform",
-          deploymentRecordId: deployment?.id ?? null,
-          packageVersionId: deployment?.enabledPackageVersionId ?? null,
+          deploymentRecordId: deployment.id,
+          packageVersionId: deployment.enabledPackageVersionId,
           summary:
             "Lantern refetched platform JWKS during Deep Linking validation.",
           detail: {
-            deploymentSlug: deployment?.slug ?? null,
+            deploymentSlug: deployment.slug,
             issuer: loginState.issuer,
             clientId: loginState.clientId,
             deploymentId: loginState.deploymentId,
@@ -216,7 +221,10 @@ export async function validateDeepLinkingRequest(input: {
     message: "Deep Linking target_link_uri is required.",
   });
   const placement = requireDeepLinkingRouteTarget(targetLinkUri);
-  const nonce = resolveDeepLinkingNonce(payload);
+  const nonce = resolveDeepLinkingNonce({
+    payload,
+    allowJtiBridge: behavior.allowDeepLinkingJtiNonceBridge,
+  });
   const messageType = requireDeepLinkingStringClaim({
     value: payload[CLAIM_MESSAGE_TYPE],
     claim: "message_type",
@@ -240,13 +248,58 @@ export async function validateDeepLinkingRequest(input: {
     !targetLinkUrisMatch({
       expected: loginState.targetLinkUri,
       actual: targetLinkUri,
+      allowLanternDrift: behavior.tolerateTargetLinkUriDrift,
     })
   ) {
+    if (
+      targetLinkUriUsesLanternDriftTolerance({
+        expected: loginState.targetLinkUri,
+        actual: targetLinkUri,
+      })
+    ) {
+      rejectDeepLinkingPolicyDenied({
+        code: "target_link_uri_drift_not_allowed",
+        message:
+          "Deep Linking target_link_uri drift is not allowed for the active LTI profile.",
+        detail: {
+          expectedTargetLinkUri: loginState.targetLinkUri,
+          actualTargetLinkUri: targetLinkUri,
+        },
+      });
+    }
+
     rejectDeepLinkingRequestMismatch({
       field: "target_link_uri",
       target: "saved login state",
       message:
         "Deep Linking target_link_uri did not match the saved login state.",
+    });
+  }
+  if (
+    behavior.tolerateTargetLinkUriDrift &&
+    targetLinkUriUsesLanternDriftTolerance({
+      expected: loginState.targetLinkUri,
+      actual: targetLinkUri,
+    })
+  ) {
+    await recordInteropPathUsed({
+      repository: input.repository,
+      scope: "deep_linking",
+      path: "target_link_uri_drift",
+      actorType: "platform",
+      deploymentRecordId: deployment.id,
+      packageVersionId: deployment.enabledPackageVersionId,
+      summary:
+        "Lantern tolerated bounded target_link_uri drift during Deep Linking validation.",
+      detail: {
+        deploymentSlug: deployment.slug,
+        issuer: loginState.issuer,
+        clientId: loginState.clientId,
+        deploymentId: loginState.deploymentId,
+        expectedTargetLinkUri: loginState.targetLinkUri,
+        actualTargetLinkUri: targetLinkUri,
+      },
+      ltiProfile,
     });
   }
   if (nonce.value !== loginState.nonce) {
@@ -289,11 +342,6 @@ export async function validateDeepLinkingRequest(input: {
   }
 
   if (nonce.source === "jti") {
-    const ltiProfile = await resolveLtiProfileForDeployment({
-      repository: input.repository,
-      deployment,
-    });
-
     await recordInteropPathUsed({
       repository: input.repository,
       scope: "deep_linking",
@@ -353,11 +401,14 @@ export async function validateDeepLinkingRequest(input: {
   };
 }
 
-function resolveDeepLinkingNonce(payload: Record<string, unknown>): {
+function resolveDeepLinkingNonce(input: {
+  payload: Record<string, unknown>;
+  allowJtiBridge: boolean;
+}): {
   value: string;
   source: "nonce" | "jti";
 } {
-  const nonce = optionalStringClaim(payload.nonce);
+  const nonce = optionalStringClaim(input.payload.nonce);
 
   if (nonce !== null) {
     return {
@@ -366,9 +417,21 @@ function resolveDeepLinkingNonce(payload: Record<string, unknown>): {
     };
   }
 
-  const jti = optionalStringClaim(payload.jti);
+  const jti = optionalStringClaim(input.payload.jti);
 
   if (jti !== null) {
+    if (!input.allowJtiBridge) {
+      rejectDeepLinkingPolicyDenied({
+        code: "nonce_bridge_not_allowed",
+        message:
+          "Deep Linking nonce must use the nonce claim for the active LTI profile.",
+        detail: {
+          expectedNonceSource: "nonce",
+          actualNonceSource: "jti",
+        },
+      });
+    }
+
     return {
       value: jti,
       source: "jti",
@@ -646,6 +709,19 @@ function rejectDeepLinkingSpecInvalid(input: {
 }): never {
   rejectDeepLinking({
     category: "specInvalid",
+    code: input.code,
+    message: input.message,
+    detail: buildRejectionDetailRecord(input.detail),
+  });
+}
+
+function rejectDeepLinkingPolicyDenied(input: {
+  code: DeepLinkingRejectionCode;
+  message: string;
+  detail: Record<string, string | number | null | undefined>;
+}): never {
+  rejectDeepLinking({
+    category: "policyDenied",
     code: input.code,
     message: input.message,
     detail: buildRejectionDetailRecord(input.detail),

@@ -225,8 +225,13 @@ Deno.test("deep linking validator retries JWKS once before rejecting a valid aut
         enabledPackageVersionId: 1,
         enabledPackageVersion: "0.1.0",
         binding: buildDeploymentBinding(),
+        ltiProfileOverride: "governedCompatibility",
       }),
     ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
     loginStates: [
       buildLoginStateRecord({
         state: "state-deep-linking-retry",
@@ -271,7 +276,7 @@ Deno.test("deep linking validator retries JWKS once before rejecting a valid aut
   );
 });
 
-Deno.test("deep linking validator accepts jti as the nonce-equivalent and records the bridge path", async () => {
+Deno.test("deep linking validator rejects a key-rollover request in certification mode without retrying JWKS", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -289,6 +294,80 @@ Deno.test("deep linking validator accepts jti as the nonce-equivalent and record
         binding: buildDeploymentBinding(),
       }),
     ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-deep-linking-retry-certification",
+        nonce: "nonce-deep-linking-retry-certification",
+        targetLinkUri: "http://localhost:8417/lti/deep-linking",
+        createdAt: "2026-03-24T16:10:00Z",
+        expiresAt: "2026-03-24T16:20:00Z",
+      }),
+    ],
+  });
+  const idToken = await signCanvasIdToken({
+    nonce: "nonce-deep-linking-retry-certification",
+    subject: null,
+    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+    targetLinkUri: "http://localhost:8417/lti/deep-linking",
+    deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
+  });
+  let jwksRequests = 0;
+
+  try {
+    await validateDeepLinkingRequest({
+      repository,
+      state: "state-deep-linking-retry-certification",
+      idToken,
+      now: () => new Date("2026-03-24T16:15:00Z"),
+      loadJwks: () => {
+        jwksRequests += 1;
+
+        return Promise.resolve(
+          jwksRequests === 1 ? { keys: [] } : getTestCanvasJwks(),
+        );
+      },
+    });
+  } catch (error) {
+    if (!isLtiBoundaryDenialError(error)) {
+      throw error;
+    }
+
+    assertEquals(jwksRequests, 1);
+    assertEquals(error.code, "signature_validation_failed");
+    assertEquals(error.category, "specInvalid");
+    return;
+  }
+
+  throw new Error("Expected certification Deep Linking denial.");
+});
+
+Deno.test("deep linking validator accepts jti as the nonce-equivalent and records the bridge path", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        installScope: "assignment",
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-24T16:15:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+        ltiProfileOverride: "governedCompatibility",
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
     loginStates: [
       buildLoginStateRecord({
         state: "state-deep-linking-jti",
@@ -328,7 +407,7 @@ Deno.test("deep linking validator accepts jti as the nonce-equivalent and record
   );
 });
 
-Deno.test("deep linking validator tolerates target_link_uri scheme, query, and trailing-slash drift when the callback host and route still match", async () => {
+Deno.test("deep linking validator rejects the jti nonce bridge in certification mode with a policy denial", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -346,6 +425,73 @@ Deno.test("deep linking validator tolerates target_link_uri scheme, query, and t
         binding: buildDeploymentBinding(),
       }),
     ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-deep-linking-jti-certification",
+        nonce: "nonce-deep-linking-jti-certification",
+        targetLinkUri: "http://localhost:8417/lti/deep-linking",
+        createdAt: "2026-03-24T16:10:00Z",
+        expiresAt: "2026-03-24T16:20:00Z",
+      }),
+    ],
+  });
+  const idToken = await signCanvasIdToken({
+    nonce: null,
+    jwtId: "nonce-deep-linking-jti-certification",
+    subject: null,
+    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+    targetLinkUri: "http://localhost:8417/lti/deep-linking",
+    deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
+  });
+
+  try {
+    await validateDeepLinkingRequest({
+      repository,
+      state: "state-deep-linking-jti-certification",
+      idToken,
+      now: () => new Date("2026-03-24T16:15:00Z"),
+      loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+    });
+  } catch (error) {
+    if (!isLtiBoundaryDenialError(error)) {
+      throw error;
+    }
+
+    assertEquals(error.code, "nonce_bridge_not_allowed");
+    assertEquals(error.category, "policyDenied");
+    return;
+  }
+
+  throw new Error("Expected certification Deep Linking denial.");
+});
+
+Deno.test("deep linking validator tolerates target_link_uri scheme, query, and trailing-slash drift when the callback host and route still match", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        installScope: "assignment",
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-24T16:15:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+        ltiProfileOverride: "governedCompatibility",
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
     loginStates: [
       buildLoginStateRecord({
         state: "state-deep-linking-normalized",
@@ -377,6 +523,76 @@ Deno.test("deep linking validator tolerates target_link_uri scheme, query, and t
     request.targetLinkUri,
     "http://lantern.example/lti/deep-linking?placement=assignment_selection",
   );
+  const interopEvents = await repository.listAuditEventsByEventType(
+    "interop.path_used",
+  );
+
+  assertEquals(
+    interopEvents.some((event) => event.detail.path === "target_link_uri_drift"),
+    true,
+  );
+});
+
+Deno.test("deep linking validator rejects target_link_uri normalization drift in certification mode with a policy denial", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        installScope: "assignment",
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-24T16:15:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 7,
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
+    loginStates: [
+      buildLoginStateRecord({
+        state: "state-deep-linking-normalized-certification",
+        nonce: "nonce-deep-linking-normalized-certification",
+        targetLinkUri: "https://lantern.example/lti/deep-linking/",
+        createdAt: "2026-03-24T16:10:00Z",
+        expiresAt: "2026-03-24T16:20:00Z",
+      }),
+    ],
+  });
+  const idToken = await signCanvasIdToken({
+    nonce: "nonce-deep-linking-normalized-certification",
+    subject: null,
+    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+    targetLinkUri:
+      "http://lantern.example/lti/deep-linking?placement=assignment_selection",
+    deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
+  });
+
+  try {
+    await validateDeepLinkingRequest({
+      repository,
+      state: "state-deep-linking-normalized-certification",
+      idToken,
+      now: () => new Date("2026-03-24T16:15:00Z"),
+      loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+    });
+  } catch (error) {
+    if (!isLtiBoundaryDenialError(error)) {
+      throw error;
+    }
+
+    assertEquals(error.code, "target_link_uri_drift_not_allowed");
+    assertEquals(error.category, "policyDenied");
+    return;
+  }
+
+  throw new Error("Expected certification Deep Linking denial.");
 });
 
 Deno.test("deep linking validator preserves resource_selection placement when the target_link_uri names it explicitly", async () => {
@@ -441,6 +657,10 @@ Deno.test("deep linking validator rejects target_link_uri placement drift betwee
         binding: buildDeploymentBinding(),
       }),
     ],
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: "certification",
+      updatedAt: "2026-03-24T16:00:00Z",
+    },
     loginStates: [
       buildLoginStateRecord({
         state: "state-deep-linking-placement-mismatch",
@@ -460,17 +680,25 @@ Deno.test("deep linking validator rejects target_link_uri placement drift betwee
     deepLinkReturnUrl: "https://canvas.example/courses/42/deep_link_return",
   });
 
-  await assertRejectsDeepLinking(
-    () =>
-      validateDeepLinkingRequest({
-        repository,
-        state: "state-deep-linking-placement-mismatch",
-        idToken,
-        now: () => new Date("2026-03-24T16:15:00Z"),
-        loadJwks: () => Promise.resolve(getTestCanvasJwks()),
-      }),
-    "Deep Linking target_link_uri did not match the saved login state.",
-  );
+  try {
+    await validateDeepLinkingRequest({
+      repository,
+      state: "state-deep-linking-placement-mismatch",
+      idToken,
+      now: () => new Date("2026-03-24T16:15:00Z"),
+      loadJwks: () => Promise.resolve(getTestCanvasJwks()),
+    });
+  } catch (error) {
+    if (!isLtiBoundaryDenialError(error)) {
+      throw error;
+    }
+
+    assertEquals(error.code, "request_mismatch");
+    assertEquals(error.category, "specInvalid");
+    return;
+  }
+
+  throw new Error("Expected certification Deep Linking denial.");
 });
 
 Deno.test("deep linking validator accepts Moodle and Sakai launches when the saved deployment binding matches", async () => {
