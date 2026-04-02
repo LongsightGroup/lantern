@@ -12,9 +12,12 @@ import {
 } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 import type { PackageReviewRepository } from "./package_review/repository.ts";
+import { launchPreviewRuntimeSession } from "./preview/service.ts";
 import {
   createDeepLinkingSession,
+  listDeepLinkingResources,
   requireAuthorizedDeepLinkingSession,
+  resolveDeepLinkingSelection,
   saveDeepLinkingSessionSelection,
   validateDeepLinkingRequest,
 } from "./lti/deep_linking.ts";
@@ -189,6 +192,110 @@ export function registerDeepLinkingRoutes(
       );
     }
   });
+
+  app.post("/lti/deep-linking/sessions/:sessionId/preview", async (context) => {
+    const repository = services.getRepository();
+    const formData = await context.req.formData();
+
+    try {
+      const session = await requireAuthorizedDeepLinkingSession({
+        repository,
+        sessionId: context.req.param("sessionId"),
+        token: requireTrimmedFormValue(
+          formData.get("token"),
+          "Deep Linking session token is required.",
+        ),
+      });
+
+      try {
+        const selection = resolveDeepLinkingSelection({
+          session,
+          resources: await listDeepLinkingResources({
+            repository,
+            session,
+          }),
+        });
+
+        if (selection === null) {
+          return await renderDeepLinkingPickerResponse({
+            context,
+            repository,
+            session,
+            token: session.sessionToken,
+            notice: {
+              tone: "error",
+              title: "Preview blocked",
+              detail: buildDeepLinkingPreviewMissingSelectionDetail(
+                session.placement,
+              ),
+            },
+            status: 409,
+          });
+        }
+
+        const packageVersion = await repository.getPackageVersionById(
+          selection.packageVersionId,
+        );
+
+        if (packageVersion === null) {
+          throw new Error(
+            `Reviewed package version ${selection.packageVersionId} could not be loaded for preview.`,
+          );
+        }
+
+        const launched = await launchPreviewRuntimeSession({
+          repository,
+          packageVersion,
+          launch: {
+            userRole: "instructor",
+            courseId: session.contextId ?? "deep-linking-context",
+            assignmentId: null,
+            activityId: selection.activityId,
+            contentPath: selection.contentPath,
+          },
+          previewOrigin: "deepLinkingAuthoring",
+          deepLinkingSessionId: session.sessionId,
+        });
+
+        return context.redirect(
+          `/runtime/sessions/${launched.runtimeSession.sessionId}?token=${
+            encodeURIComponent(
+              launched.runtimeSession.sessionToken,
+            )
+          }`,
+          303,
+        );
+      } catch (error) {
+        return await renderDeepLinkingPickerResponse({
+          context,
+          repository,
+          session,
+          token: session.sessionToken,
+          notice: {
+            tone: "error",
+            title: "Preview blocked",
+            detail: errorMessage(error),
+          },
+          status: 409,
+        });
+      }
+    } catch (error) {
+      return context.text(
+        errorMessage(error),
+        statusForDeepLinkingSessionError(error),
+      );
+    }
+  });
+}
+
+function buildDeepLinkingPreviewMissingSelectionDetail(
+  placement: "assignment_selection" | "resource_selection",
+): string {
+  const resource = placement === "resource_selection"
+    ? "course resource"
+    : "assignment resource";
+
+  return `Save one reviewed ${resource} before previewing it in Lantern.`;
 }
 
 async function recordRejectedDeepLinkingRequestAudit(input: {

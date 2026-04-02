@@ -186,10 +186,11 @@ Deno.test("POST /lti/deep-linking/sessions/:id/preview launches a governed runti
     const runtimeSession = await repository.getRuntimeSessionById(
       runtimeSessionId,
     );
-    const previewSession = await repository.getLatestPreviewSessionByPackageVersion(
-      7,
-      "deepLinkingAuthoring",
-    );
+    const previewSession = await repository
+      .getLatestPreviewSessionByPackageVersion(
+        7,
+        "deepLinkingAuthoring",
+      );
 
     assertEquals(
       runtimeSession?.sessionToken,

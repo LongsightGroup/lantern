@@ -40,14 +40,22 @@ export function renderDeepLinkingPickerPage(input: {
   const submitAction = input.sessionId
     ? `/lti/deep-linking/sessions/${encodeURIComponent(input.sessionId)}/submit`
     : "#";
+  const previewAction = input.sessionId
+    ? `/lti/deep-linking/sessions/${
+      encodeURIComponent(input.sessionId)
+    }/preview`
+    : "#";
   const canSave = input.resources.length > 0;
   const canReturn = input.selection !== null && input.sessionId !== undefined &&
     input.token !== undefined;
+  const canPreview = canReturn;
   const returnStateCopy = input.selection === null
     ? `Save one reviewed ${scopeResourceLabel} before returning it to the LMS.`
     : input.sessionId === undefined || input.token === undefined
     ? "Return to LMS is unavailable until Lantern can verify this session."
     : `Ready to return this reviewed ${scopeResourceLabel} to the LMS.`;
+  const previewStateCopy =
+    `Open this reviewed ${scopeResourceLabel} in Lantern preview without consuming the LMS return.`;
 
   return `<!doctype html>
 <html lang="en">
@@ -154,6 +162,25 @@ export function renderDeepLinkingPickerPage(input: {
   }>Save reviewed selection</button>
               </div>
             </form>
+            ${
+    !canPreview
+      ? ""
+      : `<form method="post" action="${
+        escapeHtml(previewAction)
+      }" target="_blank">
+              ${
+        input.token === undefined
+          ? ""
+          : `<input type="hidden" name="token" value="${
+            escapeHtml(input.token)
+          }">`
+      }
+              <div class="actions">
+                <button type="submit" class="button-primary">Preview in Lantern</button>
+                <span class="phase-note">${escapeHtml(previewStateCopy)}</span>
+              </div>
+            </form>`
+  }
             <form method="post" action="${escapeHtml(submitAction)}">
               ${
     input.token === undefined
