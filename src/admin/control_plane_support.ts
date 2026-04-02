@@ -1,6 +1,8 @@
 import type {
   BrokerVerificationStatus,
+  CertificationWorkflowKey,
   ControlPlaneDeploymentInventoryRow,
+  LatestOfficialCertificationEvidence,
   OfficialCertificationState,
 } from "../ops/types.ts";
 export {
@@ -8,6 +10,14 @@ export {
   resolveSupportedPathForDeployment,
 } from "../ops/broker_verification_paths.ts";
 import { formatDateTime } from "./layout.ts";
+
+export interface VerificationOfficialEvidenceDisplay {
+  state: OfficialCertificationState;
+  checkedAt: string;
+  summary: string;
+  directoryUrl: string | null;
+  workflowLabel: string | null;
+}
 
 export function aggregatePilotUsage(
   deployments: ControlPlaneDeploymentInventoryRow[],
@@ -65,6 +75,44 @@ export function resolveOfficialBrokerVerification(
   };
 }
 
+export function resolveOfficialEvidenceDisplay(input: {
+  latestOfficialCertificationEvidence:
+    | LatestOfficialCertificationEvidence
+    | null;
+  latestBrokerVerification: BrokerVerificationStatus | null;
+}): VerificationOfficialEvidenceDisplay | null {
+  if (input.latestOfficialCertificationEvidence !== null) {
+    return {
+      state: input.latestOfficialCertificationEvidence.state,
+      checkedAt: input.latestOfficialCertificationEvidence.checkedAt,
+      summary: input.latestOfficialCertificationEvidence.summary,
+      directoryUrl: input.latestOfficialCertificationEvidence.directoryUrl,
+      workflowLabel: describeCertificationWorkflowLabel(
+        input.latestOfficialCertificationEvidence.workflowKey,
+      ),
+    };
+  }
+
+  const official = input.latestBrokerVerification?.official ?? null;
+
+  if (
+    official === null || official.checkedAt === null ||
+    official.directoryUrl === null
+  ) {
+    return null;
+  }
+
+  return {
+    state: official.state,
+    checkedAt: official.checkedAt,
+    summary: official.state === "notCertified"
+      ? "Latest recorded 1EdTech evidence does not show a certification listing."
+      : "Latest recorded 1EdTech evidence shows the listed certification state.",
+    directoryUrl: official.directoryUrl,
+    workflowLabel: null,
+  };
+}
+
 export function describeBrokerRunStatus(
   status: "passed" | "failed" | "pending" | "notRun",
 ): string {
@@ -91,6 +139,48 @@ export function describeOfficialCertificationState(
     case "ltiAdvantageComplete":
       return "LTI Advantage Complete";
   }
+}
+
+export function describeCertificationWorkflowLabel(
+  workflowKey: CertificationWorkflowKey,
+): string {
+  switch (workflowKey) {
+    case "core":
+      return "LTI Core";
+    case "deepLinking":
+      return "Deep Linking";
+    case "nrps":
+      return "NRPS";
+    case "ags":
+      return "AGS";
+  }
+}
+
+export function describeCertificationWorkflowShortLabel(
+  workflowKey: CertificationWorkflowKey,
+): string {
+  switch (workflowKey) {
+    case "core":
+      return "Core";
+    case "deepLinking":
+      return "Deep Linking";
+    case "nrps":
+      return "NRPS";
+    case "ags":
+      return "AGS";
+  }
+}
+
+export function buildDeploymentActivityHref(
+  deployment: ControlPlaneDeploymentInventoryRow,
+): string {
+  const activityQuery = deployment.binding?.lms
+    ? `?lms=${encodeURIComponent(deployment.binding.lms)}&view=activity`
+    : "?view=activity";
+
+  return `/admin/packages/${
+    encodeURIComponent(deployment.appId)
+  }/deployment${activityQuery}#activity-details`;
 }
 
 export function describeEnablementState(

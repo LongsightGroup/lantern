@@ -1,7 +1,9 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
   buildBrokerVerificationStatus,
+  buildCertificationWorkflowStatus,
   buildControlPlaneDeploymentInventoryRow,
+  buildLatestOfficialCertificationEvidence,
   buildOfficialBrokerCertificationStatus,
 } from "../test_helpers/package_review.ts";
 import {
@@ -116,6 +118,47 @@ Deno.test("renderVerificationPage shows deployment-scoped verification facts whi
         directoryUrl: "https://example.test/official-directory",
       }),
     }),
+    certificationWorkflowStatuses: [
+      buildCertificationWorkflowStatus({
+        workflowKey: "core",
+        latestInternal: {
+          deploymentRecordId: 1,
+          deploymentLabel: "Chapter 4 Asteroids Pilot Deployment",
+          status: "passed",
+          checkedAt: "2026-03-24T12:50:00Z",
+          summary: "Canvas deployment verification passed.",
+          evidenceUrl: "https://example.test/internal-proof",
+        },
+      }),
+      buildCertificationWorkflowStatus({
+        workflowKey: "deepLinking",
+        latestInternal: {
+          deploymentRecordId: 2,
+          deploymentLabel: "Chapter 4 Asteroids Moodle Deployment",
+          status: "failed",
+          checkedAt: "2026-03-24T12:40:00Z",
+          summary: "Moodle deployment verification failed.",
+          evidenceUrl: "https://example.test/moodle-proof",
+        },
+      }),
+      buildCertificationWorkflowStatus({
+        workflowKey: "nrps",
+        latestInternal: null,
+      }),
+      buildCertificationWorkflowStatus({
+        workflowKey: "ags",
+        latestInternal: null,
+      }),
+    ],
+    latestOfficialCertificationEvidence:
+      buildLatestOfficialCertificationEvidence({
+        workflowKey: "core",
+        state: "notCertified",
+        checkedAt: "2026-03-24T12:55:00Z",
+        summary:
+          "Latest recorded 1EdTech evidence does not show a certification listing.",
+        directoryUrl: "https://example.test/official-directory",
+      }),
     ltiProfileSettings: {
       defaultLtiProfile: "certification",
       updatedAt: "2026-03-24T13:00:00Z",
@@ -123,14 +166,25 @@ Deno.test("renderVerificationPage shows deployment-scoped verification facts whi
   });
 
   assertStringIncludes(html, "Saved checks");
+  assertStringIncludes(html, "Certification checklist");
   assertStringIncludes(html, "Official 1EdTech listing");
+  assertStringIncludes(html, "LTI Core");
+  assertStringIncludes(html, "Deep Linking");
+  assertStringIncludes(html, "NRPS");
+  assertStringIncludes(html, "AGS");
   assertStringIncludes(html, "Chapter 4 Asteroids Pilot Deployment");
   assertStringIncludes(html, "Chapter 4 Asteroids Moodle Deployment");
   assertStringIncludes(html, "Chapter 4 Asteroids Sakai Deployment");
   assertStringIncludes(html, "Canvas deployment verification passed.");
   assertStringIncludes(html, "Moodle deployment verification failed.");
-  assertStringIncludes(html, "LTI 1.3 launch, AGS, and NRPS");
-  assertStringIncludes(html, "LTI 1.3 launch and AGS score publish");
+  assertStringIncludes(
+    html,
+    "A passed Core row does not cover Deep Linking, NRPS, or AGS.",
+  );
+  assertStringIncludes(
+    html,
+    "No internal evidence has been recorded for NRPS yet.",
+  );
   assertStringIncludes(html, "Not certified");
   assertStringIncludes(html, "https://example.test/internal-proof");
   assertStringIncludes(html, "https://example.test/moodle-proof");
@@ -142,6 +196,7 @@ Deno.test("renderVerificationPage shows deployment-scoped verification facts whi
   assertStringIncludes(html, "Certification");
   assertStringIncludes(html, "Governed interoperability");
   assertStringIncludes(html, 'name="deploymentRecordId"');
+  assertStringIncludes(html, 'name="workflowKey"');
   assertStringIncludes(html, 'name="scope"');
   assertEquals(html.includes("Deployment inventory"), false);
   assertEquals(html.includes("Supported Canvas path"), false);

@@ -1,11 +1,13 @@
 import type {
   BrokerVerificationStatus,
+  CertificationWorkflowStatus,
   ControlPlaneDeploymentInventoryRow,
+  LatestOfficialCertificationEvidence,
 } from "../ops/types.ts";
 import type { LanternLtiProfileSettingsRecord } from "../package_review/types.ts";
 import {
   aggregatePilotUsage,
-  resolveOfficialBrokerVerification,
+  resolveOfficialEvidenceDisplay,
 } from "./control_plane_support.ts";
 import {
   renderDeploymentInventorySection,
@@ -41,24 +43,33 @@ export function renderDeploymentsPage(input: {
 export function renderVerificationPage(input: {
   deployments: ControlPlaneDeploymentInventoryRow[];
   latestBrokerVerification: BrokerVerificationStatus | null;
+  certificationWorkflowStatuses?: CertificationWorkflowStatus[];
+  latestOfficialCertificationEvidence?:
+    | LatestOfficialCertificationEvidence
+    | null;
   ltiProfileSettings?: LanternLtiProfileSettingsRecord | null;
   notice?: AdminNotice | null;
 }): string {
-  const latestOfficialBrokerVerification = resolveOfficialBrokerVerification(
-    input.latestBrokerVerification,
-  );
+  const officialEvidence = resolveOfficialEvidenceDisplay({
+    latestOfficialCertificationEvidence:
+      input.latestOfficialCertificationEvidence ?? null,
+    latestBrokerVerification: input.latestBrokerVerification,
+  });
 
   return renderAdminLayout({
     title: "Lantern Admin Verification",
     eyebrow: "Verification",
     heading: "Verification",
-    intro: "See saved checks for each app setup, or add a new one.",
+    intro:
+      "Follow one calm certification checklist, review saved checks, or add a new result.",
     activePath: "/admin/verification",
     notice: input.notice ?? null,
     body: `${
       renderBrokerVerificationSection({
         deployments: input.deployments,
-        latestOfficialBrokerVerification,
+        certificationWorkflowStatuses: input.certificationWorkflowStatuses ??
+          [],
+        officialEvidence,
       })
     }
     ${renderLtiProfileSettingsSection(input.ltiProfileSettings ?? null)}

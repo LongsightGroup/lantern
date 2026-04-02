@@ -145,10 +145,14 @@ export async function renderVerificationPage(
     status?: 200 | 400 | 500;
   } = {},
 ) {
-  const deployments = await services.getOpsRepository()
-    .listControlPlaneDeployments();
-  const latestBrokerVerification = await services.getOpsRepository()
+  const opsRepository = services.getOpsRepository();
+  const deployments = await opsRepository.listControlPlaneDeployments();
+  const latestBrokerVerification = await opsRepository
     .getLatestBrokerVerificationStatus();
+  const certificationWorkflowStatuses = await opsRepository
+    .listCertificationWorkflowStatuses();
+  const latestOfficialCertificationEvidence = await opsRepository
+    .getLatestOfficialCertificationEvidence();
   const ltiProfileSettings = await services.getRepository()
     .getLanternLtiProfileSettings();
 
@@ -156,6 +160,8 @@ export async function renderVerificationPage(
     renderAdminVerificationPage({
       deployments,
       latestBrokerVerification,
+      certificationWorkflowStatuses,
+      latestOfficialCertificationEvidence,
       ltiProfileSettings,
       notice: input.notice ?? null,
     }),
