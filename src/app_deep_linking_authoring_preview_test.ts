@@ -5,6 +5,7 @@ import {
   verifyDeepLinkingResponseJwt,
   withCanvasReturnEnv,
 } from "./app_test_support.ts";
+import { buildDeepLinkingSelectionValue } from "./lti/deep_linking.ts";
 import { LANTERN_PLACEMENT_CUSTOM_KEY } from "./lti/types.ts";
 import {
   buildDeepLinkingResourceOption,
@@ -17,6 +18,67 @@ import {
   buildDeepLinkingSessionRecord,
   buildDeploymentBinding,
 } from "./test_helpers/lti.ts";
+
+Deno.test("Deep Linking picker shows preview only after a reviewed selection is saved and posts it in a new tab", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deepLinkingSessions: [
+      buildDeepLinkingSessionRecord({
+        sessionId: "deep-linking-session-picker-preview",
+        sessionToken: "deep-linking-token-picker-preview",
+        expiresAt: "2030-03-25T16:20:00Z",
+      }),
+    ],
+    deepLinkingResourceOptions: buildAssignmentResources({
+      packageVersionId: 3,
+      packageVersion: "0.3.0",
+    }),
+  });
+  const app = createApp({ getRepository: () => repository });
+
+  const initialResponse = await app.request(
+    "http://localhost/lti/deep-linking/sessions/deep-linking-session-picker-preview?token=deep-linking-token-picker-preview",
+  );
+
+  assertEquals(initialResponse.status, 200);
+
+  const initialBody = await initialResponse.text();
+
+  assertEquals(initialBody.includes("/preview"), false);
+  assertEquals(initialBody.includes('target="_blank"'), false);
+
+  const saveForm = new FormData();
+
+  saveForm.set("token", "deep-linking-token-picker-preview");
+  saveForm.set(
+    "selection",
+    buildDeepLinkingSelectionValue({
+      packageVersionId: 3,
+      contentPath: "/content/bonus.json",
+    }),
+  );
+
+  const savedResponse = await app.request(
+    "http://localhost/lti/deep-linking/sessions/deep-linking-session-picker-preview",
+    {
+      method: "POST",
+      body: saveForm,
+    },
+  );
+
+  assertEquals(savedResponse.status, 200);
+
+  const savedBody = await savedResponse.text();
+
+  assertStringIncludes(
+    savedBody,
+    'action="/lti/deep-linking/sessions/deep-linking-session-picker-preview/preview"',
+  );
+  assertStringIncludes(savedBody, 'target="_blank"');
+  assertStringIncludes(
+    savedBody,
+    'name="token" value="deep-linking-token-picker-preview"',
+  );
+});
 
 Deno.test("POST /lti/deep-linking/sessions/:id/preview rejects missing saved selections and keeps the Deep Linking session usable", async () => {
   const repository = createInMemoryPackageReviewRepository({
