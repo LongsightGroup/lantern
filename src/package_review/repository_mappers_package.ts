@@ -3,6 +3,7 @@ import type {
   DynamicRegistrationStateRecord,
   LoginStateRecord,
 } from "../lti/types.ts";
+import { parseReviewedRuntimeContract } from "./runtime_contract.ts";
 import type { DeploymentRecord, PackageVersionRecord } from "./types.ts";
 import type {
   DeploymentRow,
@@ -30,6 +31,12 @@ export function mapPackageVersionRow(
 ): PackageVersionRecord {
   if (!row) {
     throw new Error("Expected a package version row.");
+  }
+
+  if (row.runtimeContract === null || row.runtimeContractSignature === null) {
+    throw new Error(
+      `Package version ${row.appId}@${row.version} is missing its reviewed runtime contract and cannot launch. Register a new reviewed version instead of mutating this legacy row.`,
+    );
   }
 
   return {
@@ -62,6 +69,8 @@ export function mapPackageVersionRow(
       entrypointPath: `${row.artifactRoot}${row.entrypoint}`,
       digest: row.artifactDigest,
     },
+    runtimeContract: parseReviewedRuntimeContract(row.runtimeContract),
+    runtimeContractSignature: row.runtimeContractSignature,
     importedAt: normalizeTimestamp(row.importedAt),
   };
 }

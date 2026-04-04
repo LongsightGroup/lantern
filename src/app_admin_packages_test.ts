@@ -69,6 +69,7 @@ Deno.test("POST /admin/packages/import-demo imports the demo package and redirec
   const repository = createInMemoryPackageReviewRepository();
   const app = createApp({
     getRepository: () => repository,
+    loadDemoPackageSnapshot: () => Promise.resolve(null),
     importDemoPackage: () =>
       Promise.resolve(buildImportedPackageVersion({ version: "0.1.0" })),
   });

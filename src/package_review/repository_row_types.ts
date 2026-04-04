@@ -7,6 +7,7 @@ import type {
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
+  ReviewedRuntimeContract,
   ValidationIssue,
 } from "./types.ts";
 import type { LtiProfileId } from "../lti/profile.ts";
@@ -42,6 +43,8 @@ export interface PackageVersionRow {
   manifestJson: Record<string, unknown>;
   artifactRoot: string;
   artifactDigest: string;
+  runtimeContract: ReviewedRuntimeContract | null;
+  runtimeContractSignature: string | null;
   importedAt: Date | string;
 }
 

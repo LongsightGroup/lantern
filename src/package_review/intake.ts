@@ -1,5 +1,7 @@
 import type { PackageArtifactRecord } from "./types.ts";
 import { type ManifestReviewData, validateManifest } from "./manifest.ts";
+import { buildSignedReviewedRuntimeContract } from "./runtime_contract.ts";
+import type { ReviewedRuntimeContract } from "./types.ts";
 
 export const DEMO_PACKAGE_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
 export const DEFAULT_PACKAGE_STORAGE_ROOT = "var/packages";
@@ -7,6 +9,8 @@ export const DEFAULT_PACKAGE_STORAGE_ROOT = "var/packages";
 export interface ImportedPackageVersion {
   reviewData: ManifestReviewData;
   artifact: PackageArtifactRecord;
+  runtimeContract: ReviewedRuntimeContract;
+  runtimeContractSignature: string;
 }
 
 export async function readDemoPackageReviewData(): Promise<ManifestReviewData> {
@@ -37,10 +41,10 @@ export async function loadDemoPackageSnapshot(
     return null;
   }
 
-  return {
+  return await finalizeImportedPackageVersion({
     reviewData,
     artifact: await buildArtifactRecord(snapshotRoot, reviewData.entrypoint),
-  };
+  });
 }
 
 export async function importDemoPackage(
@@ -68,9 +72,20 @@ export async function importDemoPackage(
     reviewData.entrypoint,
   );
 
+  return await finalizeImportedPackageVersion({ reviewData, artifact });
+}
+
+async function finalizeImportedPackageVersion(input: {
+  reviewData: ManifestReviewData;
+  artifact: PackageArtifactRecord;
+}): Promise<ImportedPackageVersion> {
   return {
-    reviewData,
-    artifact,
+    reviewData: input.reviewData,
+    artifact: input.artifact,
+    ...(await buildSignedReviewedRuntimeContract({
+      reviewData: input.reviewData,
+      artifactDigest: input.artifact.digest,
+    })),
   };
 }
 

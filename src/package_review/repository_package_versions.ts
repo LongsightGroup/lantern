@@ -49,10 +49,12 @@ export function createPackageVersionRepositoryMethods(
                 validation_issues,
                 manifest_json,
                 artifact_root,
-                artifact_digest
+                artifact_digest,
+                runtime_contract,
+                runtime_contract_signature
               ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, 'pending', NULL, NULL, $14::jsonb, $15::jsonb, $16, $17
+                $11, $12, $13, 'pending', NULL, NULL, $14::jsonb, $15::jsonb, $16, $17, $18::jsonb, $19
               )
               RETURNING
                 id,
@@ -76,6 +78,8 @@ export function createPackageVersionRepositoryMethods(
                 manifest_json,
                 artifact_root,
                 artifact_digest,
+                runtime_contract,
+                runtime_contract_signature,
                 imported_at
             `,
             args: [
@@ -96,6 +100,8 @@ export function createPackageVersionRepositoryMethods(
               JSON.stringify(input.reviewData.manifestJson),
               input.artifact.snapshotRoot,
               input.artifact.digest,
+              JSON.stringify(input.runtimeContract),
+              input.runtimeContractSignature,
             ],
             camelCase: true,
           });

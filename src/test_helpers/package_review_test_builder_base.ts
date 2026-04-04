@@ -1,4 +1,5 @@
 import type { ImportedPackageVersion } from "../package_review/intake.ts";
+import { createReviewedRuntimeContract } from "../package_review/runtime_contract.ts";
 import type {
   AttemptEventRecord,
   AttemptRecord,
@@ -17,7 +18,10 @@ import {
 export function buildPackageVersionRecord(
   overrides: Partial<PackageVersionRecord> = {},
 ): PackageVersionRecord {
-  return {
+  const record: Omit<
+    PackageVersionRecord,
+    "runtimeContract" | "runtimeContractSignature"
+  > = {
     id: 1,
     appId: "chapter-4-asteroids",
     version: "0.1.0",
@@ -58,6 +62,22 @@ export function buildPackageVersionRecord(
     importedAt: DEFAULT_IMPORTED_AT,
     ...overrides,
   };
+
+  return {
+    ...record,
+    runtimeContract: overrides.runtimeContract ??
+      createReviewedRuntimeContract({
+        reviewData: {
+          appId: record.appId,
+          version: record.version,
+          entrypoint: record.entrypoint,
+          capabilities: record.capabilities,
+        },
+        artifactDigest: record.artifact.digest,
+      }),
+    runtimeContractSignature: overrides.runtimeContractSignature ??
+      "test-reviewed-runtime-contract-signature",
+  };
 }
 
 export function buildImportedPackageVersion(
@@ -81,6 +101,8 @@ export function buildImportedPackageVersion(
       validationIssues: record.validationIssues,
     },
     artifact: record.artifact,
+    runtimeContract: record.runtimeContract,
+    runtimeContractSignature: record.runtimeContractSignature,
   };
 }
 

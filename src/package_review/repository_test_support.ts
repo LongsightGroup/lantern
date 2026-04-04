@@ -1,12 +1,21 @@
 import type { Pool } from "@db/postgres";
 import { runMigrations } from "../db/migrate.ts";
+import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
 import { createDatabasePool } from "../db/pool.ts";
 import { resetPackageReviewTables } from "../test_helpers/postgres.ts";
 import type { ImportedPackageVersion } from "./intake.ts";
 import { validateManifest } from "./manifest.ts";
 import { createPackageReviewRepository } from "./repository.ts";
+import { buildSignedReviewedRuntimeContract } from "./runtime_contract.ts";
 
 const DEMO_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
+const TEST_RUNTIME_CONTRACT_ENV = {
+  get(name: string): string | undefined {
+    return name === "LTI_TOOL_PRIVATE_JWK"
+      ? getTestToolPrivateJwkEnvValue()
+      : undefined;
+  },
+};
 
 export async function withRepositoryTestDatabase(
   run: (context: {
@@ -50,25 +59,32 @@ export async function buildImportedPackageVersion(
   const title = overrides.title ?? validation.reviewData.title;
   const snapshotRoot = overrides.snapshotRoot ??
     `var/packages/${appId}/${version}`;
-
-  return {
-    reviewData: {
-      ...validation.reviewData,
-      appId,
+  const reviewData = {
+    ...validation.reviewData,
+    appId,
+    version,
+    title,
+    manifestJson: {
+      ...validation.reviewData.manifestJson,
+      app_id: appId,
       version,
       title,
-      manifestJson: {
-        ...validation.reviewData.manifestJson,
-        app_id: appId,
-        version,
-        title,
-      },
     },
-    artifact: {
-      snapshotRoot,
-      manifestPath: `${snapshotRoot}/manifest.json`,
-      entrypointPath: `${snapshotRoot}${validation.reviewData.entrypoint}`,
-      digest: `sha256:${appId}-${version.replaceAll(".", "-")}`,
-    },
+  };
+  const artifact = {
+    snapshotRoot,
+    manifestPath: `${snapshotRoot}/manifest.json`,
+    entrypointPath: `${snapshotRoot}${validation.reviewData.entrypoint}`,
+    digest: `sha256:${appId}-${version.replaceAll(".", "-")}`,
+  };
+
+  return {
+    reviewData,
+    artifact,
+    ...(await buildSignedReviewedRuntimeContract({
+      reviewData,
+      artifactDigest: artifact.digest,
+      env: TEST_RUNTIME_CONTRACT_ENV,
+    })),
   };
 }

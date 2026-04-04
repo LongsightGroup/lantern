@@ -40,6 +40,14 @@ export interface PackageArtifactRecord {
   digest: string;
 }
 
+export interface ReviewedRuntimeContract {
+  appId: string;
+  packageVersion: string;
+  artifactDigest: string;
+  entrypoint: string;
+  capabilities: Capability[];
+}
+
 export interface PackageVersionRecord {
   id: number;
   appId: string;
@@ -58,6 +66,8 @@ export interface PackageVersionRecord {
   validationIssues: ValidationIssue[];
   manifestJson: Record<string, unknown>;
   artifact: PackageArtifactRecord;
+  runtimeContract: ReviewedRuntimeContract;
+  runtimeContractSignature: string;
   importedAt: string;
 }
 

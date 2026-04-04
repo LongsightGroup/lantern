@@ -22,9 +22,16 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
       manifest_json jsonb NOT NULL,
       artifact_root text NOT NULL,
       artifact_digest text NOT NULL,
+      runtime_contract jsonb NOT NULL,
+      runtime_contract_signature text NOT NULL,
       imported_at timestamptz NOT NULL DEFAULT now(),
       UNIQUE (app_id, version)
     )
+  `,
+  `
+    ALTER TABLE package_versions
+      ADD COLUMN IF NOT EXISTS runtime_contract jsonb,
+      ADD COLUMN IF NOT EXISTS runtime_contract_signature text
   `,
   `
     CREATE TABLE IF NOT EXISTS deployments (

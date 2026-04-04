@@ -51,6 +51,8 @@ export function createInMemoryVersionRepository(
         validationIssues: input.reviewData.validationIssues,
         manifestJson: input.reviewData.manifestJson,
         artifact: input.artifact,
+        runtimeContract: input.runtimeContract,
+        runtimeContractSignature: input.runtimeContractSignature,
       });
 
       state.packageVersions.push(nextRecord);

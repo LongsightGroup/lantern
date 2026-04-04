@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS package_versions (
   manifest_json jsonb NOT NULL,
   artifact_root text NOT NULL,
   artifact_digest text NOT NULL,
+  runtime_contract jsonb NOT NULL,
+  runtime_contract_signature text NOT NULL,
   imported_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (app_id, version)
 );

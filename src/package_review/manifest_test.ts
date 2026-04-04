@@ -177,7 +177,10 @@ Deno.test("reviewed runtime contracts fail closed when the approved artifact, ca
     env: TEST_RUNTIME_CONTRACT_ENV,
   });
 
-  assertNotEquals(signedContract.runtimeContract, driftedContract.runtimeContract);
+  assertNotEquals(
+    signedContract.runtimeContract,
+    driftedContract.runtimeContract,
+  );
   assertNotEquals(
     signedContract.runtimeContractSignature,
     driftedContract.runtimeContractSignature,

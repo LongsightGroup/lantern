@@ -91,17 +91,19 @@ Deno.test("importDemoPackage snapshots the demo package into Lantern-managed sto
 });
 
 Deno.test("importDemoPackage refuses to overwrite an existing immutable snapshot", async () => {
-  const storageRoot = await Deno.makeTempDir({ prefix: "lantern-storage-" });
+  await withToolSigningEnv(async () => {
+    const storageRoot = await Deno.makeTempDir({ prefix: "lantern-storage-" });
 
-  try {
-    await importDemoPackage({ storageRoot });
+    try {
+      await importDemoPackage({ storageRoot });
 
-    await assertRejects(
-      () => importDemoPackage({ storageRoot }),
-      Error,
-      "Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.",
-    );
-  } finally {
-    await Deno.remove(storageRoot, { recursive: true });
-  }
+      await assertRejects(
+        () => importDemoPackage({ storageRoot }),
+        Error,
+        "Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.",
+      );
+    } finally {
+      await Deno.remove(storageRoot, { recursive: true });
+    }
+  });
 });

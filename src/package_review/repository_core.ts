@@ -68,6 +68,8 @@ export async function reviewPackageVersion(
             manifest_json,
             artifact_root,
             artifact_digest,
+            runtime_contract,
+            runtime_contract_signature,
             imported_at
         `,
           args: [approvalStatus, reviewNotes, id],
