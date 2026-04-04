@@ -17,6 +17,8 @@ const TEST_SIGNING_ENV = {
   get(name: string): string | undefined {
     return name === "LTI_TOOL_PRIVATE_JWK"
       ? getTestToolPrivateJwkEnvValue()
+      : name === "APP_RUNTIME_ORIGIN"
+      ? "https://runtime.lantern.example"
       : undefined;
   },
 };
@@ -42,13 +44,20 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(html, "finalizeAttempt");
   assertStringIncludes(
     html,
-    "/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/",
+    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/",
   );
   assertStringIncludes(
     html,
-    "/runtime/sessions/runtime-session-123/attempt-events",
+    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events",
   );
-  assertStringIncludes(html, "/runtime/sessions/runtime-session-123/finalize");
+  assertStringIncludes(
+    html,
+    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/finalize",
+  );
+  assertStringIncludes(
+    html,
+    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/content",
+  );
   assertEquals(bootstrap.session.expires_at, "2099-03-26T22:47:00Z");
   assertEquals(
     bootstrap.app.runtime_contract_signature,

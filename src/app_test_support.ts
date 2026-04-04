@@ -33,6 +33,30 @@ export async function withCanvasReturnEnv(
   }
 }
 
+export async function withRuntimeOriginEnv<T>(
+  run: () => Promise<T>,
+  options: {
+    appOrigin?: string;
+    runtimeOrigin?: string;
+  } = {},
+): Promise<T> {
+  const previousAppOrigin = Deno.env.get("APP_ORIGIN");
+  const previousRuntimeOrigin = Deno.env.get("APP_RUNTIME_ORIGIN");
+
+  Deno.env.set("APP_ORIGIN", options.appOrigin ?? "https://lantern.example");
+  Deno.env.set(
+    "APP_RUNTIME_ORIGIN",
+    options.runtimeOrigin ?? "https://runtime.lantern.example",
+  );
+
+  try {
+    return await run();
+  } finally {
+    restoreEnv("APP_ORIGIN", previousAppOrigin);
+    restoreEnv("APP_RUNTIME_ORIGIN", previousRuntimeOrigin);
+  }
+}
+
 export function extractHiddenInputValue(html: string, name: string): string {
   const pattern = new RegExp(`name="${name}" value="([^"]+)"`);
   const match = html.match(pattern);
