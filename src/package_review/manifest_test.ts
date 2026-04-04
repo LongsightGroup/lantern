@@ -1,5 +1,16 @@
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertNotEquals,
+  assertRejects,
+  assertStringIncludes,
+} from "@std/assert";
+import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
 import { validateManifest } from "./manifest.ts";
+import {
+  buildSignedReviewedRuntimeContract,
+  verifyReviewedRuntimeContractSignature,
+} from "./runtime_contract.ts";
 
 type ManifestFixture = {
   schema_version: string;
@@ -33,6 +44,13 @@ type ManifestFixture = {
 };
 
 const DEMO_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
+const TEST_RUNTIME_CONTRACT_ENV = {
+  get(name: string): string | undefined {
+    return name === "LTI_TOOL_PRIVATE_JWK"
+      ? getTestToolPrivateJwkEnvValue()
+      : undefined;
+  },
+};
 
 async function writeJson(path: string, value: unknown): Promise<void> {
   await Deno.writeTextFile(path, JSON.stringify(value, null, 2));
@@ -135,6 +153,66 @@ Deno.test("validateManifest accepts the demo manifest and returns typed review d
   assertEquals(result.reviewData.grading.mode, "declarative");
   assertEquals(result.reviewData.grading.rubricFile, "/scoring/rubric.json");
   assertEquals(result.reviewData.validationIssues, []);
+});
+
+Deno.test("reviewed runtime contracts fail closed when the approved artifact, capability manifest, or signature drifts", async () => {
+  const result = await validateManifest({ sourceRoot: DEMO_SOURCE_ROOT });
+
+  assertEquals(result.ok, true);
+
+  if (!result.ok) {
+    throw new Error(
+      `Expected demo package to validate: ${JSON.stringify(result.issues)}`,
+    );
+  }
+
+  const signedContract = await buildSignedReviewedRuntimeContract({
+    reviewData: result.reviewData,
+    artifactDigest: "sha256:chapter-4-asteroids-reviewed",
+    env: TEST_RUNTIME_CONTRACT_ENV,
+  });
+  const driftedContract = await buildSignedReviewedRuntimeContract({
+    reviewData: result.reviewData,
+    artifactDigest: "sha256:chapter-4-asteroids-reviewed-drifted",
+    env: TEST_RUNTIME_CONTRACT_ENV,
+  });
+
+  assertNotEquals(signedContract.runtimeContract, driftedContract.runtimeContract);
+  assertNotEquals(
+    signedContract.runtimeContractSignature,
+    driftedContract.runtimeContractSignature,
+  );
+
+  await verifyReviewedRuntimeContractSignature({
+    runtimeContract: signedContract.runtimeContract,
+    runtimeContractSignature: signedContract.runtimeContractSignature,
+    env: TEST_RUNTIME_CONTRACT_ENV,
+  });
+
+  await assertRejects(
+    () =>
+      verifyReviewedRuntimeContractSignature({
+        runtimeContract: {
+          ...signedContract.runtimeContract,
+          capabilities: signedContract.runtimeContract.capabilities.slice(1),
+        },
+        runtimeContractSignature: signedContract.runtimeContractSignature,
+        env: TEST_RUNTIME_CONTRACT_ENV,
+      }),
+    Error,
+    "Runtime contract integrity check failed.",
+  );
+  await assertRejects(
+    () =>
+      verifyReviewedRuntimeContractSignature({
+        runtimeContract: signedContract.runtimeContract,
+        runtimeContractSignature:
+          `${signedContract.runtimeContractSignature}tampered`,
+        env: TEST_RUNTIME_CONTRACT_ENV,
+      }),
+    Error,
+    "Runtime contract integrity check failed.",
+  );
 });
 
 Deno.test("validateManifest maps schema failures into a plain-language fix list", async () => {

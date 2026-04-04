@@ -1,9 +1,19 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
+import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
 import { resolveCanvasIssuer } from "../lti/config.ts";
+import { verifyReviewedRuntimeContractSignature } from "./runtime_contract.ts";
 import {
   buildImportedPackageVersion,
   withRepositoryTestDatabase,
 } from "./repository_test_support.ts";
+
+const TEST_RUNTIME_CONTRACT_ENV = {
+  get(name: string): string | undefined {
+    return name === "LTI_TOOL_PRIVATE_JWK"
+      ? getTestToolPrivateJwkEnvValue()
+      : undefined;
+  },
+};
 
 Deno.test("repository rejects duplicate app versions and returns semver-sorted history", async () => {
   await withRepositoryTestDatabase(async ({ repository }) => {
@@ -83,6 +93,63 @@ Deno.test("repository records one-way approval and rejection decisions with opti
         }),
       Error,
       "Package version chapter-4-asteroids@0.2.0 has already been reviewed and cannot change state.",
+    );
+  });
+});
+
+Deno.test("repository persists one exact signed runtime contract per approved version and keeps earlier approvals immutable", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedV010 = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved first reviewed runtime contract.",
+    });
+
+    await verifyReviewedRuntimeContractSignature({
+      runtimeContract: approvedV010.runtimeContract,
+      runtimeContractSignature: approvedV010.runtimeContractSignature,
+      env: TEST_RUNTIME_CONTRACT_ENV,
+    });
+
+    assertEquals(
+      approvedV010.runtimeContract.artifactDigest,
+      approvedV010.artifact.digest,
+    );
+    assertEquals(
+      approvedV010.runtimeContract.entrypoint,
+      approvedV010.entrypoint,
+    );
+    assertEquals(
+      approvedV010.runtimeContract.capabilities,
+      approvedV010.capabilities,
+    );
+
+    const approvedV020 = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion({ version: "0.2.0" }),
+      )).id,
+      reviewNotes: "Approved next reviewed runtime contract.",
+    });
+    const refetchedV010 = await repository.getPackageVersionByAppVersion(
+      "chapter-4-asteroids",
+      "0.1.0",
+    );
+
+    assert(refetchedV010);
+    assertEquals(refetchedV010.runtimeContract, approvedV010.runtimeContract);
+    assertEquals(
+      refetchedV010.runtimeContractSignature,
+      approvedV010.runtimeContractSignature,
+    );
+    assertEquals(
+      approvedV020.runtimeContract.packageVersion,
+      approvedV020.version,
+    );
+    assertEquals(
+      approvedV020.runtimeContractSignature ===
+        approvedV010.runtimeContractSignature,
+      false,
     );
   });
 });
