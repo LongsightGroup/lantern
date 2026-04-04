@@ -1,5 +1,9 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
+import { compactVerify, createLocalJWKSet } from "jose";
+import type { BootstrapPayload } from "../sdk/app-sdk.ts";
 import { createApp } from "./app.ts";
+import { restoreEnv } from "./app_test_support.ts";
+import { getPublicJwkSet } from "./lti/tool_key.ts";
 import { CANVAS_LTI_SCOPES } from "./lti/types.ts";
 import {
   buildDeploymentRecord,
@@ -10,11 +14,13 @@ import {
   buildDeploymentBinding,
   buildLoginStateRecord,
   getTestCanvasJwks,
+  getTestToolPrivateJwkEnvValue,
   signCanvasIdToken,
 } from "./test_helpers/lti.ts";
 import { withFetchStub } from "./app_test_support.ts";
 
-Deno.test("POST /lti/launch validates the signed launch and redirects to a runtime-session handoff", async () => {
+Deno.test("POST /lti/launch validates the signed launch and redirects to a runtime-session handoff with a signed runtime bootstrap", async () => {
+  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -22,6 +28,7 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
         approvalStatus: "approved",
         reviewNotes: "Ready for pilot.",
         reviewedAt: "2026-03-23T18:05:00Z",
+        runtimeContractSignature: "test-reviewed-runtime-contract-signature",
       }),
     ],
     deployments: [
@@ -56,77 +63,100 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
 
   formData.set("state", "state-launch-123");
   formData.set("id_token", idToken);
+  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
 
-  await withFetchStub(
-    () =>
-      Promise.resolve(
-        new Response(JSON.stringify(getTestCanvasJwks()), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        }),
-      ),
-    async () => {
-      const response = await createApp({
-        getRepository: () => repository,
-      }).request("http://localhost/lti/launch", {
-        method: "POST",
-        body: formData,
-      });
+  try {
+    await withFetchStub(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify(getTestCanvasJwks()), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+        ),
+      async () => {
+        const app = createApp({
+          getRepository: () => repository,
+        });
+        const response = await app.request("http://localhost/lti/launch", {
+          method: "POST",
+          body: formData,
+        });
 
-      assertEquals(response.status, 303);
-      const location = response.headers.get("location");
+        assertEquals(response.status, 303);
+        const location = response.headers.get("location");
 
-      if (!location) {
-        throw new Error("Expected runtime-session handoff redirect.");
-      }
+        if (!location) {
+          throw new Error("Expected runtime-session handoff redirect.");
+        }
 
-      assertStringIncludes(location, "/runtime/sessions/");
-      assertStringIncludes(location, "token=");
+        assertStringIncludes(location, "/runtime/sessions/");
+        assertStringIncludes(location, "token=");
 
-      const sessionId = location.match(/\/runtime\/sessions\/([^?]+)/)?.[1];
+        const sessionId = location.match(/\/runtime\/sessions\/([^?]+)/)?.[1];
 
-      if (!sessionId) {
-        throw new Error("Expected runtime session id in redirect.");
-      }
+        if (!sessionId) {
+          throw new Error("Expected runtime session id in redirect.");
+        }
 
-      const saved = await repository.getRuntimeSessionById(sessionId);
+        const saved = await repository.getRuntimeSessionById(sessionId);
 
-      if (!saved) {
-        throw new Error("Expected saved runtime session.");
-      }
+        if (!saved) {
+          throw new Error("Expected saved runtime session.");
+        }
 
-      const attempt = await repository.getAttemptById(saved.attemptId);
-      const auditEvents = await repository.listAuditEventsByEventType(
-        "launch.accepted",
-      );
+        const attempt = await repository.getAttemptById(saved.attemptId);
+        const auditEvents = await repository.listAuditEventsByEventType(
+          "launch.accepted",
+        );
+        const runtimeResponse = await app.request(`http://localhost${location}`);
+        const runtimeBody = await runtimeResponse.text();
+        const bootstrap = extractBootstrapFromHtml(runtimeBody);
 
-      assertEquals(saved.packageVersionId, 5);
-      assertEquals(typeof saved.attemptId, "string");
-      assertEquals(saved.launch.userRole, "learner");
-      assertEquals(
-        saved.services.ags?.scope,
-        [...CANVAS_LTI_SCOPES].slice(0, 2),
-      );
-      assertEquals(
-        saved.services.nrps?.contextMembershipsUrl?.includes("names_and_roles"),
-        true,
-      );
-      assertEquals(attempt?.attemptId, saved.attemptId);
-      assertEquals(attempt?.userDisplayName, "Ada Lovelace");
-      assertEquals(attempt?.userEmail, "ada@example.com");
-      assertEquals(attempt?.userLogin, "adal");
-      assertEquals(auditEvents.length, 1);
-      assertEquals(auditEvents[0]?.attemptId, saved.attemptId);
-      assertEquals(auditEvents[0]?.detail.userDisplayName, "Ada Lovelace");
-      assertEquals(auditEvents[0]?.detail.userEmail, "ada@example.com");
-      assertEquals(auditEvents[0]?.detail.userLogin, "adal");
-      assertEquals(auditEvents[0]?.detail.ltiProfileId, "certification");
-      assertEquals(
-        auditEvents[0]?.detail.ltiProfileSource,
-        "deploymentOverride",
-      );
-    },
-  );
+        assertEquals(saved.packageVersionId, 5);
+        assertEquals(typeof saved.attemptId, "string");
+        assertEquals(saved.launch.userRole, "learner");
+        assertEquals(
+          saved.services.ags?.scope,
+          [...CANVAS_LTI_SCOPES].slice(0, 2),
+        );
+        assertEquals(
+          saved.services.nrps?.contextMembershipsUrl?.includes(
+            "names_and_roles",
+          ),
+          true,
+        );
+        assertEquals(attempt?.attemptId, saved.attemptId);
+        assertEquals(attempt?.userDisplayName, "Ada Lovelace");
+        assertEquals(attempt?.userEmail, "ada@example.com");
+        assertEquals(attempt?.userLogin, "adal");
+        assertEquals(auditEvents.length, 1);
+        assertEquals(auditEvents[0]?.attemptId, saved.attemptId);
+        assertEquals(auditEvents[0]?.detail.userDisplayName, "Ada Lovelace");
+        assertEquals(auditEvents[0]?.detail.userEmail, "ada@example.com");
+        assertEquals(auditEvents[0]?.detail.userLogin, "adal");
+        assertEquals(auditEvents[0]?.detail.ltiProfileId, "certification");
+        assertEquals(
+          auditEvents[0]?.detail.ltiProfileSource,
+          "deploymentOverride",
+        );
+        assertEquals(runtimeResponse.status, 200);
+        assertEquals(
+          bootstrap.app.runtime_contract_signature,
+          "test-reviewed-runtime-contract-signature",
+        );
+        assertEquals(bootstrap.app.version, "0.1.0");
+        assertEquals(bootstrap.session.attempt_id, saved.attemptId);
+        assertEquals(
+          runtimeBody.includes("https://canvas.example/api/lti/courses/42/line_items"),
+          false,
+        );
+        await assertBootstrapSignature(bootstrap);
+      },
+    );
+  } finally {
+    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+  }
 });
 
 Deno.test("POST /lti/launch rejects certification-profile launches when validation would need a JWKS refetch", async () => {
@@ -208,3 +238,40 @@ Deno.test("POST /lti/launch rejects certification-profile launches when validati
     },
   );
 });
+
+function extractBootstrapFromHtml(html: string): BootstrapPayload {
+  const match = html.match(
+    /window\.GatewayBootstrap = (.+?);\nwindow\.GatewayPreview =/s,
+  );
+
+  if (!match?.[1]) {
+    throw new Error("Expected GatewayBootstrap in runtime HTML.");
+  }
+
+  return JSON.parse(match[1]) as BootstrapPayload;
+}
+
+async function assertBootstrapSignature(
+  bootstrap: BootstrapPayload,
+): Promise<void> {
+  const verified = await compactVerify(
+    bootstrap.signature,
+    createLocalJWKSet(await getPublicJwkSet()),
+  );
+  const payload = JSON.parse(new TextDecoder().decode(verified.payload));
+
+  assertEquals(payload, {
+    launch: bootstrap.launch,
+    app: {
+      app_id: bootstrap.app.app_id,
+      version: bootstrap.app.version,
+      capabilities: bootstrap.app.capabilities,
+      runtime_contract_signature: bootstrap.app.runtime_contract_signature,
+    },
+    session: {
+      attempt_id: bootstrap.session.attempt_id,
+      token: bootstrap.session.token,
+      expires_at: bootstrap.session.expires_at,
+    },
+  });
+}

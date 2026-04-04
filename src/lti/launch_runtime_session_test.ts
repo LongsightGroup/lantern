@@ -108,3 +108,64 @@ Deno.test("createRuntimeSession uses the reviewed placement content path instead
   );
   assertEquals(saved?.launch.activityId, "/content/bonus.json");
 });
+
+Deno.test("createRuntimeSession binds the reviewed runtime contract entrypoint and capabilities into the attempt-scoped session", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+        capabilities: [
+          "read_launch_context",
+          "read_activity_content",
+          "submit_attempt_event",
+        ],
+        artifact: {
+          snapshotRoot: "var/packages/chapter-4-asteroids/0.1.0",
+          manifestPath: "var/packages/chapter-4-asteroids/0.1.0/manifest.json",
+          entrypointPath:
+            "var/packages/chapter-4-asteroids/0.1.0/dist/index.html",
+          digest: "sha256:chapter-4-asteroids-0.1.0",
+        },
+        runtimeContract: {
+          appId: "chapter-4-asteroids",
+          packageVersion: "0.1.0",
+          artifactDigest: "sha256:chapter-4-asteroids-0.1.0",
+          entrypoint: "/dist/reviewed-shell.html",
+          capabilities: ["read_launch_context", "finalize_attempt"],
+        },
+      }),
+    ],
+    runtimeSessions: [
+      buildRuntimeSessionRecord({
+        sessionId: "existing-session",
+        sessionToken: "existing-token",
+      }),
+    ],
+  });
+  const opaqueTokens = ["runtime-session-contract", "runtime-token-contract"];
+  const session = await createRuntimeSession({
+    repository,
+    launch: buildValidatedLaunch(),
+    now: () => new Date("2026-03-23T22:45:00Z"),
+    createOpaqueToken: () => {
+      const next = opaqueTokens.shift();
+
+      if (!next) {
+        throw new Error("Expected another deterministic runtime token.");
+      }
+
+      return next;
+    },
+  });
+
+  assertEquals(
+    session.entrypointPath,
+    "var/packages/chapter-4-asteroids/0.1.0/dist/reviewed-shell.html",
+  );
+  assertEquals(session.capabilities, [
+    "read_launch_context",
+    "finalize_attempt",
+  ]);
+});
