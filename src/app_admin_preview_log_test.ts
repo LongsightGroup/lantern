@@ -1,6 +1,9 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
-import { EXAMPLE_SNAPSHOT_ROOT } from "./app_test_support.ts";
+import {
+  EXAMPLE_SNAPSHOT_ROOT,
+  withRuntimeOriginEnv,
+} from "./app_test_support.ts";
 import {
   buildAdminPreviewSessionRecord,
   buildAuthoringPreviewSessionRecord,
@@ -9,124 +12,126 @@ import {
 } from "./test_helpers/package_review.ts";
 
 Deno.test("test-launch activity log shows durable launch, content-read, attempt, and finalize evidence after reload", async () => {
-  const repository = createInMemoryPackageReviewRepository({
-    packageVersions: [
-      buildPackageVersionRecord({
-        id: 46,
-        appId: "chapter-4-asteroids",
-        version: "0.1.0",
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-25T01:10:00Z",
-        manifestJson: {
-          app_id: "chapter-4-asteroids",
+  await withRuntimeOriginEnv(async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 46,
+          appId: "chapter-4-asteroids",
           version: "0.1.0",
-          title: "Chapter 4 Asteroids",
-          preview: {
-            fixtures_file: "/preview/fixtures.json",
-            tests_file: "/preview/tests.json",
+          approvalStatus: "approved",
+          reviewedAt: "2026-03-25T01:10:00Z",
+          manifestJson: {
+            app_id: "chapter-4-asteroids",
+            version: "0.1.0",
+            title: "Chapter 4 Asteroids",
+            preview: {
+              fixtures_file: "/preview/fixtures.json",
+              tests_file: "/preview/tests.json",
+            },
           },
-        },
-        artifact: {
-          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
-          manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
-          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
-          digest: "sha256:example-approved-preview-capability-log",
-        },
-      }),
-    ],
-  });
-  const app = createApp({ getRepository: () => repository });
-  const formData = new FormData();
-  formData.set("userRole", "learner");
-  formData.set("courseId", "course_demo");
-  formData.set("assignmentId", "assignment_demo");
-  formData.set("activityId", "chapter-4-asteroids");
+          artifact: {
+            snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+            manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+            entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+            digest: "sha256:example-approved-preview-capability-log",
+          },
+        }),
+      ],
+    });
+    const app = createApp({ getRepository: () => repository });
+    const formData = new FormData();
+    formData.set("userRole", "learner");
+    formData.set("courseId", "course_demo");
+    formData.set("assignmentId", "assignment_demo");
+    formData.set("activityId", "chapter-4-asteroids");
 
-  const launchResponse = await app.request(
-    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
-    {
-      method: "POST",
-      headers: { Origin: "http://localhost" },
-      body: formData,
-    },
-  );
-  const location = launchResponse.headers.get("location") ?? "";
-  const runtimeLocation = new URL(`http://localhost${location}`);
-  const runtimeSessionId = runtimeLocation.pathname.split("/").at(-1) ?? "";
-  const runtimeToken = runtimeLocation.searchParams.get("token") ?? "";
-  const runtimeSession = await repository.getRuntimeSessionById(
-    runtimeSessionId,
-  );
-
-  await app.request(
-    `http://localhost/runtime/sessions/${runtimeSessionId}/content`,
-    {
-      headers: { Authorization: `Bearer ${runtimeToken}` },
-    },
-  );
-  await app.request(
-    `http://localhost/runtime/sessions/${runtimeSessionId}/attempt-events`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${runtimeToken}`,
-        "content-type": "application/json",
+    const launchResponse = await app.request(
+      "https://lantern.example/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
+      {
+        method: "POST",
+        headers: { Origin: "https://lantern.example" },
+        body: formData,
       },
-      body: JSON.stringify({
-        type: "progress",
-        checkpoint: "preview-wave",
-        value: 1,
-        timestamp: "2026-03-25T01:12:00Z",
-      }),
-    },
-  );
-  await app.request(
-    `http://localhost/runtime/sessions/${runtimeSessionId}/finalize`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${runtimeToken}`,
-        "content-type": "application/json",
+    );
+    const location = launchResponse.headers.get("location") ?? "";
+    const runtimeLocation = new URL(location);
+    const runtimeSessionId = runtimeLocation.pathname.split("/").at(-1) ?? "";
+    const runtimeToken = runtimeLocation.searchParams.get("token") ?? "";
+    const runtimeSession = await repository.getRuntimeSessionById(
+      runtimeSessionId,
+    );
+
+    await app.request(
+      `https://runtime.lantern.example/runtime/sessions/${runtimeSessionId}/content`,
+      {
+        headers: { Authorization: `Bearer ${runtimeToken}` },
       },
-      body: JSON.stringify({ completionState: "completed" }),
-    },
-  );
+    );
+    await app.request(
+      `https://runtime.lantern.example/runtime/sessions/${runtimeSessionId}/attempt-events`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${runtimeToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "progress",
+          checkpoint: "preview-wave",
+          value: 1,
+          timestamp: "2026-03-25T01:12:00Z",
+        }),
+      },
+    );
+    await app.request(
+      `https://runtime.lantern.example/runtime/sessions/${runtimeSessionId}/finalize`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${runtimeToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ completionState: "completed" }),
+      },
+    );
 
-  const previewPageResponse = await app.request(
-    "http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
-  );
-  const previewBody = await previewPageResponse.text();
-  const auditEvents = await repository.listAuditEventsByEventType(
-    "preview.launch",
-  );
-  const previewSessionId = String(
-    auditEvents.find((event) =>
-      String(event.detail.runtimeSessionId ?? "") === runtimeSessionId
-    )
-      ?.detail.previewSessionId ?? "",
-  );
-  const previewEvidence = await repository.listPreviewEvidence(
-    previewSessionId,
-  );
-
-  assertEquals(launchResponse.status, 303);
-  assertEquals(runtimeSession?.preview?.previewSessionId, previewSessionId);
-  assertEquals(previewPageResponse.status, 200);
-  assertStringIncludes(previewBody, "Recent test activity");
-  assertStringIncludes(previewBody, "Started test launch");
-  assertStringIncludes(previewBody, "preview.launch");
-  assertStringIncludes(previewBody, "preview.content_read");
-  assertStringIncludes(previewBody, "preview.attempt_event");
-  assertStringIncludes(previewBody, "preview.finalize");
-  assertEquals(
-    previewEvidence.map((record) => record.eventType),
-    [
+    const previewPageResponse = await app.request(
+      "https://lantern.example/admin/packages/chapter-4-asteroids/versions/0.1.0/preview",
+    );
+    const previewBody = await previewPageResponse.text();
+    const auditEvents = await repository.listAuditEventsByEventType(
       "preview.launch",
-      "preview.content_read",
-      "preview.attempt_event",
-      "preview.finalize",
-    ],
-  );
+    );
+    const previewSessionId = String(
+      auditEvents.find((event) =>
+        String(event.detail.runtimeSessionId ?? "") === runtimeSessionId
+      )
+        ?.detail.previewSessionId ?? "",
+    );
+    const previewEvidence = await repository.listPreviewEvidence(
+      previewSessionId,
+    );
+
+    assertEquals(launchResponse.status, 303);
+    assertEquals(runtimeSession?.preview?.previewSessionId, previewSessionId);
+    assertEquals(previewPageResponse.status, 200);
+    assertStringIncludes(previewBody, "Recent test activity");
+    assertStringIncludes(previewBody, "Started test launch");
+    assertStringIncludes(previewBody, "preview.launch");
+    assertStringIncludes(previewBody, "preview.content_read");
+    assertStringIncludes(previewBody, "preview.attempt_event");
+    assertStringIncludes(previewBody, "preview.finalize");
+    assertEquals(
+      previewEvidence.map((record) => record.eventType),
+      [
+        "preview.launch",
+        "preview.content_read",
+        "preview.attempt_event",
+        "preview.finalize",
+      ],
+    );
+  });
 });
 
 Deno.test("GET /admin/packages/:appId/versions/:version/preview records a reviewer action with bounded detail", async () => {

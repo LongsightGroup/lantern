@@ -13,6 +13,10 @@ import { statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 import type { PreviewSessionRecord } from "./package_review/types.ts";
 import {
+  buildRuntimeSessionUrl,
+  requireConfiguredRuntimeOrigin,
+} from "./runtime_origin.ts";
+import {
   launchPreviewRuntimeSession,
   preparePreviewSession,
   type PreviewLaunchOverrides,
@@ -151,6 +155,9 @@ export function registerAdminPreviewRoutes(
           packageVersion,
           launch: buildTestLaunchOverrides(formValues),
         });
+        const runtimeOrigin = requireConfiguredRuntimeOrigin(
+          Deno.env.get("APP_RUNTIME_ORIGIN"),
+        );
 
         await repository.recordAuditEvent({
           eventType: "preview.launch",
@@ -176,11 +183,11 @@ export function registerAdminPreviewRoutes(
         });
 
         return context.redirect(
-          `/runtime/sessions/${launched.runtimeSession.sessionId}?token=${
-            encodeURIComponent(
-              launched.runtimeSession.sessionToken,
-            )
-          }`,
+          buildRuntimeSessionUrl({
+            runtimeOrigin,
+            sessionId: launched.runtimeSession.sessionId,
+            token: launched.runtimeSession.sessionToken,
+          }),
           303,
         );
       } catch (error) {

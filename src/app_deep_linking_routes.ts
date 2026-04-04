@@ -14,6 +14,10 @@ import type { AppServices } from "./app_services.ts";
 import type { PackageReviewRepository } from "./package_review/repository.ts";
 import { launchPreviewRuntimeSession } from "./preview/service.ts";
 import {
+  buildRuntimeSessionUrl,
+  requireConfiguredRuntimeOrigin,
+} from "./runtime_origin.ts";
+import {
   createDeepLinkingSession,
   listDeepLinkingResources,
   requireAuthorizedDeepLinkingSession,
@@ -256,13 +260,16 @@ export function registerDeepLinkingRoutes(
           previewOrigin: "deepLinkingAuthoring",
           deepLinkingSessionId: session.sessionId,
         });
+        const runtimeOrigin = requireConfiguredRuntimeOrigin(
+          Deno.env.get("APP_RUNTIME_ORIGIN"),
+        );
 
         return context.redirect(
-          `/runtime/sessions/${launched.runtimeSession.sessionId}?token=${
-            encodeURIComponent(
-              launched.runtimeSession.sessionToken,
-            )
-          }`,
+          buildRuntimeSessionUrl({
+            runtimeOrigin,
+            sessionId: launched.runtimeSession.sessionId,
+            token: launched.runtimeSession.sessionToken,
+          }),
           303,
         );
       } catch (error) {
