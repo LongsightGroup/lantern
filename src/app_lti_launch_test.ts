@@ -109,7 +109,9 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
         const auditEvents = await repository.listAuditEventsByEventType(
           "launch.accepted",
         );
-        const runtimeResponse = await app.request(`http://localhost${location}`);
+        const runtimeResponse = await app.request(
+          `http://localhost${location}`,
+        );
         const runtimeBody = await runtimeResponse.text();
         const bootstrap = extractBootstrapFromHtml(runtimeBody);
 
@@ -148,7 +150,9 @@ Deno.test("POST /lti/launch validates the signed launch and redirects to a runti
         assertEquals(bootstrap.app.version, "0.1.0");
         assertEquals(bootstrap.session.attempt_id, saved.attemptId);
         assertEquals(
-          runtimeBody.includes("https://canvas.example/api/lti/courses/42/line_items"),
+          runtimeBody.includes(
+            "https://canvas.example/api/lti/courses/42/line_items",
+          ),
           false,
         );
         await assertBootstrapSignature(bootstrap);

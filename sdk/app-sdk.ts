@@ -37,11 +37,14 @@ export interface BootstrapPayload {
     app_id: string;
     version: string;
     capabilities: Capability[];
+    runtime_contract_signature: string;
   };
   session: {
     attempt_id: string;
     token: string;
+    expires_at: string;
   };
+  signature: string;
 }
 
 export type AttemptEvent =

@@ -1,3 +1,6 @@
+import { CompactSign } from "jose";
+import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
+import { loadToolSigningKey } from "../lti/tool_key.ts";
 import type { RuntimeSessionRecord } from "../lti/types.ts";
 import {
   assertPathInsideSnapshot,
@@ -10,6 +13,13 @@ import {
   escapeHtmlAttribute,
   injectBeforeClosingTag,
 } from "./session_html.ts";
+
+const RUNTIME_BOOTSTRAP_JWS_TYPE = "application/lantern-runtime-bootstrap+jws";
+const textEncoder = new TextEncoder();
+
+interface EnvReader {
+  get(name: string): string | undefined;
+}
 
 export function authorizeRuntimeSession(input: {
   token: string;
@@ -38,6 +48,10 @@ export function authorizeRuntimeSession(input: {
 
 export async function renderRuntimeSessionPage(
   session: RuntimeSessionRecord,
+  input: {
+    runtimeContractSignature: string;
+    env?: EnvReader;
+  },
 ): Promise<string> {
   const entrypointHtml = new TextDecoder().decode(
     await loadRuntimeEntrypointBytes(session),
@@ -49,7 +63,11 @@ export async function renderRuntimeSessionPage(
       session.sessionToken,
     )
   }/${entrypointDirectory}`;
-  const bootstrap = buildBootstrapPayload(session);
+  const bootstrap = await buildRuntimeBootstrap({
+    session,
+    runtimeContractSignature: input.runtimeContractSignature,
+    ...(input.env === undefined ? {} : { env: input.env }),
+  });
   const headInjection = `<base href="${escapeHtmlAttribute(assetBaseUrl)}">`;
   const bodyInjection = `<script>${
     buildRuntimeBootstrapScript({
@@ -158,28 +176,67 @@ async function readRuntimeBytes(
   return await Deno.readFile(absolutePath);
 }
 
-function buildBootstrapPayload(
-  session: RuntimeSessionRecord,
-): import("../../sdk/app-sdk.ts").BootstrapPayload {
+async function buildRuntimeBootstrap(input: {
+  session: RuntimeSessionRecord;
+  runtimeContractSignature: string;
+  env?: EnvReader;
+}): Promise<BootstrapPayload> {
+  const unsignedBootstrap = buildUnsignedBootstrapPayload({
+    session: input.session,
+    runtimeContractSignature: input.runtimeContractSignature,
+  });
+
+  return {
+    ...unsignedBootstrap,
+    signature: await signRuntimeBootstrapPayload({
+      bootstrap: unsignedBootstrap,
+      ...(input.env === undefined ? {} : { env: input.env }),
+    }),
+  };
+}
+
+function buildUnsignedBootstrapPayload(input: {
+  session: RuntimeSessionRecord;
+  runtimeContractSignature: string;
+}): Omit<BootstrapPayload, "signature"> {
   return {
     launch: {
-      user_role: session.launch.userRole,
-      course_id: session.launch.courseId,
-      ...(session.launch.assignmentId === undefined
+      user_role: input.session.launch.userRole,
+      course_id: input.session.launch.courseId,
+      ...(input.session.launch.assignmentId === undefined
         ? {}
-        : { assignment_id: session.launch.assignmentId }),
-      activity_id: session.launch.activityId,
+        : { assignment_id: input.session.launch.assignmentId }),
+      activity_id: input.session.launch.activityId,
     },
     app: {
-      app_id: session.appId,
-      version: session.packageVersion,
-      capabilities: session.capabilities,
+      app_id: input.session.appId,
+      version: input.session.packageVersion,
+      capabilities: input.session.capabilities,
+      runtime_contract_signature: input.runtimeContractSignature,
     },
     session: {
-      attempt_id: session.attemptId,
-      token: session.sessionToken,
+      attempt_id: input.session.attemptId,
+      token: input.session.sessionToken,
+      expires_at: input.session.expiresAt,
     },
   };
+}
+
+async function signRuntimeBootstrapPayload(input: {
+  bootstrap: Omit<BootstrapPayload, "signature">;
+  env?: EnvReader;
+}): Promise<string> {
+  const toolKey = await loadToolSigningKey(input.env ?? Deno.env);
+
+  return await new CompactSign(
+    textEncoder.encode(JSON.stringify(input.bootstrap)),
+  )
+    .setProtectedHeader({
+      alg: toolKey.privateJwk.alg,
+      kid: toolKey.publicJwk.kid,
+      typ: RUNTIME_BOOTSTRAP_JWS_TYPE,
+    })
+    .sign(toolKey.privateKey);
 }
 
 function entrypointDirectoryPath(session: RuntimeSessionRecord): string {

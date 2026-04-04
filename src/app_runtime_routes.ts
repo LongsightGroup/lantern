@@ -40,8 +40,27 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         ),
         expected: session,
       });
+      const packageVersion = await repository.getPackageVersionById(
+        session.packageVersionId,
+      );
 
-      return context.html(await renderRuntimeSessionPage(session));
+      if (!packageVersion) {
+        throw new Error(
+          `Runtime session package version id ${session.packageVersionId} was not found.`,
+        );
+      }
+
+      if (packageVersion.approvalStatus !== "approved") {
+        throw new Error(
+          `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+        );
+      }
+
+      return context.html(
+        await renderRuntimeSessionPage(session, {
+          runtimeContractSignature: packageVersion.runtimeContractSignature,
+        }),
+      );
     } catch (error) {
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }

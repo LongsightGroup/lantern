@@ -2,10 +2,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { compactVerify, createLocalJWKSet } from "jose";
 import type { BootstrapPayload } from "../sdk/app-sdk.ts";
 import { createApp } from "./app.ts";
-import {
-  EXAMPLE_SNAPSHOT_ROOT,
-  restoreEnv,
-} from "./app_test_support.ts";
+import { EXAMPLE_SNAPSHOT_ROOT, restoreEnv } from "./app_test_support.ts";
 import { getPublicJwkSet } from "./lti/tool_key.ts";
 import {
   buildAttemptRecord,

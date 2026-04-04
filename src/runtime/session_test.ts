@@ -1,8 +1,4 @@
-import {
-  assertEquals,
-  assertRejects,
-  assertStringIncludes,
-} from "@std/assert";
+import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
 import { compactVerify, createLocalJWKSet } from "jose";
 import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
 import { getPublicJwkSet } from "../lti/tool_key.ts";
