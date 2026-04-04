@@ -2,18 +2,18 @@ import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
 
 export function buildRuntimeBootstrapScript(input: {
   bootstrap: BootstrapPayload;
-  runtimeBasePath: string;
+  runtimeBaseUrl: string;
   previewSessionId: string | null;
 }): string {
   const bootstrapJson = serializeForInlineScript(input.bootstrap);
   const contentUrl = serializeForInlineScript(
-    `${input.runtimeBasePath}/content`,
+    `${input.runtimeBaseUrl}/content`,
   );
   const attemptEventsUrl = serializeForInlineScript(
-    `${input.runtimeBasePath}/attempt-events`,
+    `${input.runtimeBaseUrl}/attempt-events`,
   );
   const finalizeUrl = serializeForInlineScript(
-    `${input.runtimeBasePath}/finalize`,
+    `${input.runtimeBaseUrl}/finalize`,
   );
   const previewJson = serializeForInlineScript(
     input.previewSessionId === null ? null : {

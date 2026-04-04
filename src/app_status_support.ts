@@ -27,6 +27,13 @@ export function statusForError(error: unknown): 409 | 500 {
   const loweredMessage = error.message.toLowerCase();
 
   if (
+    error.message ===
+      "APP_RUNTIME_ORIGIN is required to serve reviewed runtime sessions."
+  ) {
+    return 500;
+  }
+
+  if (
     error.message.includes("already exists") ||
     error.message.includes("cannot change state") ||
     error.message.includes("Only approved") ||
@@ -109,6 +116,13 @@ export function statusForVerificationError(error: unknown): 400 | 500 {
 
 export function statusForRuntimeError(error: unknown): 404 | 409 | 500 {
   if (!(error instanceof Error)) {
+    return 500;
+  }
+
+  if (
+    error.message ===
+      "APP_RUNTIME_ORIGIN is required to serve reviewed runtime sessions."
+  ) {
     return 500;
   }
 

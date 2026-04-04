@@ -80,7 +80,10 @@ Deno.test("runtime document and reviewed assets send deny-by-default containment
       assertStringIncludes(permissionsPolicy, "camera=()");
       assertStringIncludes(permissionsPolicy, "microphone=()");
       assertStringIncludes(permissionsPolicy, "fullscreen=()");
-      assertEquals(documentResponse.headers.get("referrer-policy"), "no-referrer");
+      assertEquals(
+        documentResponse.headers.get("referrer-policy"),
+        "no-referrer",
+      );
       assertEquals(
         documentResponse.headers.get("x-content-type-options"),
         "nosniff",

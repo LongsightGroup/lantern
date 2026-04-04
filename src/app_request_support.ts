@@ -181,31 +181,25 @@ export function readRuntimeFileRequest(context: Context): {
   const rawPath = pathname.slice(prefix.length);
   const tokenPrefix = "__token__/";
 
-  if (rawPath.startsWith(tokenPrefix)) {
-    const pathWithoutPrefix = rawPath.slice(tokenPrefix.length);
-    const slashIndex = pathWithoutPrefix.indexOf("/");
-
-    if (slashIndex < 0) {
-      throw new Error("Runtime file path is invalid.");
-    }
-
-    const token = decodeURIComponent(pathWithoutPrefix.slice(0, slashIndex));
-    const relativePath = decodeURIComponent(
-      pathWithoutPrefix.slice(slashIndex + 1),
-    );
-
-    return {
-      token: requireTrimmedString(token, "Runtime session token is required."),
-      relativePath,
-    };
+  if (!rawPath.startsWith(tokenPrefix)) {
+    throw new Error("Runtime file path is invalid.");
   }
 
+  const pathWithoutPrefix = rawPath.slice(tokenPrefix.length);
+  const slashIndex = pathWithoutPrefix.indexOf("/");
+
+  if (slashIndex < 0) {
+    throw new Error("Runtime file path is invalid.");
+  }
+
+  const token = decodeURIComponent(pathWithoutPrefix.slice(0, slashIndex));
+  const relativePath = decodeURIComponent(
+    pathWithoutPrefix.slice(slashIndex + 1),
+  );
+
   return {
-    token: requireTrimmedString(
-      new URL(context.req.url).searchParams.get("token"),
-      "Runtime session token is required.",
-    ),
-    relativePath: decodeURIComponent(rawPath),
+    token: requireTrimmedString(token, "Runtime session token is required."),
+    relativePath,
   };
 }
 

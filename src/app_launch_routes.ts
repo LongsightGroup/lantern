@@ -13,6 +13,10 @@ import {
   normalizeOptionalString,
   requireTrimmedString,
 } from "./app_request_support.ts";
+import {
+  buildRuntimeSessionUrl,
+  requireConfiguredRuntimeOrigin,
+} from "./runtime_origin.ts";
 import { errorMessage, statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 
@@ -38,6 +42,9 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
         idToken: requireTrimmedString(idToken, "Launch id_token is required."),
         loadJwks: services.loadCanvasJwks,
       });
+      const runtimeOrigin = requireConfiguredRuntimeOrigin(
+        Deno.env.get("APP_RUNTIME_ORIGIN"),
+      );
       const runtimeSession = await createRuntimeSession({
         repository,
         launch,
@@ -81,11 +88,11 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
       });
 
       return context.redirect(
-        `/runtime/sessions/${runtimeSession.sessionId}?token=${
-          encodeURIComponent(
-            runtimeSession.sessionToken,
-          )
-        }`,
+        buildRuntimeSessionUrl({
+          runtimeOrigin,
+          sessionId: runtimeSession.sessionId,
+          token: runtimeSession.sessionToken,
+        }),
         303,
       );
     } catch (error) {

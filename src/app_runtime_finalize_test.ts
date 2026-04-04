@@ -3,8 +3,8 @@ import { createApp } from "./app.ts";
 import {
   EXAMPLE_SNAPSHOT_ROOT,
   restoreEnv,
-  withRuntimeOriginEnv,
   withFetchStub,
+  withRuntimeOriginEnv,
 } from "./app_test_support.ts";
 import {
   buildAttemptEventRecord,
@@ -126,9 +126,10 @@ Deno.test("POST /runtime/sessions/:id/finalize finalizes the durable attempt and
           };
           const secondBody = (await secondResponse.json()) as typeof firstBody;
           const attempt = await repository.getAttemptById("attempt-123");
-          const attemptAuditEvents = await repository.listAuditEventsByEventType(
-            "attempt.finalized",
-          );
+          const attemptAuditEvents = await repository
+            .listAuditEventsByEventType(
+              "attempt.finalized",
+            );
           const gradeAuditEvents = await repository.listAuditEventsByEventType(
             "grade_publish.succeeded",
           );
@@ -234,9 +235,10 @@ Deno.test("POST /runtime/sessions/:id/finalize records a failed grade publish wh
 
           assertEquals(response.status, 500);
 
-          const attemptAuditEvents = await repository.listAuditEventsByEventType(
-            "attempt.finalized",
-          );
+          const attemptAuditEvents = await repository
+            .listAuditEventsByEventType(
+              "attempt.finalized",
+            );
           const failedGradeAuditEvents = await repository
             .listAuditEventsByEventType("grade_publish.failed");
           const attempt = await repository.getAttemptById("attempt-123");

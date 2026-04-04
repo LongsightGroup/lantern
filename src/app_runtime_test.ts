@@ -185,7 +185,10 @@ Deno.test("GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blo
       await queryTokenResponse.text(),
       "Runtime file path is invalid.",
     );
-    assertStringIncludes(await goodPathTokenResponse.text(), "Attempt finalized");
+    assertStringIncludes(
+      await goodPathTokenResponse.text(),
+      "Attempt finalized",
+    );
     assertEquals(deniedPathTokenResponse.status, 409);
     assertStringIncludes(
       await deniedPathTokenResponse.text(),

@@ -9,20 +9,27 @@ const INVALID_PUBLIC_ORIGIN_MESSAGE =
   "Lantern public origin must be an absolute http or https URL.";
 
 export function normalizePublicOrigin(value: string): string {
+  return normalizeHttpOrigin(value, INVALID_PUBLIC_ORIGIN_MESSAGE);
+}
+
+export function normalizeHttpOrigin(
+  value: string,
+  invalidMessage: string,
+): string {
   let url: URL;
 
   try {
     url = new URL(value);
   } catch {
-    throw new Error(INVALID_PUBLIC_ORIGIN_MESSAGE);
+    throw new Error(invalidMessage);
   }
 
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error(INVALID_PUBLIC_ORIGIN_MESSAGE);
+    throw new Error(invalidMessage);
   }
 
   if (url.username !== "" || url.password !== "") {
-    throw new Error(INVALID_PUBLIC_ORIGIN_MESSAGE);
+    throw new Error(invalidMessage);
   }
 
   url.pathname = "";

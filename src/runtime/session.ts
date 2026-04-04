@@ -9,6 +9,10 @@ import {
   toRelativeSnapshotPath,
 } from "../package_review/snapshot_path.ts";
 import {
+  buildRuntimeSessionBaseUrl,
+  requireConfiguredRuntimeOrigin,
+} from "../runtime_origin.ts";
+import {
   buildRuntimeBootstrapScript,
   escapeHtmlAttribute,
   injectBeforeClosingTag,
@@ -50,15 +54,23 @@ export async function renderRuntimeSessionPage(
   session: RuntimeSessionRecord,
   input: {
     runtimeContractSignature: string;
+    runtimeOrigin?: string;
     env?: EnvReader;
   },
 ): Promise<string> {
   const entrypointHtml = new TextDecoder().decode(
     await loadRuntimeEntrypointBytes(session),
   );
-  const runtimeBasePath = `/runtime/sessions/${session.sessionId}`;
+  const runtimeOrigin = input.runtimeOrigin ??
+    requireConfiguredRuntimeOrigin(
+      (input.env ?? Deno.env).get("APP_RUNTIME_ORIGIN"),
+    );
+  const runtimeBaseUrl = buildRuntimeSessionBaseUrl({
+    runtimeOrigin,
+    sessionId: session.sessionId,
+  });
   const entrypointDirectory = entrypointDirectoryPath(session);
-  const assetBaseUrl = `${runtimeBasePath}/files/__token__/${
+  const assetBaseUrl = `${runtimeBaseUrl}/files/__token__/${
     encodeURIComponent(
       session.sessionToken,
     )
@@ -72,7 +84,7 @@ export async function renderRuntimeSessionPage(
   const bodyInjection = `<script>${
     buildRuntimeBootstrapScript({
       bootstrap,
-      runtimeBasePath,
+      runtimeBaseUrl,
       previewSessionId: session.preview?.previewSessionId ?? null,
     })
   }</script>`;
