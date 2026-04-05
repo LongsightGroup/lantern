@@ -5,6 +5,7 @@ import type {
   CertificationWorkflowStatus,
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
+  ControlPlaneRuntimeEvidenceSnapshot,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   LatestOfficialCertificationEvidence,
@@ -25,6 +26,8 @@ import {
   LATEST_NRPS_QUERY,
   LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
   LATEST_OFFICIAL_CERTIFICATION_EVIDENCE_QUERY,
+  LATEST_RUNTIME_OUTCOME_QUERY,
+  LATEST_RUNTIME_SESSION_QUERY,
   RECENT_ACCEPTED_LAUNCHES_QUERY,
   RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY,
 } from "./repository_queries.ts";
@@ -52,6 +55,7 @@ import {
   mapInventoryRow,
   mapLatestOfficialCertificationEvidenceRow,
   mapRecentLaunchRows,
+  mapRuntimeEvidenceSnapshotRow,
 } from "./repository_mapping.ts";
 import { mapRetryLookupRow } from "./repository_retry_mapping.ts";
 
@@ -85,6 +89,8 @@ export function createOpsRepository(pool: Pool): OpsRepository {
 
         const [
           latestLaunch,
+          latestRuntimeSession,
+          latestRuntimeOutcome,
           recentLaunches,
           latestCompatibilityPath,
           latestAgsSmoke,
@@ -92,6 +98,16 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           latestGradePublish,
         ] = await Promise.all([
           getActivitySnapshot(client, LATEST_LAUNCH_QUERY, deploymentRecordId),
+          getRuntimeEvidenceSnapshot(
+            client,
+            LATEST_RUNTIME_SESSION_QUERY,
+            deploymentRecordId,
+          ),
+          getRuntimeEvidenceSnapshot(
+            client,
+            LATEST_RUNTIME_OUTCOME_QUERY,
+            deploymentRecordId,
+          ),
           listRecentAcceptedLaunches(client, deploymentRecordId),
           getActivitySnapshot(
             client,
@@ -123,6 +139,8 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           inventory,
           latestInstallEvidence: inventory.installEvidence,
           latestLaunch,
+          latestRuntimeSession,
+          latestRuntimeOutcome,
           recentLaunches,
           latestCompatibilityPath,
           latestAgsSmoke,
@@ -229,6 +247,21 @@ async function getActivitySnapshot(
   const row = result.rows[0];
 
   return row ? mapActivitySnapshotRow(row) : null;
+}
+
+async function getRuntimeEvidenceSnapshot(
+  client: PoolClient,
+  text: string,
+  deploymentRecordId: number,
+): Promise<ControlPlaneRuntimeEvidenceSnapshot | null> {
+  const result = await client.queryObject<ActivitySnapshotRow>({
+    text,
+    args: [deploymentRecordId],
+    camelCase: true,
+  });
+  const row = result.rows[0];
+
+  return row ? mapRuntimeEvidenceSnapshotRow(row) : null;
 }
 
 async function getLatestGradePublication(

@@ -1,6 +1,7 @@
 import type {
   ControlPlaneDiagnosticItem,
   ControlPlaneHealthStatus,
+  ControlPlaneRuntimeEvidenceSnapshot,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   InternalBrokerVerificationStatus,
@@ -181,10 +182,57 @@ export function describeDiagnosticKind(
       return "Roster read";
     case "brokerVerification":
       return "Compatibility result";
+    case "runtime":
+      return "Runtime";
     case "reviewer":
       return "Reviewer action";
     case "gradePublication":
       return "Grade write";
+  }
+}
+
+export function describeRuntimeSandboxModel(
+  sandboxModel: ControlPlaneRuntimeEvidenceSnapshot["sandboxModel"],
+): string {
+  switch (sandboxModel) {
+    case "contained_browser_runtime":
+      return "Contained browser runtime";
+    case null:
+      return "Not recorded yet";
+  }
+}
+
+export function describeRuntimeBoundary(
+  boundary: ControlPlaneRuntimeEvidenceSnapshot["boundary"],
+): string {
+  switch (boundary) {
+    case "app_runtime_origin":
+      return "App runtime origin";
+    case null:
+      return "Not recorded yet";
+  }
+}
+
+export function describeRuntimeOutcome(
+  eventType: string | null | undefined,
+): string {
+  switch (eventType) {
+    case "runtime.session.started":
+      return "Started";
+    case "runtime.session.exited":
+      return "Exited";
+    case "runtime.session.timeout":
+      return "Timed out";
+    case "runtime.session.integrity_failed":
+      return "Integrity failure";
+    case "runtime.session.denied":
+      return "Denied";
+    case "runtime.capability.denied":
+      return "Capability denied";
+    case "runtime.score_proposal.accepted":
+      return "Score proposal accepted";
+    default:
+      return "Not recorded yet";
   }
 }
 

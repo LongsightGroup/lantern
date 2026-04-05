@@ -7,6 +7,7 @@ import type {
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
   ControlPlaneHealthDimension,
+  ControlPlaneRuntimeEvidenceSnapshot,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   InternalBrokerVerificationStatus,
@@ -201,6 +202,27 @@ export function buildRetryableGradePublicationLookup(
   };
 }
 
+export function buildControlPlaneRuntimeEvidenceSnapshot(
+  overrides: Partial<ControlPlaneRuntimeEvidenceSnapshot> = {},
+): ControlPlaneRuntimeEvidenceSnapshot {
+  return {
+    eventType: overrides.eventType ?? "runtime.session.started",
+    status: overrides.status ?? "succeeded",
+    occurredAt: overrides.occurredAt ?? DEFAULT_PHASE4_AT,
+    summary: overrides.summary ??
+      "Started the reviewed runtime session inside Lantern's contained browser boundary.",
+    attemptId: overrides.attemptId ?? "attempt-123",
+    sessionId: overrides.sessionId ?? "runtime-session-123",
+    sandboxModel: overrides.sandboxModel ?? "contained_browser_runtime",
+    boundary: overrides.boundary ?? "app_runtime_origin",
+    route: overrides.route ?? "session",
+    capability: overrides.capability ?? null,
+    code: overrides.code ?? null,
+    boundaryDenialCategory: overrides.boundaryDenialCategory ?? null,
+    detail: overrides.detail ?? {},
+  };
+}
+
 export function buildInternalBrokerVerificationStatus(
   overrides: Partial<InternalBrokerVerificationStatus> = {},
 ): InternalBrokerVerificationStatus {
@@ -305,6 +327,8 @@ export function buildControlPlaneDeploymentDetailSnapshot(
       buildDeploymentActivitySnapshot({
         summary: "Latest launch completed and reached the runtime handoff.",
       }),
+    latestRuntimeSession: overrides.latestRuntimeSession ?? null,
+    latestRuntimeOutcome: overrides.latestRuntimeOutcome ?? null,
     recentLaunches: overrides.recentLaunches ?? [buildDeploymentRecentLaunch()],
     latestCompatibilityPath: overrides.latestCompatibilityPath ?? null,
     latestAgsSmoke: overrides.latestAgsSmoke ?? null,

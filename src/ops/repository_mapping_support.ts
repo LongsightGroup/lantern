@@ -10,6 +10,7 @@ import type {
   ControlPlaneActivityStatus,
   ControlPlaneBoundaryDenialCategory,
   ControlPlaneDiagnosticItem,
+  ControlPlaneRuntimeEvidenceSnapshot,
 } from "./types.ts";
 import type { RecordBrokerVerificationRunInput } from "./repository_types.ts";
 
@@ -196,6 +197,10 @@ export function mapDiagnosticKind(
     return "brokerVerification";
   }
 
+  if (eventType.startsWith("runtime.")) {
+    return "runtime";
+  }
+
   if (eventType.startsWith("reviewer.")) {
     return "reviewer";
   }
@@ -217,6 +222,22 @@ export function readBoundaryDenialCategoryDetail(
   const value = readStringDetail(detail, "category");
 
   return value === "policyDenied" || value === "specInvalid" ? value : null;
+}
+
+export function readRuntimeSandboxModelDetail(
+  detail: Record<string, unknown>,
+): ControlPlaneRuntimeEvidenceSnapshot["sandboxModel"] {
+  const value = readStringDetail(detail, "sandboxModel");
+
+  return value === "contained_browser_runtime" ? value : null;
+}
+
+export function readRuntimeBoundaryDetail(
+  detail: Record<string, unknown>,
+): ControlPlaneRuntimeEvidenceSnapshot["boundary"] {
+  const value = readStringDetail(detail, "boundary");
+
+  return value === "app_runtime_origin" ? value : null;
 }
 
 export function readLtiProfileIdDetail(

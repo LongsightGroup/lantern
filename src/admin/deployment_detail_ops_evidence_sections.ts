@@ -1,9 +1,14 @@
 import type { ManagedDeploymentSlot } from "./deployment_detail.ts";
-import type { ControlPlaneDeploymentDetailSnapshot } from "../ops/types.ts";
+import type {
+  ControlPlaneDeploymentDetailSnapshot,
+  ControlPlaneRuntimeEvidenceSnapshot,
+} from "../ops/types.ts";
 import { escapeHtml } from "./layout.ts";
 import {
   describeActivityLtiProfile,
+  describeRuntimeRoute,
   formatActivityTimestamp,
+  formatRuntimeTimestamp,
   readBooleanDetail,
   readNestedStringDetail,
   readStringDetail,
@@ -12,6 +17,9 @@ import {
 } from "./deployment_detail_ops_support.ts";
 import {
   describeBrokerVerificationStatus as describeBrokerVerificationStatusLabel,
+  describeRuntimeBoundary,
+  describeRuntimeOutcome,
+  describeRuntimeSandboxModel,
   describeSmokeCapability,
   describeSmokeCapabilitySummary,
   describeSmokePublication,
@@ -35,7 +43,7 @@ export function renderDiagnosticsSection(
     diagnostics.length === 0
       ? `<div class="callout">
               <h3>No problems recorded</h3>
-              <p>Lantern has not recorded a failed launch, roster read, or grade write for this setup.</p>
+              <p>Lantern has not recorded a failed launch, reviewed runtime event, roster read, or grade write for this setup.</p>
             </div>`
       : `<div class="table-list">
               ${
@@ -45,6 +53,76 @@ export function renderDiagnosticsSection(
       }
             </div>`
   }
+      </div>
+    </section>`;
+}
+
+export function renderRuntimeSection(
+  detail: ControlPlaneDeploymentDetailSnapshot | null,
+): string {
+  const latestRuntimeSession = detail?.latestRuntimeSession ?? null;
+  const latestRuntimeOutcome = detail?.latestRuntimeOutcome ?? null;
+  const sandboxModel = latestRuntimeSession?.sandboxModel ??
+    latestRuntimeOutcome?.sandboxModel ?? null;
+  const boundary = latestRuntimeSession?.boundary ??
+    latestRuntimeOutcome?.boundary ?? null;
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Reviewed runtime</p>
+        <h2>Runtime session</h2>
+        <p>Lantern records which reviewed sandbox model and runtime boundary were active for this setup.</p>
+        <div class="facts">
+          ${
+    renderRuntimeFact(
+      "Runtime session",
+      latestRuntimeSession?.sessionId ?? "Not recorded yet",
+      latestRuntimeSession?.summary ??
+        "Lantern has not recorded a reviewed runtime session for this setup yet.",
+    )
+  }
+          ${
+    renderActivityFact(
+      "Started at",
+      formatRuntimeTimestamp(latestRuntimeSession),
+      latestRuntimeSession?.attemptId === null ||
+        latestRuntimeSession?.attemptId === undefined
+        ? "Lantern has not tied a reviewed runtime session to an attempt for this setup yet."
+        : `Lantern tied this reviewed runtime session to attempt ${latestRuntimeSession.attemptId}.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      "Sandbox model",
+      describeRuntimeSandboxModel(sandboxModel),
+      sandboxModel === null
+        ? "Lantern has not recorded the enforced sandbox model for this setup yet."
+        : `Lantern enforced the ${
+          describeRuntimeSandboxModel(sandboxModel)
+        } for the latest reviewed runtime session.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      "Runtime boundary",
+      describeRuntimeBoundary(boundary),
+      boundary === null
+        ? "Lantern has not recorded the enforced runtime boundary for this setup yet."
+        : `Lantern kept reviewed app traffic inside the ${
+          describeRuntimeBoundary(boundary)
+        } boundary.`,
+    )
+  }
+          ${
+    renderRuntimeFact(
+      "Latest outcome",
+      describeRuntimeOutcome(latestRuntimeOutcome?.eventType),
+      latestRuntimeOutcome?.summary ??
+        "Lantern has not recorded a reviewed runtime outcome for this setup yet.",
+    )
+  }
+        </div>
+        ${renderRuntimeOutcomeCallout(latestRuntimeOutcome)}
       </div>
     </section>`;
 }
@@ -202,4 +280,48 @@ export function renderAgsSmokeSection(
         ${runAction}
       </div>
     </section>`;
+}
+
+function renderRuntimeOutcomeCallout(
+  latestRuntimeOutcome: ControlPlaneRuntimeEvidenceSnapshot | null,
+): string {
+  if (latestRuntimeOutcome === null) {
+    return "";
+  }
+
+  const runtimeFacts = [
+    describeRuntimeRoute(latestRuntimeOutcome.route),
+    latestRuntimeOutcome.capability === null
+      ? null
+      : `Capability ${latestRuntimeOutcome.capability}`,
+    latestRuntimeOutcome.code === null
+      ? null
+      : `Code ${latestRuntimeOutcome.code}`,
+  ].filter((value): value is string => value !== null);
+
+  if (runtimeFacts.length === 0) {
+    return "";
+  }
+
+  return `<p class="micro muted">${escapeHtml(runtimeFacts.join(" · "))}</p>`;
+}
+
+function renderRuntimeFact(
+  label: string,
+  value: string,
+  summary: string,
+): string {
+  return `<div class="fact">
+      <span class="fact-label">${escapeHtml(label)}</span>
+      <span class="fact-value">${escapeHtml(value)}</span>
+      <p class="micro muted">${escapeTextContent(summary)}</p>
+    </div>`;
+}
+
+function escapeTextContent(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }

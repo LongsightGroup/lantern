@@ -34,11 +34,15 @@ export type ControlPlaneDiagnosticKind =
   | "nrps"
   | "gradePublication"
   | "brokerVerification"
+  | "runtime"
   | "reviewer";
 
 export type ControlPlaneBoundaryDenialCategory =
   | "specInvalid"
   | "policyDenied";
+
+export type ControlPlaneRuntimeSandboxModel = "contained_browser_runtime";
+export type ControlPlaneRuntimeBoundary = "app_runtime_origin";
 
 export type BrokerVerificationSource = "manual" | "ci" | "1edtech";
 export type BrokerVerificationRunStatus =
@@ -156,6 +160,22 @@ export interface ControlPlaneDiagnosticItem {
   occurredAt: string;
 }
 
+export interface ControlPlaneRuntimeEvidenceSnapshot {
+  eventType: string;
+  status: ControlPlaneActivityStatus;
+  occurredAt: string;
+  summary: string;
+  attemptId: string | null;
+  sessionId: string | null;
+  sandboxModel: ControlPlaneRuntimeSandboxModel | null;
+  boundary: ControlPlaneRuntimeBoundary | null;
+  route: string | null;
+  capability: string | null;
+  code: string | null;
+  boundaryDenialCategory: ControlPlaneBoundaryDenialCategory | null;
+  detail: Record<string, unknown>;
+}
+
 export interface RetryRuntimeSessionLookup {
   sessionId: string;
   attemptId: string;
@@ -248,6 +268,8 @@ export interface ControlPlaneDeploymentDetailSnapshot {
   inventory: ControlPlaneDeploymentInventoryRow;
   latestInstallEvidence: DeploymentActivitySnapshot | null;
   latestLaunch: DeploymentActivitySnapshot | null;
+  latestRuntimeSession: ControlPlaneRuntimeEvidenceSnapshot | null;
+  latestRuntimeOutcome: ControlPlaneRuntimeEvidenceSnapshot | null;
   recentLaunches: DeploymentRecentLaunch[];
   latestCompatibilityPath?: DeploymentActivitySnapshot | null;
   latestAgsSmoke: DeploymentActivitySnapshot | null;

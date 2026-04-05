@@ -6,6 +6,7 @@ import {
   renderAgsSmokeSection,
   renderBrokerVerificationSection,
   renderDiagnosticsSection,
+  renderRuntimeSection,
 } from "./deployment_detail_ops_evidence_sections.ts";
 import {
   describeActivityLtiProfile,
@@ -229,6 +230,7 @@ export function renderOperationalEvidenceSection(
           <summary>Open checks and troubleshooting</summary>
           <div class="detail-stack">
             ${renderControlPlaneStatusSection(detail)}
+            ${renderRuntimeSection(detail)}
             ${renderAgsSmokeSection(appId, slot, detail)}
             ${renderBrokerVerificationSection(detail)}
             ${renderPilotUsageSection(detail)}

@@ -4,6 +4,7 @@ import type {
   CertificationWorkflowStatus,
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
+  ControlPlaneRuntimeEvidenceSnapshot,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   DeploymentRecentLaunch,
@@ -29,6 +30,8 @@ import {
   readBoundaryDenialCategoryDetail,
   readLtiProfileIdDetail,
   readLtiProfileSourceDetail,
+  readRuntimeBoundaryDetail,
+  readRuntimeSandboxModelDetail,
   readStringDetail,
 } from "./repository_mapping_support.ts";
 
@@ -187,6 +190,31 @@ export function mapDiagnosticRows(
       },
     )
   );
+}
+
+export function mapRuntimeEvidenceSnapshotRow(row: {
+  eventType: string;
+  status: string;
+  summary: string;
+  attemptId: string | null;
+  detail: Record<string, unknown>;
+  occurredAt: Date | string;
+}): ControlPlaneRuntimeEvidenceSnapshot {
+  return {
+    eventType: row.eventType,
+    status: mapAuditActivityStatus(row.eventType, row.status),
+    occurredAt: normalizeTimestamp(row.occurredAt),
+    summary: row.summary,
+    attemptId: row.attemptId,
+    sessionId: readStringDetail(row.detail, "sessionId"),
+    sandboxModel: readRuntimeSandboxModelDetail(row.detail),
+    boundary: readRuntimeBoundaryDetail(row.detail),
+    route: readStringDetail(row.detail, "route"),
+    capability: readStringDetail(row.detail, "capability"),
+    code: readStringDetail(row.detail, "code"),
+    boundaryDenialCategory: readBoundaryDenialCategoryDetail(row.detail),
+    detail: row.detail,
+  };
 }
 
 export function mapBrokerVerificationStatusRows(

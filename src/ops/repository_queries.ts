@@ -90,6 +90,38 @@ export const LATEST_LAUNCH_QUERY = `
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
   LIMIT 1
 `;
+export const LATEST_RUNTIME_SESSION_QUERY = `
+  SELECT
+    audit_events.event_type,
+    audit_events.status,
+    audit_events.summary,
+    audit_events.attempt_id,
+    audit_events.detail,
+    audit_events.occurred_at
+  FROM audit_events
+  WHERE audit_events.deployment_record_id = $1
+    AND audit_events.event_type = 'runtime.session.started'
+  ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
+  LIMIT 1
+`;
+export const LATEST_RUNTIME_OUTCOME_QUERY = `
+  SELECT
+    audit_events.event_type,
+    audit_events.status,
+    audit_events.summary,
+    audit_events.attempt_id,
+    audit_events.detail,
+    audit_events.occurred_at
+  FROM audit_events
+  WHERE audit_events.deployment_record_id = $1
+    AND audit_events.event_type LIKE 'runtime.%'
+    AND audit_events.event_type NOT IN (
+      'runtime.session.started',
+      'runtime.capability.allowed'
+    )
+  ORDER BY audit_events.occurred_at DESC, audit_events.id DESC
+  LIMIT 1
+`;
 export const RECENT_ACCEPTED_LAUNCHES_QUERY = `
   SELECT
     audit_events.summary,
@@ -212,6 +244,7 @@ export const DIAGNOSTICS_QUERY = `
       OR audit_events.event_type = 'deployment.nrps_verified'
       OR audit_events.event_type LIKE 'grade_publish.%'
       OR audit_events.event_type LIKE 'broker_verification.%'
+      OR audit_events.event_type LIKE 'runtime.%'
       OR audit_events.event_type LIKE 'reviewer.%'
     )
   ORDER BY audit_events.occurred_at DESC, audit_events.id DESC

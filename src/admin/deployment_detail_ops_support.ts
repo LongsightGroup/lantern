@@ -4,6 +4,7 @@ import type {
   ControlPlaneDiagnosticItem,
   ControlPlaneHealthDimension,
   ControlPlaneHealthStatus,
+  ControlPlaneRuntimeEvidenceSnapshot,
   DeploymentActivitySnapshot,
   DeploymentGradePublicationSnapshot,
   DeploymentRecentLaunch,
@@ -12,6 +13,8 @@ import { escapeHtml, formatDateTime } from "./layout.ts";
 import {
   describeDiagnosticKind,
   describeDiagnosticStatus,
+  describeRuntimeBoundary,
+  describeRuntimeSandboxModel,
 } from "./deployment_detail_ops_labels.ts";
 
 export function renderActivityFact(
@@ -67,9 +70,20 @@ export function renderDiagnosticRow(
   const tone = describeDiagnosticTone(item);
   const details = [
     describeBoundaryDenialCategory(item.boundaryDenialCategory),
+    describeRuntimeFact(
+      item.kind === "runtime" ? readRuntimeSandboxModel(item.detail) : null,
+      describeRuntimeSandboxModel,
+    ),
+    describeRuntimeFact(
+      item.kind === "runtime" ? readRuntimeBoundary(item.detail) : null,
+      describeRuntimeBoundary,
+    ),
     describeActivityLtiProfile(item.detail),
     item.boundaryDenialCategory === null && item.code !== null
       ? `Code ${item.code}`
+      : null,
+    item.kind === "runtime"
+      ? describeRuntimeRoute(readStringDetail(item.detail, "route"))
       : null,
     item.attemptId === null ? null : `Attempt ${item.attemptId}`,
   ].filter((value): value is string => value !== null);
@@ -234,6 +248,16 @@ export function formatBrokerVerificationTimestamp(
   return formatDateTime(verification.checkedAt);
 }
 
+export function formatRuntimeTimestamp(
+  snapshot: ControlPlaneRuntimeEvidenceSnapshot | null | undefined,
+): string {
+  if (snapshot === null || snapshot === undefined) {
+    return "Not recorded yet";
+  }
+
+  return formatDateTime(snapshot.occurredAt);
+}
+
 export function describeActivityLtiProfile(
   detail: Record<string, unknown> | null | undefined,
 ): string | null {
@@ -257,6 +281,25 @@ export function describeBoundaryDenialCategory(
       return "Policy denial";
     case null:
       return null;
+  }
+}
+
+export function describeRuntimeRoute(route: string | null): string | null {
+  switch (route) {
+    case "session":
+      return "Route Session bootstrap";
+    case "content":
+      return "Route Reviewed content";
+    case "finalize":
+      return "Route Finalize";
+    case "local-state.read":
+      return "Route Local state read";
+    case "local-state.write":
+      return "Route Local state write";
+    case null:
+      return null;
+    default:
+      return `Route ${route}`;
   }
 }
 
@@ -375,6 +418,23 @@ function readLtiProfileSource(detail: Record<string, unknown>): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function readRuntimeSandboxModel(
+  detail: Record<string, unknown> | null | undefined,
+): ControlPlaneRuntimeEvidenceSnapshot["sandboxModel"] {
+  return readStringDetail(detail, "sandboxModel") ===
+      "contained_browser_runtime"
+    ? "contained_browser_runtime"
+    : null;
+}
+
+function readRuntimeBoundary(
+  detail: Record<string, unknown> | null | undefined,
+): ControlPlaneRuntimeEvidenceSnapshot["boundary"] {
+  return readStringDetail(detail, "boundary") === "app_runtime_origin"
+    ? "app_runtime_origin"
+    : null;
+}
+
 function describeDimensionStatus(status: ControlPlaneHealthStatus): string {
   switch (status) {
     case "healthy":
@@ -400,6 +460,13 @@ function describeDiagnosticTone(
   }
 
   return "unknown";
+}
+
+function describeRuntimeFact<T>(
+  value: T | null,
+  describe: (value: T) => string,
+): string | null {
+  return value === null ? null : describe(value);
 }
 
 export function describeProblemFactSummary(

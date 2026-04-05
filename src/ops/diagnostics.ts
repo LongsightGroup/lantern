@@ -67,6 +67,10 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
       : `Broker verification evidence was recorded for ${savedDeployment} path.`;
   }
 
+  if (item.kind === "runtime") {
+    return buildRuntimeOperatorSummary(item);
+  }
+
   if (item.kind === "reviewer") {
     return item.status === "failed"
       ? "Reviewer activity ended in a failed state and needs follow-up."
@@ -141,6 +145,33 @@ function buildDeepLinkingOperatorSummary(
   }
 
   return `Deep Linking request was invalid for ${savedDeployment}, so Lantern stopped before opening the governed picker.`;
+}
+
+function buildRuntimeOperatorSummary(item: ControlPlaneDiagnosticItem): string {
+  const capability = readStringDetail(item.detail, "capability");
+
+  switch (item.eventType) {
+    case "runtime.capability.denied":
+      return capability === null
+        ? "Lantern denied a reviewed app capability at the governed runtime boundary."
+        : `Lantern denied reviewed app capability ${capability} at the governed runtime boundary.`;
+    case "runtime.session.timeout":
+      return "Runtime session timed out before the reviewed app could continue.";
+    case "runtime.session.integrity_failed":
+      return "Reviewed runtime integrity checks blocked this session before app code could continue.";
+    case "runtime.session.denied":
+      return item.boundaryDenialCategory === "policyDenied"
+        ? "Lantern denied reviewed runtime session access at the governed runtime boundary."
+        : "Reviewed runtime session access was denied before app code could continue.";
+    case "runtime.score_proposal.accepted":
+      return "Lantern accepted an app score proposal without granting direct grade-write power.";
+    case "runtime.session.exited":
+      return "Exited the reviewed runtime through Lantern's finalize boundary.";
+    default:
+      return item.status === "failed"
+        ? "Reviewed runtime activity failed and needs operator follow-up."
+        : "Reviewed runtime evidence was recorded for this deployment.";
+  }
 }
 
 function isRetryableDiagnostic(
