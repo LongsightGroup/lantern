@@ -15,6 +15,9 @@ export function buildRuntimeBootstrapScript(input: {
   const attemptEventsUrl = serializeForInlineScript(
     `${input.runtimeBaseUrl}/attempt-events`,
   );
+  const scoreProposalUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/score-proposal`,
+  );
   const finalizeUrl = serializeForInlineScript(
     `${input.runtimeBaseUrl}/finalize`,
   );
@@ -26,6 +29,36 @@ export function buildRuntimeBootstrapScript(input: {
 
   return `window.GatewayBootstrap = ${bootstrapJson};
 window.GatewayPreview = ${previewJson};
+function isGatewayDeniedResult(value) {
+  return Boolean(value) &&
+    typeof value === 'object' &&
+    value.accepted === false &&
+    Boolean(value.denial) &&
+    typeof value.denial === 'object' &&
+    typeof value.denial.category === 'string' &&
+    typeof value.denial.code === 'string';
+}
+async function readGatewayMutationResponse(response, label) {
+  if (response.status === 204) {
+    return { accepted: true };
+  }
+
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    const payload = await response.json();
+
+    if (response.ok || isGatewayDeniedResult(payload)) {
+      return payload;
+    }
+  }
+
+  if (!response.ok) {
+    throw new Error(label + ' failed with status ' + response.status + '.');
+  }
+
+  return { accepted: true };
+}
 window.GatewayApp = {
   getLaunchContext() {
     return Promise.resolve({
@@ -73,9 +106,7 @@ window.GatewayApp = {
       body: JSON.stringify(value ?? null),
     });
 
-    if (!response.ok) {
-      throw new Error('Local state write failed with status ' + response.status + '.');
-    }
+    return await readGatewayMutationResponse(response, 'Local state write');
   },
   async emitAttemptEvent(event) {
     const response = await fetch(${attemptEventsUrl}, {
@@ -87,9 +118,19 @@ window.GatewayApp = {
       body: JSON.stringify(event),
     });
 
-    if (!response.ok) {
-      throw new Error('Attempt event request failed with status ' + response.status + '.');
-    }
+    return await readGatewayMutationResponse(response, 'Attempt event request');
+  },
+  async submitScoreProposal(input) {
+    const response = await fetch(${scoreProposalUrl}, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + window.GatewayBootstrap.session.token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    return await readGatewayMutationResponse(response, 'Score proposal request');
   },
   async finalizeAttempt(input) {
     const response = await fetch(${finalizeUrl}, {
@@ -101,11 +142,7 @@ window.GatewayApp = {
       body: JSON.stringify(input ?? {}),
     });
 
-    if (!response.ok) {
-      throw new Error('Finalize request failed with status ' + response.status + '.');
-    }
-
-    return await response.json();
+    return await readGatewayMutationResponse(response, 'Finalize request');
   },
 };`;
 }

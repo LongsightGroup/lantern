@@ -17,6 +17,11 @@ import {
   escapeHtmlAttribute,
   injectBeforeClosingTag,
 } from "./session_html.ts";
+import {
+  errorMessage,
+  failRuntimeOutcome,
+  isRuntimeOutcomeError,
+} from "./gateway_errors.ts";
 
 const RUNTIME_BOOTSTRAP_JWS_TYPE = "application/lantern-runtime-bootstrap+jws";
 const textEncoder = new TextEncoder();
@@ -34,17 +39,33 @@ export function authorizeRuntimeSession(input: {
   const token = input.token.trim();
 
   if (token === "") {
-    throw new Error("Runtime session token is required.");
+    failRuntimeOutcome({
+      type: "deny",
+      code: "session_token_missing",
+      message: "Runtime session token is required.",
+      status: 409,
+      detail: {},
+    });
   }
 
   if (token !== input.expected.sessionToken) {
-    throw new Error(
-      "Runtime session token did not match the requested session.",
-    );
+    failRuntimeOutcome({
+      type: "deny",
+      code: "session_token_mismatch",
+      message: "Runtime session token did not match the requested session.",
+      status: 409,
+      detail: {},
+    });
   }
 
   if (Date.parse(input.expected.expiresAt) <= now().getTime()) {
-    throw new Error("Runtime session has expired.");
+    failRuntimeOutcome({
+      type: "timeout",
+      code: "session_expired",
+      message: "Runtime session has expired.",
+      status: 409,
+      detail: {},
+    });
   }
 
   return input.expected;
@@ -108,7 +129,20 @@ export async function loadRuntimeActivityContent(
     ),
   );
 
-  return JSON.parse(new TextDecoder().decode(bytes));
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (error) {
+    failRuntimeOutcome({
+      type: "integrity_failure",
+      code: "runtime_content_invalid",
+      message: "Reviewed runtime content is not valid JSON.",
+      status: 409,
+      detail: {
+        contentPath: session.contentPath,
+        reason: errorMessage(error),
+      },
+    });
+  }
 }
 
 export async function loadRuntimeAssetBytes(
@@ -173,19 +207,35 @@ async function readRuntimeBytes(
   session: RuntimeSessionRecord,
   relativePath: string,
 ): Promise<Uint8Array> {
-  const absolutePath = joinSnapshotPath(
-    session.snapshotRoot,
-    relativePath,
-    "Runtime file is outside the reviewed snapshot.",
-  );
+  try {
+    const absolutePath = joinSnapshotPath(
+      session.snapshotRoot,
+      relativePath,
+      "Runtime file is outside the reviewed snapshot.",
+    );
 
-  assertPathInsideSnapshot(
-    session.snapshotRoot,
-    absolutePath,
-    "Runtime file is outside the reviewed snapshot.",
-  );
+    assertPathInsideSnapshot(
+      session.snapshotRoot,
+      absolutePath,
+      "Runtime file is outside the reviewed snapshot.",
+    );
 
-  return await Deno.readFile(absolutePath);
+    return await Deno.readFile(absolutePath);
+  } catch (error) {
+    if (isRuntimeOutcomeError(error)) {
+      throw error;
+    }
+
+    failRuntimeOutcome({
+      type: "integrity_failure",
+      code: "runtime_file_invalid",
+      message: errorMessage(error),
+      status: 409,
+      detail: {
+        relativePath,
+      },
+    });
+  }
 }
 
 async function buildRuntimeBootstrap(input: {

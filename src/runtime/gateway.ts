@@ -12,28 +12,44 @@ import {
   requireRuntimePackageVersion,
   resolvePreviewSession,
 } from "./gateway_context.ts";
-import { errorMessage, toFinalizeError } from "./gateway_errors.ts";
+import {
+  denyRuntimeBroker,
+  errorMessage,
+  toFinalizeError,
+} from "./gateway_errors.ts";
 import {
   parseAttemptEvent,
   parseAttemptLocalState,
   parseFinalizeAttemptInput,
+  parseScoreProposal,
   requireRuntimeCapability,
 } from "./gateway_parsing.ts";
 import { publishRuntimeAttemptScore } from "./gateway_publication.ts";
 import type {
   FinalizeAttemptInput,
   FinalizeAttemptResult,
+  RuntimeScoreProposalResult,
 } from "./gateway_types.ts";
 export type {
   FinalizeAttemptInput,
   FinalizeAttemptResult,
   GovernedGradePublicationInput,
   GovernedGradePublicationResult,
+  RuntimeBoundary,
+  RuntimeBrokerDenial,
+  RuntimeBrokerDenialCategory,
+  RuntimeBrokerDeniedResult,
+  RuntimeBrokerMutationResult,
+  RuntimeOutcome,
+  RuntimeSandboxModel,
+  RuntimeScoreProposal,
+  RuntimeScoreProposalResult,
 } from "./gateway_types.ts";
 export {
   parseAttemptEvent,
   parseAttemptLocalState,
   parseFinalizeAttemptInput,
+  parseScoreProposal,
   requireRuntimeCapability,
 } from "./gateway_parsing.ts";
 export { publishGovernedGradePublication } from "./gateway_publication.ts";
@@ -66,6 +82,24 @@ export async function writeAttemptLocalState(input: {
     attemptId: attempt.attemptId,
     localState: parseAttemptLocalState(input.payload),
   });
+}
+
+export async function submitScoreProposal(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+  payload: unknown;
+  now?: () => Date;
+}): Promise<RuntimeScoreProposalResult> {
+  requireRuntimeCapability(input.session, "finalize_attempt");
+  await requireRuntimeAttempt(
+    input.repository,
+    input.session,
+  );
+
+  return {
+    accepted: true,
+    scoreProposal: parseScoreProposal(input.payload),
+  };
 }
 
 export async function acceptAttemptEvent(input: {
@@ -163,7 +197,16 @@ export async function finalizeRuntimeAttempt(input: {
           occurredAt,
         });
         previewBlockEvidenceRecorded = true;
-        throw new Error("Preview mode blocks live LMS side effects.");
+        denyRuntimeBroker({
+          category: "policyDenied",
+          code: "preview_live_side_effects_blocked",
+          message: "Preview mode blocks live LMS side effects.",
+          capability: "finalize_attempt",
+          detail: {
+            hasAgsServices: input.session.services.ags !== null,
+            hasNrpsServices: input.session.services.nrps !== null,
+          },
+        });
       }
 
       const finalizedNow = attempt.finalizedAt === null;
@@ -213,9 +256,13 @@ export async function finalizeRuntimeAttempt(input: {
     );
 
     if (packageVersion.grading.mode === "manual") {
-      throw new Error(
-        "Manual grading cannot be finalized automatically in Phase 3.",
-      );
+      denyRuntimeBroker({
+        category: "policyDenied",
+        code: "manual_grading_requires_operator",
+        message: "Manual grading cannot be finalized automatically in Phase 3.",
+        capability: "finalize_attempt",
+        detail: {},
+      });
     }
 
     const finalizedNow = attempt.finalizedAt === null;

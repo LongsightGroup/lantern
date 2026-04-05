@@ -9,6 +9,35 @@ import type {
   GradePublicationRecord,
   LineItemBindingRecord,
 } from "../package_review/types.ts";
+import type {
+  GatewayBrokerDenial,
+  GatewayBrokerDenialCategory,
+  GatewayMutationDeniedResult,
+  GatewayMutationResult,
+  GatewayScoreProposalResult,
+  ScoreProposal,
+} from "../../sdk/app-sdk.ts";
+
+export const RUNTIME_SANDBOX_MODEL = "contained_browser_runtime";
+export const RUNTIME_BOUNDARY = "app_runtime_origin";
+
+export type RuntimeSandboxModel = typeof RUNTIME_SANDBOX_MODEL;
+export type RuntimeBoundary = typeof RUNTIME_BOUNDARY;
+export type RuntimeDetailValue = string | number | boolean | null;
+export type RuntimeBrokerDenial = GatewayBrokerDenial;
+export type RuntimeBrokerDenialCategory = GatewayBrokerDenialCategory;
+export type RuntimeBrokerDeniedResult = GatewayMutationDeniedResult;
+export type RuntimeBrokerMutationResult = GatewayMutationResult;
+export type RuntimeScoreProposal = ScoreProposal;
+export type RuntimeScoreProposalResult = GatewayScoreProposalResult;
+
+export interface RuntimeOutcome {
+  type: "deny" | "timeout" | "integrity_failure";
+  code: string;
+  message: string;
+  detail: Record<string, RuntimeDetailValue>;
+  status: 404 | 409 | 500;
+}
 
 export interface FinalizeAttemptInput {
   completionState: "completed" | "abandoned";

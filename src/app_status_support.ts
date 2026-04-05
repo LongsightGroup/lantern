@@ -2,6 +2,10 @@ import {
   isLaunchRejectionError,
   isLtiBoundaryDenialError,
 } from "./lti/launch_rejection.ts";
+import {
+  isRuntimeBrokerDenialError,
+  isRuntimeOutcomeError,
+} from "./runtime/gateway_errors.ts";
 
 export function deepLinkingReturnErrorMessage(error: unknown): string {
   const message = errorMessage(error);
@@ -114,7 +118,15 @@ export function statusForVerificationError(error: unknown): 400 | 500 {
   return 500;
 }
 
-export function statusForRuntimeError(error: unknown): 404 | 409 | 500 {
+export function statusForRuntimeError(error: unknown): 400 | 404 | 409 | 500 {
+  if (isRuntimeBrokerDenialError(error)) {
+    return error.status;
+  }
+
+  if (isRuntimeOutcomeError(error)) {
+    return error.status;
+  }
+
   if (!(error instanceof Error)) {
     return 500;
   }

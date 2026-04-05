@@ -1,5 +1,6 @@
 import { assertEquals, assertObjectMatch, assertRejects } from "@std/assert";
 import { createApp } from "../app.ts";
+import { withRuntimeOriginEnv } from "../app_test_support.ts";
 import {
   acceptAttemptEvent,
   parseAttemptEvent,
@@ -13,118 +14,122 @@ import {
 } from "../test_helpers/package_review.ts";
 
 Deno.test("runtime gateway accepts authenticated attempt-event writes and persists append-only attempt events", async () => {
-  const repository = createInMemoryPackageReviewRepository({
-    attempts: [buildAttemptRecord()],
-    runtimeSessions: [
-      buildRuntimeSessionRecord({
-        expiresAt: "2099-03-26T02:45:00Z",
-      }),
-    ],
-  });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
-    "http://localhost/runtime/sessions/runtime-session-123/attempt-events",
-    {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer runtime-token-123",
-        "content-type": "application/json",
+  await withRuntimeOriginEnv(async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      attempts: [buildAttemptRecord()],
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          expiresAt: "2099-03-26T02:45:00Z",
+        }),
+      ],
+    });
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "progress",
+          checkpoint: "wave-1",
+          value: 0.5,
+          timestamp: "2026-03-24T02:30:00Z",
+        }),
       },
-      body: JSON.stringify({
-        type: "progress",
-        checkpoint: "wave-1",
-        value: 0.5,
-        timestamp: "2026-03-24T02:30:00Z",
-      }),
-    },
-  );
+    );
 
-  assertEquals(response.status, 202);
+    assertEquals(response.status, 202);
 
-  const events = await repository.listAttemptEvents("attempt-123");
+    const events = await repository.listAttemptEvents("attempt-123");
 
-  assertEquals(events.length, 1);
-  assertEquals(events[0]?.sequence, 1);
-  assertEquals(events[0]?.eventType, "progress");
-  const runtimeAuditEvents = await repository.listAuditEventsByEventType(
-    "runtime.capability.allowed",
-  );
+    assertEquals(events.length, 1);
+    assertEquals(events[0]?.sequence, 1);
+    assertEquals(events[0]?.eventType, "progress");
+    const runtimeAuditEvents = await repository.listAuditEventsByEventType(
+      "runtime.capability.allowed",
+    );
 
-  assertEquals(runtimeAuditEvents.length, 1);
-  assertEquals(runtimeAuditEvents[0]?.attemptId, "attempt-123");
-  assertEquals(
-    runtimeAuditEvents[0]?.detail.capability,
-    "submit_attempt_event",
-  );
+    assertEquals(runtimeAuditEvents.length, 1);
+    assertEquals(runtimeAuditEvents[0]?.attemptId, "attempt-123");
+    assertEquals(
+      runtimeAuditEvents[0]?.detail.capability,
+      "submit_attempt_event",
+    );
+  });
 });
 
 Deno.test("runtime gateway blocks missing capability, bad payloads, and bad tokens before any write", async () => {
-  const repository = createInMemoryPackageReviewRepository({
-    attempts: [buildAttemptRecord()],
-    runtimeSessions: [
-      buildRuntimeSessionRecord({
-        capabilities: ["read_launch_context"],
-        expiresAt: "2099-03-26T02:45:00Z",
-      }),
-    ],
-  });
-  const app = createApp({
-    getRepository: () => repository,
-  });
-  const capabilityResponse = await app.request(
-    "http://localhost/runtime/sessions/runtime-session-123/attempt-events",
-    {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer runtime-token-123",
-        "content-type": "application/json",
+  await withRuntimeOriginEnv(async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      attempts: [buildAttemptRecord()],
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          capabilities: ["read_launch_context"],
+          expiresAt: "2099-03-26T02:45:00Z",
+        }),
+      ],
+    });
+    const app = createApp({
+      getRepository: () => repository,
+    });
+    const capabilityResponse = await app.request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "answer",
+          questionId: "q1",
+          answer: "asteroid",
+          timestamp: "2026-03-24T02:30:00Z",
+        }),
       },
-      body: JSON.stringify({
-        type: "answer",
-        questionId: "q1",
-        answer: "asteroid",
-        timestamp: "2026-03-24T02:30:00Z",
-      }),
-    },
-  );
-  const tokenResponse = await app.request(
-    "http://localhost/runtime/sessions/runtime-session-123/attempt-events",
-    {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer wrong-token",
-        "content-type": "application/json",
+    );
+    const tokenResponse = await app.request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer wrong-token",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "answer",
+          questionId: "q1",
+          answer: "asteroid",
+          timestamp: "2026-03-24T02:30:00Z",
+        }),
       },
-      body: JSON.stringify({
-        type: "answer",
-        questionId: "q1",
-        answer: "asteroid",
-        timestamp: "2026-03-24T02:30:00Z",
-      }),
-    },
-  );
+    );
 
-  assertEquals(capabilityResponse.status, 409);
-  assertEquals(tokenResponse.status, 409);
-  assertObjectMatch(await capabilityResponse.json(), {
-    accepted: false,
-    denial: {
-      category: "policyDenied",
-      code: "capability_not_granted",
-      capability: "submit_attempt_event",
-    },
+    assertEquals(capabilityResponse.status, 409);
+    assertEquals(tokenResponse.status, 409);
+    assertObjectMatch(await capabilityResponse.json(), {
+      accepted: false,
+      denial: {
+        category: "policyDenied",
+        code: "capability_not_granted",
+        capability: "submit_attempt_event",
+      },
+    });
+    assertEquals(await repository.listAttemptEvents("attempt-123"), []);
+    const deniedEvents = await repository.listAuditEventsByEventType(
+      "runtime.capability.denied",
+    );
+    const sessionDenials = await repository.listAuditEventsByEventType(
+      "runtime.session.denied",
+    );
+
+    assertEquals(deniedEvents.length, 1);
+    assertEquals(sessionDenials.length, 1);
   });
-  assertEquals(await repository.listAttemptEvents("attempt-123"), []);
-  const deniedEvents = await repository.listAuditEventsByEventType(
-    "runtime.capability.denied",
-  );
-  const sessionDenials = await repository.listAuditEventsByEventType(
-    "runtime.session.denied",
-  );
-
-  assertEquals(deniedEvents.length, 1);
-  assertEquals(sessionDenials.length, 1);
 });
 
 Deno.test("runtime gateway validates attempt event payloads and capabilities", async () => {

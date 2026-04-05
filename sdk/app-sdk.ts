@@ -65,15 +65,70 @@ export type AttemptEvent =
     timestamp: string;
   };
 
+export type GatewayBrokerDenialCategory = "specInvalid" | "policyDenied";
+export type GatewayBrokerDetailValue = string | number | boolean | null;
+
+export interface GatewayBrokerDenial {
+  category: GatewayBrokerDenialCategory;
+  code: string;
+  message: string;
+  capability: Capability | null;
+  detail: Record<string, GatewayBrokerDetailValue>;
+}
+
+export interface GatewayMutationAcceptedResult {
+  accepted: true;
+}
+
+export interface GatewayMutationDeniedResult {
+  accepted: false;
+  denial: GatewayBrokerDenial;
+}
+
+export type GatewayMutationResult =
+  | GatewayMutationAcceptedResult
+  | GatewayMutationDeniedResult;
+
+export interface ScoreProposal {
+  scoreGiven: number;
+  scoreMaximum: number;
+}
+
+export interface GatewayScoreProposalAcceptedResult
+  extends GatewayMutationAcceptedResult {
+  scoreProposal: ScoreProposal;
+}
+
+export type GatewayScoreProposalResult =
+  | GatewayScoreProposalAcceptedResult
+  | GatewayMutationDeniedResult;
+
+export interface GatewayFinalizeAcceptedResult
+  extends GatewayMutationAcceptedResult {
+  attemptId: string;
+  alreadyFinalized: boolean;
+  completionState: "completed" | "abandoned" | null;
+  scoreGiven: number;
+  scoreMaximum: number;
+  gradePublished: boolean;
+}
+
+export type GatewayFinalizeResult =
+  | GatewayFinalizeAcceptedResult
+  | GatewayMutationDeniedResult;
+
 export interface GatewayAppClient {
   getLaunchContext(): Promise<LaunchContext>;
   getActivityContent<T = unknown>(): Promise<T>;
   readLocalState<T = unknown>(): Promise<T | null>;
-  writeLocalState<T = unknown>(value: T): Promise<void>;
-  emitAttemptEvent(event: AttemptEvent): Promise<void>;
+  writeLocalState<T = unknown>(value: T): Promise<GatewayMutationResult>;
+  emitAttemptEvent(event: AttemptEvent): Promise<GatewayMutationResult>;
+  submitScoreProposal(
+    input: ScoreProposal,
+  ): Promise<GatewayScoreProposalResult>;
   finalizeAttempt(input?: {
     completionState?: "completed" | "abandoned";
-  }): Promise<{ accepted: true }>;
+  }): Promise<GatewayFinalizeResult>;
 }
 
 declare global {
