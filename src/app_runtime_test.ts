@@ -154,6 +154,71 @@ Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content th
   });
 });
 
+Deno.test("runtime local-state routes round-trip attempt-bound state and reject bad tokens", async () => {
+  await withRuntimeOriginEnv(async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      attempts: [buildAttemptRecord()],
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          expiresAt: "2030-03-26T02:45:00Z",
+        }),
+      ],
+    });
+    const app = createApp({
+      getRepository: () => repository,
+    });
+    const firstRead = await app.request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      {
+        headers: { Authorization: "Bearer runtime-token-123" },
+      },
+    );
+    const writeResponse = await app.request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      {
+        method: "PUT",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          currentCheckpoint: "wave-2",
+          answers: {
+            q1: "asteroid",
+          },
+        }),
+      },
+    );
+    const secondRead = await app.request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      {
+        headers: { Authorization: "Bearer runtime-token-123" },
+      },
+    );
+    const deniedRead = await app.request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      {
+        headers: { Authorization: "Bearer wrong-token" },
+      },
+    );
+
+    assertEquals(firstRead.status, 200);
+    assertEquals(await firstRead.json(), null);
+    assertEquals(writeResponse.status, 204);
+    assertEquals(await secondRead.json(), {
+      currentCheckpoint: "wave-2",
+      answers: {
+        q1: "asteroid",
+      },
+    });
+    assertEquals(deniedRead.status, 409);
+    assertStringIncludes(
+      await deniedRead.text(),
+      "Runtime session token did not match the requested session.",
+    );
+  });
+});
+
 Deno.test("GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blocks bad tokens", async () => {
   await withRuntimeOriginEnv(async () => {
     const app = createApp({

@@ -172,6 +172,69 @@ Deno.test("repository finalizes durable attempts idempotently", async () => {
   });
 });
 
+Deno.test("repository stores attempt-local state on Lantern-owned attempt rows and keeps it isolated per attempt", async () => {
+  await withRepositoryTestDatabase(async ({ repository }) => {
+    const approvedRecord = await repository.approvePackageVersion({
+      id: (await repository.registerPackageVersion(
+        await buildImportedPackageVersion(),
+      )).id,
+      reviewNotes: "Approved for attempt local-state tests.",
+    });
+    const deployment = await repository.pinDeploymentVersion({
+      slug: "chapter-4-asteroids-pilot",
+      label: "Chapter 4 Asteroids Pilot Deployment",
+      appId: "chapter-4-asteroids",
+      packageVersionId: approvedRecord.id,
+    });
+    const firstAttempt = await repository.createAttempt(
+      buildAttemptRecord({
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+      }),
+    );
+    const secondAttempt = await repository.createAttempt(
+      buildAttemptRecord({
+        id: 2,
+        attemptId: "attempt-456",
+        deploymentRecordId: deployment.id,
+        deploymentSlug: deployment.slug,
+        packageVersionId: approvedRecord.id,
+        packageVersion: approvedRecord.version,
+        activityId: "activity-456",
+        resourceLinkId: "resource-link-456",
+      }),
+    );
+
+    assertEquals(
+      (await repository.getAttemptById(firstAttempt.attemptId))?.localState,
+      null,
+    );
+
+    const updatedAttempt = await repository.writeAttemptLocalState({
+      attemptId: firstAttempt.attemptId,
+      localState: {
+        currentCheckpoint: "wave-2",
+        answers: {
+          q1: "asteroid",
+        },
+      },
+    });
+
+    assertEquals(updatedAttempt.localState, {
+      currentCheckpoint: "wave-2",
+      answers: {
+        q1: "asteroid",
+      },
+    });
+    assertEquals(
+      (await repository.getAttemptById(secondAttempt.attemptId))?.localState,
+      null,
+    );
+  });
+});
+
 Deno.test("repository stores package-version line item bindings and idempotent grade publications", async () => {
   await withRepositoryTestDatabase(async ({ repository }) => {
     const approvedRecord = await repository.approvePackageVersion({

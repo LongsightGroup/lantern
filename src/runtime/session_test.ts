@@ -42,6 +42,8 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(html, "runtime-token-123");
   assertStringIncludes(html, "emitAttemptEvent");
   assertStringIncludes(html, "finalizeAttempt");
+  assertStringIncludes(html, "readLocalState");
+  assertStringIncludes(html, "writeLocalState");
   assertStringIncludes(
     html,
     "https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/",
@@ -57,6 +59,10 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(
     html,
     "https://runtime.lantern.example/runtime/sessions/runtime-session-123/content",
+  );
+  assertStringIncludes(
+    html,
+    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
   );
   assertEquals(bootstrap.session.expires_at, "2099-03-26T22:47:00Z");
   assertEquals(
