@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { finalizeRuntimeAttempt } from "./gateway.ts";
+import { RuntimeBrokerDenialError } from "./gateway_errors.ts";
 import {
   buildDeploymentBinding,
   buildRuntimeSessionRecord,
@@ -112,7 +113,7 @@ Deno.test("runtime gateway fails clearly for manual grading finalize requests an
     expiresAt: "2099-03-26T02:45:00Z",
   });
 
-  await assertRejects(
+  const error = await assertRejects(
     () =>
       finalizeRuntimeAttempt({
         repository,
@@ -122,9 +123,11 @@ Deno.test("runtime gateway fails clearly for manual grading finalize requests an
         },
         now: () => new Date("2026-03-24T02:35:00Z"),
       }),
-    Error,
-    "Finalize blocked: Manual grading cannot be finalized automatically in Phase 3.",
-  );
+    RuntimeBrokerDenialError,
+  ) as RuntimeBrokerDenialError;
+
+  assertEquals(error.category, "policyDenied");
+  assertEquals(error.code, "manual_grading_requires_operator");
 
   const attempt = await repository.getAttemptById("attempt-123");
 

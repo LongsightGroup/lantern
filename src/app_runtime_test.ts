@@ -1,4 +1,9 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assertEquals,
+  assertExists,
+  assertObjectMatch,
+  assertStringIncludes,
+} from "@std/assert";
 import { compactVerify, createLocalJWKSet } from "jose";
 import type { BootstrapPayload } from "../sdk/app-sdk.ts";
 import { createApp } from "./app.ts";
@@ -25,27 +30,27 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
 
   try {
     await withRuntimeOriginEnv(async () => {
-      const response = await createApp({
-        getRepository: () =>
-          createInMemoryPackageReviewRepository({
-            packageVersions: [
-              buildPackageVersionRecord({
-                id: 1,
-                approvalStatus: "approved",
-                reviewedAt: "2026-03-23T18:05:00Z",
-                runtimeContractSignature:
-                  "test-reviewed-runtime-contract-signature",
-              }),
-            ],
-            runtimeSessions: [
-              buildRuntimeSessionRecord({
-                snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
-                entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
-                contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-                expiresAt: "2030-03-26T02:45:00Z",
-              }),
-            ],
+      const repository = createInMemoryPackageReviewRepository({
+        packageVersions: [
+          buildPackageVersionRecord({
+            id: 1,
+            approvalStatus: "approved",
+            reviewedAt: "2026-03-23T18:05:00Z",
+            runtimeContractSignature:
+              "test-reviewed-runtime-contract-signature",
           }),
+        ],
+        runtimeSessions: [
+          buildRuntimeSessionRecord({
+            snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+            entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+            contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
+            expiresAt: "2030-03-26T02:45:00Z",
+          }),
+        ],
+      });
+      const response = await createApp({
+        getRepository: () => repository,
       }).request(
         "https://runtime.lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123",
       );
@@ -75,6 +80,21 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
         false,
       );
       await assertBootstrapSignature(bootstrap);
+      const runtimeSessionEvents = await repository.listAuditEventsByEventType(
+        "runtime.session.started",
+      );
+
+      assertEquals(runtimeSessionEvents.length, 1);
+      const runtimeSessionEvent = runtimeSessionEvents[0];
+
+      assertExists(runtimeSessionEvent);
+      assertObjectMatch(runtimeSessionEvent, {
+        attemptId: "attempt-123",
+        detail: {
+          sandboxModel: "contained_browser_runtime",
+          boundary: "app_runtime_origin",
+        },
+      });
     });
   } finally {
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
@@ -151,6 +171,79 @@ Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content th
 
     assertEquals(body.title, "Chapter 4 Asteroids");
     assertEquals(body.questions[0]?.id, "q1");
+  });
+});
+
+Deno.test("runtime routes record timeout and integrity failures as durable typed runtime outcomes", async () => {
+  await withRuntimeOriginEnv(async () => {
+    const timeoutRepository = createInMemoryPackageReviewRepository({
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+          contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
+          expiresAt: "2020-03-26T02:45:00Z",
+        }),
+      ],
+    });
+    const timeoutResponse = await createApp({
+      getRepository: () => timeoutRepository,
+    }).request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/content",
+      {
+        headers: { Authorization: "Bearer runtime-token-123" },
+      },
+    );
+
+    assertEquals(timeoutResponse.status, 409);
+    const timeoutEvents = await timeoutRepository.listAuditEventsByEventType(
+      "runtime.session.timeout",
+    );
+
+    assertEquals(timeoutEvents.length, 1);
+    const timeoutEvent = timeoutEvents[0];
+
+    assertExists(timeoutEvent);
+    assertObjectMatch(timeoutEvent, {
+      status: "failed",
+      detail: {
+        code: "session_expired",
+        sandboxModel: "contained_browser_runtime",
+        boundary: "app_runtime_origin",
+      },
+    });
+
+    const integrityRepository = createInMemoryPackageReviewRepository({
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          packageVersionId: 99,
+          expiresAt: "2030-03-26T02:45:00Z",
+        }),
+      ],
+    });
+    const integrityResponse = await createApp({
+      getRepository: () => integrityRepository,
+    }).request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123",
+    );
+
+    assertEquals(integrityResponse.status, 409);
+    const integrityEvents = await integrityRepository
+      .listAuditEventsByEventType(
+        "runtime.session.integrity_failed",
+      );
+
+    assertEquals(integrityEvents.length, 1);
+    const integrityEvent = integrityEvents[0];
+
+    assertExists(integrityEvent);
+    assertObjectMatch(integrityEvent, {
+      detail: {
+        code: "package_version_missing",
+        sandboxModel: "contained_browser_runtime",
+        boundary: "app_runtime_origin",
+      },
+    });
   });
 });
 

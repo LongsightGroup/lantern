@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from "@std/assert";
 import { acceptAttemptEvent, finalizeRuntimeAttempt } from "./gateway.ts";
+import { RuntimeBrokerDenialError } from "./gateway_errors.ts";
 import { buildRuntimeSessionRecord } from "../test_helpers/lti.ts";
 import {
   buildAttemptEventRecord,
@@ -115,7 +116,7 @@ Deno.test("preview gateway enforces declared capabilities and records bounded bl
     },
   });
 
-  await assertRejects(
+  const error = await assertRejects(
     () =>
       acceptAttemptEvent({
         repository,
@@ -128,9 +129,11 @@ Deno.test("preview gateway enforces declared capabilities and records bounded bl
         },
         now: () => new Date("2026-03-24T02:31:00Z"),
       }),
-    Error,
-    "Runtime session does not allow submit_attempt_event.",
-  );
+    RuntimeBrokerDenialError,
+  ) as RuntimeBrokerDenialError;
+
+  assertEquals(error.category, "policyDenied");
+  assertEquals(error.code, "capability_not_granted");
 
   assertEquals(await repository.listAttemptEvents("preview-attempt-123"), []);
   const evidence = await repository.listPreviewEvidence(
@@ -166,7 +169,7 @@ Deno.test("preview gateway blocks live-service finalize paths clearly and record
     },
   });
 
-  await assertRejects(
+  const error = await assertRejects(
     () =>
       finalizeRuntimeAttempt({
         repository,
@@ -176,9 +179,11 @@ Deno.test("preview gateway blocks live-service finalize paths clearly and record
         },
         now: () => new Date("2026-03-24T02:35:00Z"),
       }),
-    Error,
-    "Finalize blocked: Preview mode blocks live LMS side effects.",
-  );
+    RuntimeBrokerDenialError,
+  ) as RuntimeBrokerDenialError;
+
+  assertEquals(error.category, "policyDenied");
+  assertEquals(error.code, "preview_live_side_effects_blocked");
 
   const evidence = await repository.listPreviewEvidence(
     "preview-session-live-service-block",

@@ -1,10 +1,11 @@
-import { assertEquals, assertRejects } from "@std/assert";
+import { assertEquals, assertObjectMatch, assertRejects } from "@std/assert";
 import { createApp } from "../app.ts";
 import {
   acceptAttemptEvent,
   parseAttemptEvent,
   requireRuntimeCapability,
 } from "./gateway.ts";
+import { RuntimeBrokerDenialError } from "./gateway_errors.ts";
 import { buildRuntimeSessionRecord } from "../test_helpers/lti.ts";
 import {
   buildAttemptRecord,
@@ -46,6 +47,16 @@ Deno.test("runtime gateway accepts authenticated attempt-event writes and persis
   assertEquals(events.length, 1);
   assertEquals(events[0]?.sequence, 1);
   assertEquals(events[0]?.eventType, "progress");
+  const runtimeAuditEvents = await repository.listAuditEventsByEventType(
+    "runtime.capability.allowed",
+  );
+
+  assertEquals(runtimeAuditEvents.length, 1);
+  assertEquals(runtimeAuditEvents[0]?.attemptId, "attempt-123");
+  assertEquals(
+    runtimeAuditEvents[0]?.detail.capability,
+    "submit_attempt_event",
+  );
 });
 
 Deno.test("runtime gateway blocks missing capability, bad payloads, and bad tokens before any write", async () => {
@@ -96,7 +107,24 @@ Deno.test("runtime gateway blocks missing capability, bad payloads, and bad toke
 
   assertEquals(capabilityResponse.status, 409);
   assertEquals(tokenResponse.status, 409);
+  assertObjectMatch(await capabilityResponse.json(), {
+    accepted: false,
+    denial: {
+      category: "policyDenied",
+      code: "capability_not_granted",
+      capability: "submit_attempt_event",
+    },
+  });
   assertEquals(await repository.listAttemptEvents("attempt-123"), []);
+  const deniedEvents = await repository.listAuditEventsByEventType(
+    "runtime.capability.denied",
+  );
+  const sessionDenials = await repository.listAuditEventsByEventType(
+    "runtime.session.denied",
+  );
+
+  assertEquals(deniedEvents.length, 1);
+  assertEquals(sessionDenials.length, 1);
 });
 
 Deno.test("runtime gateway validates attempt event payloads and capabilities", async () => {
@@ -116,10 +144,9 @@ Deno.test("runtime gateway validates attempt event payloads and capabilities", a
           timestamp: "2026-03-24T02:30:00Z",
         })
       ),
-    Error,
-    "Attempt answer questionId is required.",
+    RuntimeBrokerDenialError,
   );
-  await assertRejects(
+  const capabilityError = await assertRejects(
     () =>
       Promise.resolve().then(() =>
         requireRuntimeCapability(
@@ -129,9 +156,11 @@ Deno.test("runtime gateway validates attempt event payloads and capabilities", a
           "submit_attempt_event",
         )
       ),
-    Error,
-    "Runtime session does not allow submit_attempt_event.",
-  );
+    RuntimeBrokerDenialError,
+  ) as RuntimeBrokerDenialError;
+  assertEquals(capabilityError.category, "policyDenied");
+  assertEquals(capabilityError.code, "capability_not_granted");
+  assertEquals(capabilityError.capability, "submit_attempt_event");
 });
 
 Deno.test("runtime gateway helper appends attempt events directly against the durable ledger", async () => {

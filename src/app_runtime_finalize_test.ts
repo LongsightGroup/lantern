@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertExists, assertObjectMatch } from "@std/assert";
 import { createApp } from "./app.ts";
 import {
   EXAMPLE_SNAPSHOT_ROOT,
@@ -133,6 +133,9 @@ Deno.test("POST /runtime/sessions/:id/finalize finalizes the durable attempt and
           const gradeAuditEvents = await repository.listAuditEventsByEventType(
             "grade_publish.succeeded",
           );
+          const runtimeExitEvents = await repository.listAuditEventsByEventType(
+            "runtime.session.exited",
+          );
           const failedGradeAuditEvents = await repository
             .listAuditEventsByEventType("grade_publish.failed");
           const lineItemBinding = await repository.getLineItemBinding({
@@ -159,6 +162,17 @@ Deno.test("POST /runtime/sessions/:id/finalize finalizes the durable attempt and
           assertEquals(typeof attempt?.finalizedAt, "string");
           assertEquals(attemptAuditEvents.length, 1);
           assertEquals(gradeAuditEvents.length, 1);
+          assertEquals(runtimeExitEvents.length, 1);
+          const runtimeExitEvent = runtimeExitEvents[0];
+
+          assertExists(runtimeExitEvent);
+          assertObjectMatch(runtimeExitEvent, {
+            detail: {
+              sandboxModel: "contained_browser_runtime",
+              boundary: "app_runtime_origin",
+              completionState: "completed",
+            },
+          });
           assertEquals(failedGradeAuditEvents.length, 0);
           assertEquals(
             lineItemBinding?.lineItemUrl.includes("/line_items/9"),
@@ -171,6 +185,55 @@ Deno.test("POST /runtime/sessions/:id/finalize finalizes the durable attempt and
   } finally {
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
   }
+});
+
+Deno.test("POST /runtime/sessions/:id/score-proposal accepts typed app proposals without direct grade writes", async () => {
+  await withRuntimeOriginEnv(async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      attempts: [buildAttemptRecord()],
+      runtimeSessions: [
+        buildRuntimeSessionRecord({ expiresAt: "2099-03-26T02:45:00Z" }),
+      ],
+    });
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/score-proposal",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          scoreGiven: 7,
+          scoreMaximum: 10,
+        }),
+      },
+    );
+
+    assertEquals(response.status, 202);
+    assertObjectMatch(await response.json(), {
+      accepted: true,
+      scoreProposal: {
+        scoreGiven: 7,
+        scoreMaximum: 10,
+      },
+    });
+    assertEquals(
+      await repository.getGradePublicationByAttemptId("attempt-123"),
+      null,
+    );
+    assertEquals(
+      (await repository.getAttemptById("attempt-123"))?.finalizedAt,
+      null,
+    );
+    const proposalEvents = await repository.listAuditEventsByEventType(
+      "runtime.score_proposal.accepted",
+    );
+
+    assertEquals(proposalEvents.length, 1);
+  });
 });
 
 Deno.test("POST /runtime/sessions/:id/finalize records a failed grade publish when Canvas token exchange fails", async () => {

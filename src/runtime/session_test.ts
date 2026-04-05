@@ -41,6 +41,7 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(html, "chapter-4-asteroids");
   assertStringIncludes(html, "runtime-token-123");
   assertStringIncludes(html, "emitAttemptEvent");
+  assertStringIncludes(html, "submitScoreProposal");
   assertStringIncludes(html, "finalizeAttempt");
   assertStringIncludes(html, "readLocalState");
   assertStringIncludes(html, "writeLocalState");
