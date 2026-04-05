@@ -15,6 +15,7 @@ import {
 import { errorMessage, toFinalizeError } from "./gateway_errors.ts";
 import {
   parseAttemptEvent,
+  parseAttemptLocalState,
   parseFinalizeAttemptInput,
   requireRuntimeCapability,
 } from "./gateway_parsing.ts";
@@ -31,10 +32,41 @@ export type {
 } from "./gateway_types.ts";
 export {
   parseAttemptEvent,
+  parseAttemptLocalState,
   parseFinalizeAttemptInput,
   requireRuntimeCapability,
 } from "./gateway_parsing.ts";
 export { publishGovernedGradePublication } from "./gateway_publication.ts";
+
+export async function readAttemptLocalState(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+}): Promise<AttemptRecord["localState"]> {
+  requireRuntimeCapability(input.session, "read_local_state");
+  const attempt = await requireRuntimeAttempt(
+    input.repository,
+    input.session,
+  );
+
+  return attempt.localState;
+}
+
+export async function writeAttemptLocalState(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+  payload: unknown;
+}): Promise<AttemptRecord> {
+  requireRuntimeCapability(input.session, "write_local_state");
+  const attempt = await requireRuntimeAttempt(
+    input.repository,
+    input.session,
+  );
+
+  return await input.repository.writeAttemptLocalState({
+    attemptId: attempt.attemptId,
+    localState: parseAttemptLocalState(input.payload),
+  });
+}
 
 export async function acceptAttemptEvent(input: {
   repository: PackageReviewRepository;

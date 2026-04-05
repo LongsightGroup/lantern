@@ -115,6 +115,7 @@ export async function launchPreviewRuntimeSession(input: {
     activityId: created.previewSession.launch.activityId,
     status: "in_progress",
     completionState: null,
+    localState: null,
     startedAt: createdAt.toISOString(),
     finalizedAt: null,
   });

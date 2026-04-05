@@ -12,7 +12,10 @@ export function createAttemptFlowRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  "createAttempt" | "appendAttemptEvent" | "finalizeAttempt"
+  | "createAttempt"
+  | "appendAttemptEvent"
+  | "finalizeAttempt"
+  | "writeAttemptLocalState"
 > {
   return {
     async createAttempt(record) {
@@ -37,11 +40,12 @@ export function createAttemptFlowRepositoryMethods(
                 activity_id,
                 status,
                 completion_state,
+                local_state,
                 started_at,
                 finalized_at
               ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8,
-                $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+                $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18, $19
               )
               RETURNING
                 id,
@@ -61,6 +65,7 @@ export function createAttemptFlowRepositoryMethods(
                 activity_id,
                 status,
                 completion_state,
+                local_state,
                 started_at,
                 finalized_at
             `,
@@ -81,6 +86,9 @@ export function createAttemptFlowRepositoryMethods(
               record.activityId,
               record.status,
               record.completionState,
+              record.localState === null
+                ? null
+                : JSON.stringify(record.localState),
               record.startedAt,
               record.finalizedAt,
             ],
@@ -170,6 +178,52 @@ export function createAttemptFlowRepositoryMethods(
       });
     },
 
+    async writeAttemptLocalState(input) {
+      return await withClient(pool, async (client) => {
+        const result = await client.queryObject<AttemptRow>({
+          text: `
+            UPDATE attempts
+            SET
+              local_state = $2::jsonb
+            WHERE attempt_id = $1
+            RETURNING
+              id,
+              attempt_id,
+              deployment_record_id,
+              deployment_slug,
+              app_id,
+              package_version_id,
+              package_version,
+              user_id,
+              user_display_name,
+              user_email,
+              user_login,
+              user_role,
+              context_id,
+              resource_link_id,
+              activity_id,
+              status,
+              completion_state,
+              local_state,
+              started_at,
+              finalized_at
+          `,
+          args: [
+            input.attemptId,
+            input.localState === null ? null : JSON.stringify(input.localState),
+          ],
+          camelCase: true,
+        });
+        const updated = result.rows[0];
+
+        if (!updated) {
+          throw new Error(`Attempt ${input.attemptId} was not found.`);
+        }
+
+        return mapAttemptRow(updated);
+      });
+    },
+
     async finalizeAttempt(input) {
       return await withClient(pool, async (client) => {
         return await withTransaction(
@@ -196,6 +250,7 @@ export function createAttemptFlowRepositoryMethods(
                   activity_id,
                   status,
                   completion_state,
+                  local_state,
                   started_at,
                   finalized_at
                 FROM attempts
@@ -241,6 +296,7 @@ export function createAttemptFlowRepositoryMethods(
                   activity_id,
                   status,
                   completion_state,
+                  local_state,
                   started_at,
                   finalized_at
               `,

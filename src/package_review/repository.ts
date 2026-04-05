@@ -170,6 +170,10 @@ export interface PackageReviewRepository {
     completionState: AttemptRecord["completionState"];
     finalizedAt: string;
   }): Promise<AttemptRecord>;
+  writeAttemptLocalState(input: {
+    attemptId: string;
+    localState: AttemptRecord["localState"];
+  }): Promise<AttemptRecord>;
   getLineItemBinding(input: {
     deploymentRecordId: number;
     packageVersionId: number;

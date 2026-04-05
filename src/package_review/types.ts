@@ -11,6 +11,7 @@ export type GradingMode = "declarative" | "manual" | "completion";
 export type ValidationSeverity = "error";
 export type AttemptStatus = "in_progress" | "completed" | "abandoned";
 export type AttemptCompletionState = "completed" | "abandoned";
+export type AttemptLocalState = Record<string, unknown> | null;
 export type GradePublicationStatus = "pending" | "published" | "failed";
 export type AuditActorType = "user" | "system" | "platform";
 export type AuditEventStatus = "accepted" | "succeeded" | "failed";
@@ -125,6 +126,7 @@ export interface AttemptRecord {
   activityId: string;
   status: AttemptStatus;
   completionState: AttemptCompletionState | null;
+  localState: AttemptLocalState;
   startedAt: string;
   finalizedAt: string | null;
 }
@@ -260,7 +262,7 @@ export interface PreviewFixtureData {
     activity_id: string;
   };
   attempt_id: string;
-  local_state: Record<string, unknown> | null;
+  local_state: AttemptLocalState;
 }
 
 export type PreviewSessionOrigin =

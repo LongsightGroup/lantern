@@ -14,6 +14,8 @@ import { requireRuntimeSession } from "./app_runtime_support.ts";
 import {
   acceptAttemptEvent,
   finalizeRuntimeAttempt,
+  readAttemptLocalState,
+  writeAttemptLocalState,
 } from "./runtime/gateway.ts";
 import {
   authorizeRuntimeSession,
@@ -105,6 +107,63 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       }
 
       return context.json(content);
+    } catch (error) {
+      return context.text(errorMessage(error), statusForRuntimeError(error));
+    }
+  });
+
+  app.get("/runtime/sessions/:sessionId/local-state", async (context) => {
+    try {
+      requireRuntimeOriginBoundary(context);
+      const repository = services.getRepository();
+      const session = await requireRuntimeSession(
+        repository,
+        context.req.param("sessionId"),
+      );
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      return context.json(
+        await readAttemptLocalState({
+          repository,
+          session,
+        }),
+      );
+    } catch (error) {
+      return context.text(errorMessage(error), statusForRuntimeError(error));
+    }
+  });
+
+  app.put("/runtime/sessions/:sessionId/local-state", async (context) => {
+    try {
+      requireRuntimeOriginBoundary(context);
+      const repository = services.getRepository();
+      const session = await requireRuntimeSession(
+        repository,
+        context.req.param("sessionId"),
+      );
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      await writeAttemptLocalState({
+        repository,
+        session,
+        payload: await context.req.json(),
+      });
+
+      return new Response(null, { status: 204 });
     } catch (error) {
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }

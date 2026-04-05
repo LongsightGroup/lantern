@@ -33,6 +33,7 @@ export function createAttemptQueryRepositoryMethods(
               activity_id,
               status,
               completion_state,
+              local_state,
               started_at,
               finalized_at
             FROM attempts

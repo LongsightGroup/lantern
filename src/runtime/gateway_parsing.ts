@@ -1,5 +1,6 @@
 import type { AttemptEvent, Capability } from "../../sdk/app-sdk.ts";
 import type { RuntimeSessionRecord } from "../lti/types.ts";
+import type { AttemptLocalState } from "../package_review/types.ts";
 import type { FinalizeAttemptInput } from "./gateway_types.ts";
 
 export function parseAttemptEvent(payload: unknown): AttemptEvent {
@@ -83,6 +84,17 @@ export function requireRuntimeCapability(
   if (!session.capabilities.includes(capability)) {
     throw new Error(`Runtime session does not allow ${capability}.`);
   }
+}
+
+export function parseAttemptLocalState(payload: unknown): AttemptLocalState {
+  if (payload === null) {
+    return null;
+  }
+
+  return requireRecord(
+    payload,
+    "Attempt local state must be a JSON object or null.",
+  );
 }
 
 function requireRecord(

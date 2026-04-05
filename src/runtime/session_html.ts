@@ -9,6 +9,9 @@ export function buildRuntimeBootstrapScript(input: {
   const contentUrl = serializeForInlineScript(
     `${input.runtimeBaseUrl}/content`,
   );
+  const localStateUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/local-state`,
+  );
   const attemptEventsUrl = serializeForInlineScript(
     `${input.runtimeBaseUrl}/attempt-events`,
   );
@@ -46,6 +49,33 @@ window.GatewayApp = {
     }
 
     return await response.json();
+  },
+  async readLocalState() {
+    const response = await fetch(${localStateUrl}, {
+      headers: {
+        Authorization: 'Bearer ' + window.GatewayBootstrap.session.token,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Local state request failed with status ' + response.status + '.');
+    }
+
+    return await response.json();
+  },
+  async writeLocalState(value) {
+    const response = await fetch(${localStateUrl}, {
+      method: 'PUT',
+      headers: {
+        Authorization: 'Bearer ' + window.GatewayBootstrap.session.token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(value ?? null),
+    });
+
+    if (!response.ok) {
+      throw new Error('Local state write failed with status ' + response.status + '.');
+    }
   },
   async emitAttemptEvent(event) {
     const response = await fetch(${attemptEventsUrl}, {

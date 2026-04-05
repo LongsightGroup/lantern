@@ -52,6 +52,7 @@ export async function createRuntimeSession(input: {
     activityId: input.launch.activityId,
     status: "in_progress",
     completionState: null,
+    localState: null,
     startedAt: createdAt.toISOString(),
     finalizedAt: null,
   });

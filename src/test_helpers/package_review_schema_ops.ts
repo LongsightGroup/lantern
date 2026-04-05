@@ -18,6 +18,7 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
       activity_id text NOT NULL,
       status text NOT NULL,
       completion_state text,
+      local_state jsonb,
       started_at timestamptz NOT NULL,
       finalized_at timestamptz
     )
@@ -26,7 +27,8 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
     ALTER TABLE attempts
       ADD COLUMN IF NOT EXISTS user_display_name text,
       ADD COLUMN IF NOT EXISTS user_email text,
-      ADD COLUMN IF NOT EXISTS user_login text
+      ADD COLUMN IF NOT EXISTS user_login text,
+      ADD COLUMN IF NOT EXISTS local_state jsonb
   `,
   `
     CREATE TABLE IF NOT EXISTS attempt_events (

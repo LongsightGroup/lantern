@@ -231,6 +231,7 @@ export interface AttemptRow {
   activityId: string;
   status: AttemptRecord["status"];
   completionState: AttemptRecord["completionState"];
+  localState: AttemptRecord["localState"];
   startedAt: Date | string;
   finalizedAt: Date | string | null;
 }

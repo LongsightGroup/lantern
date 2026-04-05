@@ -9,6 +9,7 @@ type AttemptRepository = Pick<
   | "appendAttemptEvent"
   | "listAttemptEvents"
   | "finalizeAttempt"
+  | "writeAttemptLocalState"
   | "getLineItemBinding"
   | "saveLineItemBinding"
   | "getGradePublicationByAttemptId"
@@ -44,6 +45,29 @@ export function createInMemoryAttemptRepository(
         candidate.attemptId === attemptId
       );
       return Promise.resolve(record ? cloneRecord(record) : null);
+    },
+
+    writeAttemptLocalState(input) {
+      const index = state.attempts.findIndex((candidate) =>
+        candidate.attemptId === input.attemptId
+      );
+
+      if (index < 0) {
+        throw new Error(`Attempt ${input.attemptId} was not found.`);
+      }
+
+      const existing = state.attempts[index];
+
+      if (!existing) {
+        throw new Error(`Attempt ${input.attemptId} was not found.`);
+      }
+
+      const nextRecord = cloneRecord({
+        ...existing,
+        localState: input.localState,
+      });
+      state.attempts.splice(index, 1, nextRecord);
+      return Promise.resolve(cloneRecord(nextRecord));
     },
 
     appendAttemptEvent(input) {

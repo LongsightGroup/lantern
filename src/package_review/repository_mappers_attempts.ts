@@ -51,6 +51,7 @@ export function mapAttemptRow(row: AttemptRow | undefined): AttemptRecord {
     activityId: row.activityId,
     status: row.status,
     completionState: row.completionState,
+    localState: row.localState,
     startedAt: normalizeTimestamp(row.startedAt),
     finalizedAt: normalizeOptionalTimestamp(row.finalizedAt),
   };

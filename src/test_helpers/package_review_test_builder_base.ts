@@ -181,6 +181,7 @@ export function buildAttemptRecord(
     activityId: overrides.activityId ?? "activity-123",
     status: overrides.status ?? "in_progress",
     completionState: overrides.completionState ?? null,
+    localState: overrides.localState ?? null,
     startedAt: overrides.startedAt ?? DEFAULT_PHASE3_AT,
     finalizedAt: overrides.finalizedAt ?? null,
   };
