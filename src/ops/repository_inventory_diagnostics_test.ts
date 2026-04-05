@@ -166,3 +166,104 @@ Deno.test("ops repository diagnostics keep broker verification wording LMS-neutr
     );
   });
 });
+
+Deno.test("ops repository diagnostics format governed runtime denials, timeouts, and integrity failures distinctly", async () => {
+  await withSeededOpsRepositoryTest(async (pool, repository) => {
+    const client = await pool.connect();
+
+    try {
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 21,
+          deploymentRecordId: 1,
+          attemptId: "attempt-123",
+          eventType: "runtime.capability.denied",
+          status: "failed",
+          summary: "Denied reviewed app capability write_local_state.",
+          detail: {
+            sessionId: "runtime-session-123",
+            sandboxModel: "contained_browser_runtime",
+            boundary: "app_runtime_origin",
+            route: "local-state.write",
+            category: "policyDenied",
+            capability: "write_local_state",
+            code: "capability_not_granted",
+          },
+          occurredAt: "2026-03-24T12:36:00Z",
+        }),
+      );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 22,
+          deploymentRecordId: 1,
+          attemptId: "attempt-123",
+          eventType: "runtime.session.timeout",
+          status: "failed",
+          summary:
+            "Runtime session expired before the reviewed app could continue.",
+          detail: {
+            sessionId: "runtime-session-123",
+            sandboxModel: "contained_browser_runtime",
+            boundary: "app_runtime_origin",
+            route: "content",
+            code: "session_expired",
+          },
+          occurredAt: "2026-03-24T12:37:00Z",
+        }),
+      );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 23,
+          deploymentRecordId: 1,
+          attemptId: "attempt-123",
+          eventType: "runtime.session.integrity_failed",
+          status: "failed",
+          summary: "Reviewed runtime integrity checks blocked this session.",
+          detail: {
+            sessionId: "runtime-session-123",
+            sandboxModel: "contained_browser_runtime",
+            boundary: "app_runtime_origin",
+            route: "session",
+            code: "package_version_missing",
+          },
+          occurredAt: "2026-03-24T12:38:00Z",
+        }),
+      );
+    } finally {
+      client.release();
+    }
+
+    const detail = await repository.getControlPlaneDeploymentDetail(1);
+
+    assertExists(detail);
+    const capabilityDenied = detail.diagnostics.find((item) =>
+      item.eventType === "runtime.capability.denied"
+    );
+    const timeout = detail.diagnostics.find((item) =>
+      item.eventType === "runtime.session.timeout"
+    );
+    const integrityFailure = detail.diagnostics.find((item) =>
+      item.eventType === "runtime.session.integrity_failed"
+    );
+
+    assertEquals(capabilityDenied?.kind, "runtime");
+    assertEquals(capabilityDenied?.boundaryDenialCategory, "policyDenied");
+    assertEquals(
+      capabilityDenied?.operatorSummary,
+      "Lantern denied reviewed app capability write_local_state at the governed runtime boundary.",
+    );
+    assertEquals(timeout?.kind, "runtime");
+    assertEquals(
+      timeout?.operatorSummary,
+      "Runtime session timed out before the reviewed app could continue.",
+    );
+    assertEquals(integrityFailure?.kind, "runtime");
+    assertEquals(
+      integrityFailure?.operatorSummary,
+      "Reviewed runtime integrity checks blocked this session before app code could continue.",
+    );
+  });
+});

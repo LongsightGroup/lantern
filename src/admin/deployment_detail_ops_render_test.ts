@@ -330,3 +330,85 @@ Deno.test("deployment page keeps setup history as an optional verification link-
   assertFalse(html.includes("Official certification"));
   assertFalse(html.includes("Supported Canvas path"));
 });
+
+Deno.test("deployment page shows reviewed runtime boundary facts without exposing raw runtime tokens", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    controlPlaneDetail: {
+      ...buildControlPlaneDeploymentDetailSnapshot(),
+      latestRuntimeSession: {
+        eventType: "runtime.session.started",
+        status: "succeeded",
+        occurredAt: "2026-03-24T12:36:00Z",
+        summary:
+          "Started the reviewed runtime session inside Lantern's contained browser boundary.",
+        attemptId: "attempt-123",
+        sessionId: "runtime-session-123",
+        sandboxModel: "contained_browser_runtime",
+        boundary: "app_runtime_origin",
+        route: "session",
+        capability: null,
+        code: null,
+        boundaryDenialCategory: null,
+        detail: {},
+      },
+      latestRuntimeOutcome: {
+        eventType: "runtime.session.exited",
+        status: "succeeded",
+        occurredAt: "2026-03-24T12:37:00Z",
+        summary:
+          "Exited the reviewed runtime through Lantern's finalize boundary.",
+        attemptId: "attempt-123",
+        sessionId: "runtime-session-123",
+        sandboxModel: "contained_browser_runtime",
+        boundary: "app_runtime_origin",
+        route: "finalize",
+        capability: null,
+        code: null,
+        boundaryDenialCategory: null,
+        detail: {
+          completionState: "completed",
+          scoreGiven: 8,
+          scoreMaximum: 10,
+          gradePublished: false,
+        },
+      },
+    } as ReturnType<typeof buildControlPlaneDeploymentDetailSnapshot>,
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, "Reviewed runtime");
+  assertStringIncludes(html, "Runtime session");
+  assertStringIncludes(html, "runtime-session-123");
+  assertStringIncludes(html, "Contained browser runtime");
+  assertStringIncludes(html, "App runtime origin");
+  assertStringIncludes(html, "Latest outcome");
+  assertStringIncludes(
+    html,
+    "Exited the reviewed runtime through Lantern's finalize boundary.",
+  );
+  assertFalse(html.includes("contained_browser_runtime"));
+  assertFalse(html.includes("app_runtime_origin"));
+});

@@ -221,3 +221,105 @@ Deno.test("ops repository returns the latest deployment-scoped AGS smoke verific
     );
   });
 });
+
+Deno.test("ops repository exposes runtime session and sandbox boundary evidence for deployment detail snapshots", async () => {
+  await withSeededOpsRepositoryTest(async (pool, repository) => {
+    const client = await pool.connect();
+
+    try {
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 41,
+          deploymentRecordId: 1,
+          attemptId: "attempt-123",
+          eventType: "runtime.session.started",
+          status: "accepted",
+          summary:
+            "Started the reviewed runtime session inside Lantern's contained browser boundary.",
+          detail: {
+            sessionId: "runtime-session-123",
+            sandboxModel: "contained_browser_runtime",
+            boundary: "app_runtime_origin",
+            route: "session",
+            capabilityCount: 6,
+          },
+          occurredAt: "2026-03-24T12:36:00Z",
+        }),
+      );
+      await insertAuditEvent(
+        client,
+        buildAuditEventRecord({
+          id: 42,
+          deploymentRecordId: 1,
+          attemptId: "attempt-123",
+          eventType: "runtime.session.exited",
+          status: "accepted",
+          summary:
+            "Exited the reviewed runtime through Lantern's finalize boundary.",
+          detail: {
+            sessionId: "runtime-session-123",
+            sandboxModel: "contained_browser_runtime",
+            boundary: "app_runtime_origin",
+            route: "finalize",
+            completionState: "completed",
+            scoreGiven: 8,
+            scoreMaximum: 10,
+            gradePublished: false,
+          },
+          occurredAt: "2026-03-24T12:37:00Z",
+        }),
+      );
+    } finally {
+      client.release();
+    }
+
+    const detail = await repository.getControlPlaneDeploymentDetail(1);
+
+    assertExists(detail);
+    const runtimeDetail = detail as typeof detail & {
+      latestRuntimeSession?: {
+        sessionId: string | null;
+        sandboxModel: string | null;
+        boundary: string | null;
+        route: string | null;
+        attemptId: string | null;
+      } | null;
+      latestRuntimeOutcome?: {
+        eventType: string;
+        sessionId: string | null;
+        sandboxModel: string | null;
+        boundary: string | null;
+        route: string | null;
+      } | null;
+    };
+
+    assertExists(runtimeDetail.latestRuntimeSession);
+    assertEquals(runtimeDetail.latestRuntimeSession?.sessionId, "runtime-session-123");
+    assertEquals(
+      runtimeDetail.latestRuntimeSession?.sandboxModel,
+      "contained_browser_runtime",
+    );
+    assertEquals(
+      runtimeDetail.latestRuntimeSession?.boundary,
+      "app_runtime_origin",
+    );
+    assertEquals(runtimeDetail.latestRuntimeSession?.route, "session");
+    assertEquals(runtimeDetail.latestRuntimeSession?.attemptId, "attempt-123");
+    assertExists(runtimeDetail.latestRuntimeOutcome);
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.eventType,
+      "runtime.session.exited",
+    );
+    assertEquals(runtimeDetail.latestRuntimeOutcome?.sessionId, "runtime-session-123");
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.sandboxModel,
+      "contained_browser_runtime",
+    );
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.boundary,
+      "app_runtime_origin",
+    );
+    assertEquals(runtimeDetail.latestRuntimeOutcome?.route, "finalize");
+  });
+});

@@ -2,6 +2,7 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { restoreEnv, withFetchStub } from "../test_helpers/fetch_stub.ts";
 import {
   buildAttemptRecord,
+  buildControlPlaneDiagnosticItem,
   buildDeploymentRecord,
   buildGradePublicationRecord,
   buildLineItemBindingRecord,
@@ -14,6 +15,7 @@ import {
   buildRuntimeSessionRecord,
   getTestToolPrivateJwkEnvValue,
 } from "../test_helpers/lti.ts";
+import { formatDiagnosticItem } from "./service.ts";
 
 Deno.test("ops service retries failed grade publication against the attempt-scoped runtime session and updates the existing ledger row", async () => {
   const modulePath = `./${"service.ts"}`;
@@ -226,6 +228,61 @@ Deno.test("ops service blocks retry when no failed publication or AGS context re
       }),
     Error,
     "does not include AGS service context",
+  );
+});
+
+Deno.test("ops service formats governed runtime failures with runtime-specific operator summaries", () => {
+  const capabilityDenied = formatDiagnosticItem(
+    buildControlPlaneDiagnosticItem({
+      kind: "runtime",
+      eventType: "runtime.capability.denied",
+      code: "capability_not_granted",
+      boundaryDenialCategory: "policyDenied",
+      summary: "Denied reviewed app capability write_local_state.",
+      detail: {
+        capability: "write_local_state",
+        category: "policyDenied",
+        sandboxModel: "contained_browser_runtime",
+        boundary: "app_runtime_origin",
+      },
+    }),
+  );
+  const timeout = formatDiagnosticItem(
+    buildControlPlaneDiagnosticItem({
+      kind: "runtime",
+      eventType: "runtime.session.timeout",
+      code: "session_expired",
+      summary: "Runtime session expired before the reviewed app could continue.",
+      detail: {
+        sandboxModel: "contained_browser_runtime",
+        boundary: "app_runtime_origin",
+      },
+    }),
+  );
+  const integrityFailure = formatDiagnosticItem(
+    buildControlPlaneDiagnosticItem({
+      kind: "runtime",
+      eventType: "runtime.session.integrity_failed",
+      code: "package_version_missing",
+      summary: "Reviewed runtime integrity checks blocked this session.",
+      detail: {
+        sandboxModel: "contained_browser_runtime",
+        boundary: "app_runtime_origin",
+      },
+    }),
+  );
+
+  assertEquals(
+    capabilityDenied.operatorSummary,
+    "Lantern denied reviewed app capability write_local_state at the governed runtime boundary.",
+  );
+  assertEquals(
+    timeout.operatorSummary,
+    "Runtime session timed out before the reviewed app could continue.",
+  );
+  assertEquals(
+    integrityFailure.operatorSummary,
+    "Reviewed runtime integrity checks blocked this session before app code could continue.",
   );
 });
 
