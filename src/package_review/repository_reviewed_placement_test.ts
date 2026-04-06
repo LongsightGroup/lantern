@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from '@std/assert';
+import { buildAccessibilityReview } from '../test_helpers/package_review.ts';
 import {
   buildImportedPackageVersion,
   withRepositoryTestDatabase,
@@ -13,6 +14,7 @@ Deno.test('repository stores reviewed placements separately from line-item bindi
         )
       ).id,
       reviewNotes: 'Approved for reviewed placement creation.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',

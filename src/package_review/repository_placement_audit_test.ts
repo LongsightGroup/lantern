@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from '@std/assert';
+import { buildAccessibilityReview } from '../test_helpers/package_review.ts';
 import {
   buildImportedPackageVersion,
   withRepositoryTestDatabase,
@@ -13,6 +14,7 @@ Deno.test('repository returns placement audit snapshots with reviewed placement 
         )
       ).id,
       reviewNotes: 'Approved for placement audit snapshots.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',
@@ -143,6 +145,7 @@ Deno.test('repository placement audit snapshots remain stable with and without p
         )
       ).id,
       reviewNotes: 'Approved for preview/no-preview snapshot status.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',

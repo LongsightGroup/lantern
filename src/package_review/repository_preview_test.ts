@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import { buildDeepLinkingSessionRecord } from '../test_helpers/lti_session_builders.ts';
+import { buildAccessibilityReview } from '../test_helpers/package_review.ts';
 import {
   buildImportedPackageVersion,
   withRepositoryTestDatabase,
@@ -14,6 +15,7 @@ Deno.test('repository creates and reads preview sessions without Canvas deployme
         )
       ).id,
       reviewNotes: 'Approved for governed preview sessions.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-authoring',
@@ -96,6 +98,7 @@ Deno.test('repository appends preview evidence rows in chronological append orde
         )
       ).id,
       reviewNotes: 'Approved for preview evidence ordering.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const session = await repository.createPreviewSession({
       sessionId: 'preview-session-evidence',
@@ -173,6 +176,7 @@ Deno.test('repository returns the latest preview session by package version for 
         )
       ).id,
       reviewNotes: 'Approved for preview capability-log lookup.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-authoring',

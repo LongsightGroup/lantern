@@ -2,6 +2,7 @@ import { assert, assertEquals } from '@std/assert';
 import type { Pool } from '@db/postgres';
 import { runMigrations } from '../db/migrate.ts';
 import { resolveCanvasIssuer } from '../lti/config.ts';
+import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 import { createTestDatabasePool } from '../test_helpers/postgres.ts';
 import { createPackageReviewRepository } from './repository.ts';
 
@@ -44,6 +45,37 @@ Deno.test('migration backfills existing Canvas deployments to lms_type canvas wi
     await resetToPre010Schema(pool);
     const client = await pool.connect();
     let packageVersionId = 0;
+    const packageVersion = buildPackageVersionRecord({
+      appId: 'chapter-4-asteroids',
+      version: '0.1.0',
+      title: 'Chapter 4 Asteroids',
+      description: 'Migration backfill fixture.',
+      entrypoint: '/dist/index.html',
+      roles: ['learner', 'instructor'],
+      installScope: 'course',
+      capabilities: ['read_launch_context'],
+      grading: {
+        mode: 'declarative',
+        rubricFile: null,
+        maxScore: 100,
+      },
+      approvalStatus: 'approved',
+      reviewNotes: 'Approved for migration backfill testing.',
+      reviewedAt: '2026-03-26T10:00:00Z',
+      validationIssues: [],
+      manifestJson: {
+        app_id: 'chapter-4-asteroids',
+        version: '0.1.0',
+        title: 'Chapter 4 Asteroids',
+      },
+      artifact: {
+        snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
+        manifestPath: 'var/packages/chapter-4-asteroids/0.1.0/manifest.json',
+        entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
+        digest: 'sha256:chapter-4-asteroids-0-1-0',
+      },
+      importedAt: '2026-03-26T09:00:00Z',
+    });
 
     try {
       const insertedPackageVersion = await client.queryObject<{ id: number }>({
@@ -69,39 +101,39 @@ Deno.test('migration backfills existing Canvas deployments to lms_type canvas wi
             manifest_json,
             artifact_root,
             artifact_digest,
+            runtime_contract,
+            runtime_contract_signature,
             imported_at
           ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8::text[], $9, $10::text[], $11, $12, $13, $14,
-            $15, $16, $17::jsonb, $18::jsonb, $19, $20, $21
+            $15, $16, $17::jsonb, $18::jsonb, $19, $20, $21::jsonb, $22, $23
           )
           RETURNING id
         `,
         args: [
-          'chapter-4-asteroids',
-          '0.1.0',
-          'Chapter 4 Asteroids',
-          'Migration backfill fixture.',
-          'user',
-          'instructor_123',
-          '/dist/index.html',
-          ['learner', 'instructor'],
-          'course',
-          ['read_launch_context'],
-          'declarative',
-          null,
-          100,
-          'approved',
-          'Approved for migration backfill testing.',
-          '2026-03-26T10:00:00Z',
-          '[]',
-          JSON.stringify({
-            app_id: 'chapter-4-asteroids',
-            version: '0.1.0',
-            title: 'Chapter 4 Asteroids',
-          }),
-          'var/packages/chapter-4-asteroids/0.1.0',
-          'sha256:chapter-4-asteroids-0-1-0',
-          '2026-03-26T09:00:00Z',
+          packageVersion.appId,
+          packageVersion.version,
+          packageVersion.title,
+          packageVersion.description,
+          packageVersion.owner.type,
+          packageVersion.owner.id,
+          packageVersion.entrypoint,
+          packageVersion.roles,
+          packageVersion.installScope,
+          packageVersion.capabilities,
+          packageVersion.grading.mode,
+          packageVersion.grading.rubricFile,
+          packageVersion.grading.maxScore,
+          packageVersion.approvalStatus,
+          packageVersion.reviewNotes,
+          packageVersion.reviewedAt,
+          JSON.stringify(packageVersion.validationIssues),
+          JSON.stringify(packageVersion.manifestJson),
+          packageVersion.artifact.snapshotRoot,
+          packageVersion.artifact.digest,
+          JSON.stringify(packageVersion.runtimeContract),
+          packageVersion.runtimeContractSignature,
+          packageVersion.importedAt,
         ],
         camelCase: true,
       });

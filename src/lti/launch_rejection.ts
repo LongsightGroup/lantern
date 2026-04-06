@@ -1,16 +1,16 @@
 import {
-  LtiBoundaryDenialError,
   type LtiBoundaryDenial,
   type LtiBoundaryDenialCategory,
+  LtiBoundaryDenialError,
 } from './lti_boundary_denial.ts';
 
 export {
   buildLaunchDetailRecord,
   buildRejectionDetailRecord,
   isLtiBoundaryDenialError,
-  LtiBoundaryDenialError,
   type LtiBoundaryDenial,
   type LtiBoundaryDenialCategory,
+  LtiBoundaryDenialError,
 } from './lti_boundary_denial.ts';
 
 export type LaunchRejectionCode =

@@ -3,6 +3,7 @@ import { createLoginRedirect } from './login.ts';
 import { buildCanvasLoginRequest, buildDeploymentBinding } from '../test_helpers/lti.ts';
 import {
   buildDeploymentRecord,
+  buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from '../test_helpers/package_review.ts';
 
@@ -256,7 +257,7 @@ Deno.test('login state records preserve Deep Linking placement-specific target_l
 Deno.test('createLoginRedirect seals a pending Canvas registration on the first real launch', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
-      {
+      buildPackageVersionRecord({
         id: 1,
         appId: 'chapter-4-asteroids',
         version: '0.1.0',
@@ -274,6 +275,7 @@ Deno.test('createLoginRedirect seals a pending Canvas registration on the first 
         },
         approvalStatus: 'approved',
         reviewNotes: null,
+        accessibilityReview: null,
         reviewedAt: '2026-03-23T22:45:00Z',
         validationIssues: [],
         manifestJson: {},
@@ -283,8 +285,9 @@ Deno.test('createLoginRedirect seals a pending Canvas registration on the first 
           entrypointPath: 'dist/index.html',
           digest: 'digest',
         },
+        runtimeContractSignature: 'test-reviewed-runtime-contract-signature',
         importedAt: '2026-03-23T22:45:00Z',
-      },
+      }),
     ],
   });
   await repository.saveCanvasRegistration({

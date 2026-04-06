@@ -1,6 +1,7 @@
 import { assertEquals } from '@std/assert';
 import { resetPackageReviewTables } from '../test_helpers/postgres.ts';
 import {
+  buildAccessibilityReview,
   buildAttemptRecord,
   buildAuditEventRecord,
   buildGradePublicationRecord,
@@ -16,6 +17,7 @@ Deno.test('repository records append-only audit events in order and resetPackage
     const approvedRecord = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(await buildImportedPackageVersion())).id,
       reviewNotes: 'Approved for audit trail tests.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',
@@ -73,6 +75,7 @@ Deno.test('repository appends attempt events in sequence order for a durable att
     const approvedRecord = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(await buildImportedPackageVersion())).id,
       reviewNotes: 'Approved for attempt event tests.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',
@@ -123,6 +126,7 @@ Deno.test('repository finalizes durable attempts idempotently', async () => {
     const approvedRecord = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(await buildImportedPackageVersion())).id,
       reviewNotes: 'Approved for attempt finalize tests.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',
@@ -166,6 +170,7 @@ Deno.test('repository stores attempt-local state on Lantern-owned attempt rows a
     const approvedRecord = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(await buildImportedPackageVersion())).id,
       reviewNotes: 'Approved for attempt local-state tests.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',
@@ -221,6 +226,7 @@ Deno.test('repository stores package-version line item bindings and idempotent g
     const approvedRecord = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(await buildImportedPackageVersion())).id,
       reviewNotes: 'Approved for AGS publication tests.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',

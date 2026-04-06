@@ -5,7 +5,7 @@ import {
   buildLoginStateRecord,
   buildRuntimeSessionRecord,
 } from '../test_helpers/lti.ts';
-import { buildAttemptRecord } from '../test_helpers/package_review.ts';
+import { buildAccessibilityReview, buildAttemptRecord } from '../test_helpers/package_review.ts';
 import {
   buildImportedPackageVersion,
   withRepositoryTestDatabase,
@@ -17,6 +17,7 @@ Deno.test('repository persists one-time login state records and runtime sessions
     const approvedRecord = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(await buildImportedPackageVersion())).id,
       reviewNotes: 'Approved for the pilot launch.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',
@@ -95,14 +96,17 @@ Deno.test('repository lists approved assignment deep-linking resources and store
     const approvedAssignment010 = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(assignmentV010)).id,
       reviewNotes: 'Approved assignment version.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const approvedAssignment020 = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(assignmentV020)).id,
       reviewNotes: 'Approved later assignment version.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(courseScoped)).id,
       reviewNotes: 'Approved course version only.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.saveDeploymentBinding({
       slug: 'chapter-4-asteroids-pilot',
@@ -174,10 +178,12 @@ Deno.test('repository lists approved course deep-linking resources for resource_
     await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(assignmentScoped)).id,
       reviewNotes: 'Approved assignment version.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const approvedCourse = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(courseScoped)).id,
       reviewNotes: 'Approved course version.',
+      accessibilityReview: buildAccessibilityReview(),
     });
 
     const resources = await repository.listDeepLinkingResourceOptions(
@@ -199,6 +205,7 @@ Deno.test('repository creates durable attempts that stay distinct from runtime s
     const approvedRecord = await repository.approvePackageVersion({
       id: (await repository.registerPackageVersion(await buildImportedPackageVersion())).id,
       reviewNotes: 'Approved for durable launch tracking.',
+      accessibilityReview: buildAccessibilityReview(),
     });
     const deployment = await repository.pinDeploymentVersion({
       slug: 'chapter-4-asteroids-pilot',

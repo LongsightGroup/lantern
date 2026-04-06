@@ -12,7 +12,7 @@ import {
   getTestCanvasJwks,
   signCanvasIdToken,
 } from './test_helpers/lti.ts';
-import { withFetchStub } from './app_test_support.ts';
+import { withFetchStub, withRuntimeOriginEnv } from './app_test_support.ts';
 
 Deno.test('POST /lti/launch accepts a signed Moodle resource-link launch and records shared audit evidence', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -72,49 +72,51 @@ Deno.test('POST /lti/launch accepts a signed Moodle resource-link launch and rec
     }),
   );
 
-  await withFetchStub(
-    () =>
-      Promise.resolve(
-        new Response(JSON.stringify(getTestCanvasJwks()), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      ),
-    async () => {
-      const response = await createApp({
-        getRepository: () => repository,
-      }).request('http://localhost/lti/launch', {
-        method: 'POST',
-        body: formData,
-      });
+  await withRuntimeOriginEnv(async () => {
+    await withFetchStub(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify(getTestCanvasJwks()), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
+      async () => {
+        const response = await createApp({
+          getRepository: () => repository,
+        }).request('http://localhost/lti/launch', {
+          method: 'POST',
+          body: formData,
+        });
 
-      assertEquals(response.status, 303);
-      const location = response.headers.get('location');
+        assertEquals(response.status, 303);
+        const location = response.headers.get('location');
 
-      if (!location) {
-        throw new Error('Expected runtime-session handoff redirect.');
-      }
+        if (!location) {
+          throw new Error('Expected runtime-session handoff redirect.');
+        }
 
-      const sessionId = location.match(/\/runtime\/sessions\/([^?]+)/)?.[1];
+        const sessionId = location.match(/\/runtime\/sessions\/([^?]+)/)?.[1];
 
-      if (!sessionId) {
-        throw new Error('Expected runtime session id in redirect.');
-      }
+        if (!sessionId) {
+          throw new Error('Expected runtime session id in redirect.');
+        }
 
-      const saved = await repository.getRuntimeSessionById(sessionId);
-      const auditEvents = await repository.listAuditEventsByEventType('launch.accepted');
+        const saved = await repository.getRuntimeSessionById(sessionId);
+        const auditEvents = await repository.listAuditEventsByEventType('launch.accepted');
 
-      assertEquals(saved?.deploymentRecordId, 13);
-      assertEquals(saved?.launch.courseId, 'moodle-course-42');
-      assertEquals(auditEvents.length, 1);
-      assertEquals(auditEvents[0]?.detail.lms, 'moodle');
-      assertEquals(auditEvents[0]?.detail.issuer, 'https://moodle.example');
-      assertEquals(auditEvents[0]?.detail.clientId, 'moodle-client-123');
-      assertEquals(auditEvents[0]?.detail.deploymentId, 'moodle-deployment-123');
-      assertEquals(auditEvents[0]?.detail.resourceLinkId, 'moodle-resource-link');
-      assertEquals(auditEvents[0]?.detail.contextId, 'moodle-course-42');
-    },
-  );
+        assertEquals(saved?.deploymentRecordId, 13);
+        assertEquals(saved?.launch.courseId, 'moodle-course-42');
+        assertEquals(auditEvents.length, 1);
+        assertEquals(auditEvents[0]?.detail.lms, 'moodle');
+        assertEquals(auditEvents[0]?.detail.issuer, 'https://moodle.example');
+        assertEquals(auditEvents[0]?.detail.clientId, 'moodle-client-123');
+        assertEquals(auditEvents[0]?.detail.deploymentId, 'moodle-deployment-123');
+        assertEquals(auditEvents[0]?.detail.resourceLinkId, 'moodle-resource-link');
+        assertEquals(auditEvents[0]?.detail.contextId, 'moodle-course-42');
+      },
+    );
+  });
 });
 
 Deno.test('POST /lti/launch accepts a signed Sakai resource-link launch and records shared audit evidence', async () => {
@@ -175,47 +177,49 @@ Deno.test('POST /lti/launch accepts a signed Sakai resource-link launch and reco
     }),
   );
 
-  await withFetchStub(
-    () =>
-      Promise.resolve(
-        new Response(JSON.stringify(getTestCanvasJwks()), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      ),
-    async () => {
-      const response = await createApp({
-        getRepository: () => repository,
-      }).request('http://localhost/lti/launch', {
-        method: 'POST',
-        body: formData,
-      });
+  await withRuntimeOriginEnv(async () => {
+    await withFetchStub(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify(getTestCanvasJwks()), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
+      async () => {
+        const response = await createApp({
+          getRepository: () => repository,
+        }).request('http://localhost/lti/launch', {
+          method: 'POST',
+          body: formData,
+        });
 
-      assertEquals(response.status, 303);
-      const location = response.headers.get('location');
+        assertEquals(response.status, 303);
+        const location = response.headers.get('location');
 
-      if (!location) {
-        throw new Error('Expected runtime-session handoff redirect.');
-      }
+        if (!location) {
+          throw new Error('Expected runtime-session handoff redirect.');
+        }
 
-      const sessionId = location.match(/\/runtime\/sessions\/([^?]+)/)?.[1];
+        const sessionId = location.match(/\/runtime\/sessions\/([^?]+)/)?.[1];
 
-      if (!sessionId) {
-        throw new Error('Expected runtime session id in redirect.');
-      }
+        if (!sessionId) {
+          throw new Error('Expected runtime session id in redirect.');
+        }
 
-      const saved = await repository.getRuntimeSessionById(sessionId);
-      const auditEvents = await repository.listAuditEventsByEventType('launch.accepted');
+        const saved = await repository.getRuntimeSessionById(sessionId);
+        const auditEvents = await repository.listAuditEventsByEventType('launch.accepted');
 
-      assertEquals(saved?.deploymentRecordId, 17);
-      assertEquals(saved?.launch.courseId, 'sakai-course-42');
-      assertEquals(auditEvents.length, 1);
-      assertEquals(auditEvents[0]?.detail.lms, 'sakai');
-      assertEquals(auditEvents[0]?.detail.issuer, 'https://sakai.example');
-      assertEquals(auditEvents[0]?.detail.clientId, 'sakai-client-123');
-      assertEquals(auditEvents[0]?.detail.deploymentId, 'sakai-deployment-123');
-      assertEquals(auditEvents[0]?.detail.resourceLinkId, 'sakai-resource-link');
-      assertEquals(auditEvents[0]?.detail.contextId, 'sakai-course-42');
-    },
-  );
+        assertEquals(saved?.deploymentRecordId, 17);
+        assertEquals(saved?.launch.courseId, 'sakai-course-42');
+        assertEquals(auditEvents.length, 1);
+        assertEquals(auditEvents[0]?.detail.lms, 'sakai');
+        assertEquals(auditEvents[0]?.detail.issuer, 'https://sakai.example');
+        assertEquals(auditEvents[0]?.detail.clientId, 'sakai-client-123');
+        assertEquals(auditEvents[0]?.detail.deploymentId, 'sakai-deployment-123');
+        assertEquals(auditEvents[0]?.detail.resourceLinkId, 'sakai-resource-link');
+        assertEquals(auditEvents[0]?.detail.contextId, 'sakai-course-42');
+      },
+    );
+  });
 });

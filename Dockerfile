@@ -21,4 +21,4 @@ USER deno
 
 EXPOSE 8417
 
-CMD ["deno", "run", "--cached-only", "--no-prompt", "--allow-read=examples,var", "--allow-write=var", "--allow-env=PORT,DATABASE_URL,LTI_TOOL_PRIVATE_JWK,APP_ORIGIN,APP_RUNTIME_ORIGIN,LANTERN_OPERATOR_NAME,USER,LOGNAME", "--allow-net", "main.ts"]
+CMD ["deno", "run", "--cached-only", "--no-prompt", "--allow-read=examples,var", "--allow-write=var", "--allow-env=PORT,DATABASE_URL,DATABASE_CA_CERT,LTI_TOOL_PRIVATE_JWK,APP_ORIGIN,APP_RUNTIME_ORIGIN,LANTERN_OPERATOR_NAME,USER,LOGNAME", "--allow-net", "main.ts"]

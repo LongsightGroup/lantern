@@ -320,77 +320,84 @@ Deno.test('GET /lti/login tolerates one extra percent-encoding layer on opaque L
 });
 
 Deno.test('GET /lti/login applies deployment override compatibility behavior only after resolving the saved deployment', async () => {
-  const repository = createInMemoryPackageReviewRepository({
-    deployments: [
-      buildDeploymentRecord({
-        binding: buildMoodleDeploymentBinding({
-          issuer: 'https://moodle.example',
-          clientId: 'moodle-client-123',
-          deploymentId: 'moodle-deployment-123',
+  const previousOrigin = Deno.env.get('APP_ORIGIN');
+  Deno.env.delete('APP_ORIGIN');
+
+  try {
+    const repository = createInMemoryPackageReviewRepository({
+      deployments: [
+        buildDeploymentRecord({
+          binding: buildMoodleDeploymentBinding({
+            issuer: 'https://moodle.example',
+            clientId: 'moodle-client-123',
+            deploymentId: 'moodle-deployment-123',
+          }),
+          ltiProfileOverride: 'governedCompatibility',
         }),
-        ltiProfileOverride: 'governedCompatibility',
-      }),
-    ],
-    lanternLtiProfileSettings: {
-      defaultLtiProfile: 'certification',
-      updatedAt: TEST_NOW,
-    },
-  });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
-    'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque%252Flogin%253Fhint&client_id=moodle-client-123&deployment_id=moodle-deployment-123&lti_message_hint=context%2523value',
-  );
+      ],
+      lanternLtiProfileSettings: {
+        defaultLtiProfile: 'certification',
+        updatedAt: TEST_NOW,
+      },
+    });
+    const response = await createApp({
+      getRepository: () => repository,
+    }).request(
+      'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque%252Flogin%253Fhint&client_id=moodle-client-123&deployment_id=moodle-deployment-123&lti_message_hint=context%2523value',
+    );
 
-  assertEquals(response.status, 302);
+    assertEquals(response.status, 302);
 
-  const location = response.headers.get('location');
+    const location = response.headers.get('location');
 
-  if (!location) {
-    throw new Error('Expected Moodle authorization redirect location.');
+    if (!location) {
+      throw new Error('Expected Moodle authorization redirect location.');
+    }
+
+    const redirected = new URL(location);
+    const state = redirected.searchParams.get('state');
+
+    if (!state) {
+      throw new Error('Expected saved login state in the Moodle redirect.');
+    }
+
+    const saved = await repository.getLoginStateByState(state);
+    const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
+
+    assertEquals(redirected.searchParams.get('login_hint'), 'opaque/login?hint');
+    assertEquals(saved?.loginHint, 'opaque/login?hint');
+    assertEquals(saved?.ltiMessageHint, 'context#value');
+    assertEquals(saved?.targetLinkUri, 'http://localhost/lti/launch');
+    assertEquals(
+      interopEvents.some(
+        (event) =>
+          event.detail.path === 'opaque_login_hint_decode' &&
+          event.detail.ltiProfileId === 'governedCompatibility' &&
+          event.detail.ltiProfileSource === 'deploymentOverride',
+      ),
+      true,
+    );
+    assertEquals(
+      interopEvents.some(
+        (event) =>
+          event.detail.path === 'opaque_lti_message_hint_decode' &&
+          event.detail.ltiProfileId === 'governedCompatibility' &&
+          event.detail.ltiProfileSource === 'deploymentOverride',
+      ),
+      true,
+    );
+    assertEquals(
+      interopEvents.some(
+        (event) =>
+          event.detail.path === 'platform_default_launch_target' &&
+          event.detail.ltiProfileId === 'governedCompatibility' &&
+          event.detail.ltiProfileSource === 'deploymentOverride',
+      ),
+      true,
+    );
+  } finally {
+    restoreEnv('APP_ORIGIN', previousOrigin);
   }
-
-  const redirected = new URL(location);
-  const state = redirected.searchParams.get('state');
-
-  if (!state) {
-    throw new Error('Expected saved login state in the Moodle redirect.');
-  }
-
-  const saved = await repository.getLoginStateByState(state);
-  const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
-
-  assertEquals(redirected.searchParams.get('login_hint'), 'opaque/login?hint');
-  assertEquals(saved?.loginHint, 'opaque/login?hint');
-  assertEquals(saved?.ltiMessageHint, 'context#value');
-  assertEquals(saved?.targetLinkUri, 'http://localhost/lti/launch');
-  assertEquals(
-    interopEvents.some(
-      (event) =>
-        event.detail.path === 'opaque_login_hint_decode' &&
-        event.detail.ltiProfileId === 'governedCompatibility' &&
-        event.detail.ltiProfileSource === 'deploymentOverride',
-    ),
-    true,
-  );
-  assertEquals(
-    interopEvents.some(
-      (event) =>
-        event.detail.path === 'opaque_lti_message_hint_decode' &&
-        event.detail.ltiProfileId === 'governedCompatibility' &&
-        event.detail.ltiProfileSource === 'deploymentOverride',
-    ),
-    true,
-  );
-  assertEquals(
-    interopEvents.some(
-      (event) =>
-        event.detail.path === 'platform_default_launch_target' &&
-        event.detail.ltiProfileId === 'governedCompatibility' &&
-        event.detail.ltiProfileSource === 'deploymentOverride',
-    ),
-    true,
-  );
 });
 
 Deno.test('GET /lti/login rejects opaque hint compatibility decoding when the resolved profile is certification', async () => {

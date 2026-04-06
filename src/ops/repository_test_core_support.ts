@@ -54,7 +54,7 @@ export async function insertPackageVersion(
   record: PackageVersionRecord,
 ): Promise<void> {
   await client.queryArray({
-    text: 'INSERT INTO package_versions (id, app_id, version, title, description, owner_type, owner_id, entrypoint, roles, install_scope, capabilities, grading_mode, grading_rubric_file, grading_max_score, approval_status, review_notes, reviewed_at, validation_issues, manifest_json, artifact_root, artifact_digest, imported_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb, $19::jsonb, $20, $21, $22)',
+    text: 'INSERT INTO package_versions (id, app_id, version, title, description, owner_type, owner_id, entrypoint, roles, install_scope, capabilities, grading_mode, grading_rubric_file, grading_max_score, approval_status, review_notes, accessibility_review, reviewed_at, validation_issues, manifest_json, artifact_root, artifact_digest, runtime_contract, runtime_contract_signature, imported_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18, $19::jsonb, $20::jsonb, $21, $22, $23::jsonb, $24, $25)',
     args: [
       record.id,
       record.appId,
@@ -72,11 +72,14 @@ export async function insertPackageVersion(
       record.grading.maxScore,
       record.approvalStatus,
       record.reviewNotes,
+      record.accessibilityReview === null ? null : JSON.stringify(record.accessibilityReview),
       record.reviewedAt,
       JSON.stringify(record.validationIssues),
       JSON.stringify(record.manifestJson),
       record.artifact.snapshotRoot,
       record.artifact.digest,
+      JSON.stringify(record.runtimeContract),
+      record.runtimeContractSignature,
       record.importedAt,
     ],
   });

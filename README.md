@@ -124,6 +124,8 @@ another proxy.
 Minimum environment:
 
 - `DATABASE_URL`: Postgres connection string
+- `DATABASE_CA_CERT`: optional PEM CA certificate for managed Postgres providers
+  such as DigitalOcean
 - `LTI_TOOL_PRIVATE_JWK`: one RSA private JWK used to publish Lantern's public
   JWKS and sign LTI assertions
 - `APP_ORIGIN`: recommended for stable local config and required anywhere
