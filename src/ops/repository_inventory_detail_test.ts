@@ -295,7 +295,10 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
     };
 
     assertExists(runtimeDetail.latestRuntimeSession);
-    assertEquals(runtimeDetail.latestRuntimeSession?.sessionId, "runtime-session-123");
+    assertEquals(
+      runtimeDetail.latestRuntimeSession?.sessionId,
+      "runtime-session-123",
+    );
     assertEquals(
       runtimeDetail.latestRuntimeSession?.sandboxModel,
       "contained_browser_runtime",
@@ -311,7 +314,10 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
       runtimeDetail.latestRuntimeOutcome?.eventType,
       "runtime.session.exited",
     );
-    assertEquals(runtimeDetail.latestRuntimeOutcome?.sessionId, "runtime-session-123");
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.sessionId,
+      "runtime-session-123",
+    );
     assertEquals(
       runtimeDetail.latestRuntimeOutcome?.sandboxModel,
       "contained_browser_runtime",

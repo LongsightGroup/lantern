@@ -252,7 +252,8 @@ Deno.test("ops service formats governed runtime failures with runtime-specific o
       kind: "runtime",
       eventType: "runtime.session.timeout",
       code: "session_expired",
-      summary: "Runtime session expired before the reviewed app could continue.",
+      summary:
+        "Runtime session expired before the reviewed app could continue.",
       detail: {
         sandboxModel: "contained_browser_runtime",
         boundary: "app_runtime_origin",
