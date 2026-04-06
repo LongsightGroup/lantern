@@ -3,8 +3,10 @@ import type {
   RuntimeBrokerDenial,
   RuntimeBrokerDeniedResult,
   RuntimeDetailValue,
-  RuntimeOutcome,
 } from './gateway_types.ts';
+import { isRuntimeOutcomeError, RuntimeOutcomeError } from './gateway_outcome_error.ts';
+
+export { isRuntimeOutcomeError, RuntimeOutcomeError } from './gateway_outcome_error.ts';
 
 export class RuntimeBrokerDenialError extends Error {
   readonly denial: RuntimeBrokerDenial;
@@ -31,32 +33,6 @@ export class RuntimeBrokerDenialError extends Error {
 
   get detail(): RuntimeBrokerDenial['detail'] {
     return this.denial.detail;
-  }
-}
-
-export class RuntimeOutcomeError extends Error {
-  readonly outcome: RuntimeOutcome;
-
-  constructor(outcome: RuntimeOutcome) {
-    super(outcome.message);
-    this.name = 'RuntimeOutcomeError';
-    this.outcome = outcome;
-  }
-
-  get type(): RuntimeOutcome['type'] {
-    return this.outcome.type;
-  }
-
-  get code(): string {
-    return this.outcome.code;
-  }
-
-  get detail(): RuntimeOutcome['detail'] {
-    return this.outcome.detail;
-  }
-
-  get status(): RuntimeOutcome['status'] {
-    return this.outcome.status;
   }
 }
 
@@ -91,10 +67,10 @@ export function denyRuntimeBroker(input: {
 }
 
 export function failRuntimeOutcome(input: {
-  type: RuntimeOutcome['type'];
+  type: import('./gateway_types.ts').RuntimeOutcome['type'];
   code: string;
   message: string;
-  status: RuntimeOutcome['status'];
+  status: import('./gateway_types.ts').RuntimeOutcome['status'];
   detail?: Record<string, RuntimeDetailValue | undefined>;
 }): never {
   throw new RuntimeOutcomeError({
@@ -108,10 +84,6 @@ export function failRuntimeOutcome(input: {
 
 export function isRuntimeBrokerDenialError(error: unknown): error is RuntimeBrokerDenialError {
   return error instanceof RuntimeBrokerDenialError;
-}
-
-export function isRuntimeOutcomeError(error: unknown): error is RuntimeOutcomeError {
-  return error instanceof RuntimeOutcomeError;
 }
 
 export function toRuntimeBrokerResult(error: unknown): RuntimeBrokerDeniedResult | null {

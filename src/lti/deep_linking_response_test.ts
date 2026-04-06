@@ -209,8 +209,11 @@ Deno.test('deep linking response builder falls back to the first accepted presen
   const contentItems = verified.payload[
     'https://purl.imsglobal.org/spec/lti-dl/claim/content_items'
   ] as Array<Record<string, unknown>>;
+  const firstContentItem = contentItems[0];
 
-  assertEquals((contentItems[0]?.presentation as Record<string, unknown>).documentTarget, 'window');
+  assertExists(firstContentItem);
+
+  assertEquals((firstContentItem.presentation as Record<string, unknown>).documentTarget, 'window');
 });
 
 function buildResponseEnv(): { get(name: string): string | undefined } {

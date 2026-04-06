@@ -12,8 +12,16 @@
   "rules": {
     "typescript/no-explicit-any": "error",
     "eslint/prefer-const": "error",
+    "eslint/no-loop-func": "off",
+    "eslint/no-shadow": "off",
+    "eslint/no-useless-return": "off",
+    "eslint/preserve-caught-error": "off",
     "max-lines": "off",
     "max-lines-per-function": "off",
+    "unicorn/no-array-callback-reference": "off",
+    "unicorn/no-array-reverse": "off",
+    "unicorn/no-array-sort": "off",
+    "unicorn/prefer-at": "off",
     "unicorn/prefer-node-protocol": "off",
     "no-console": "off"
   }

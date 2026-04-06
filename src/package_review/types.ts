@@ -340,7 +340,7 @@ function parseAccessibilityReviewText(
   }
 
   if (typeof value !== 'string') {
-    throw new Error(`Accessibility review field "${field}" must be text.`);
+    throw new TypeError(`Accessibility review field "${field}" must be text.`);
   }
 
   return value;

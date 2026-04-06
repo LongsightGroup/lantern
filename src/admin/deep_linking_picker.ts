@@ -141,9 +141,8 @@ export function renderDeepLinkingPickerPage(input: {
               </div>
             </form>
             ${
-              !canPreview
-                ? ''
-                : `<form method="post" action="${escapeHtml(previewAction)}" target="_blank">
+              canPreview
+                ? `<form method="post" action="${escapeHtml(previewAction)}" target="_blank">
               ${
                 input.token === undefined
                   ? ''
@@ -154,6 +153,7 @@ export function renderDeepLinkingPickerPage(input: {
                 <span class="phase-note">${escapeHtml(previewStateCopy)}</span>
               </div>
             </form>`
+                : ''
             }
             <form method="post" action="${escapeHtml(submitAction)}">
               ${

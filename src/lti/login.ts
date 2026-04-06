@@ -70,14 +70,12 @@ export async function createLoginRedirect(input: {
     throw error;
   }
 
-  if (!deployment) {
-    if (loginRequest.clientId !== null) {
-      deployment = await input.repository.completePendingCanvasBinding({
-        issuer: loginRequest.iss,
-        clientId: loginRequest.clientId,
-        deploymentId: loginRequest.deploymentId,
-      });
-    }
+  if (!deployment && loginRequest.clientId !== null) {
+    deployment = await input.repository.completePendingCanvasBinding({
+      issuer: loginRequest.iss,
+      clientId: loginRequest.clientId,
+      deploymentId: loginRequest.deploymentId,
+    });
   }
 
   if (!deployment?.binding) {

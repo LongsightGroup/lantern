@@ -83,7 +83,7 @@ export async function recordRuntimeCapabilityAllowed(input: {
     detail: {
       route: input.route,
       capability: input.capability,
-      ...(input.detail ?? {}),
+      ...input.detail,
     },
   });
 }

@@ -31,7 +31,7 @@ export async function recordInteropPathUsed(input: {
     detail: {
       scope: input.scope,
       path: input.path,
-      ...(input.detail ?? {}),
+      ...input.detail,
       ...(input.ltiProfile === null || input.ltiProfile === undefined
         ? {}
         : buildResolvedLtiProfileDetail(input.ltiProfile)),
