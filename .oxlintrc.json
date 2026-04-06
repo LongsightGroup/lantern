@@ -12,6 +12,7 @@
   "rules": {
     "typescript/no-explicit-any": "error",
     "eslint/prefer-const": "error",
+    "max-lines": "off",
     "max-lines-per-function": "off",
     "unicorn/prefer-node-protocol": "off",
     "no-console": "off"
