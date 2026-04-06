@@ -1,6 +1,9 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { renderPackageDetailPage } from "./package_detail.ts";
-import { buildPackageVersionRecord } from "../test_helpers/package_review.ts";
+import {
+  buildAccessibilityReview,
+  buildPackageVersionRecord,
+} from "../test_helpers/package_review.ts";
 
 Deno.test("renderPackageDetailPage shows status, exact version, owner, and access details above the fold", () => {
   const pendingVersion = buildPackageVersionRecord();
@@ -24,6 +27,13 @@ Deno.test("renderPackageDetailPage explains the approval decision for higher-acc
   const reviewedVersion = buildPackageVersionRecord({
     approvalStatus: "approved",
     reviewNotes: "Ready for the pilot deployment.",
+    accessibilityReview: buildAccessibilityReview({
+      contrast: "fail",
+      reducedMotion: "fail",
+      failureNotes:
+        "Motion-heavy celebration still needs a reduced-motion path.",
+      exceptionNote: "Keyboard-only pilot approved for early classroom review.",
+    }),
     reviewedAt: "2026-03-23T18:05:00Z",
   });
   const body = renderPackageDetailPage({
@@ -46,6 +56,12 @@ Deno.test("renderPackageDetailPage explains the approval decision for higher-acc
   assertStringIncludes(body, "capability-risk-chip");
   assertStringIncludes(body, "Saved files");
   assertStringIncludes(body, "Ready for the pilot deployment.");
+  assertStringIncludes(body, "Flagged review");
+  assertStringIncludes(body, "Failed checks: Contrast, Reduced motion.");
+  assertStringIncludes(
+    body,
+    "Keyboard-only pilot approved for early classroom review.",
+  );
   assertEquals(body.includes("/admin/packages/1/approve"), false);
 });
 
@@ -65,4 +81,5 @@ Deno.test("renderPackageDetailPage keeps older reviewed versions explicit when s
     body,
     "This version was reviewed before Lantern required structured accessibility evidence.",
   );
+  assertStringIncludes(body, "Review missing");
 });

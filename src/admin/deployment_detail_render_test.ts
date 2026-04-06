@@ -1,6 +1,7 @@
 import { assertFalse, assertStringIncludes } from "@std/assert";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
+  buildAccessibilityReview,
   buildDeploymentRecord,
   buildPackageVersionRecord,
 } from "../test_helpers/package_review.ts";
@@ -198,7 +199,7 @@ Deno.test("deployment page shows the latest roster verification summary and acti
   assertStringIncludes(html, "2");
 });
 
-Deno.test("deployment page shows whether the selected LMS slot inherits or overrides the Lantern default profile", () => {
+Deno.test("deployment page tucks LTI profile overrides behind an advanced per-setup section", () => {
   const html = renderDeploymentDetailPage({
     appId: "chapter-4-asteroids",
     appTitle: "Chapter 4 Asteroids",
@@ -236,11 +237,56 @@ Deno.test("deployment page shows whether the selected LMS slot inherits or overr
     ],
   });
 
-  assertStringIncludes(html, "Choose how strict Lantern should be");
-  assertStringIncludes(html, "Lantern default");
+  assertStringIncludes(html, "Advanced LTI behavior override");
+  assertStringIncludes(html, "LTI behavior");
+  assertStringIncludes(html, "Current mode");
   assertStringIncludes(html, "Use Lantern default");
-  assertStringIncludes(html, "Effective profile");
   assertStringIncludes(html, "Uses Lantern default");
   assertStringIncludes(html, "Certification");
   assertStringIncludes(html, "Governed interoperability");
+});
+
+Deno.test("deployment page shows accessibility review state before a version goes live", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+        accessibilityReview: buildAccessibilityReview({
+          contrast: "fail",
+          reducedMotion: "fail",
+          exceptionNote: "Reviewed for a supervised pilot launch.",
+        }),
+      }),
+      buildPackageVersionRecord({
+        id: 2,
+        version: "0.2.0",
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-24T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, "Accessibility");
+  assertStringIncludes(html, "Flagged review");
+  assertStringIncludes(html, "Failed checks: Contrast, Reduced motion.");
+  assertStringIncludes(html, "Reviewed for a supervised pilot launch.");
+  assertStringIncludes(html, "Review missing");
 });

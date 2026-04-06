@@ -2,6 +2,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import { resolveCanvasIssuer } from "./lti/config.ts";
 import {
+  buildAccessibilityReview,
   buildControlPlaneDeploymentDetailSnapshot,
   buildControlPlaneDeploymentInventoryRow,
   buildDeploymentActivitySnapshot,
@@ -97,6 +98,12 @@ Deno.test("GET /admin/packages/:appId/deployment renders an LMS tab strip with o
               id: 5,
               approvalStatus: "approved",
               reviewNotes: "Ready for pilot.",
+              accessibilityReview: buildAccessibilityReview({
+                contrast: "fail",
+                failureNotes:
+                  "Contrast fixes still pending for the score meter.",
+                exceptionNote: "Reviewed for faculty-supervised pilot use.",
+              }),
               reviewedAt: "2026-03-23T18:05:00Z",
             }),
           ],
@@ -189,17 +196,21 @@ Deno.test("GET /admin/packages/:appId/deployment renders an LMS tab strip with o
     assertStringIncludes(body, "Open checks and troubleshooting");
     assertStringIncludes(body, 'details id="activity-details" open');
     assertStringIncludes(body, "Save Moodle settings");
-    assertStringIncludes(body, "Choose how strict Lantern should be");
+    assertStringIncludes(body, "Advanced LTI behavior override");
     assertStringIncludes(
       body,
       'action="/admin/packages/chapter-4-asteroids/deployment/lti-profile"',
     );
+    assertStringIncludes(body, "LTI behavior");
     assertStringIncludes(body, "Use Lantern default");
-    assertStringIncludes(body, "Lantern default");
     assertStringIncludes(body, "Certification");
     assertStringIncludes(body, "Governed interoperability");
     assertStringIncludes(body, "Save live version");
     assertStringIncludes(body, "Save the app settings first");
+    assertStringIncludes(body, "Accessibility");
+    assertStringIncludes(body, "Flagged review");
+    assertStringIncludes(body, "Failed checks: Contrast.");
+    assertStringIncludes(body, "Reviewed for faculty-supervised pilot use.");
   } finally {
     restoreEnv("APP_ORIGIN", previousOrigin);
   }

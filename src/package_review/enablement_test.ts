@@ -1,6 +1,7 @@
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { buildCanvasDeploymentBinding } from "../test_helpers/lti.ts";
 import {
+  buildAccessibilityReview,
   buildDeploymentRecord,
   buildPackageVersionRecord,
 } from "../test_helpers/package_review.ts";
@@ -11,6 +12,11 @@ Deno.test("renderDeploymentDetailPage shows semver history with strong status ba
     id: 7,
     approvalStatus: "approved",
     reviewNotes: "Ready for pilot.",
+    accessibilityReview: buildAccessibilityReview({
+      contrast: "fail",
+      failureNotes: "Low-contrast score meter needs adjustment.",
+      exceptionNote: "Reviewed for a short pilot with classroom support.",
+    }),
     reviewedAt: "2026-03-23T18:05:00Z",
   });
   const pending = buildPackageVersionRecord({
@@ -34,6 +40,13 @@ Deno.test("renderDeploymentDetailPage shows semver history with strong status ba
   assertStringIncludes(body, "Version 0.2.0");
   assertStringIncludes(body, "Pending review");
   assertStringIncludes(body, "Live now");
+  assertStringIncludes(body, "Accessibility");
+  assertStringIncludes(body, "Flagged review");
+  assertStringIncludes(body, "Failed checks: Contrast.");
+  assertStringIncludes(
+    body,
+    "Reviewed for a short pilot with classroom support.",
+  );
 });
 
 Deno.test("renderDeploymentDetailPage only offers approved versions in the picker", () => {
@@ -41,6 +54,7 @@ Deno.test("renderDeploymentDetailPage only offers approved versions in the picke
     id: 7,
     approvalStatus: "approved",
     reviewNotes: "Ready for pilot.",
+    accessibilityReview: buildAccessibilityReview(),
     reviewedAt: "2026-03-23T18:05:00Z",
   });
   const pending = buildPackageVersionRecord({
@@ -63,6 +77,7 @@ Deno.test("renderDeploymentDetailPage only offers approved versions in the picke
 
   assertStringIncludes(body, 'option value="7"');
   assertEquals(body.includes('option value="8"'), false);
+  assertStringIncludes(body, "Passed review");
   assertStringIncludes(
     body,
     "Pending and rejected versions stay visible in history, but they cannot become active pins.",
