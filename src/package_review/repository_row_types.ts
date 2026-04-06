@@ -1,4 +1,5 @@
 import type {
+  AccessibilityReview,
   ApprovalStatus,
   AttemptEventRecord,
   AttemptRecord,
@@ -38,6 +39,7 @@ export interface PackageVersionRow {
   gradingMaxScore: number | null;
   approvalStatus: ApprovalStatus;
   reviewNotes: string | null;
+  accessibilityReview: AccessibilityReview | null;
   reviewedAt: Date | string | null;
   validationIssues: ValidationIssue[];
   manifestJson: Record<string, unknown>;

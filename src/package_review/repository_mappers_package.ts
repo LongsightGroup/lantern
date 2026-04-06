@@ -4,7 +4,11 @@ import type {
   LoginStateRecord,
 } from "../lti/types.ts";
 import { parseReviewedRuntimeContract } from "./runtime_contract.ts";
-import type { DeploymentRecord, PackageVersionRecord } from "./types.ts";
+import {
+  type DeploymentRecord,
+  type PackageVersionRecord,
+  parseAccessibilityReview,
+} from "./types.ts";
 import type {
   DeploymentRow,
   DynamicRegistrationStateRow,
@@ -60,6 +64,9 @@ export function mapPackageVersionRow(
     },
     approvalStatus: row.approvalStatus,
     reviewNotes: row.reviewNotes,
+    accessibilityReview: row.accessibilityReview === null
+      ? null
+      : parseAccessibilityReview(row.accessibilityReview),
     reviewedAt: normalizeOptionalTimestamp(row.reviewedAt),
     validationIssues: row.validationIssues ?? [],
     manifestJson: row.manifestJson,

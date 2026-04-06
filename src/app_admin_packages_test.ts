@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import {
+  buildAccessibilityReview,
   buildBrokerVerificationStatus,
   buildControlPlaneDeploymentInventoryRow,
   buildDeploymentRecord,
@@ -172,6 +173,11 @@ Deno.test("POST /admin/packages/:id/approve records notes and keeps status visib
     "accessibilityExceptionNote",
     "Pilot exception approved for instructor-led use only.",
   );
+  const accessibilityReview = buildAccessibilityReview({
+    reducedMotion: "fail",
+    failureNotes: "Reduced-motion toggle is still missing on animated scenes.",
+    exceptionNote: "Pilot exception approved for instructor-led use only.",
+  });
 
   const response = await app.request(
     "http://localhost/admin/packages/7/approve",
@@ -192,17 +198,7 @@ Deno.test("POST /admin/packages/:id/approve records notes and keeps status visib
   assert(saved);
   assertEquals(saved?.approvalStatus, "approved");
   assertEquals(saved?.reviewNotes, "Ready for the pilot deployment.");
-  assertEquals(Reflect.get(saved, "accessibilityReview"), {
-    keyboard: "pass",
-    focusVisible: "pass",
-    focusNotObscured: "pass",
-    structure: "pass",
-    contrast: "pass",
-    reducedMotion: "fail",
-    equivalentAlternatives: "not_applicable",
-    failureNotes: "Reduced-motion toggle is still missing on animated scenes.",
-    exceptionNote: "Pilot exception approved for instructor-led use only.",
-  });
+  assertEquals(saved?.accessibilityReview, accessibilityReview);
   const auditEvents = await repository.listAuditEventsByEventType(
     "package.approved",
   );
@@ -216,6 +212,12 @@ Deno.test("POST /admin/packages/:id/approve records notes and keeps status visib
 
   assertStringIncludes(detailBody, "Approved");
   assertStringIncludes(detailBody, "Ready for the pilot deployment.");
+  assertStringIncludes(detailBody, "Accessibility review");
+  assertStringIncludes(detailBody, "Reduced motion");
+  assertStringIncludes(
+    detailBody,
+    "Pilot exception approved for instructor-led use only.",
+  );
 });
 
 Deno.test("POST /admin/packages/:id/reject refuses to reverse a frozen decision", async () => {

@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "@db/postgres";
 import type { ApprovalStatus, PackageVersionRecord } from "./types.ts";
+import { type AccessibilityReview, parseAccessibilityReview } from "./types.ts";
 import { mapPackageVersionRow } from "./repository_mappers_package.ts";
 import type { PackageVersionRow } from "./repository_row_types.ts";
 import { PACKAGE_VERSION_SELECT } from "./repository_query_fragments.ts";
@@ -9,6 +10,7 @@ export async function reviewPackageVersion(
   id: number,
   approvalStatus: Exclude<ApprovalStatus, "pending">,
   reviewNotes: string | null,
+  accessibilityReview: AccessibilityReview | null,
 ): Promise<PackageVersionRecord> {
   return await withClient(pool, async (client) => {
     return await withTransaction(
@@ -38,14 +40,23 @@ export async function reviewPackageVersion(
           );
         }
 
+        const normalizedAccessibilityReview = accessibilityReview === null
+          ? (() => {
+            throw new Error(
+              "Accessibility review is required for new review decisions.",
+            );
+          })()
+          : parseAccessibilityReview(accessibilityReview);
+
         const updatedResult = await transaction.queryObject<PackageVersionRow>({
           text: `
           UPDATE package_versions
           SET
             approval_status = $1,
             review_notes = $2,
+            accessibility_review = $3::jsonb,
             reviewed_at = now()
-          WHERE id = $3
+          WHERE id = $4
           RETURNING
             id,
             app_id,
@@ -63,6 +74,7 @@ export async function reviewPackageVersion(
             grading_max_score,
             approval_status,
             review_notes,
+            accessibility_review,
             reviewed_at,
             validation_issues,
             manifest_json,
@@ -72,7 +84,12 @@ export async function reviewPackageVersion(
             runtime_contract_signature,
             imported_at
         `,
-          args: [approvalStatus, reviewNotes, id],
+          args: [
+            approvalStatus,
+            reviewNotes,
+            JSON.stringify(normalizedAccessibilityReview),
+            id,
+          ],
           camelCase: true,
         });
 

@@ -1,5 +1,6 @@
 import type { Pool } from "@db/postgres";
 import type {
+  AccessibilityReview,
   AttemptEventRecord,
   AttemptRecord,
   AuditEventRecord,
@@ -55,10 +56,12 @@ export interface PackageReviewRepository {
   approvePackageVersion(input: {
     id: number;
     reviewNotes: string | null;
+    accessibilityReview: AccessibilityReview | null;
   }): Promise<PackageVersionRecord>;
   rejectPackageVersion(input: {
     id: number;
     reviewNotes: string | null;
+    accessibilityReview: AccessibilityReview | null;
   }): Promise<PackageVersionRecord>;
   getDeploymentBySlug(slug: string): Promise<DeploymentRecord | null>;
   listDeploymentsByApp(appId: string): Promise<DeploymentRecord[]>;

@@ -36,6 +36,10 @@ import type {
   PreviewSessionRecord,
   ReviewedPlacementRecord,
 } from "../package_review/types.ts";
+import {
+  type AccessibilityReview,
+  parseAccessibilityReview,
+} from "../package_review/types.ts";
 import { DEFAULT_REVIEWED_AT } from "./package_review_test_defaults.ts";
 
 export interface InMemoryOpsRepository {
@@ -230,6 +234,7 @@ export function reviewPackageVersion(
   id: number,
   approvalStatus: Exclude<ApprovalStatus, "pending">,
   reviewNotes: string | null,
+  accessibilityReview: AccessibilityReview | null,
 ): PackageVersionRecord {
   const index = packageVersions.findIndex((record) => record.id === id);
 
@@ -249,10 +254,19 @@ export function reviewPackageVersion(
     );
   }
 
+  const normalizedAccessibilityReview = accessibilityReview === null
+    ? (() => {
+      throw new Error(
+        "Accessibility review is required for new review decisions.",
+      );
+    })()
+    : parseAccessibilityReview(accessibilityReview);
+
   const nextRecord = cloneRecord({
     ...existing,
     approvalStatus,
     reviewNotes,
+    accessibilityReview: normalizedAccessibilityReview,
     reviewedAt: DEFAULT_REVIEWED_AT,
   });
 

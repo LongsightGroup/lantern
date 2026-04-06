@@ -99,6 +99,7 @@ export function createInMemoryVersionRepository(
             input.id,
             "approved",
             input.reviewNotes,
+            input.accessibilityReview,
           ),
         ),
       );
@@ -112,6 +113,7 @@ export function createInMemoryVersionRepository(
             input.id,
             "rejected",
             input.reviewNotes,
+            input.accessibilityReview,
           ),
         ),
       );

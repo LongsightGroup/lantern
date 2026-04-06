@@ -22,7 +22,12 @@ import { statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 import { renderPackageDetailPage } from "./admin/package_detail.ts";
 import { renderPackageIndexPage } from "./admin/package_index.ts";
-import type { PackageVersionRecord } from "./package_review/types.ts";
+import {
+  ACCESSIBILITY_REVIEW_FIELDS,
+  type AccessibilityReview,
+  type PackageVersionRecord,
+  parseAccessibilityReview,
+} from "./package_review/types.ts";
 
 export async function handleReviewDecision(
   context: Context,
@@ -34,10 +39,19 @@ export async function handleReviewDecision(
   try {
     const formData = await context.req.formData();
     const reviewNotes = normalizeOptionalString(formData.get("reviewNotes"));
+    const accessibilityReview = readAccessibilityReviewForm(formData);
     const repository = services.getRepository();
     const packageVersion = decision === "approve"
-      ? await repository.approvePackageVersion({ id, reviewNotes })
-      : await repository.rejectPackageVersion({ id, reviewNotes });
+      ? await repository.approvePackageVersion({
+        id,
+        reviewNotes,
+        accessibilityReview,
+      })
+      : await repository.rejectPackageVersion({
+        id,
+        reviewNotes,
+        accessibilityReview,
+      });
     await repository.recordAuditEvent({
       eventType: decision === "approve"
         ? "package.approved"
@@ -56,6 +70,7 @@ export async function handleReviewDecision(
         appId: packageVersion.appId,
         version: packageVersion.version,
         reviewNotes,
+        accessibilityReview,
       },
       occurredAt: new Date().toISOString(),
     });
@@ -73,6 +88,37 @@ export async function handleReviewDecision(
       error,
     );
   }
+}
+
+function readAccessibilityReviewForm(
+  formData: FormData,
+): AccessibilityReview | null {
+  const review = Object.fromEntries(
+    ACCESSIBILITY_REVIEW_FIELDS.map((field) => [
+      field.key,
+      normalizeOptionalString(formData.get(field.formName)),
+    ]),
+  );
+  const failureNotes = normalizeOptionalString(
+    formData.get("accessibilityFailureNotes"),
+  );
+  const exceptionNote = normalizeOptionalString(
+    formData.get("accessibilityExceptionNote"),
+  );
+
+  if (
+    Object.values(review).every((value) => value === null) &&
+    failureNotes === null &&
+    exceptionNote === null
+  ) {
+    return null;
+  }
+
+  return parseAccessibilityReview({
+    ...review,
+    failureNotes,
+    exceptionNote,
+  });
 }
 
 export async function renderInventoryError(

@@ -1,6 +1,7 @@
 import type { ImportedPackageVersion } from "../package_review/intake.ts";
 import { createReviewedRuntimeContract } from "../package_review/runtime_contract.ts";
 import type {
+  AccessibilityReview,
   AttemptEventRecord,
   AttemptRecord,
   AuditEventRecord,
@@ -14,6 +15,23 @@ import {
   DEFAULT_PHASE3_AT,
   DEFAULT_UPDATED_AT,
 } from "./package_review_test_defaults.ts";
+
+export function buildAccessibilityReview(
+  overrides: Partial<AccessibilityReview> = {},
+): AccessibilityReview {
+  return {
+    keyboard: "pass",
+    focusVisible: "pass",
+    focusNotObscured: "pass",
+    structure: "pass",
+    contrast: "pass",
+    reducedMotion: "pass",
+    equivalentAlternatives: "not_applicable",
+    failureNotes: null,
+    exceptionNote: null,
+    ...overrides,
+  };
+}
 
 export function buildPackageVersionRecord(
   overrides: Partial<PackageVersionRecord> = {},
@@ -46,6 +64,7 @@ export function buildPackageVersionRecord(
     },
     approvalStatus: "pending",
     reviewNotes: null,
+    accessibilityReview: null,
     reviewedAt: null,
     validationIssues: [],
     manifestJson: {

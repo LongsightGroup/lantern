@@ -45,6 +45,7 @@ export function createPackageVersionRepositoryMethods(
                 grading_max_score,
                 approval_status,
                 review_notes,
+                accessibility_review,
                 reviewed_at,
                 validation_issues,
                 manifest_json,
@@ -54,7 +55,7 @@ export function createPackageVersionRepositoryMethods(
                 runtime_contract_signature
               ) VALUES (
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-                $11, $12, $13, 'pending', NULL, NULL, $14::jsonb, $15::jsonb, $16, $17, $18::jsonb, $19
+                $11, $12, $13, 'pending', NULL, NULL, NULL, $14::jsonb, $15::jsonb, $16, $17, $18::jsonb, $19
               )
               RETURNING
                 id,
@@ -73,6 +74,7 @@ export function createPackageVersionRepositoryMethods(
                 grading_max_score,
                 approval_status,
                 review_notes,
+                accessibility_review,
                 reviewed_at,
                 validation_issues,
                 manifest_json,
@@ -173,6 +175,7 @@ export function createPackageVersionRepositoryMethods(
         input.id,
         "approved",
         input.reviewNotes,
+        input.accessibilityReview,
       );
     },
 
@@ -182,6 +185,7 @@ export function createPackageVersionRepositoryMethods(
         input.id,
         "rejected",
         input.reviewNotes,
+        input.accessibilityReview,
       );
     },
   };

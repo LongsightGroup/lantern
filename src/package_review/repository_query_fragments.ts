@@ -16,6 +16,7 @@ export const PACKAGE_VERSION_SELECT = `
     grading_max_score,
     approval_status,
     review_notes,
+    accessibility_review,
     reviewed_at,
     validation_issues,
     manifest_json,

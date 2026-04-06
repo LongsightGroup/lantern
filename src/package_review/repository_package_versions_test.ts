@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
+import { buildAccessibilityReview } from "../test_helpers/package_review.ts";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import { verifyReviewedRuntimeContractSignature } from "./runtime_contract.ts";
 import {
@@ -60,28 +61,23 @@ Deno.test("repository records one-way approval and rejection decisions with opti
       await buildImportedPackageVersion({ version: "0.2.0" }),
     );
 
-    const accessibilityReview = {
-      keyboard: "pass",
-      focusVisible: "pass",
-      focusNotObscured: "pass",
-      structure: "pass",
-      contrast: "pass",
+    const accessibilityReview = buildAccessibilityReview({
       reducedMotion: "fail",
-      equivalentAlternatives: "not_applicable",
-      failureNotes: "Reduced-motion toggle is still missing on animated scenes.",
+      failureNotes:
+        "Reduced-motion toggle is still missing on animated scenes.",
       exceptionNote: "Pilot exception approved for instructor-led use only.",
-    };
+    });
 
     const approved = await repository.approvePackageVersion({
       id: approvalCandidate.id,
       reviewNotes: "Ready for the pilot deployment.",
       accessibilityReview,
-    } as Parameters<typeof repository.approvePackageVersion>[0]);
+    });
     const rejected = await repository.rejectPackageVersion({
       id: rejectionCandidate.id,
       reviewNotes: null,
       accessibilityReview,
-    } as Parameters<typeof repository.rejectPackageVersion>[0]);
+    });
     const persistedApproved = await repository.getPackageVersionById(
       approvalCandidate.id,
     );
@@ -91,32 +87,21 @@ Deno.test("repository records one-way approval and rejection decisions with opti
 
     assertEquals(approved.approvalStatus, "approved");
     assertEquals(approved.reviewNotes, "Ready for the pilot deployment.");
-    assertEquals(
-      Reflect.get(approved, "accessibilityReview"),
-      accessibilityReview,
-    );
+    assertEquals(approved.accessibilityReview, accessibilityReview);
     assert(approved.reviewedAt !== null);
     assertEquals(rejected.approvalStatus, "rejected");
     assertEquals(rejected.reviewNotes, null);
-    assertEquals(
-      Reflect.get(rejected, "accessibilityReview"),
-      accessibilityReview,
-    );
+    assertEquals(rejected.accessibilityReview, accessibilityReview);
     assert(rejected.reviewedAt !== null);
-    assertEquals(
-      persistedApproved && Reflect.get(persistedApproved, "accessibilityReview"),
-      accessibilityReview,
-    );
-    assertEquals(
-      persistedRejected && Reflect.get(persistedRejected, "accessibilityReview"),
-      accessibilityReview,
-    );
+    assertEquals(persistedApproved?.accessibilityReview, accessibilityReview);
+    assertEquals(persistedRejected?.accessibilityReview, accessibilityReview);
 
     await assertRejects(
       () =>
         repository.rejectPackageVersion({
           id: approvalCandidate.id,
           reviewNotes: "Trying to reverse an approval.",
+          accessibilityReview: buildAccessibilityReview(),
         }),
       Error,
       "Package version chapter-4-asteroids@0.1.0 has already been reviewed and cannot change state.",
@@ -126,6 +111,7 @@ Deno.test("repository records one-way approval and rejection decisions with opti
         repository.approvePackageVersion({
           id: rejectionCandidate.id,
           reviewNotes: "Trying to reverse a rejection.",
+          accessibilityReview: buildAccessibilityReview(),
         }),
       Error,
       "Package version chapter-4-asteroids@0.2.0 has already been reviewed and cannot change state.",
@@ -140,6 +126,7 @@ Deno.test("repository persists one exact signed runtime contract per approved ve
         await buildImportedPackageVersion(),
       )).id,
       reviewNotes: "Approved first reviewed runtime contract.",
+      accessibilityReview: buildAccessibilityReview(),
     });
 
     await verifyReviewedRuntimeContractSignature({
@@ -166,6 +153,7 @@ Deno.test("repository persists one exact signed runtime contract per approved ve
         await buildImportedPackageVersion({ version: "0.2.0" }),
       )).id,
       reviewNotes: "Approved next reviewed runtime contract.",
+      accessibilityReview: buildAccessibilityReview(),
     });
     const refetchedV010 = await repository.getPackageVersionByAppVersion(
       "chapter-4-asteroids",
@@ -197,6 +185,7 @@ Deno.test("repository pins exact approved versions and preserves the existing de
         await buildImportedPackageVersion(),
       )).id,
       reviewNotes: "Approved for the first pilot.",
+      accessibilityReview: buildAccessibilityReview(),
     });
     const pendingRecord = await repository.registerPackageVersion(
       await buildImportedPackageVersion({ version: "0.2.0" }),
@@ -213,6 +202,7 @@ Deno.test("repository pins exact approved versions and preserves the existing de
         )
       ).id,
       reviewNotes: "Approved for a different app.",
+      accessibilityReview: buildAccessibilityReview(),
     });
 
     const deployment = await repository.pinDeploymentVersion({
@@ -268,6 +258,7 @@ Deno.test("repository keeps internal preview deployments separate from managed L
         await buildImportedPackageVersion(),
       )).id,
       reviewNotes: "Approved for preview and pilot launch.",
+      accessibilityReview: buildAccessibilityReview(),
     });
 
     const managedDeployment = await repository.pinDeploymentVersion({
