@@ -1,3 +1,4 @@
+import { summarizeAccessibilityReview } from "../package_review/summary.ts";
 import type { PackageVersionRecord } from "../package_review/types.ts";
 import { escapeHtml, formatDateTime } from "./layout.ts";
 import type {
@@ -66,6 +67,14 @@ export function renderVersionPinForm(
   const bindingSaved = hasSavedBinding(slot) ||
     hasPendingCanvasRegistration(slot);
   const pinEnabled = bindingSaved && approvedVersions.length > 0;
+  const selectedVersionId = resolvePinnedVersionId(editorState, slot);
+  const accessibilityVersion = resolveAccessibilityVersion(
+    approvedVersions,
+    selectedVersionId,
+  );
+  const accessibilitySummary = accessibilityVersion === null
+    ? null
+    : summarizeAccessibilityReview(accessibilityVersion);
   const pinHint = bindingSaved
     ? approvedVersions.length === 0
       ? "Approve a version before you choose what learners should open."
@@ -98,16 +107,17 @@ export function renderVersionPinForm(
         ? `<option value="">No approved versions available yet</option>`
         : approvedVersions
           .map(
-            (version) =>
-              `<option value="${escapeHtml(String(version.id))}" ${
-                resolvePinnedVersionId(editorState, slot) === String(version.id)
-                  ? "selected"
-                  : ""
+            (version) => {
+              const accessibility = summarizeAccessibilityReview(version);
+
+              return `<option value="${escapeHtml(String(version.id))}" ${
+                selectedVersionId === String(version.id) ? "selected" : ""
               }>Version ${escapeHtml(version.version)} · ${
                 escapeHtml(
                   version.title,
                 )
-              }</option>`,
+              } · ${escapeHtml(accessibility.label)}</option>`;
+            },
           )
           .join("")
       : `<option value="">Save the binding first</option>`
@@ -116,6 +126,24 @@ export function renderVersionPinForm(
           <p class="field-hint">Pending and rejected versions stay visible in history, but they cannot become active pins.</p>
           ${renderFieldError(editorState, "packageVersionId")}
         </div>
+        ${
+    accessibilitySummary === null ? "" : `<div class="fact">
+            <span class="fact-label">Accessibility</span>
+            <span class="fact-value">${
+      escapeHtml(accessibilitySummary.label)
+    }</span>
+            <p class="micro muted">${
+      escapeHtml(accessibilitySummary.detail)
+    }</p>
+            ${
+      accessibilitySummary.exceptionNote === null
+        ? ""
+        : `<p class="micro muted">${
+          escapeHtml(accessibilitySummary.exceptionNote)
+        }</p>`
+    }
+          </div>`
+  }
         <div class="button-row">
           <button type="submit" class="button-secondary" ${
     pinEnabled ? "" : "disabled"
@@ -123,4 +151,21 @@ export function renderVersionPinForm(
         </div>
       </form>
     </div>`;
+}
+
+function resolveAccessibilityVersion(
+  approvedVersions: PackageVersionRecord[],
+  selectedVersionId: string | null,
+): PackageVersionRecord | null {
+  if (selectedVersionId !== null) {
+    const selectedVersion = approvedVersions.find((version) =>
+      String(version.id) === selectedVersionId
+    );
+
+    if (selectedVersion) {
+      return selectedVersion;
+    }
+  }
+
+  return approvedVersions[0] ?? null;
 }

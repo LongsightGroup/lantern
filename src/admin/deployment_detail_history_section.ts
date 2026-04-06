@@ -1,6 +1,7 @@
 import {
   approvalStatusClass,
   approvalStatusLabel,
+  summarizeAccessibilityReview,
 } from "../package_review/summary.ts";
 import type {
   DeploymentRecord,
@@ -36,6 +37,7 @@ function renderHistoryRow(
   version: PackageVersionRecord,
 ): string {
   const isPinned = deployment.enabledPackageVersionId === version.id;
+  const accessibility = summarizeAccessibilityReview(version);
 
   return `<article class="table-row">
     <div class="table-row-top">
@@ -55,5 +57,13 @@ function renderHistoryRow(
     <p class="line-copy">${
     escapeHtml(version.reviewNotes ?? "No review notes recorded.")
   }</p>
+    <p class="micro muted">Accessibility: ${escapeHtml(accessibility.label)}. ${
+    escapeHtml(accessibility.detail)
+  }</p>
+    ${
+    accessibility.exceptionNote === null
+      ? ""
+      : `<p class="micro muted">${escapeHtml(accessibility.exceptionNote)}</p>`
+  }
   </article>`;
 }

@@ -1,11 +1,13 @@
 import type { Capability, UserRole } from "../../sdk/app-sdk.ts";
 import type {
+  AccessibilityReview,
   ApprovalStatus,
   DeploymentRecord,
   GradingSettings,
   PackageVersionRecord,
   ValidationIssue,
 } from "./types.ts";
+import { ACCESSIBILITY_REVIEW_FIELDS } from "./types.ts";
 
 export interface CapabilitySummary {
   id: Capability;
@@ -13,6 +15,13 @@ export interface CapabilitySummary {
   detail: string;
   flagged: boolean;
   flagLabel: string | null;
+}
+
+export interface AccessibilityReviewSummary {
+  label: string;
+  detail: string;
+  failedChecks: string[];
+  exceptionNote: string | null;
 }
 
 const CAPABILITY_COPY: Record<Capability, CapabilitySummary> = {
@@ -161,6 +170,46 @@ export function summarizeValidation(
   };
 }
 
+export function summarizeAccessibilityReview(
+  packageVersion: Pick<
+    PackageVersionRecord,
+    "approvalStatus" | "accessibilityReview"
+  >,
+): AccessibilityReviewSummary {
+  if (packageVersion.approvalStatus === "pending") {
+    return {
+      label: "Pending review",
+      detail:
+        "Record accessibility evidence during review before this version can be approved or rejected.",
+      failedChecks: [],
+      exceptionNote: null,
+    };
+  }
+
+  if (packageVersion.accessibilityReview === null) {
+    return {
+      label: "Review missing",
+      detail:
+        "This reviewed version predates Lantern's structured accessibility checklist.",
+      failedChecks: [],
+      exceptionNote: null,
+    };
+  }
+
+  const failedChecks = listAccessibilityFailures(
+    packageVersion.accessibilityReview,
+  );
+
+  return {
+    label: failedChecks.length === 0 ? "Passed review" : "Flagged review",
+    detail: failedChecks.length === 0
+      ? "All recorded checks passed or were marked not applicable."
+      : `Failed checks: ${failedChecks.join(", ")}.`,
+    failedChecks,
+    exceptionNote: packageVersion.accessibilityReview.exceptionNote,
+  };
+}
+
 export function describeDeploymentPin(
   deployment: DeploymentRecord | null,
 ): string {
@@ -169,4 +218,10 @@ export function describeDeploymentPin(
   }
 
   return `Pinned to version ${deployment.enabledPackageVersion}.`;
+}
+
+function listAccessibilityFailures(review: AccessibilityReview): string[] {
+  return ACCESSIBILITY_REVIEW_FIELDS
+    .filter(({ key }) => review[key] === "fail")
+    .map(({ label }) => label);
 }

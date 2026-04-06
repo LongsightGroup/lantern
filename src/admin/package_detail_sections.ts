@@ -2,6 +2,7 @@ import {
   approvalStatusClass,
   approvalStatusDetail,
   approvalStatusLabel,
+  summarizeAccessibilityReview,
 } from "../package_review/summary.ts";
 import {
   ACCESSIBILITY_REVIEW_FIELDS,
@@ -194,6 +195,7 @@ function renderAccessibilityReviewSection(
   packageVersion: PackageVersionRecord,
 ): string {
   const review = packageVersion.accessibilityReview;
+  const summary = summarizeAccessibilityReview(packageVersion);
 
   if (review === null) {
     return `<section class="callout callout-review">
@@ -201,31 +203,20 @@ function renderAccessibilityReviewSection(
       <p>
         This version was reviewed before Lantern required structured accessibility evidence.
       </p>
+      <p class="micro muted">${escapeHtml(summary.label)}</p>
     </section>`;
   }
-
-  const failedChecks = ACCESSIBILITY_REVIEW_FIELDS.filter(({ key }) =>
-    review[key] === "fail"
-  );
 
   return `<section class="stack">
     <p class="section-label">Accessibility review</p>
     <div class="facts">
       <div class="fact">
         <span class="fact-label">Status</span>
-        <span class="fact-value">${
-    escapeHtml(failedChecks.length === 0 ? "Passed" : "Flagged")
-  }</span>
+        <span class="fact-value">${escapeHtml(summary.label)}</span>
       </div>
       <div class="fact">
         <span class="fact-label">Failed checks</span>
-        <span class="fact-value">${
-    escapeHtml(
-      failedChecks.length === 0
-        ? "None recorded."
-        : failedChecks.map(({ label }) => label).join(", "),
-    )
-  }</span>
+        <span class="fact-value">${escapeHtml(summary.detail)}</span>
       </div>
     </div>
     <div class="line-list">

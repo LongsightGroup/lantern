@@ -2,6 +2,7 @@ import {
   approvalStatusClass,
   approvalStatusDetail,
   approvalStatusLabel,
+  summarizeAccessibilityReview,
   summarizeCapabilities,
   summarizeFlaggedCapabilities,
   summarizeGrading,
@@ -30,6 +31,7 @@ export function renderPackageDetailPage(input: {
     packageVersion.capabilities,
   );
   const capabilitySummary = summarizeCapabilities(packageVersion.capabilities);
+  const accessibility = summarizeAccessibilityReview(packageVersion);
   const grading = summarizeGrading(packageVersion.grading);
   const validation = summarizeValidation(packageVersion);
 
@@ -152,6 +154,20 @@ export function renderPackageDetailPage(input: {
             <span class="fact-label">Scoring</span>
             <strong class="fact-value">${escapeHtml(grading.label)}</strong>
             <p class="micro muted">${escapeHtml(grading.detail)}</p>
+          </section>
+          <section class="fact">
+            <span class="fact-label">Accessibility</span>
+            <strong class="fact-value">${
+      escapeHtml(accessibility.label)
+    }</strong>
+            <p class="micro muted">${escapeHtml(accessibility.detail)}</p>
+            ${
+      accessibility.exceptionNote === null
+        ? ""
+        : `<p class="micro muted">${
+          escapeHtml(accessibility.exceptionNote)
+        }</p>`
+    }
           </section>
           <section class="fact">
             <span class="fact-label">Checks</span>
