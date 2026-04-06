@@ -1,0 +1,9 @@
+.git
+.gitignore
+.DS_Store
+private
+var
+node_modules
+coverage
+**/*_test.ts
+src/test_helpers

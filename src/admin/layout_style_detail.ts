@@ -59,10 +59,46 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         box-shadow: 0 0 0 3px rgba(223, 27, 65, 0.12);
       }
 
+      input[type="radio"],
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        margin: 2px 0 0;
+        padding: 0;
+        border: none;
+        border-radius: 999px;
+        background: transparent;
+        box-shadow: none;
+        accent-color: var(--accent);
+      }
+
       .field-hint {
         margin: 0;
         font-size: 12.5px;
         color: var(--muted);
+      }
+
+      .choice-row {
+        display: grid;
+        grid-template-columns: 16px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: color-mix(in srgb, var(--bg) 72%, white);
+        color: var(--secondary);
+        cursor: pointer;
+      }
+
+      .choice-row:hover {
+        border-color: var(--line-light);
+        background: var(--surface);
+      }
+
+      .choice-row > span {
+        display: grid;
+        gap: 2px;
       }
 
       .field-error {
