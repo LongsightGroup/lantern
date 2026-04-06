@@ -5,7 +5,21 @@ import {
   getTestToolPrivateJwkEnvValue,
 } from "./test_helpers/lti.ts";
 
-export const EXAMPLE_SNAPSHOT_ROOT = "examples/apps/chapter-4-asteroids";
+export const REFERENCE_APP_SNAPSHOT_ROOTS = {
+  "chapter-4-asteroids": "examples/apps/chapter-4-asteroids",
+  "quick-study": "examples/apps/quick-study",
+} as const;
+
+export type ReferenceAppId = keyof typeof REFERENCE_APP_SNAPSHOT_ROOTS;
+
+export const EXAMPLE_SNAPSHOT_ROOT =
+  REFERENCE_APP_SNAPSHOT_ROOTS["chapter-4-asteroids"];
+export const QUICK_STUDY_SNAPSHOT_ROOT =
+  REFERENCE_APP_SNAPSHOT_ROOTS["quick-study"];
+
+export function getReferenceAppSnapshotRoot(appId: ReferenceAppId): string {
+  return REFERENCE_APP_SNAPSHOT_ROOTS[appId];
+}
 
 export function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {

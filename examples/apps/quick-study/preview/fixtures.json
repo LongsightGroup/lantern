@@ -1,0 +1,30 @@
+{
+  "launch": {
+    "user_role": "learner",
+    "course_id": "course_demo",
+    "assignment_id": "assignment_demo",
+    "activity_id": "quick-study"
+  },
+  "attempt_id": "attempt_demo_2",
+  "local_state": {
+    "version": 1,
+    "sessionsCompleted": 2,
+    "totalReviews": 18,
+    "bestStreak": 4,
+    "lastCompletedAt": "2026-04-03T16:20:00Z",
+    "cardStats": {
+      "card-1": {
+        "seen": 3,
+        "gotIt": 2,
+        "almost": 1,
+        "again": 0
+      },
+      "card-5": {
+        "seen": 4,
+        "gotIt": 1,
+        "almost": 1,
+        "again": 2
+      }
+    }
+  }
+}

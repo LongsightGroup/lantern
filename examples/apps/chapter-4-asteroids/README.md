@@ -1,6 +1,6 @@
 # Chapter 4 Asteroids
 
-This is a playable Tier 0 sample app package.
+This is a playable Tier 0 reference app package.
 
 It shows the intended v1 shape:
 

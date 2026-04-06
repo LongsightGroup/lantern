@@ -436,6 +436,7 @@ Deno.test("preview service reads committed quick-study fixtures without inventin
     approvalStatus: "approved",
     grading: {
       mode: "completion",
+      rubricFile: null,
       maxScore: 100,
     },
     manifestJson: {

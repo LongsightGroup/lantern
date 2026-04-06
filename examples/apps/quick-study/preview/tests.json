@@ -1,0 +1,34 @@
+[
+  {
+    "name": "renders title",
+    "assert": {
+      "selector": "[data-test='app-title']",
+      "text": "Quick Study"
+    }
+  },
+  {
+    "name": "shows first card prompt",
+    "assert": {
+      "selector": "[data-test='card-front']",
+      "contains": "What structure controls"
+    }
+  },
+  {
+    "name": "renders reveal control",
+    "assert": {
+      "selector": "[data-test='reveal-button']"
+    }
+  },
+  {
+    "name": "renders session rail",
+    "assert": {
+      "selector": "[data-test='deck-progress']"
+    }
+  },
+  {
+    "name": "complete button exists",
+    "assert": {
+      "selector": "[data-test='complete-button']"
+    }
+  }
+]

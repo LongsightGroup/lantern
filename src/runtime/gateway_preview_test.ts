@@ -239,7 +239,10 @@ Deno.test("preview gateway records allowed quick-study attempt events through th
   });
 
   assertEquals(appended.eventType, "progress");
-  assertEquals((await repository.listAttemptEvents("preview-attempt-123")).length, 1);
+  assertEquals(
+    (await repository.listAttemptEvents("preview-attempt-123")).length,
+    1,
+  );
   const evidence = await repository.listPreviewEvidence(
     "preview-session-quick-study-allowed",
   );

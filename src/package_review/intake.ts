@@ -3,7 +3,15 @@ import { type ManifestReviewData, validateManifest } from "./manifest.ts";
 import { buildSignedReviewedRuntimeContract } from "./runtime_contract.ts";
 import type { ReviewedRuntimeContract } from "./types.ts";
 
-export const DEMO_PACKAGE_SOURCE_ROOT = "examples/apps/chapter-4-asteroids";
+export const REFERENCE_PACKAGE_SOURCE_ROOTS = {
+  "chapter-4-asteroids": "examples/apps/chapter-4-asteroids",
+  "quick-study": "examples/apps/quick-study",
+} as const;
+
+export type ReferencePackageId = keyof typeof REFERENCE_PACKAGE_SOURCE_ROOTS;
+
+export const DEMO_PACKAGE_SOURCE_ROOT =
+  REFERENCE_PACKAGE_SOURCE_ROOTS["chapter-4-asteroids"];
 export const DEFAULT_PACKAGE_STORAGE_ROOT = "var/packages";
 
 export interface ImportedPackageVersion {
@@ -13,24 +21,46 @@ export interface ImportedPackageVersion {
   runtimeContractSignature: string;
 }
 
-export async function readDemoPackageReviewData(): Promise<ManifestReviewData> {
+export function listReferencePackageIds(): ReferencePackageId[] {
+  return Object.keys(REFERENCE_PACKAGE_SOURCE_ROOTS) as ReferencePackageId[];
+}
+
+export function getReferencePackageSourceRoot(appId: string): string {
+  if (!isReferencePackageId(appId)) {
+    throw new Error(
+      `Lantern does not ship a curated reference package for ${appId}.`,
+    );
+  }
+
+  return REFERENCE_PACKAGE_SOURCE_ROOTS[appId];
+}
+
+export async function readReferencePackageReviewData(
+  appId: string,
+): Promise<ManifestReviewData> {
   const validation = await validateManifest({
-    sourceRoot: DEMO_PACKAGE_SOURCE_ROOT,
+    sourceRoot: getReferencePackageSourceRoot(appId),
   });
 
   if (!validation.ok) {
     const details = validation.issues.map((issue) => issue.message).join("; ");
-    throw new Error(`Demo package failed validation: ${details}`);
+    throw new Error(
+      `Reference package ${appId} failed validation: ${details}`,
+    );
   }
 
   return validation.reviewData;
 }
 
-export async function loadDemoPackageSnapshot(
-  options: { storageRoot?: string } = {},
+export async function readDemoPackageReviewData(): Promise<ManifestReviewData> {
+  return await readReferencePackageReviewData("chapter-4-asteroids");
+}
+
+export async function loadReferencePackageSnapshot(
+  input: { appId: string; storageRoot?: string },
 ): Promise<ImportedPackageVersion | null> {
-  const reviewData = await readDemoPackageReviewData();
-  const storageRoot = options.storageRoot ?? DEFAULT_PACKAGE_STORAGE_ROOT;
+  const reviewData = await readReferencePackageReviewData(input.appId);
+  const storageRoot = input.storageRoot ?? DEFAULT_PACKAGE_STORAGE_ROOT;
   const snapshotRoot = joinFileSystemPath(
     storageRoot,
     reviewData.appId,
@@ -47,12 +77,23 @@ export async function loadDemoPackageSnapshot(
   });
 }
 
-export async function importDemoPackage(
+export async function loadDemoPackageSnapshot(
   options: { storageRoot?: string } = {},
-): Promise<ImportedPackageVersion> {
-  const reviewData = await readDemoPackageReviewData();
+): Promise<ImportedPackageVersion | null> {
+  return await loadReferencePackageSnapshot({
+    appId: "chapter-4-asteroids",
+    ...(options.storageRoot === undefined
+      ? {}
+      : { storageRoot: options.storageRoot }),
+  });
+}
 
-  const storageRoot = options.storageRoot ?? DEFAULT_PACKAGE_STORAGE_ROOT;
+export async function importReferencePackage(
+  input: { appId: string; storageRoot?: string },
+): Promise<ImportedPackageVersion> {
+  const reviewData = await readReferencePackageReviewData(input.appId);
+  const sourceRoot = getReferencePackageSourceRoot(input.appId);
+  const storageRoot = input.storageRoot ?? DEFAULT_PACKAGE_STORAGE_ROOT;
   const snapshotRoot = joinFileSystemPath(
     storageRoot,
     reviewData.appId,
@@ -65,7 +106,7 @@ export async function importDemoPackage(
     );
   }
 
-  await copyDirectory(DEMO_PACKAGE_SOURCE_ROOT, snapshotRoot);
+  await copyDirectory(sourceRoot, snapshotRoot);
 
   const artifact = await buildArtifactRecord(
     snapshotRoot,
@@ -73,6 +114,17 @@ export async function importDemoPackage(
   );
 
   return await finalizeImportedPackageVersion({ reviewData, artifact });
+}
+
+export async function importDemoPackage(
+  options: { storageRoot?: string } = {},
+): Promise<ImportedPackageVersion> {
+  return await importReferencePackage({
+    appId: "chapter-4-asteroids",
+    ...(options.storageRoot === undefined
+      ? {}
+      : { storageRoot: options.storageRoot }),
+  });
 }
 
 async function finalizeImportedPackageVersion(input: {
@@ -235,4 +287,8 @@ async function pathExists(path: string): Promise<boolean> {
 
     throw error;
   }
+}
+
+function isReferencePackageId(value: string): value is ReferencePackageId {
+  return Object.hasOwn(REFERENCE_PACKAGE_SOURCE_ROOTS, value);
 }

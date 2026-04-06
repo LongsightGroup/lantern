@@ -7,8 +7,10 @@ Companion artifacts:
 - manifest schema:
   [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json)
 - SDK contract: [sdk/app-sdk.ts](sdk/app-sdk.ts)
-- sample package:
+- sample packages:
   [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
+  and [examples/apps/quick-study/README.md](examples/apps/quick-study/README.md)
+  These are governed reference apps, not a hosting surface.
 
 The goal is simple:
 

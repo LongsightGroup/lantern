@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quick Study</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --paper: oklch(0.97 0.015 90);
+        --paper-strong: oklch(0.93 0.02 88);
+        --desk: oklch(0.82 0.03 70);
+        --ink: oklch(0.28 0.03 45);
+        --muted: oklch(0.52 0.03 55);
+        --line: color-mix(in oklab, oklch(0.6 0.04 70) 28%, white);
+        --accent: oklch(0.56 0.1 60);
+        --accent-soft: oklch(0.9 0.05 75);
+        --good: oklch(0.64 0.12 145);
+        --warn: oklch(0.71 0.14 72);
+        --danger: oklch(0.63 0.15 28);
+        --shadow: 0 24px 70px rgba(83, 56, 17, 0.16);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        font: 16px/1.5 "Avenir Next", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(255, 255, 255, 0.7),
+            transparent 36%
+          ),
+          linear-gradient(180deg, #f1e6d2 0%, #e4d4bd 42%, #d9c2a3 100%);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+          linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.14),
+            transparent 14% 86%,
+            rgba(98, 63, 19, 0.08)
+          ),
+          radial-gradient(
+          circle at 12% 18%,
+          rgba(255, 255, 255, 0.25),
+          transparent 18%
+        ),
+          radial-gradient(
+          circle at 84% 10%,
+          rgba(125, 82, 30, 0.08),
+          transparent 22%
+        );
+        pointer-events: none;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .shell {
+        position: relative;
+        z-index: 1;
+        width: min(1180px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: clamp(20px, 4vw, 42px) 0 32px;
+      }
+
+      .masthead {
+        display: grid;
+        gap: 14px;
+        margin-bottom: 20px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(98, 63, 19, 0.14);
+        background: rgba(255, 252, 245, 0.76);
+        color: color-mix(in oklab, var(--accent) 72%, var(--ink));
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        font-size: 0.76rem;
+      }
+
+      .hero-row {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+      }
+
+      h1 {
+        margin: 0;
+        font:
+          700 clamp(2.6rem, 7vw, 5.1rem) / 0.95 "Iowan Old Style",
+          "Palatino Linotype",
+          "Book Antiqua",
+          serif;
+        letter-spacing: -0.04em;
+      }
+
+      #instructions {
+        max-width: 64ch;
+        margin: 0;
+        color: var(--muted);
+        font-size: 1.02rem;
+      }
+
+      .launch-chip {
+        min-height: 46px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        border-radius: 16px;
+        background: rgba(255, 252, 245, 0.86);
+        border: 1px solid rgba(98, 63, 19, 0.14);
+        font-weight: 600;
+        color: var(--muted);
+        box-shadow: 0 10px 26px rgba(83, 56, 17, 0.08);
+      }
+
+      .study-grid {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1.15fr) minmax(290px, 0.55fr);
+        align-items: start;
+      }
+
+      .card-stage,
+      .rail-panel,
+      .complete-panel {
+        border-radius: 28px;
+        border: 1px solid rgba(98, 63, 19, 0.12);
+        background: linear-gradient(
+          180deg,
+          rgba(255, 253, 248, 0.94),
+          rgba(250, 242, 229, 0.94)
+        );
+        box-shadow: var(--shadow);
+      }
+
+      .card-stage {
+        padding: 22px;
+      }
+
+      .stage-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 14px;
+        align-items: start;
+        margin-bottom: 18px;
+      }
+
+      .section-label {
+        margin: 0 0 8px;
+        color: color-mix(in oklab, var(--accent) 74%, var(--ink));
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-size: 0.74rem;
+      }
+
+      .stage-top h2 {
+        margin: 0;
+        font:
+          600 clamp(1.4rem, 4vw, 2rem) / 1 "Iowan Old Style",
+          "Palatino Linotype",
+          serif;
+        letter-spacing: -0.03em;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 42px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(98, 63, 19, 0.12);
+        background: rgba(255, 255, 255, 0.76);
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .status-pill[data-tone="success"] {
+        color: var(--good);
+      }
+
+      .status-pill[data-tone="warning"] {
+        color: var(--warn);
+      }
+
+      .status-pill[data-tone="neutral"] {
+        color: color-mix(in oklab, var(--accent) 74%, var(--ink));
+      }
+
+      .card-shell {
+        position: relative;
+        width: 100%;
+        min-height: 420px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        perspective: 1600px;
+        cursor: pointer;
+      }
+
+      .card-shell:disabled {
+        cursor: default;
+      }
+
+      .card-stack {
+        position: relative;
+        min-height: 420px;
+        transform-style: preserve-3d;
+        transition: transform 440ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .card-shell[data-revealed="true"] .card-stack {
+        transform: rotateY(180deg);
+      }
+
+      .card-face {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        gap: 18px;
+        align-content: space-between;
+        padding: 28px;
+        border-radius: 24px;
+        border: 1px solid rgba(98, 63, 19, 0.12);
+        backface-visibility: hidden;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.92),
+          rgba(248, 239, 224, 0.92)
+        );
+        text-align: left;
+      }
+
+      .card-back {
+        transform: rotateY(180deg);
+        background: linear-gradient(
+          180deg,
+          rgba(250, 240, 220, 0.96),
+          rgba(244, 228, 201, 0.96)
+        );
+      }
+
+      .card-kicker {
+        color: var(--muted);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        font-size: 0.74rem;
+      }
+
+      .card-main {
+        display: grid;
+        gap: 14px;
+      }
+
+      .card-main strong {
+        font:
+          600 clamp(1.8rem, 5vw, 3rem) / 1.02 "Iowan Old Style",
+          "Palatino Linotype",
+          serif;
+        letter-spacing: -0.04em;
+      }
+
+      .card-hint {
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+
+      .card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .card-tags span {
+        display: inline-flex;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: color-mix(in oklab, var(--accent) 70%, var(--ink));
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+
+      .controls {
+        display: grid;
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .rating-row {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      button {
+        appearance: none;
+        border: none;
+        border-radius: 16px;
+        min-height: 48px;
+        padding: 0 16px;
+        cursor: pointer;
+        transition:
+          transform 140ms ease,
+          box-shadow 140ms ease,
+          background 140ms ease;
+      }
+
+      button:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .primary-button,
+      .complete-button {
+        background: color-mix(in oklab, var(--accent) 86%, white);
+        color: white;
+        box-shadow: 0 16px 34px rgba(140, 90, 30, 0.2);
+        font-weight: 700;
+      }
+
+      .ghost-button {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid rgba(98, 63, 19, 0.12);
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      .footer-note {
+        margin: 2px 0 0;
+        color: var(--muted);
+      }
+
+      .rail {
+        display: grid;
+        gap: 14px;
+      }
+
+      .rail-panel {
+        padding: 18px;
+      }
+
+      .metric-strip {
+        display: grid;
+        gap: 10px;
+      }
+
+      .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+      }
+
+      .metric-row span {
+        color: var(--muted);
+      }
+
+      .metric-row strong {
+        font:
+          600 clamp(1.4rem, 4vw, 2rem) / 1 "Iowan Old Style",
+          "Palatino Linotype",
+          serif;
+      }
+
+      .progress-track {
+        height: 12px;
+        margin-top: 14px;
+        border-radius: 999px;
+        background: rgba(98, 63, 19, 0.1);
+        overflow: hidden;
+      }
+
+      .progress-track span {
+        display: block;
+        height: 100%;
+        width: 0%;
+        border-radius: inherit;
+        background: linear-gradient(
+          90deg,
+          color-mix(in oklab, var(--accent) 78%, white),
+          color-mix(in oklab, var(--good) 64%, white)
+        );
+        transition: width 280ms ease;
+      }
+
+      .progress-copy,
+      .ledger-note {
+        margin: 12px 0 0;
+        color: var(--muted);
+      }
+
+      .stat-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 0;
+        border-top: 1px solid rgba(98, 63, 19, 0.08);
+      }
+
+      .stat-line:first-of-type {
+        border-top: none;
+        padding-top: 2px;
+      }
+
+      .stat-line span {
+        color: var(--muted);
+      }
+
+      .stat-line strong {
+        font-weight: 700;
+      }
+
+      .recap-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .recap-tile {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .recap-tile span {
+        color: var(--muted);
+      }
+
+      .complete-button {
+        width: 100%;
+      }
+
+      @media (max-width: 920px) {
+        .hero-row,
+        .study-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .card-shell,
+        .card-stack {
+          min-height: 360px;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .shell {
+          width: min(100vw - 20px, 100%);
+          padding-top: 16px;
+        }
+
+        .card-stage,
+        .rail-panel {
+          padding: 16px;
+          border-radius: 22px;
+        }
+
+        .card-face {
+          padding: 22px;
+        }
+
+        .rating-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="masthead">
+        <span class="eyebrow">Lantern Demo Deck</span>
+        <div class="hero-row">
+          <div class="hero-copy">
+            <h1 data-test="app-title">Quick Study</h1>
+            <p id="instructions">
+              Flip each card, check the answer, and work until every card has
+              cleared the tray at least once.
+            </p>
+          </div>
+          <div class="launch-chip" id="launch-chip">Learner study session</div>
+        </div>
+      </header>
+
+      <main class="study-grid">
+        <section class="card-stage">
+          <div class="stage-top">
+            <div>
+              <p class="section-label" id="deck-label">Desk Deck 01</p>
+              <h2 id="card-counter">6 cards in the tray</h2>
+            </div>
+            <div
+              class="status-pill"
+              id="status-pill"
+              data-tone="neutral"
+              role="status"
+            >
+              Flip the first card
+            </div>
+          </div>
+
+          <button
+            class="card-shell"
+            id="card-shell"
+            type="button"
+            data-revealed="false"
+          >
+            <div class="card-stack">
+              <div class="card-face card-front">
+                <div class="card-main">
+                  <span class="card-kicker">Prompt</span>
+                  <strong data-test="card-front" id="card-front">
+                    What structure controls what enters and leaves a cell?
+                  </strong>
+                  <span class="card-hint" id="card-hint">
+                    Hint: Think transport, not storage.
+                  </span>
+                </div>
+                <div class="card-tags" id="card-tags"></div>
+              </div>
+              <div class="card-face card-back">
+                <div class="card-main">
+                  <span class="card-kicker">Answer</span>
+                  <strong data-test="card-back" id="card-back">
+                    The cell membrane acts as the selectively permeable
+                    boundary.
+                  </strong>
+                  <span class="card-hint" id="answer-note">
+                    Mark how the recall felt, then move to the next card.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </button>
+
+          <div class="controls">
+            <button
+              class="primary-button"
+              id="reveal-button"
+              type="button"
+              data-test="reveal-button"
+            >
+              Reveal answer
+            </button>
+            <div class="rating-row">
+              <button
+                class="ghost-button"
+                id="again-button"
+                type="button"
+                disabled
+              >
+                Again
+              </button>
+              <button
+                class="ghost-button"
+                id="almost-button"
+                type="button"
+                disabled
+              >
+                Almost
+              </button>
+              <button
+                class="ghost-button"
+                id="got-it-button"
+                type="button"
+                disabled
+              >
+                Got it
+              </button>
+            </div>
+            <p class="footer-note" id="footer-note">
+              Flip the card, then choose how it felt.
+            </p>
+          </div>
+        </section>
+
+        <aside class="rail">
+          <section class="rail-panel">
+            <p class="section-label">Session</p>
+            <div class="metric-strip" data-test="deck-progress">
+              <div class="metric-row">
+                <span>Streak</span>
+                <strong id="streak-value">0</strong>
+              </div>
+              <div class="metric-row">
+                <span>Cleared</span>
+                <strong id="mastered-value">0</strong>
+              </div>
+              <div class="metric-row">
+                <span>Still in tray</span>
+                <strong id="remaining-value">6</strong>
+              </div>
+            </div>
+            <div class="progress-track">
+              <span id="progress-fill"></span>
+            </div>
+            <p class="progress-copy" id="progress-copy">
+              0 of 6 cards cleared this round
+            </p>
+          </section>
+
+          <section class="rail-panel">
+            <p class="section-label">Deck Memory</p>
+            <div class="stat-line">
+              <span>Sessions logged</span>
+              <strong id="sessions-value">0</strong>
+            </div>
+            <div class="stat-line">
+              <span>Total reviews</span>
+              <strong id="reviews-value">0</strong>
+            </div>
+            <div class="stat-line">
+              <span>Best streak</span>
+              <strong id="best-streak-value">0</strong>
+            </div>
+            <p class="ledger-note" id="ledger-note">
+              Lantern can keep local deck memory between launches.
+            </p>
+          </section>
+
+          <section class="rail-panel">
+            <p class="section-label">Round Recap</p>
+            <div class="recap-grid">
+              <div class="recap-tile">
+                <span>Again</span>
+                <strong id="again-count">0</strong>
+              </div>
+              <div class="recap-tile">
+                <span>Almost</span>
+                <strong id="almost-count">0</strong>
+              </div>
+              <div class="recap-tile">
+                <span>Got it</span>
+                <strong id="got-it-count">0</strong>
+              </div>
+            </div>
+          </section>
+
+          <button
+            class="complete-button"
+            id="complete-button"
+            type="button"
+            data-test="complete-button"
+            disabled
+          >
+            Log study session
+          </button>
+        </aside>
+      </main>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

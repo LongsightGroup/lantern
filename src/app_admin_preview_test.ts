@@ -241,6 +241,7 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview launches commit
           reviewedAt: "2026-04-05T14:05:00Z",
           grading: {
             mode: "completion",
+            rubricFile: null,
             maxScore: 100,
           },
           manifestJson: {

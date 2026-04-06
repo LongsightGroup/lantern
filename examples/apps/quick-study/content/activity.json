@@ -1,0 +1,50 @@
+{
+  "title": "Quick Study",
+  "subject": "Cell Biology Warm-Up",
+  "deck_label": "Desk Deck 01",
+  "instructions": "Flip each card, check the answer, and work until every card has cleared the tray at least once.",
+  "cards": [
+    {
+      "id": "card-1",
+      "front": "What structure controls what enters and leaves a cell?",
+      "back": "The cell membrane acts as the selectively permeable boundary.",
+      "hint": "Think transport, not storage.",
+      "tags": ["cells", "structure"]
+    },
+    {
+      "id": "card-2",
+      "front": "What organelle is often called the cell's energy factory?",
+      "back": "Mitochondria release usable energy from food molecules.",
+      "hint": "It is the powerhouse answer.",
+      "tags": ["cells", "energy"]
+    },
+    {
+      "id": "card-3",
+      "front": "What molecule stores genetic instructions?",
+      "back": "DNA stores the hereditary information used by the cell.",
+      "hint": "It is not RNA for this one.",
+      "tags": ["genetics"]
+    },
+    {
+      "id": "card-4",
+      "front": "What structure assembles proteins?",
+      "back": "Ribosomes read RNA instructions and assemble proteins.",
+      "hint": "They can float freely or attach to rough ER.",
+      "tags": ["proteins", "organelles"]
+    },
+    {
+      "id": "card-5",
+      "front": "What process moves water across a selectively permeable membrane?",
+      "back": "Osmosis is the diffusion of water across the membrane.",
+      "hint": "It is a water-specific transport word.",
+      "tags": ["transport"]
+    },
+    {
+      "id": "card-6",
+      "front": "What organelle packages and ships proteins?",
+      "back": "The Golgi apparatus modifies, packages, and ships proteins.",
+      "hint": "It works like the cell's mailroom.",
+      "tags": ["organelles", "transport"]
+    }
+  ]
+}
