@@ -2,6 +2,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import {
   EXAMPLE_SNAPSHOT_ROOT,
+  getReferenceAppSnapshotRoot,
   withRuntimeOriginEnv,
 } from "./app_test_support.ts";
 import {
@@ -221,6 +222,71 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview writes durable 
     );
     assertEquals(previewEvidence.length, 1);
     assertEquals(previewEvidence[0]?.eventType, "preview.launch");
+  });
+});
+
+Deno.test("POST /admin/packages/:appId/versions/:version/preview launches committed quick-study through Lantern's governed runtime path", async () => {
+  await withRuntimeOriginEnv(async () => {
+    const snapshotRoot = getReferenceAppSnapshotRoot("quick-study");
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 46,
+          appId: "quick-study",
+          version: "0.1.0",
+          title: "Quick Study",
+          description:
+            "A calm flashcard deck that turns short review sessions into a streak-driven study ritual.",
+          approvalStatus: "approved",
+          reviewedAt: "2026-04-05T14:05:00Z",
+          grading: {
+            mode: "completion",
+            maxScore: 100,
+          },
+          manifestJson: {
+            app_id: "quick-study",
+            version: "0.1.0",
+            title: "Quick Study",
+            preview: {
+              fixtures_file: "/preview/fixtures.json",
+              tests_file: "/preview/tests.json",
+            },
+          },
+          artifact: {
+            snapshotRoot,
+            manifestPath: `${snapshotRoot}/manifest.json`,
+            entrypointPath: `${snapshotRoot}/dist/index.html`,
+            digest: "sha256:quick-study-approved-preview",
+          },
+        }),
+      ],
+    });
+    const app = createApp({ getRepository: () => repository });
+    const formData = new FormData();
+    formData.set("userRole", "learner");
+    formData.set("courseId", "course_demo");
+    formData.set("assignmentId", "assignment_demo");
+    formData.set("activityId", "quick-study");
+
+    const response = await app.request(
+      "https://lantern.example/admin/packages/quick-study/versions/0.1.0/preview",
+      {
+        method: "POST",
+        headers: { Origin: "https://lantern.example" },
+        body: formData,
+      },
+    );
+
+    assertEquals(response.status, 303);
+    const runtimeLocation = new URL(response.headers.get("location") ?? "");
+    const sessionId = runtimeLocation.pathname.split("/").at(-1) ?? "";
+    const session = await repository.getRuntimeSessionById(sessionId);
+
+    assertEquals(session?.deploymentSlug, "quick-study-preview");
+    assertEquals(session?.appId, "quick-study");
+    assertEquals(session?.contentPath, `${snapshotRoot}/content/activity.json`);
+    assertEquals(session?.launch.userRole, "learner");
+    assertEquals(session?.launch.activityId, "quick-study");
   });
 });
 

@@ -11,6 +11,10 @@ import {
   buildSignedReviewedRuntimeContract,
   verifyReviewedRuntimeContractSignature,
 } from "./runtime_contract.ts";
+import {
+  getReferencePackageSourceRoot,
+  listReferencePackageIds,
+} from "./intake.ts";
 
 type ManifestFixture = {
   schema_version: string;
@@ -216,6 +220,34 @@ Deno.test("reviewed runtime contracts fail closed when the approved artifact, ca
     Error,
     "Runtime contract integrity check failed.",
   );
+});
+
+Deno.test("validateManifest accepts each curated reference app manifest and keeps the governed contract narrow", async () => {
+  for (const appId of listReferencePackageIds()) {
+    const result = await validateManifest({
+      sourceRoot: getReferencePackageSourceRoot(appId),
+    });
+
+    assertEquals(result.ok, true);
+
+    if (!result.ok) {
+      throw new Error(
+        `Expected curated reference package ${appId} to validate: ${
+          JSON.stringify(result.issues)
+        }`,
+      );
+    }
+
+    assertEquals(result.reviewData.appId, appId);
+    assertEquals(
+      result.reviewData.capabilities.includes("finalize_attempt"),
+      true,
+    );
+    assertEquals(
+      result.reviewData.capabilities.includes("read_activity_content"),
+      true,
+    );
+  }
 });
 
 Deno.test("validateManifest maps schema failures into a plain-language fix list", async () => {

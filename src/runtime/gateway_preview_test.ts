@@ -9,7 +9,10 @@ import {
   buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from "../test_helpers/package_review.ts";
-import { withFetchStub } from "./gateway_test_helpers.ts";
+import {
+  getReferenceAppSnapshotRoot,
+  withFetchStub,
+} from "./gateway_test_helpers.ts";
 
 Deno.test("preview gateway finalize returns fake scoring and never calls Canvas side-effect services", async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -141,6 +144,107 @@ Deno.test("preview gateway enforces declared capabilities and records bounded bl
   );
   assertEquals(evidence.length, 1);
   assertEquals(evidence[0]?.eventType, "preview.attempt_event.blocked");
+  assertEquals(evidence[0]?.capability, "submit_attempt_event");
+});
+
+Deno.test("preview gateway records allowed quick-study attempt events through the governed runtime seam", async () => {
+  const snapshotRoot = getReferenceAppSnapshotRoot("quick-study");
+  const repository = createInMemoryPackageReviewRepository({
+    previewSessions: [
+      buildPreviewSessionRecord({
+        sessionId: "preview-session-quick-study-allowed",
+        appId: "quick-study",
+        packageTitle: "Quick Study",
+        capabilities: [
+          "read_launch_context",
+          "read_activity_content",
+          "submit_attempt_event",
+          "read_local_state",
+          "write_local_state",
+          "finalize_attempt",
+        ],
+        snapshotRoot,
+        entrypointPath: `${snapshotRoot}/dist/index.html`,
+        contentPath: "/content/activity.json",
+        launch: {
+          userId: "preview-user-quick-study",
+          userRole: "learner",
+          courseId: "course_demo",
+          assignmentId: "assignment_demo",
+          activityId: "quick-study",
+        },
+        fixtureData: {
+          launch: {
+            user_role: "learner",
+            course_id: "course_demo",
+            assignment_id: "assignment_demo",
+            activity_id: "quick-study",
+          },
+          attempt_id: "attempt_demo_2",
+          local_state: null,
+        },
+      }),
+    ],
+    attempts: [
+      buildAttemptRecord({
+        attemptId: "preview-attempt-123",
+        deploymentRecordId: 0,
+        deploymentSlug: "quick-study-preview",
+        appId: "quick-study",
+        activityId: "quick-study",
+      }),
+    ],
+  });
+  const session = buildRuntimeSessionRecord({
+    attemptId: "preview-attempt-123",
+    deploymentRecordId: 0,
+    deploymentSlug: "quick-study-preview",
+    appId: "quick-study",
+    snapshotRoot,
+    entrypointPath: `${snapshotRoot}/dist/index.html`,
+    contentPath: `${snapshotRoot}/content/activity.json`,
+    capabilities: [
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "read_local_state",
+      "write_local_state",
+      "finalize_attempt",
+    ],
+    services: {
+      ags: null,
+      nrps: null,
+    },
+    launch: {
+      userRole: "learner",
+      courseId: "course_demo",
+      assignmentId: "assignment_demo",
+      activityId: "quick-study",
+    },
+    preview: {
+      previewSessionId: "preview-session-quick-study-allowed",
+    },
+  });
+
+  const appended = await acceptAttemptEvent({
+    repository,
+    session,
+    payload: {
+      type: "progress",
+      checkpoint: "card-1",
+      value: 1,
+      timestamp: "2026-04-05T14:10:00Z",
+    },
+    now: () => new Date("2026-04-05T14:10:01Z"),
+  });
+
+  assertEquals(appended.eventType, "progress");
+  assertEquals((await repository.listAttemptEvents("preview-attempt-123")).length, 1);
+  const evidence = await repository.listPreviewEvidence(
+    "preview-session-quick-study-allowed",
+  );
+  assertEquals(evidence.length, 1);
+  assertEquals(evidence[0]?.eventType, "preview.attempt_event");
   assertEquals(evidence[0]?.capability, "submit_attempt_event");
 });
 

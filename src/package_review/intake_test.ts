@@ -1,6 +1,11 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
-import { importDemoPackage } from "./intake.ts";
+import {
+  getReferencePackageSourceRoot,
+  importDemoPackage,
+  importReferencePackage,
+  listReferencePackageIds,
+} from "./intake.ts";
 import { verifyReviewedRuntimeContractSignature } from "./runtime_contract.ts";
 
 async function withToolSigningEnv(run: () => Promise<void>): Promise<void> {
@@ -102,6 +107,51 @@ Deno.test("importDemoPackage refuses to overwrite an existing immutable snapshot
         Error,
         "Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.",
       );
+    } finally {
+      await Deno.remove(storageRoot, { recursive: true });
+    }
+  });
+});
+
+Deno.test("importReferencePackage snapshots each curated reference app into Lantern-managed storage", async () => {
+  await withToolSigningEnv(async () => {
+    const storageRoot = await Deno.makeTempDir({ prefix: "lantern-storage-" });
+
+    try {
+      for (const appId of listReferencePackageIds()) {
+        const result = await importReferencePackage({
+          appId,
+          storageRoot,
+        });
+        const sourceRoot = getReferencePackageSourceRoot(appId);
+
+        assertEquals(result.reviewData.appId, appId);
+        assert(
+          result.artifact.snapshotRoot.startsWith(
+            `${storageRoot}/${appId}/${result.reviewData.version}`,
+          ),
+        );
+        assert(!result.artifact.snapshotRoot.startsWith(sourceRoot));
+        assertEquals(result.runtimeContract.appId, appId);
+        assertEquals(
+          result.runtimeContract.packageVersion,
+          result.reviewData.version,
+        );
+
+        await verifyReviewedRuntimeContractSignature({
+          runtimeContract: result.runtimeContract,
+          runtimeContractSignature: result.runtimeContractSignature,
+        });
+
+        const sourceManifest = await Deno.readTextFile(
+          `${sourceRoot}/manifest.json`,
+        );
+        const snapshotManifest = await Deno.readTextFile(
+          result.artifact.manifestPath,
+        );
+
+        assertEquals(snapshotManifest, sourceManifest);
+      }
     } finally {
       await Deno.remove(storageRoot, { recursive: true });
     }

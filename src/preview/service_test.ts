@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from "@std/assert";
+import { getReferencePackageSourceRoot } from "../package_review/intake.ts";
 import { buildPackageVersionRecord } from "../test_helpers/package_review.ts";
 import { createInMemoryPackageReviewRepository } from "../test_helpers/package_review.ts";
 import {
@@ -421,6 +422,51 @@ Deno.test("preview runtime sessions from admin and authoring origins both keep l
   } finally {
     await Deno.remove(snapshotRoot, { recursive: true });
   }
+});
+
+Deno.test("preview service reads committed quick-study fixtures without inventing a second preview path", async () => {
+  const snapshotRoot = getReferencePackageSourceRoot("quick-study");
+  const approvedPackage = buildPackageVersionRecord({
+    id: 18,
+    appId: "quick-study",
+    version: "0.1.0",
+    title: "Quick Study",
+    description:
+      "A calm flashcard deck that turns short review sessions into a streak-driven study ritual.",
+    approvalStatus: "approved",
+    grading: {
+      mode: "completion",
+      maxScore: 100,
+    },
+    manifestJson: {
+      app_id: "quick-study",
+      version: "0.1.0",
+      title: "Quick Study",
+      preview: {
+        fixtures_file: "/preview/fixtures.json",
+        tests_file: "/preview/tests.json",
+      },
+      content_files: ["/content/activity.json"],
+    },
+    artifact: {
+      snapshotRoot,
+      manifestPath: `${snapshotRoot}/manifest.json`,
+      entrypointPath: `${snapshotRoot}/dist/index.html`,
+      digest: "sha256:quick-study-preview-fixtures",
+    },
+  });
+
+  const prepared = await preparePreviewSession({
+    packageVersion: approvedPackage,
+    now: () => new Date("2026-04-05T14:00:00Z"),
+    createOpaqueToken: () => "quick-study-preview",
+  });
+
+  assertEquals(prepared.appId, "quick-study");
+  assertEquals(prepared.contentPath, "/content/activity.json");
+  assertEquals(prepared.launch.courseId, "course_demo");
+  assertEquals(prepared.launch.activityId, "quick-study");
+  assertEquals(prepared.fixtureData.attempt_id, "attempt_demo_2");
 });
 
 async function writePreviewManifest(
