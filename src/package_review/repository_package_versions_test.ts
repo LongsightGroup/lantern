@@ -60,21 +60,57 @@ Deno.test("repository records one-way approval and rejection decisions with opti
       await buildImportedPackageVersion({ version: "0.2.0" }),
     );
 
+    const accessibilityReview = {
+      keyboard: "pass",
+      focusVisible: "pass",
+      focusNotObscured: "pass",
+      structure: "pass",
+      contrast: "pass",
+      reducedMotion: "fail",
+      equivalentAlternatives: "not_applicable",
+      failureNotes: "Reduced-motion toggle is still missing on animated scenes.",
+      exceptionNote: "Pilot exception approved for instructor-led use only.",
+    };
+
     const approved = await repository.approvePackageVersion({
       id: approvalCandidate.id,
       reviewNotes: "Ready for the pilot deployment.",
-    });
+      accessibilityReview,
+    } as Parameters<typeof repository.approvePackageVersion>[0]);
     const rejected = await repository.rejectPackageVersion({
       id: rejectionCandidate.id,
       reviewNotes: null,
-    });
+      accessibilityReview,
+    } as Parameters<typeof repository.rejectPackageVersion>[0]);
+    const persistedApproved = await repository.getPackageVersionById(
+      approvalCandidate.id,
+    );
+    const persistedRejected = await repository.getPackageVersionById(
+      rejectionCandidate.id,
+    );
 
     assertEquals(approved.approvalStatus, "approved");
     assertEquals(approved.reviewNotes, "Ready for the pilot deployment.");
+    assertEquals(
+      Reflect.get(approved, "accessibilityReview"),
+      accessibilityReview,
+    );
     assert(approved.reviewedAt !== null);
     assertEquals(rejected.approvalStatus, "rejected");
     assertEquals(rejected.reviewNotes, null);
+    assertEquals(
+      Reflect.get(rejected, "accessibilityReview"),
+      accessibilityReview,
+    );
     assert(rejected.reviewedAt !== null);
+    assertEquals(
+      persistedApproved && Reflect.get(persistedApproved, "accessibilityReview"),
+      accessibilityReview,
+    );
+    assertEquals(
+      persistedRejected && Reflect.get(persistedRejected, "accessibilityReview"),
+      accessibilityReview,
+    );
 
     await assertRejects(
       () =>

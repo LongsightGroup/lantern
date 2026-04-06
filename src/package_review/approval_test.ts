@@ -2,7 +2,7 @@ import { assertEquals, assertStringIncludes } from "@std/assert";
 import { renderPackageDetailPage } from "../admin/package_detail.ts";
 import { buildPackageVersionRecord } from "../test_helpers/package_review.ts";
 
-Deno.test("renderPackageDetailPage includes approve and reject controls for pending versions", () => {
+Deno.test("renderPackageDetailPage includes approve, reject, and structured accessibility controls for pending versions", () => {
   const pendingVersion = buildPackageVersionRecord();
   const body = renderPackageDetailPage({
     packageVersion: pendingVersion,
@@ -13,6 +13,20 @@ Deno.test("renderPackageDetailPage includes approve and reject controls for pend
   assertStringIncludes(body, "/admin/packages/1/approve");
   assertStringIncludes(body, "/admin/packages/1/reject");
   assertStringIncludes(body, "Review notes (optional)");
+  assertStringIncludes(body, "Keyboard use");
+  assertStringIncludes(body, "Focus visibility");
+  assertStringIncludes(body, "Focus not obscured");
+  assertStringIncludes(body, "Structure and semantics");
+  assertStringIncludes(body, "Contrast");
+  assertStringIncludes(body, "Reduced motion");
+  assertStringIncludes(body, "Equivalent interaction alternatives");
+  assertStringIncludes(body, 'name="accessibilityKeyboard"');
+  assertStringIncludes(body, 'name="accessibilityFocusVisible"');
+  assertStringIncludes(body, 'name="accessibilityFocusNotObscured"');
+  assertStringIncludes(body, 'name="accessibilityStructure"');
+  assertStringIncludes(body, 'name="accessibilityContrast"');
+  assertStringIncludes(body, 'name="accessibilityReducedMotion"');
+  assertStringIncludes(body, 'name="accessibilityEquivalentAlternatives"');
 });
 
 Deno.test("renderPackageDetailPage shows immutable decision history after review", () => {

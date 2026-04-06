@@ -48,3 +48,21 @@ Deno.test("renderPackageDetailPage explains the approval decision for higher-acc
   assertStringIncludes(body, "Ready for the pilot deployment.");
   assertEquals(body.includes("/admin/packages/1/approve"), false);
 });
+
+Deno.test("renderPackageDetailPage keeps older reviewed versions explicit when structured accessibility evidence is missing", () => {
+  const reviewedVersion = buildPackageVersionRecord({
+    approvalStatus: "approved",
+    reviewNotes: "Approved before the accessibility checklist existed.",
+    reviewedAt: "2026-03-23T18:05:00Z",
+  });
+  const body = renderPackageDetailPage({
+    packageVersion: reviewedVersion,
+    history: [reviewedVersion],
+  });
+
+  assertStringIncludes(body, "Accessibility review missing");
+  assertStringIncludes(
+    body,
+    "This version was reviewed before Lantern required structured accessibility evidence.",
+  );
+});

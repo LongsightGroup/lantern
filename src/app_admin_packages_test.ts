@@ -1,4 +1,4 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
 import {
   buildBrokerVerificationStatus,
@@ -157,6 +157,21 @@ Deno.test("POST /admin/packages/:id/approve records notes and keeps status visib
   const formData = new FormData();
 
   formData.set("reviewNotes", "Ready for the pilot deployment.");
+  formData.set("accessibilityKeyboard", "pass");
+  formData.set("accessibilityFocusVisible", "pass");
+  formData.set("accessibilityFocusNotObscured", "pass");
+  formData.set("accessibilityStructure", "pass");
+  formData.set("accessibilityContrast", "pass");
+  formData.set("accessibilityReducedMotion", "fail");
+  formData.set("accessibilityEquivalentAlternatives", "not_applicable");
+  formData.set(
+    "accessibilityFailureNotes",
+    "Reduced-motion toggle is still missing on animated scenes.",
+  );
+  formData.set(
+    "accessibilityExceptionNote",
+    "Pilot exception approved for instructor-led use only.",
+  );
 
   const response = await app.request(
     "http://localhost/admin/packages/7/approve",
@@ -174,8 +189,20 @@ Deno.test("POST /admin/packages/:id/approve records notes and keeps status visib
   );
 
   const saved = await repository.getPackageVersionById(7);
+  assert(saved);
   assertEquals(saved?.approvalStatus, "approved");
   assertEquals(saved?.reviewNotes, "Ready for the pilot deployment.");
+  assertEquals(Reflect.get(saved, "accessibilityReview"), {
+    keyboard: "pass",
+    focusVisible: "pass",
+    focusNotObscured: "pass",
+    structure: "pass",
+    contrast: "pass",
+    reducedMotion: "fail",
+    equivalentAlternatives: "not_applicable",
+    failureNotes: "Reduced-motion toggle is still missing on animated scenes.",
+    exceptionNote: "Pilot exception approved for instructor-led use only.",
+  });
   const auditEvents = await repository.listAuditEventsByEventType(
     "package.approved",
   );
