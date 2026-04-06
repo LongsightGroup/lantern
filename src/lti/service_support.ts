@@ -1,6 +1,6 @@
-import type { NrpsMembership } from "./service_memberships.ts";
+import type { NrpsMembership } from './service_memberships.ts';
 
-export const LTI_SERVICE_USER_AGENT = "Lantern-LTI-Service/1.0";
+export const LTI_SERVICE_USER_AGENT = 'Lantern-LTI-Service/1.0';
 
 export interface ParsedLineItem {
   lineItemUrl: string;
@@ -13,17 +13,14 @@ export interface ParsedLineItem {
 
 export function parseLineItemCollection(value: unknown): ParsedLineItem[] {
   if (!Array.isArray(value)) {
-    throw new TypeError("LTI line item lookup must return an array.");
+    throw new TypeError('LTI line item lookup must return an array.');
   }
 
   return value.map((item, index) => mapLineItem(item, index));
 }
 
 export function mapMembership(value: unknown, index: number): NrpsMembership {
-  const record = requireRecord(
-    value,
-    `Canvas NRPS member ${index} must be an object.`,
-  );
+  const record = requireRecord(value, `Canvas NRPS member ${index} must be an object.`);
   const userId = valueAsString(record.user_id);
   const name = valueAsString(record.name);
   const email = valueAsString(record.email);
@@ -33,9 +30,7 @@ export function mapMembership(value: unknown, index: number): NrpsMembership {
   return {
     userId: userId === null ? null : userId.trim(),
     roles: Array.isArray(rolesValue)
-      ? rolesValue.filter((role): role is string =>
-        typeof role === "string" && role.trim() !== ""
-      )
+      ? rolesValue.filter((role): role is string => typeof role === 'string' && role.trim() !== '')
       : [],
     status: status === null ? null : status.trim(),
     name: name === null ? null : name.trim(),
@@ -43,10 +38,7 @@ export function mapMembership(value: unknown, index: number): NrpsMembership {
   };
 }
 
-export async function readJsonResponse(
-  response: Response,
-  message: string,
-): Promise<unknown> {
+export async function readJsonResponse(response: Response, message: string): Promise<unknown> {
   if (!response.ok) {
     throw new Error(`${message} Status ${response.status}.`);
   }
@@ -54,18 +46,16 @@ export async function readJsonResponse(
   return await response.json();
 }
 
-export async function readMaybeJson(
-  response: Response,
-): Promise<Record<string, unknown> | null> {
+export async function readMaybeJson(response: Response): Promise<Record<string, unknown> | null> {
   const text = await response.text();
 
-  if (text.trim() === "") {
+  if (text.trim() === '') {
     return null;
   }
 
   const parsed = JSON.parse(text) as unknown;
 
-  return requireRecord(parsed, "LTI service response body must be an object.");
+  return requireRecord(parsed, 'LTI service response body must be an object.');
 }
 
 export function parseNextLink(headerValue: string | null): string | null {
@@ -73,7 +63,7 @@ export function parseNextLink(headerValue: string | null): string | null {
     return null;
   }
 
-  for (const part of headerValue.split(",")) {
+  for (const part of headerValue.split(',')) {
     const trimmed = part.trim();
 
     if (!trimmed.includes('rel="next"')) {
@@ -90,54 +80,44 @@ export function parseNextLink(headerValue: string | null): string | null {
   return null;
 }
 
-export function resolveCanvasTokenEndpoint(
-  authorizationEndpoint: string,
-): string {
+export function resolveCanvasTokenEndpoint(authorizationEndpoint: string): string {
   const url = new URL(authorizationEndpoint);
 
-  url.pathname = "/login/oauth2/token";
-  url.search = "";
+  url.pathname = '/login/oauth2/token';
+  url.search = '';
 
   return url.toString();
 }
 
 export function toLineItemsUrl(lineItemUrl: string): string {
   const url = new URL(lineItemUrl);
-  const segments = url.pathname.split("/").filter(Boolean);
+  const segments = url.pathname.split('/').filter(Boolean);
 
   if (segments.length < 2) {
-    throw new Error("Line item URL could not be resolved to a lineitems URL.");
+    throw new Error('Line item URL could not be resolved to a lineitems URL.');
   }
 
   segments.pop();
-  url.pathname = `/${segments.join("/")}`;
-  url.search = "";
+  url.pathname = `/${segments.join('/')}`;
+  url.search = '';
 
   return url.toString();
 }
 
 export function toScoresUrl(lineItemUrl: string): string {
-  return `${lineItemUrl.replace(/\/$/, "")}/scores`;
+  return `${lineItemUrl.replace(/\/$/, '')}/scores`;
 }
 
-export function requireTrimmedString(
-  value: string | null,
-  message: string,
-): string {
-  if (value === null || value.trim() === "") {
+export function requireTrimmedString(value: string | null, message: string): string {
+  if (value === null || value.trim() === '') {
     throw new Error(message);
   }
 
   return value.trim();
 }
 
-export function uniqueTrimmedStrings(
-  values: string[],
-  message: string,
-): string[] {
-  const uniqueValues = [
-    ...new Set(values.map((value) => value.trim()).filter(Boolean)),
-  ];
+export function uniqueTrimmedStrings(values: string[], message: string): string[] {
+  const uniqueValues = [...new Set(values.map((value) => value.trim()).filter(Boolean))];
 
   if (uniqueValues.length === 0) {
     throw new Error(message);
@@ -146,11 +126,9 @@ export function uniqueTrimmedStrings(
   return uniqueValues;
 }
 
-export function createServiceHeaders(
-  input: HeadersInit,
-): Headers {
+export function createServiceHeaders(input: HeadersInit): Headers {
   const headers = new Headers(input);
-  headers.set("user-agent", LTI_SERVICE_USER_AGENT);
+  headers.set('user-agent', LTI_SERVICE_USER_AGENT);
   return headers;
 }
 
@@ -169,10 +147,7 @@ export async function fetchWithUnauthorizedRetry(input: {
 }
 
 function mapLineItem(value: unknown, index: number): ParsedLineItem {
-  const record = requireRecord(
-    value,
-    `LTI line item ${index} must be an object.`,
-  );
+  const record = requireRecord(value, `LTI line item ${index} must be an object.`);
 
   return {
     lineItemUrl: requireTrimmedString(
@@ -190,11 +165,8 @@ function mapLineItem(value: unknown, index: number): ParsedLineItem {
   };
 }
 
-export function requireRecord(
-  value: unknown,
-  message: string,
-): Record<string, unknown> {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+export function requireRecord(value: unknown, message: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(message);
   }
 
@@ -202,7 +174,7 @@ export function requireRecord(
 }
 
 function requireNumber(value: unknown, message: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new TypeError(message);
   }
 
@@ -210,15 +182,15 @@ function requireNumber(value: unknown, message: string): number {
 }
 
 function valueAsString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
+  return typeof value === 'string' ? value : null;
 }
 
 function optionalTrimmedString(value: unknown): string | null {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null;
   }
 
   const trimmed = value.trim();
 
-  return trimmed === "" ? null : trimmed;
+  return trimmed === '' ? null : trimmed;
 }

@@ -1,33 +1,30 @@
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import type { InMemoryRepositoryState } from "./package_review_in_memory_shared.ts";
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import type { InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
 import {
   cloneRecord,
   nextId,
   reviewPackageVersion,
   sortPackageVersions,
-} from "./package_review_in_memory_shared.ts";
-import { buildPackageVersionRecord } from "./package_review_test_builder_base.ts";
+} from './package_review_in_memory_shared.ts';
+import { buildPackageVersionRecord } from './package_review_test_builder_base.ts';
 
 type VersionRepository = Pick<
   PackageReviewRepository,
-  | "registerPackageVersion"
-  | "listPackageVersions"
-  | "listPackageVersionsByApp"
-  | "getPackageVersionById"
-  | "getPackageVersionByAppVersion"
-  | "approvePackageVersion"
-  | "rejectPackageVersion"
+  | 'registerPackageVersion'
+  | 'listPackageVersions'
+  | 'listPackageVersionsByApp'
+  | 'getPackageVersionById'
+  | 'getPackageVersionByAppVersion'
+  | 'approvePackageVersion'
+  | 'rejectPackageVersion'
 >;
 
-export function createInMemoryVersionRepository(
-  state: InMemoryRepositoryState,
-): VersionRepository {
+export function createInMemoryVersionRepository(state: InMemoryRepositoryState): VersionRepository {
   return {
     registerPackageVersion(input) {
       const existing = state.packageVersions.find(
         (record) =>
-          record.appId === input.reviewData.appId &&
-          record.version === input.reviewData.version,
+          record.appId === input.reviewData.appId && record.version === input.reviewData.version,
       );
 
       if (existing) {
@@ -61,32 +58,25 @@ export function createInMemoryVersionRepository(
     },
 
     listPackageVersions() {
-      return Promise.resolve(
-        sortPackageVersions(state.packageVersions).map(cloneRecord),
-      );
+      return Promise.resolve(sortPackageVersions(state.packageVersions).map(cloneRecord));
     },
 
     listPackageVersionsByApp(appId) {
       return Promise.resolve(
-        sortPackageVersions(
-          state.packageVersions.filter((record) => record.appId === appId),
-        ).map(
+        sortPackageVersions(state.packageVersions.filter((record) => record.appId === appId)).map(
           cloneRecord,
         ),
       );
     },
 
     getPackageVersionById(id) {
-      const record = state.packageVersions.find((candidate) =>
-        candidate.id === id
-      );
+      const record = state.packageVersions.find((candidate) => candidate.id === id);
       return Promise.resolve(record ? cloneRecord(record) : null);
     },
 
     getPackageVersionByAppVersion(appId, version) {
       const record = state.packageVersions.find(
-        (candidate) =>
-          candidate.appId === appId && candidate.version === version,
+        (candidate) => candidate.appId === appId && candidate.version === version,
       );
       return Promise.resolve(record ? cloneRecord(record) : null);
     },
@@ -97,7 +87,7 @@ export function createInMemoryVersionRepository(
           reviewPackageVersion(
             state.packageVersions,
             input.id,
-            "approved",
+            'approved',
             input.reviewNotes,
             input.accessibilityReview,
           ),
@@ -111,7 +101,7 @@ export function createInMemoryVersionRepository(
           reviewPackageVersion(
             state.packageVersions,
             input.id,
-            "rejected",
+            'rejected',
             input.reviewNotes,
             input.accessibilityReview,
           ),

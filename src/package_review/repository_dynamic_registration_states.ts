@@ -1,20 +1,20 @@
-import type { Pool } from "@db/postgres";
-import { withClient, withTransaction } from "./repository_core.ts";
+import type { Pool } from '@db/postgres';
+import { withClient, withTransaction } from './repository_core.ts';
 import {
   mapDynamicRegistrationStateRow,
   mapOptionalDynamicRegistrationState,
-} from "./repository_mappers_package.ts";
-import type { DynamicRegistrationStateRow } from "./repository_row_types.ts";
-import { isUniqueViolation } from "./repository_value_support.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+} from './repository_mappers_package.ts';
+import type { DynamicRegistrationStateRow } from './repository_row_types.ts';
+import { isUniqueViolation } from './repository_value_support.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createDynamicRegistrationStateRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | "createDynamicRegistrationState"
-  | "getDynamicRegistrationStateByState"
-  | "consumeDynamicRegistrationState"
+  | 'createDynamicRegistrationState'
+  | 'getDynamicRegistrationStateByState'
+  | 'consumeDynamicRegistrationState'
 > {
   return {
     async createDynamicRegistrationState(record) {
@@ -88,11 +88,9 @@ export function createDynamicRegistrationStateRepositoryMethods(
       return await withClient(pool, async (client) => {
         return await withTransaction(
           client,
-          "consume_dynamic_registration_state",
+          'consume_dynamic_registration_state',
           async (transaction) => {
-            const updated = await transaction.queryObject<
-              DynamicRegistrationStateRow
-            >({
+            const updated = await transaction.queryObject<DynamicRegistrationStateRow>({
               text: `
                   UPDATE dynamic_registration_states
                   SET used_at = $2
@@ -116,9 +114,7 @@ export function createDynamicRegistrationStateRepositoryMethods(
               return mapDynamicRegistrationStateRow(consumed);
             }
 
-            const existing = await transaction.queryObject<
-              DynamicRegistrationStateRow
-            >({
+            const existing = await transaction.queryObject<DynamicRegistrationStateRow>({
               text: `
                   SELECT
                     state,
@@ -136,20 +132,14 @@ export function createDynamicRegistrationStateRepositoryMethods(
             const row = existing.rows[0];
 
             if (!row) {
-              throw new Error(
-                `Dynamic registration state ${input.state} was not found.`,
-              );
+              throw new Error(`Dynamic registration state ${input.state} was not found.`);
             }
 
             if (row.usedAt !== null) {
-              throw new Error(
-                `Dynamic registration state ${input.state} has already been used.`,
-              );
+              throw new Error(`Dynamic registration state ${input.state} has already been used.`);
             }
 
-            throw new Error(
-              `Dynamic registration state ${input.state} could not be consumed.`,
-            );
+            throw new Error(`Dynamic registration state ${input.state} could not be consumed.`);
           },
         );
       });

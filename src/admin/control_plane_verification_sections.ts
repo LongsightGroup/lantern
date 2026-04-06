@@ -2,25 +2,25 @@ import type {
   CertificationWorkflowKey,
   CertificationWorkflowStatus,
   ControlPlaneDeploymentInventoryRow,
-} from "../ops/types.ts";
+} from '../ops/types.ts';
 import {
   DEFAULT_LTI_PROFILE_ID,
   getLtiProfileDefinition,
   LTI_PROFILE_DEFINITIONS,
-} from "../lti/profile.ts";
+} from '../lti/profile.ts';
 import {
   BROKER_VERIFICATION_SUPPORTED_PATHS,
   describeSupportedPath,
-} from "../ops/broker_verification_paths.ts";
-import type { LanternLtiProfileSettingsRecord } from "../package_review/types.ts";
-import { escapeHtml, formatDateTime } from "./layout.ts";
+} from '../ops/broker_verification_paths.ts';
+import type { LanternLtiProfileSettingsRecord } from '../package_review/types.ts';
+import { escapeHtml, formatDateTime } from './layout.ts';
 import {
   buildDeploymentActivityHref,
   describeBrokerRunStatus,
   describeCertificationWorkflowShortLabel,
   describeOfficialCertificationState,
   type VerificationOfficialEvidenceDisplay,
-} from "./control_plane_support.ts";
+} from './control_plane_support.ts';
 
 interface CertificationChecklistItem {
   workflowKey: CertificationWorkflowKey;
@@ -28,10 +28,10 @@ interface CertificationChecklistItem {
 }
 
 const CERTIFICATION_CHECKLIST: readonly CertificationChecklistItem[] = [
-  { workflowKey: "core", label: "LTI Core" },
-  { workflowKey: "deepLinking", label: "Deep Linking" },
-  { workflowKey: "nrps", label: "NRPS" },
-  { workflowKey: "ags", label: "AGS" },
+  { workflowKey: 'core', label: 'LTI Core' },
+  { workflowKey: 'deepLinking', label: 'Deep Linking' },
+  { workflowKey: 'nrps', label: 'NRPS' },
+  { workflowKey: 'ags', label: 'AGS' },
 ] as const;
 
 export function renderBrokerVerificationSection(input: {
@@ -40,12 +40,7 @@ export function renderBrokerVerificationSection(input: {
   officialEvidence: VerificationOfficialEvidenceDisplay | null;
 }): string {
   const workflowStatuses = new Map(
-    input.certificationWorkflowStatuses.map((status) =>
-      [
-        status.workflowKey,
-        status,
-      ] as const
-    ),
+    input.certificationWorkflowStatuses.map((status) => [status.workflowKey, status] as const),
   );
 
   return `<section class="panel">
@@ -55,15 +50,13 @@ export function renderBrokerVerificationSection(input: {
           <h2>Certification checklist</h2>
           <p>Saved checks stay on this page, but each workflow keeps its own latest internal evidence.</p>
           <div class="table-list">
-            ${
-    CERTIFICATION_CHECKLIST.map((item) =>
-      renderCertificationChecklistRow({
-        item,
-        status: workflowStatuses.get(item.workflowKey) ?? null,
-        deployments: input.deployments,
-      })
-    ).join("")
-  }
+            ${CERTIFICATION_CHECKLIST.map((item) =>
+              renderCertificationChecklistRow({
+                item,
+                status: workflowStatuses.get(item.workflowKey) ?? null,
+                deployments: input.deployments,
+              }),
+            ).join('')}
           </div>
         </div>
         ${renderOfficialEvidenceSection(input.officialEvidence)}
@@ -110,12 +103,10 @@ export function renderLtiProfileSettingsSection(
             <p class="micro muted">An individual LMS setup can inherit this default or save one explicit profile on the app settings page.</p>
           </div>
           ${
-    settings?.updatedAt
-      ? `<p class="micro muted">Saved ${
-        escapeHtml(formatDateTime(settings.updatedAt))
-      }</p>`
-      : ""
-  }
+            settings?.updatedAt
+              ? `<p class="micro muted">Saved ${escapeHtml(formatDateTime(settings.updatedAt))}</p>`
+              : ''
+          }
         </div>
         ${renderLtiProfileSettingsForm(currentProfile.id)}
       </div>
@@ -131,55 +122,45 @@ function renderOfficialEvidenceSection(
       <p>Only the 1EdTech Product Directory supports an official certification claim.</p>
       <div class="fact">
         <span class="fact-label">Product Directory status</span>
-        <span class="fact-value">${
-    escapeHtml(
-      officialEvidence === null
-        ? "No official claim recorded"
-        : describeOfficialCertificationState(officialEvidence.state),
-    )
-  }</span>
+        <span class="fact-value">${escapeHtml(
+          officialEvidence === null
+            ? 'No official claim recorded'
+            : describeOfficialCertificationState(officialEvidence.state),
+        )}</span>
       </div>
       ${
-    officialEvidence?.workflowLabel
-      ? `<div class="fact">
+        officialEvidence?.workflowLabel
+          ? `<div class="fact">
             <span class="fact-label">Covers workflow</span>
-            <span class="fact-value">${
-        escapeHtml(officialEvidence.workflowLabel)
-      }</span>
+            <span class="fact-value">${escapeHtml(officialEvidence.workflowLabel)}</span>
           </div>`
-      : ""
-  }
+          : ''
+      }
       <div class="fact">
         <span class="fact-label">Latest official evidence</span>
-        <span class="fact-value">${
-    escapeHtml(
-      officialEvidence?.summary ??
-        "Lantern has no recorded 1EdTech Product Directory evidence yet.",
-    )
-  }</span>
-        <p class="micro muted">${
-    escapeHtml(
-      officialEvidence === null
-        ? "Checked at Not recorded yet"
-        : `Checked ${formatDateTime(officialEvidence.checkedAt)}`,
-    )
-  }</p>
+        <span class="fact-value">${escapeHtml(
+          officialEvidence?.summary ??
+            'Lantern has no recorded 1EdTech Product Directory evidence yet.',
+        )}</span>
+        <p class="micro muted">${escapeHtml(
+          officialEvidence === null
+            ? 'Checked at Not recorded yet'
+            : `Checked ${formatDateTime(officialEvidence.checkedAt)}`,
+        )}</p>
       </div>
       ${
-    officialEvidence?.directoryUrl
-      ? `<div class="button-row">
-              <a class="button-ghost" href="${
-        escapeHtml(officialEvidence.directoryUrl)
-      }">Open directory entry</a>
+        officialEvidence?.directoryUrl
+          ? `<div class="button-row">
+              <a class="button-ghost" href="${escapeHtml(
+                officialEvidence.directoryUrl,
+              )}">Open directory entry</a>
             </div>`
-      : ""
-  }
+          : ''
+      }
     </section>`;
 }
 
-function renderBrokerVerificationForm(
-  deployments: ControlPlaneDeploymentInventoryRow[],
-): string {
+function renderBrokerVerificationForm(deployments: ControlPlaneDeploymentInventoryRow[]): string {
   return `<form method="post" action="/admin/verification" class="stack">
     <div class="field">
       <label for="verification-source">Result source</label>
@@ -193,44 +174,34 @@ function renderBrokerVerificationForm(
       <label for="verification-deployment-record-id">App setup</label>
       <select id="verification-deployment-record-id" name="deploymentRecordId">
         <option value="">No deployment selected</option>
-        ${
-    deployments
-      .map(
-        (deployment) =>
-          `<option value="${deployment.deploymentId}">${
-            escapeHtml(
-              deployment.deploymentLabel,
-            )
-          }</option>`,
-      )
-      .join("")
-  }
+        ${deployments
+          .map(
+            (deployment) =>
+              `<option value="${deployment.deploymentId}">${escapeHtml(
+                deployment.deploymentLabel,
+              )}</option>`,
+          )
+          .join('')}
       </select>
       <p class="field-hint">Leave this blank only for an official 1EdTech listing.</p>
     </div>
     <div class="field">
       <label for="verification-scope">Compatibility profile</label>
       <select id="verification-scope" name="scope">
-        ${
-    BROKER_VERIFICATION_SUPPORTED_PATHS.map(
-      (supportedPath) =>
-        `<option value="${supportedPath}">${
-          escapeHtml(
-            describeSupportedPath(supportedPath),
-          )
-        }</option>`,
-    ).join("")
-  }
+        ${BROKER_VERIFICATION_SUPPORTED_PATHS.map(
+          (supportedPath) =>
+            `<option value="${supportedPath}">${escapeHtml(
+              describeSupportedPath(supportedPath),
+            )}</option>`,
+        ).join('')}
       </select>
     </div>
     <div class="field">
       <label for="verification-workflow-key">Certification workflow</label>
       <select id="verification-workflow-key" name="workflowKey">
-        ${
-    CERTIFICATION_CHECKLIST.map((item) =>
-      `<option value="${item.workflowKey}">${escapeHtml(item.label)}</option>`
-    ).join("")
-  }
+        ${CERTIFICATION_CHECKLIST.map(
+          (item) => `<option value="${item.workflowKey}">${escapeHtml(item.label)}</option>`,
+        ).join('')}
       </select>
       <p class="field-hint">Save each result against exactly one workflow. A passed AGS row does not also cover NRPS, Core, or Deep Linking.</p>
     </div>
@@ -283,22 +254,21 @@ function renderLtiProfileSettingsForm(currentProfileId: string): string {
     <div class="field">
       <span>LTI profile</span>
       <div class="detail-stack">
-        ${
-    LTI_PROFILE_DEFINITIONS.map((profile) =>
-      `<label class="choice-row">
+        ${LTI_PROFILE_DEFINITIONS.map(
+          (profile) =>
+            `<label class="choice-row">
             <input
               type="radio"
               name="defaultLtiProfile"
               value="${escapeHtml(profile.id)}"
-              ${profile.id === currentProfileId ? "checked" : ""}
+              ${profile.id === currentProfileId ? 'checked' : ''}
             >
             <span>
               <strong>${escapeHtml(profile.label)}</strong>
               <span class="micro muted">${escapeHtml(profile.summary)}</span>
             </span>
-          </label>`
-    ).join("")
-  }
+          </label>`,
+        ).join('')}
       </div>
       <p class="field-hint">This is the saved Lantern-wide default. Deployment pages can still choose “Use Lantern default” or save one explicit override.</p>
     </div>
@@ -318,22 +288,18 @@ function renderCertificationChecklistRow(input: {
     input.deployments,
     internal?.deploymentRecordId ?? null,
   );
-  const guidance = resolveWorkflowGuidance(
-    input.item.workflowKey,
-    guidanceDeployment,
-  );
-  const statusLabel = internal === null
-    ? "Not recorded"
-    : describeBrokerRunStatus(internal.status);
-  const checkedAt = internal === null
-    ? "Checked at Not recorded yet"
-    : `Checked ${formatDateTime(internal.checkedAt)}`;
-  const summary = internal?.summary ??
-    `No internal evidence has been recorded for ${
-      describeCertificationWorkflowShortLabel(input.item.workflowKey)
-    } yet.`;
-  const evidenceSetup = internal?.deploymentLabel ??
-    "No internal evidence recorded";
+  const guidance = resolveWorkflowGuidance(input.item.workflowKey, guidanceDeployment);
+  const statusLabel = internal === null ? 'Not recorded' : describeBrokerRunStatus(internal.status);
+  const checkedAt =
+    internal === null
+      ? 'Checked at Not recorded yet'
+      : `Checked ${formatDateTime(internal.checkedAt)}`;
+  const summary =
+    internal?.summary ??
+    `No internal evidence has been recorded for ${describeCertificationWorkflowShortLabel(
+      input.item.workflowKey,
+    )} yet.`;
+  const evidenceSetup = internal?.deploymentLabel ?? 'No internal evidence recorded';
 
   return `<article class="table-row">
       <div class="table-row-top">
@@ -344,30 +310,26 @@ function renderCertificationChecklistRow(input: {
         <p class="micro muted">${escapeHtml(checkedAt)}</p>
       </div>
       <p class="line-copy">${escapeHtml(summary)}</p>
-      <p class="micro muted">${
-    escapeHtml(describeWorkflowBoundaryNote(input.item.workflowKey))
-  }</p>
+      <p class="micro muted">${escapeHtml(describeWorkflowBoundaryNote(input.item.workflowKey))}</p>
       <div class="table-row-meta">
-        <span><strong>Latest internal evidence:</strong> ${
-    escapeHtml(evidenceSetup)
-  }</span>
+        <span><strong>Latest internal evidence:</strong> ${escapeHtml(evidenceSetup)}</span>
         <span><strong>Run guidance:</strong> ${escapeHtml(guidance.copy)}</span>
       </div>
       <div class="button-row">
         ${
-    internal?.evidenceUrl
-      ? `<a class="button-ghost" href="${
-        escapeHtml(internal.evidenceUrl)
-      }">Open internal evidence</a>`
-      : ""
-  }
+          internal?.evidenceUrl
+            ? `<a class="button-ghost" href="${escapeHtml(
+                internal.evidenceUrl,
+              )}">Open internal evidence</a>`
+            : ''
+        }
         ${
-    guidance.href
-      ? `<a class="button-secondary" href="${escapeHtml(guidance.href)}">${
-        escapeHtml(guidance.label)
-      }</a>`
-      : ""
-  }
+          guidance.href
+            ? `<a class="button-secondary" href="${escapeHtml(guidance.href)}">${escapeHtml(
+                guidance.label,
+              )}</a>`
+            : ''
+        }
       </div>
     </article>`;
 }
@@ -377,8 +339,8 @@ function resolveGuidanceDeployment(
   deploymentRecordId: number | null,
 ): ControlPlaneDeploymentInventoryRow | null {
   if (deploymentRecordId !== null) {
-    const matchingDeployment = deployments.find((deployment) =>
-      deployment.deploymentId === deploymentRecordId
+    const matchingDeployment = deployments.find(
+      (deployment) => deployment.deploymentId === deploymentRecordId,
     );
 
     if (matchingDeployment) {
@@ -386,8 +348,7 @@ function resolveGuidanceDeployment(
     }
   }
 
-  return deployments.find((deployment) => deployment.binding !== null) ??
-    deployments[0] ?? null;
+  return deployments.find((deployment) => deployment.binding !== null) ?? deployments[0] ?? null;
 }
 
 function resolveWorkflowGuidance(
@@ -399,62 +360,54 @@ function resolveWorkflowGuidance(
   label: string;
 } {
   switch (workflowKey) {
-    case "core":
+    case 'core':
       return {
-        copy:
-          "Run the LTI Core workflow in the official 1EdTech suite. Save the latest result here after the suite finishes.",
-        href: "https://www.imsglobal.org/spec/lti/v1p3/cert/",
-        label: "Open Core suite guidance",
+        copy: 'Run the LTI Core workflow in the official 1EdTech suite. Save the latest result here after the suite finishes.',
+        href: 'https://www.imsglobal.org/spec/lti/v1p3/cert/',
+        label: 'Open Core suite guidance',
       };
-    case "deepLinking":
+    case 'deepLinking':
       return {
-        copy:
-          "Run the Deep Linking workflow in the official 1EdTech suite. Save the latest result here after the suite finishes.",
-        href: "https://www.imsglobal.org/spec/lti/v1p3/cert/",
-        label: "Open Deep Linking suite guidance",
+        copy: 'Run the Deep Linking workflow in the official 1EdTech suite. Save the latest result here after the suite finishes.',
+        href: 'https://www.imsglobal.org/spec/lti/v1p3/cert/',
+        label: 'Open Deep Linking suite guidance',
       };
-    case "nrps":
+    case 'nrps':
       return deployment === null
         ? {
-          copy:
-            "Save one app setup, then open its deployment activity page to run or review the roster check.",
-          href: null,
-          label: "Open deployment activity",
-        }
+            copy: 'Save one app setup, then open its deployment activity page to run or review the roster check.',
+            href: null,
+            label: 'Open deployment activity',
+          }
         : {
-          copy:
-            "Open the deployment activity page to run or review the saved roster check from Lantern's existing SSR surface.",
-          href: buildDeploymentActivityHref(deployment),
-          label: "Open deployment activity",
-        };
-    case "ags":
+            copy: "Open the deployment activity page to run or review the saved roster check from Lantern's existing SSR surface.",
+            href: buildDeploymentActivityHref(deployment),
+            label: 'Open deployment activity',
+          };
+    case 'ags':
       return deployment === null
         ? {
-          copy:
-            "Save one app setup, then open its deployment activity page to run or review the AGS smoke check.",
-          href: null,
-          label: "Open deployment activity",
-        }
+            copy: 'Save one app setup, then open its deployment activity page to run or review the AGS smoke check.',
+            href: null,
+            label: 'Open deployment activity',
+          }
         : {
-          copy:
-            "Open the deployment activity page to run or review the saved AGS smoke check from Lantern's existing SSR surface.",
-          href: buildDeploymentActivityHref(deployment),
-          label: "Open deployment activity",
-        };
+            copy: "Open the deployment activity page to run or review the saved AGS smoke check from Lantern's existing SSR surface.",
+            href: buildDeploymentActivityHref(deployment),
+            label: 'Open deployment activity',
+          };
   }
 }
 
-function describeWorkflowBoundaryNote(
-  workflowKey: CertificationWorkflowKey,
-): string {
+function describeWorkflowBoundaryNote(workflowKey: CertificationWorkflowKey): string {
   switch (workflowKey) {
-    case "core":
-      return "A passed Core row does not cover Deep Linking, NRPS, or AGS.";
-    case "deepLinking":
-      return "A passed Deep Linking row does not cover Core, NRPS, or AGS.";
-    case "nrps":
-      return "A passed NRPS row does not cover Core, Deep Linking, or AGS.";
-    case "ags":
-      return "A passed AGS row does not cover Core, Deep Linking, or NRPS.";
+    case 'core':
+      return 'A passed Core row does not cover Deep Linking, NRPS, or AGS.';
+    case 'deepLinking':
+      return 'A passed Deep Linking row does not cover Core, NRPS, or AGS.';
+    case 'nrps':
+      return 'A passed NRPS row does not cover Core, Deep Linking, or AGS.';
+    case 'ags':
+      return 'A passed AGS row does not cover Core, Deep Linking, or NRPS.';
   }
 }

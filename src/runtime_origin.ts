@@ -2,14 +2,12 @@ import {
   normalizeHttpOrigin,
   type PublicOriginRequestInput,
   resolvePublicOriginFromRequest,
-} from "./public_origin.ts";
+} from './public_origin.ts';
 
-const INVALID_RUNTIME_ORIGIN_MESSAGE =
-  "APP_RUNTIME_ORIGIN must be an absolute http or https URL.";
+const INVALID_RUNTIME_ORIGIN_MESSAGE = 'APP_RUNTIME_ORIGIN must be an absolute http or https URL.';
 const MISSING_RUNTIME_ORIGIN_MESSAGE =
-  "APP_RUNTIME_ORIGIN is required to serve reviewed runtime sessions.";
-const WRONG_RUNTIME_ORIGIN_MESSAGE =
-  "Runtime session requests must use APP_RUNTIME_ORIGIN.";
+  'APP_RUNTIME_ORIGIN is required to serve reviewed runtime sessions.';
+const WRONG_RUNTIME_ORIGIN_MESSAGE = 'Runtime session requests must use APP_RUNTIME_ORIGIN.';
 
 export function normalizeRuntimeOrigin(value: string): string {
   return normalizeHttpOrigin(value, INVALID_RUNTIME_ORIGIN_MESSAGE);
@@ -18,9 +16,9 @@ export function normalizeRuntimeOrigin(value: string): string {
 export function requireConfiguredRuntimeOrigin(
   configuredOrigin: string | null | undefined,
 ): string {
-  const trimmedOrigin = configuredOrigin?.trim() ?? "";
+  const trimmedOrigin = configuredOrigin?.trim() ?? '';
 
-  if (trimmedOrigin === "") {
+  if (trimmedOrigin === '') {
     throw new Error(MISSING_RUNTIME_ORIGIN_MESSAGE);
   }
 
@@ -46,9 +44,7 @@ export function buildRuntimeSessionBaseUrl(input: {
   runtimeOrigin: string;
   sessionId: string;
 }): string {
-  return `${input.runtimeOrigin}/runtime/sessions/${
-    encodeURIComponent(input.sessionId)
-  }`;
+  return `${input.runtimeOrigin}/runtime/sessions/${encodeURIComponent(input.sessionId)}`;
 }
 
 export function buildRuntimeSessionUrl(input: {
@@ -56,7 +52,5 @@ export function buildRuntimeSessionUrl(input: {
   sessionId: string;
   token: string;
 }): string {
-  return `${buildRuntimeSessionBaseUrl(input)}?token=${
-    encodeURIComponent(input.token)
-  }`;
+  return `${buildRuntimeSessionBaseUrl(input)}?token=${encodeURIComponent(input.token)}`;
 }

@@ -16,11 +16,7 @@
       "id": "q2",
       "prompt": "Wave 2: Which asteroid defines velocity?",
       "correct": "speed with direction",
-      "choices": [
-        "force over area",
-        "speed with direction",
-        "a measure of mass"
-      ]
+      "choices": ["force over area", "speed with direction", "a measure of mass"]
     }
   ]
 }

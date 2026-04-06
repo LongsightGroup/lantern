@@ -2,7 +2,7 @@ export {
   BROKER_VERIFICATION_SUPPORTED_PATH_BY_LMS,
   INVENTORY_BASE_QUERY,
   INVENTORY_ORDER_BY,
-} from "./repository_inventory_queries.ts";
+} from './repository_inventory_queries.ts';
 
 const CERTIFICATION_WORKFLOW_ORDER_SQL = `
   CASE certification_workflows.workflow_key

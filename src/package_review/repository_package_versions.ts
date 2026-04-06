@@ -1,27 +1,24 @@
-import type { Pool } from "@db/postgres";
-import type { ImportedPackageVersion } from "./intake.ts";
-import { reviewPackageVersion, withClient } from "./repository_core.ts";
-import {
-  mapOptionalPackageVersion,
-  mapPackageVersionRow,
-} from "./repository_mappers_package.ts";
-import { PACKAGE_VERSION_SELECT } from "./repository_query_fragments.ts";
-import type { PackageVersionRow } from "./repository_row_types.ts";
-import { sortPackageVersions } from "./repository_resource_options.ts";
-import { isUniqueViolation } from "./repository_value_support.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+import type { Pool } from '@db/postgres';
+import type { ImportedPackageVersion } from './intake.ts';
+import { reviewPackageVersion, withClient } from './repository_core.ts';
+import { mapOptionalPackageVersion, mapPackageVersionRow } from './repository_mappers_package.ts';
+import { PACKAGE_VERSION_SELECT } from './repository_query_fragments.ts';
+import type { PackageVersionRow } from './repository_row_types.ts';
+import { sortPackageVersions } from './repository_resource_options.ts';
+import { isUniqueViolation } from './repository_value_support.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createPackageVersionRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | "registerPackageVersion"
-  | "listPackageVersions"
-  | "listPackageVersionsByApp"
-  | "getPackageVersionById"
-  | "getPackageVersionByAppVersion"
-  | "approvePackageVersion"
-  | "rejectPackageVersion"
+  | 'registerPackageVersion'
+  | 'listPackageVersions'
+  | 'listPackageVersionsByApp'
+  | 'getPackageVersionById'
+  | 'getPackageVersionByAppVersion'
+  | 'approvePackageVersion'
+  | 'rejectPackageVersion'
 > {
   return {
     async registerPackageVersion(input: ImportedPackageVersion) {
@@ -124,8 +121,7 @@ export function createPackageVersionRepositoryMethods(
     async listPackageVersions() {
       return await withClient(pool, async (client) => {
         const result = await client.queryObject<PackageVersionRow>({
-          text:
-            `${PACKAGE_VERSION_SELECT} ORDER BY app_id ASC, imported_at DESC`,
+          text: `${PACKAGE_VERSION_SELECT} ORDER BY app_id ASC, imported_at DESC`,
           camelCase: true,
         });
 
@@ -173,7 +169,7 @@ export function createPackageVersionRepositoryMethods(
       return await reviewPackageVersion(
         pool,
         input.id,
-        "approved",
+        'approved',
         input.reviewNotes,
         input.accessibilityReview,
       );
@@ -183,7 +179,7 @@ export function createPackageVersionRepositoryMethods(
       return await reviewPackageVersion(
         pool,
         input.id,
-        "rejected",
+        'rejected',
         input.reviewNotes,
         input.accessibilityReview,
       );

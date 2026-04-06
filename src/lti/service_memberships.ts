@@ -6,10 +6,9 @@ import {
   readJsonResponse,
   requireRecord,
   requireTrimmedString,
-} from "./service_support.ts";
+} from './service_support.ts';
 
-const NRPS_CONTENT_TYPE =
-  "application/vnd.ims.lti-nrps.v2.membershipcontainer+json";
+const NRPS_CONTENT_TYPE = 'application/vnd.ims.lti-nrps.v2.membershipcontainer+json';
 
 export interface NrpsMembership {
   userId: string | null;
@@ -27,7 +26,7 @@ export async function readContextMemberships(input: {
   const memberships: NrpsMembership[] = [];
   let nextUrl: string | null = requireTrimmedString(
     input.contextMembershipsUrl,
-    "Canvas NRPS memberships URL is required.",
+    'Canvas NRPS memberships URL is required.',
   );
 
   while (nextUrl !== null) {
@@ -44,26 +43,16 @@ export async function readContextMemberships(input: {
           }),
         }),
     });
-    const payload = await readJsonResponse(
-      response,
-      "Canvas NRPS memberships read failed.",
-    );
-    const container = requireRecord(
-      payload,
-      "Canvas NRPS memberships response must be an object.",
-    );
+    const payload = await readJsonResponse(response, 'Canvas NRPS memberships read failed.');
+    const container = requireRecord(payload, 'Canvas NRPS memberships response must be an object.');
     const members = container.members;
 
     if (!Array.isArray(members)) {
-      throw new TypeError(
-        "Canvas NRPS memberships response must include members.",
-      );
+      throw new TypeError('Canvas NRPS memberships response must include members.');
     }
 
-    memberships.push(
-      ...members.map((member, index) => mapMembership(member, index)),
-    );
-    nextUrl = parseNextLink(response.headers.get("link"));
+    memberships.push(...members.map((member, index) => mapMembership(member, index)));
+    nextUrl = parseNextLink(response.headers.get('link'));
   }
 
   return memberships;

@@ -1,32 +1,20 @@
-import {
-  assertEquals,
-  assertExists,
-  assertObjectMatch,
-  assertStringIncludes,
-} from "@std/assert";
-import { compactVerify, createLocalJWKSet } from "jose";
-import type { BootstrapPayload } from "../sdk/app-sdk.ts";
-import { createApp } from "./app.ts";
-import {
-  EXAMPLE_SNAPSHOT_ROOT,
-  restoreEnv,
-  withRuntimeOriginEnv,
-} from "./app_test_support.ts";
-import { getPublicJwkSet } from "./lti/tool_key.ts";
+import { assertEquals, assertExists, assertObjectMatch, assertStringIncludes } from '@std/assert';
+import { compactVerify, createLocalJWKSet } from 'jose';
+import type { BootstrapPayload } from '../sdk/app-sdk.ts';
+import { createApp } from './app.ts';
+import { EXAMPLE_SNAPSHOT_ROOT, restoreEnv, withRuntimeOriginEnv } from './app_test_support.ts';
+import { getPublicJwkSet } from './lti/tool_key.ts';
 import {
   buildAttemptRecord,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
-} from "./test_helpers/package_review.ts";
-import {
-  buildRuntimeSessionRecord,
-  getTestToolPrivateJwkEnvValue,
-} from "./test_helpers/lti.ts";
+} from './test_helpers/package_review.ts';
+import { buildRuntimeSessionRecord, getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
 
-Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with a signed Lantern bootstrap injected", async () => {
-  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+Deno.test('GET /runtime/sessions/:id serves the reviewed entrypoint with a signed Lantern bootstrap injected', async () => {
+  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
 
-  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
   try {
     await withRuntimeOriginEnv(async () => {
@@ -34,10 +22,9 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
         packageVersions: [
           buildPackageVersionRecord({
             id: 1,
-            approvalStatus: "approved",
-            reviewedAt: "2026-03-23T18:05:00Z",
-            runtimeContractSignature:
-              "test-reviewed-runtime-contract-signature",
+            approvalStatus: 'approved',
+            reviewedAt: '2026-03-23T18:05:00Z',
+            runtimeContractSignature: 'test-reviewed-runtime-contract-signature',
           }),
         ],
         runtimeSessions: [
@@ -45,104 +32,96 @@ Deno.test("GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
             snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
             entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-            expiresAt: "2030-03-26T02:45:00Z",
+            expiresAt: '2030-03-26T02:45:00Z',
           }),
         ],
       });
       const response = await createApp({
         getRepository: () => repository,
       }).request(
-        "https://runtime.lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123",
+        'https://runtime.lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123',
       );
 
       assertEquals(response.status, 200);
       const body = await response.text();
       const bootstrap = extractBootstrapFromHtml(body);
 
-      assertStringIncludes(body, "GatewayBootstrap");
-      assertStringIncludes(body, "attempt-123");
-      assertStringIncludes(body, "runtime-token-123");
+      assertStringIncludes(body, 'GatewayBootstrap');
+      assertStringIncludes(body, 'attempt-123');
+      assertStringIncludes(body, 'runtime-token-123');
       assertStringIncludes(
         body,
-        "https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/",
+        'https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/',
       );
       assertStringIncludes(
         body,
-        "https://runtime.lantern.example/runtime/sessions/runtime-session-123/content",
+        'https://runtime.lantern.example/runtime/sessions/runtime-session-123/content',
       );
       assertEquals(
         bootstrap.app.runtime_contract_signature,
-        "test-reviewed-runtime-contract-signature",
+        'test-reviewed-runtime-contract-signature',
       );
-      assertEquals(bootstrap.session.expires_at, "2030-03-26T02:45:00Z");
-      assertEquals(
-        body.includes("https://canvas.example/api/lti/courses/42/line_items"),
-        false,
-      );
+      assertEquals(bootstrap.session.expires_at, '2030-03-26T02:45:00Z');
+      assertEquals(body.includes('https://canvas.example/api/lti/courses/42/line_items'), false);
       await assertBootstrapSignature(bootstrap);
-      const runtimeSessionEvents = await repository.listAuditEventsByEventType(
-        "runtime.session.started",
-      );
+      const runtimeSessionEvents =
+        await repository.listAuditEventsByEventType('runtime.session.started');
 
       assertEquals(runtimeSessionEvents.length, 1);
       const runtimeSessionEvent = runtimeSessionEvents[0];
 
       assertExists(runtimeSessionEvent);
       assertObjectMatch(runtimeSessionEvent, {
-        attemptId: "attempt-123",
+        attemptId: 'attempt-123',
         detail: {
-          sandboxModel: "contained_browser_runtime",
-          boundary: "app_runtime_origin",
+          sandboxModel: 'contained_browser_runtime',
+          boundary: 'app_runtime_origin',
         },
       });
     });
   } finally {
-    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+    restoreEnv('LTI_TOOL_PRIVATE_JWK', previousToolKey);
   }
 });
 
-Deno.test("POST /runtime/sessions/:id/attempt-events enforces session auth, capability checks, and append-only event writes", async () => {
+Deno.test('POST /runtime/sessions/:id/attempt-events enforces session auth, capability checks, and append-only event writes', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
-      runtimeSessions: [
-        buildRuntimeSessionRecord({ expiresAt: "2030-03-26T02:45:00Z" }),
-      ],
+      runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2030-03-26T02:45:00Z' })],
     });
     const app = createApp({ getRepository: () => repository });
 
     const response = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events',
       {
-        method: "POST",
+        method: 'POST',
         headers: {
-          Authorization: "Bearer runtime-token-123",
-          "content-type": "application/json",
+          Authorization: 'Bearer runtime-token-123',
+          'content-type': 'application/json',
         },
         body: JSON.stringify({
-          type: "answer",
-          questionId: "q1",
-          answer: "asteroid",
-          timestamp: "2026-03-24T02:30:00Z",
+          type: 'answer',
+          questionId: 'q1',
+          answer: 'asteroid',
+          timestamp: '2026-03-24T02:30:00Z',
         }),
       },
     );
 
     assertEquals(response.status, 202);
 
-    const events = await repository.listAttemptEvents("attempt-123");
-    const auditEvents = await repository.listAuditEventsByEventType(
-      "attempt.submitted",
-    );
+    const events = await repository.listAttemptEvents('attempt-123');
+    const auditEvents = await repository.listAuditEventsByEventType('attempt.submitted');
 
     assertEquals(events.length, 1);
-    assertEquals(events[0]?.eventType, "answer");
+    assertEquals(events[0]?.eventType, 'answer');
     assertEquals(auditEvents.length, 1);
-    assertEquals(auditEvents[0]?.attemptId, "attempt-123");
+    assertEquals(auditEvents[0]?.attemptId, 'attempt-123');
   });
 });
 
-Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content through the scoped runtime bridge", async () => {
+Deno.test('GET /runtime/sessions/:id/content serves reviewed activity content through the scoped runtime bridge', async () => {
   await withRuntimeOriginEnv(async () => {
     const response = await createApp({
       getRepository: () =>
@@ -152,16 +131,13 @@ Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content th
               snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
               entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
               contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-              expiresAt: "2030-03-26T02:45:00Z",
+              expiresAt: '2030-03-26T02:45:00Z',
             }),
           ],
         }),
-    }).request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/content",
-      {
-        headers: { Authorization: "Bearer runtime-token-123" },
-      },
-    );
+    }).request('https://runtime.lantern.example/runtime/sessions/runtime-session-123/content', {
+      headers: { Authorization: 'Bearer runtime-token-123' },
+    });
 
     assertEquals(response.status, 200);
     const body = (await response.json()) as {
@@ -169,12 +145,12 @@ Deno.test("GET /runtime/sessions/:id/content serves reviewed activity content th
       questions: Array<{ id: string }>;
     };
 
-    assertEquals(body.title, "Chapter 4 Asteroids");
-    assertEquals(body.questions[0]?.id, "q1");
+    assertEquals(body.title, 'Chapter 4 Asteroids');
+    assertEquals(body.questions[0]?.id, 'q1');
   });
 });
 
-Deno.test("runtime routes record timeout and integrity failures as durable typed runtime outcomes", async () => {
+Deno.test('runtime routes record timeout and integrity failures as durable typed runtime outcomes', async () => {
   await withRuntimeOriginEnv(async () => {
     const timeoutRepository = createInMemoryPackageReviewRepository({
       runtimeSessions: [
@@ -182,34 +158,30 @@ Deno.test("runtime routes record timeout and integrity failures as durable typed
           snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
           entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
           contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-          expiresAt: "2020-03-26T02:45:00Z",
+          expiresAt: '2020-03-26T02:45:00Z',
         }),
       ],
     });
     const timeoutResponse = await createApp({
       getRepository: () => timeoutRepository,
-    }).request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/content",
-      {
-        headers: { Authorization: "Bearer runtime-token-123" },
-      },
-    );
+    }).request('https://runtime.lantern.example/runtime/sessions/runtime-session-123/content', {
+      headers: { Authorization: 'Bearer runtime-token-123' },
+    });
 
     assertEquals(timeoutResponse.status, 409);
-    const timeoutEvents = await timeoutRepository.listAuditEventsByEventType(
-      "runtime.session.timeout",
-    );
+    const timeoutEvents =
+      await timeoutRepository.listAuditEventsByEventType('runtime.session.timeout');
 
     assertEquals(timeoutEvents.length, 1);
     const timeoutEvent = timeoutEvents[0];
 
     assertExists(timeoutEvent);
     assertObjectMatch(timeoutEvent, {
-      status: "failed",
+      status: 'failed',
       detail: {
-        code: "session_expired",
-        sandboxModel: "contained_browser_runtime",
-        boundary: "app_runtime_origin",
+        code: 'session_expired',
+        sandboxModel: 'contained_browser_runtime',
+        boundary: 'app_runtime_origin',
       },
     });
 
@@ -217,21 +189,20 @@ Deno.test("runtime routes record timeout and integrity failures as durable typed
       runtimeSessions: [
         buildRuntimeSessionRecord({
           packageVersionId: 99,
-          expiresAt: "2030-03-26T02:45:00Z",
+          expiresAt: '2030-03-26T02:45:00Z',
         }),
       ],
     });
     const integrityResponse = await createApp({
       getRepository: () => integrityRepository,
     }).request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123',
     );
 
     assertEquals(integrityResponse.status, 409);
-    const integrityEvents = await integrityRepository
-      .listAuditEventsByEventType(
-        "runtime.session.integrity_failed",
-      );
+    const integrityEvents = await integrityRepository.listAuditEventsByEventType(
+      'runtime.session.integrity_failed',
+    );
 
     assertEquals(integrityEvents.length, 1);
     const integrityEvent = integrityEvents[0];
@@ -239,21 +210,21 @@ Deno.test("runtime routes record timeout and integrity failures as durable typed
     assertExists(integrityEvent);
     assertObjectMatch(integrityEvent, {
       detail: {
-        code: "package_version_missing",
-        sandboxModel: "contained_browser_runtime",
-        boundary: "app_runtime_origin",
+        code: 'package_version_missing',
+        sandboxModel: 'contained_browser_runtime',
+        boundary: 'app_runtime_origin',
       },
     });
   });
 });
 
-Deno.test("runtime local-state routes round-trip attempt-bound state and reject bad tokens", async () => {
+Deno.test('runtime local-state routes round-trip attempt-bound state and reject bad tokens', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
       runtimeSessions: [
         buildRuntimeSessionRecord({
-          expiresAt: "2030-03-26T02:45:00Z",
+          expiresAt: '2030-03-26T02:45:00Z',
         }),
       ],
     });
@@ -261,37 +232,37 @@ Deno.test("runtime local-state routes round-trip attempt-bound state and reject 
       getRepository: () => repository,
     });
     const firstRead = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state',
       {
-        headers: { Authorization: "Bearer runtime-token-123" },
+        headers: { Authorization: 'Bearer runtime-token-123' },
       },
     );
     const writeResponse = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state',
       {
-        method: "PUT",
+        method: 'PUT',
         headers: {
-          Authorization: "Bearer runtime-token-123",
-          "content-type": "application/json",
+          Authorization: 'Bearer runtime-token-123',
+          'content-type': 'application/json',
         },
         body: JSON.stringify({
-          currentCheckpoint: "wave-2",
+          currentCheckpoint: 'wave-2',
           answers: {
-            q1: "asteroid",
+            q1: 'asteroid',
           },
         }),
       },
     );
     const secondRead = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state',
       {
-        headers: { Authorization: "Bearer runtime-token-123" },
+        headers: { Authorization: 'Bearer runtime-token-123' },
       },
     );
     const deniedRead = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state',
       {
-        headers: { Authorization: "Bearer wrong-token" },
+        headers: { Authorization: 'Bearer wrong-token' },
       },
     );
 
@@ -299,20 +270,20 @@ Deno.test("runtime local-state routes round-trip attempt-bound state and reject 
     assertEquals(await firstRead.json(), null);
     assertEquals(writeResponse.status, 204);
     assertEquals(await secondRead.json(), {
-      currentCheckpoint: "wave-2",
+      currentCheckpoint: 'wave-2',
       answers: {
-        q1: "asteroid",
+        q1: 'asteroid',
       },
     });
     assertEquals(deniedRead.status, 409);
     assertStringIncludes(
       await deniedRead.text(),
-      "Runtime session token did not match the requested session.",
+      'Runtime session token did not match the requested session.',
     );
   });
 });
 
-Deno.test("GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blocks bad tokens", async () => {
+Deno.test('GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blocks bad tokens', async () => {
   await withRuntimeOriginEnv(async () => {
     const app = createApp({
       getRepository: () =>
@@ -322,43 +293,37 @@ Deno.test("GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blo
               snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
               entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
               contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-              expiresAt: "2030-03-26T02:45:00Z",
+              expiresAt: '2030-03-26T02:45:00Z',
             }),
           ],
         }),
     });
     const queryTokenResponse = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/dist/app.js?token=runtime-token-123",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/dist/app.js?token=runtime-token-123',
     );
     const goodPathTokenResponse = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/app.js",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/app.js',
     );
     const deniedPathTokenResponse = await app.request(
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/wrong-token/dist/app.js",
+      'https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/wrong-token/dist/app.js',
     );
 
     assertEquals(queryTokenResponse.status, 409);
     assertEquals(goodPathTokenResponse.status, 200);
-    assertStringIncludes(
-      await queryTokenResponse.text(),
-      "Runtime file path is invalid.",
-    );
-    assertStringIncludes(
-      await goodPathTokenResponse.text(),
-      "Attempt finalized",
-    );
+    assertStringIncludes(await queryTokenResponse.text(), 'Runtime file path is invalid.');
+    assertStringIncludes(await goodPathTokenResponse.text(), 'Attempt finalized');
     assertEquals(deniedPathTokenResponse.status, 409);
     assertStringIncludes(
       await deniedPathTokenResponse.text(),
-      "Runtime session token did not match the requested session.",
+      'Runtime session token did not match the requested session.',
     );
   });
 });
 
-Deno.test("GET /runtime/sessions/:id fails clearly when served outside the configured runtime origin", async () => {
-  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+Deno.test('GET /runtime/sessions/:id fails clearly when served outside the configured runtime origin', async () => {
+  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
 
-  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
   try {
     await withRuntimeOriginEnv(async () => {
@@ -368,10 +333,9 @@ Deno.test("GET /runtime/sessions/:id fails clearly when served outside the confi
             packageVersions: [
               buildPackageVersionRecord({
                 id: 1,
-                approvalStatus: "approved",
-                reviewedAt: "2026-03-23T18:05:00Z",
-                runtimeContractSignature:
-                  "test-reviewed-runtime-contract-signature",
+                approvalStatus: 'approved',
+                reviewedAt: '2026-03-23T18:05:00Z',
+                runtimeContractSignature: 'test-reviewed-runtime-contract-signature',
               }),
             ],
             runtimeSessions: [
@@ -379,41 +343,34 @@ Deno.test("GET /runtime/sessions/:id fails clearly when served outside the confi
                 snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
                 entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
                 contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
-                expiresAt: "2030-03-26T02:45:00Z",
+                expiresAt: '2030-03-26T02:45:00Z',
               }),
             ],
           }),
       }).request(
-        "https://lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123",
+        'https://lantern.example/runtime/sessions/runtime-session-123?token=runtime-token-123',
       );
       const body = await response.text();
 
       assertEquals(response.status, 409);
-      assertStringIncludes(
-        body,
-        "Runtime session requests must use APP_RUNTIME_ORIGIN.",
-      );
+      assertStringIncludes(body, 'Runtime session requests must use APP_RUNTIME_ORIGIN.');
     });
   } finally {
-    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+    restoreEnv('LTI_TOOL_PRIVATE_JWK', previousToolKey);
   }
 });
 
 function extractBootstrapFromHtml(html: string): BootstrapPayload {
-  const match = html.match(
-    /window\.GatewayBootstrap = (.+?);\nwindow\.GatewayPreview =/s,
-  );
+  const match = html.match(/window\.GatewayBootstrap = (.+?);\nwindow\.GatewayPreview =/s);
 
   if (!match?.[1]) {
-    throw new Error("Expected GatewayBootstrap in runtime HTML.");
+    throw new Error('Expected GatewayBootstrap in runtime HTML.');
   }
 
   return JSON.parse(match[1]) as BootstrapPayload;
 }
 
-async function assertBootstrapSignature(
-  bootstrap: BootstrapPayload,
-): Promise<void> {
+async function assertBootstrapSignature(bootstrap: BootstrapPayload): Promise<void> {
   const verified = await compactVerify(
     bootstrap.signature,
     createLocalJWKSet(await getPublicJwkSet()),

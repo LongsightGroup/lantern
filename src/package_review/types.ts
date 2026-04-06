@@ -1,27 +1,19 @@
-import type { AttemptEvent, Capability, UserRole } from "../../sdk/app-sdk.ts";
-import type { LtiProfileId } from "../lti/profile.ts";
-import type {
-  DeploymentBinding,
-  PersistedDeploymentLmsType,
-} from "../lti/types.ts";
+import type { AttemptEvent, Capability, UserRole } from '../../sdk/app-sdk.ts';
+import type { LtiProfileId } from '../lti/profile.ts';
+import type { DeploymentBinding, PersistedDeploymentLmsType } from '../lti/types.ts';
 
-export type ApprovalStatus = "pending" | "approved" | "rejected";
-export type InstallScope = "course" | "assignment";
-export type GradingMode = "declarative" | "manual" | "completion";
-export type ValidationSeverity = "error";
-export type AttemptStatus = "in_progress" | "completed" | "abandoned";
-export type AttemptCompletionState = "completed" | "abandoned";
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type InstallScope = 'course' | 'assignment';
+export type GradingMode = 'declarative' | 'manual' | 'completion';
+export type ValidationSeverity = 'error';
+export type AttemptStatus = 'in_progress' | 'completed' | 'abandoned';
+export type AttemptCompletionState = 'completed' | 'abandoned';
 export type AttemptLocalState = Record<string, unknown> | null;
-export type GradePublicationStatus = "pending" | "published" | "failed";
-export type AuditActorType = "user" | "system" | "platform";
-export type AuditEventStatus = "accepted" | "succeeded" | "failed";
-export const ACCESSIBILITY_REVIEW_STATUSES = [
-  "pass",
-  "fail",
-  "not_applicable",
-] as const;
-export type AccessibilityReviewStatus =
-  (typeof ACCESSIBILITY_REVIEW_STATUSES)[number];
+export type GradePublicationStatus = 'pending' | 'published' | 'failed';
+export type AuditActorType = 'user' | 'system' | 'platform';
+export type AuditEventStatus = 'accepted' | 'succeeded' | 'failed';
+export const ACCESSIBILITY_REVIEW_STATUSES = ['pass', 'fail', 'not_applicable'] as const;
+export type AccessibilityReviewStatus = (typeof ACCESSIBILITY_REVIEW_STATUSES)[number];
 
 export interface AccessibilityReview {
   keyboard: AccessibilityReviewStatus;
@@ -37,55 +29,52 @@ export interface AccessibilityReview {
 
 export const ACCESSIBILITY_REVIEW_FIELDS = [
   {
-    key: "keyboard",
-    formName: "accessibilityKeyboard",
-    label: "Keyboard use",
+    key: 'keyboard',
+    formName: 'accessibilityKeyboard',
+    label: 'Keyboard use',
   },
   {
-    key: "focusVisible",
-    formName: "accessibilityFocusVisible",
-    label: "Focus visibility",
+    key: 'focusVisible',
+    formName: 'accessibilityFocusVisible',
+    label: 'Focus visibility',
   },
   {
-    key: "focusNotObscured",
-    formName: "accessibilityFocusNotObscured",
-    label: "Focus not obscured",
+    key: 'focusNotObscured',
+    formName: 'accessibilityFocusNotObscured',
+    label: 'Focus not obscured',
   },
   {
-    key: "structure",
-    formName: "accessibilityStructure",
-    label: "Structure and semantics",
+    key: 'structure',
+    formName: 'accessibilityStructure',
+    label: 'Structure and semantics',
   },
   {
-    key: "contrast",
-    formName: "accessibilityContrast",
-    label: "Contrast",
+    key: 'contrast',
+    formName: 'accessibilityContrast',
+    label: 'Contrast',
   },
   {
-    key: "reducedMotion",
-    formName: "accessibilityReducedMotion",
-    label: "Reduced motion",
+    key: 'reducedMotion',
+    formName: 'accessibilityReducedMotion',
+    label: 'Reduced motion',
   },
   {
-    key: "equivalentAlternatives",
-    formName: "accessibilityEquivalentAlternatives",
-    label: "Equivalent interaction alternatives",
+    key: 'equivalentAlternatives',
+    formName: 'accessibilityEquivalentAlternatives',
+    label: 'Equivalent interaction alternatives',
   },
 ] as const satisfies ReadonlyArray<{
-  key: keyof Omit<AccessibilityReview, "failureNotes" | "exceptionNote">;
+  key: keyof Omit<AccessibilityReview, 'failureNotes' | 'exceptionNote'>;
   formName: string;
   label: string;
 }>;
 
-export type AccessibilityReviewCriterionKey =
-  (typeof ACCESSIBILITY_REVIEW_FIELDS)[number]["key"];
+export type AccessibilityReviewCriterionKey = (typeof ACCESSIBILITY_REVIEW_FIELDS)[number]['key'];
 
-const ACCESSIBILITY_REVIEW_STATUS_SET = new Set<string>(
-  ACCESSIBILITY_REVIEW_STATUSES,
-);
+const ACCESSIBILITY_REVIEW_STATUS_SET = new Set<string>(ACCESSIBILITY_REVIEW_STATUSES);
 
 export interface PackageOwner {
-  type: "user";
+  type: 'user';
   id: string;
 }
 
@@ -204,7 +193,7 @@ export interface AttemptEventRecord {
   id: number;
   attemptId: string;
   sequence: number;
-  eventType: AttemptEvent["type"];
+  eventType: AttemptEvent['type'];
   event: AttemptEvent;
   receivedAt: string;
 }
@@ -234,8 +223,8 @@ export interface GradePublicationRecord {
   platformUserId: string;
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: "Completed" | "InProgress" | "Initialized";
-  gradingProgress: "Pending" | "PendingManual" | "FullyGraded" | "Failed";
+  activityProgress: 'Completed' | 'InProgress' | 'Initialized';
+  gradingProgress: 'Pending' | 'PendingManual' | 'FullyGraded' | 'Failed';
   status: GradePublicationStatus;
   createdAt: string;
   updatedAt: string;
@@ -266,7 +255,7 @@ export interface DeepLinkingResourceOption {
   packageTitle: string;
   ownerId: string;
   installScope: InstallScope;
-  approvalStatus: "approved";
+  approvalStatus: 'approved';
   reviewedAt: string | null;
   activityId: string;
   contentPath: string;
@@ -302,34 +291,28 @@ export interface ReviewedPlacementRecord {
 }
 
 export type PlacementAuditStatus =
-  | "awaiting_canvas_binding"
-  | "bound_no_preview"
-  | "bound_with_preview"
-  | "reviewed";
+  | 'awaiting_canvas_binding'
+  | 'bound_no_preview'
+  | 'bound_with_preview'
+  | 'reviewed';
 
 export function parseAccessibilityReview(value: unknown): AccessibilityReview {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Accessibility review must include structured criteria.");
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Accessibility review must include structured criteria.');
   }
 
   const review = value as Record<string, unknown>;
 
   return {
-    keyboard: parseAccessibilityReviewStatus(review, "keyboard"),
-    focusVisible: parseAccessibilityReviewStatus(review, "focusVisible"),
-    focusNotObscured: parseAccessibilityReviewStatus(
-      review,
-      "focusNotObscured",
-    ),
-    structure: parseAccessibilityReviewStatus(review, "structure"),
-    contrast: parseAccessibilityReviewStatus(review, "contrast"),
-    reducedMotion: parseAccessibilityReviewStatus(review, "reducedMotion"),
-    equivalentAlternatives: parseAccessibilityReviewStatus(
-      review,
-      "equivalentAlternatives",
-    ),
-    failureNotes: parseAccessibilityReviewText(review, "failureNotes"),
-    exceptionNote: parseAccessibilityReviewText(review, "exceptionNote"),
+    keyboard: parseAccessibilityReviewStatus(review, 'keyboard'),
+    focusVisible: parseAccessibilityReviewStatus(review, 'focusVisible'),
+    focusNotObscured: parseAccessibilityReviewStatus(review, 'focusNotObscured'),
+    structure: parseAccessibilityReviewStatus(review, 'structure'),
+    contrast: parseAccessibilityReviewStatus(review, 'contrast'),
+    reducedMotion: parseAccessibilityReviewStatus(review, 'reducedMotion'),
+    equivalentAlternatives: parseAccessibilityReviewStatus(review, 'equivalentAlternatives'),
+    failureNotes: parseAccessibilityReviewText(review, 'failureNotes'),
+    exceptionNote: parseAccessibilityReviewText(review, 'exceptionNote'),
   };
 }
 
@@ -339,12 +322,8 @@ function parseAccessibilityReviewStatus(
 ): AccessibilityReviewStatus {
   const value = review[field];
 
-  if (
-    typeof value !== "string" || !ACCESSIBILITY_REVIEW_STATUS_SET.has(value)
-  ) {
-    throw new Error(
-      `Accessibility review field "${field}" must be pass, fail, or not_applicable.`,
-    );
+  if (typeof value !== 'string' || !ACCESSIBILITY_REVIEW_STATUS_SET.has(value)) {
+    throw new Error(`Accessibility review field "${field}" must be pass, fail, or not_applicable.`);
   }
 
   return value as AccessibilityReviewStatus;
@@ -352,7 +331,7 @@ function parseAccessibilityReviewStatus(
 
 function parseAccessibilityReviewText(
   review: Record<string, unknown>,
-  field: "failureNotes" | "exceptionNote",
+  field: 'failureNotes' | 'exceptionNote',
 ): string | null {
   const value = review[field];
 
@@ -360,7 +339,7 @@ function parseAccessibilityReviewText(
     return null;
   }
 
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     throw new Error(`Accessibility review field "${field}" must be text.`);
   }
 
@@ -394,9 +373,7 @@ export interface PreviewFixtureData {
   local_state: AttemptLocalState;
 }
 
-export type PreviewSessionOrigin =
-  | "adminTestLaunch"
-  | "deepLinkingAuthoring";
+export type PreviewSessionOrigin = 'adminTestLaunch' | 'deepLinkingAuthoring';
 
 export interface PreviewSessionRecord {
   sessionId: string;

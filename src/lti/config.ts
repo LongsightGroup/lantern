@@ -1,17 +1,14 @@
-import type { CanvasEnvironment } from "./types.ts";
+import type { CanvasEnvironment } from './types.ts';
 import {
   CANVAS_LTI_SCOPES,
   LTI_ASSIGNMENT_SELECTION_PLACEMENT,
   LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
   LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
   LTI_RESOURCE_SELECTION_PLACEMENT,
-} from "./types.ts";
-import { getPublicJwkSet } from "./tool_key.ts";
-import {
-  listCanvasPlatforms,
-  resolveCanvasPlatform,
-} from "./canvas_platform.ts";
-import { normalizePublicOrigin } from "../public_origin.ts";
+} from './types.ts';
+import { getPublicJwkSet } from './tool_key.ts';
+import { listCanvasPlatforms, resolveCanvasPlatform } from './canvas_platform.ts';
+import { normalizePublicOrigin } from '../public_origin.ts';
 
 export interface CanvasEnvironmentOption {
   id: CanvasEnvironment;
@@ -31,7 +28,7 @@ export interface CanvasConfigDocument {
     domain: string;
     tool_id: string;
     platform: string;
-    privacy_level: "public";
+    privacy_level: 'public';
     settings: {
       text: string;
       placements: CanvasConfigPlacement[];
@@ -39,27 +36,27 @@ export interface CanvasConfigDocument {
   }>;
 }
 
-const APP_ORIGIN_ENV = "APP_ORIGIN";
+const APP_ORIGIN_ENV = 'APP_ORIGIN';
 
 export type CanvasConfigPlacement =
   | {
-    placement: "course_navigation";
-    message_type: typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE;
-    target_link_uri: string;
-    text: string;
-  }
+      placement: 'course_navigation';
+      message_type: typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE;
+      target_link_uri: string;
+      text: string;
+    }
   | {
-    placement: typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
-    message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
-    target_link_uri: string;
-    text: string;
-  }
+      placement: typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
+      message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
+      target_link_uri: string;
+      text: string;
+    }
   | {
-    placement: typeof LTI_RESOURCE_SELECTION_PLACEMENT;
-    message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
-    target_link_uri: string;
-    text: string;
-  };
+      placement: typeof LTI_RESOURCE_SELECTION_PLACEMENT;
+      message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
+      target_link_uri: string;
+      text: string;
+    };
 
 export function requireAppOrigin(): string {
   const appOrigin = Deno.env.get(APP_ORIGIN_ENV)?.trim();
@@ -76,11 +73,12 @@ export function requireAppOrigin(): string {
 export function listCanvasEnvironments(): CanvasEnvironmentOption[] {
   return listCanvasPlatforms().map((platform) => ({
     id: platform.environment,
-    label: platform.environment === "production"
-      ? "Production Canvas"
-      : platform.environment === "beta"
-      ? "Beta Canvas"
-      : "Test Canvas",
+    label:
+      platform.environment === 'production'
+        ? 'Production Canvas'
+        : platform.environment === 'beta'
+          ? 'Beta Canvas'
+          : 'Test Canvas',
     issuer: platform.issuer,
   }));
 }
@@ -101,15 +99,11 @@ export function buildCanvasLaunchUrl(appOrigin = requireAppOrigin()): string {
   return `${normalizePublicOrigin(appOrigin)}/lti/launch`;
 }
 
-export function buildCanvasDeepLinkingUrl(
-  appOrigin = requireAppOrigin(),
-): string {
+export function buildCanvasDeepLinkingUrl(appOrigin = requireAppOrigin()): string {
   return `${normalizePublicOrigin(appOrigin)}/lti/deep-linking`;
 }
 
-function buildCanvasResourceSelectionUrl(
-  appOrigin = requireAppOrigin(),
-): string {
+function buildCanvasResourceSelectionUrl(appOrigin = requireAppOrigin()): string {
   return `${buildCanvasDeepLinkingUrl(appOrigin)}?placement=resource_selection`;
 }
 
@@ -120,16 +114,13 @@ export async function buildCanvasConfigDocument(
   const origin = new URL(normalizedOrigin);
   const launchUrl = buildCanvasLaunchUrl(normalizedOrigin);
   const deepLinkingUrl = buildCanvasDeepLinkingUrl(normalizedOrigin);
-  const resourceSelectionUrl = buildCanvasResourceSelectionUrl(
-    normalizedOrigin,
-  );
+  const resourceSelectionUrl = buildCanvasResourceSelectionUrl(normalizedOrigin);
 
   await getPublicJwkSet();
 
   return {
-    title: "Lantern Demo Broker",
-    description:
-      "Launch one reviewed Lantern app through a governed Canvas LTI 1.3 path.",
+    title: 'Lantern Demo Broker',
+    description: 'Launch one reviewed Lantern app through a governed Canvas LTI 1.3 path.',
     oidc_initiation_url: `${normalizedOrigin}/lti/login`,
     target_link_uri: launchUrl,
     public_jwk_url: buildCanvasJwksUrl(normalizedOrigin),
@@ -138,29 +129,29 @@ export async function buildCanvasConfigDocument(
     extensions: [
       {
         domain: origin.host,
-        tool_id: "lantern-demo-broker",
-        platform: "canvas.instructure.com",
-        privacy_level: "public",
+        tool_id: 'lantern-demo-broker',
+        platform: 'canvas.instructure.com',
+        privacy_level: 'public',
         settings: {
-          text: "Lantern Demo",
+          text: 'Lantern Demo',
           placements: [
             {
-              placement: "course_navigation",
+              placement: 'course_navigation',
               message_type: LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
               target_link_uri: launchUrl,
-              text: "Lantern Demo",
+              text: 'Lantern Demo',
             },
             {
               placement: LTI_ASSIGNMENT_SELECTION_PLACEMENT,
               message_type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
               target_link_uri: deepLinkingUrl,
-              text: "Select Lantern activity",
+              text: 'Select Lantern activity',
             },
             {
               placement: LTI_RESOURCE_SELECTION_PLACEMENT,
               message_type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
               target_link_uri: resourceSelectionUrl,
-              text: "Select Lantern activity",
+              text: 'Select Lantern activity',
             },
           ],
         },
@@ -169,14 +160,12 @@ export async function buildCanvasConfigDocument(
   };
 }
 
-export function parseCanvasEnvironment(
-  value: FormDataEntryValue | null,
-): CanvasEnvironment {
-  if (value === "production" || value === "beta" || value === "test") {
+export function parseCanvasEnvironment(value: FormDataEntryValue | null): CanvasEnvironment {
+  if (value === 'production' || value === 'beta' || value === 'test') {
     return value;
   }
 
   throw new Error(
-    "Choose one supported Canvas environment before you save the deployment binding.",
+    'Choose one supported Canvas environment before you save the deployment binding.',
   );
 }

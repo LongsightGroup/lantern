@@ -1,9 +1,9 @@
-import { assertEquals, assertExists } from "@std/assert";
-import { buildAuditEventRecord } from "../test_helpers/package_review.ts";
-import { insertAuditEvent } from "./repository_test_core_support.ts";
-import { withSeededOpsRepositoryTest } from "./repository_inventory_test_support.ts";
+import { assertEquals, assertExists } from '@std/assert';
+import { buildAuditEventRecord } from '../test_helpers/package_review.ts';
+import { insertAuditEvent } from './repository_test_core_support.ts';
+import { withSeededOpsRepositoryTest } from './repository_inventory_test_support.ts';
 
-Deno.test("ops repository diagnostics keep only failed follow-up items while recent launches stay on their own list", async () => {
+Deno.test('ops repository diagnostics keep only failed follow-up items while recent launches stay on their own list', async () => {
   await withSeededOpsRepositoryTest(async (pool, repository) => {
     const client = await pool.connect();
 
@@ -12,13 +12,13 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
         client,
         buildAuditEventRecord({
           id: 4,
-          eventType: "reviewer.follow_up_failed",
-          actorType: "user",
-          actorId: "reviewer-123",
-          status: "failed",
-          summary: "Reviewer follow-up failed.",
-          detail: { placementId: "placement-ops-123" },
-          occurredAt: "2026-03-24T12:36:00Z",
+          eventType: 'reviewer.follow_up_failed',
+          actorType: 'user',
+          actorId: 'reviewer-123',
+          status: 'failed',
+          summary: 'Reviewer follow-up failed.',
+          detail: { placementId: 'placement-ops-123' },
+          occurredAt: '2026-03-24T12:36:00Z',
         }),
       );
       await insertAuditEvent(
@@ -26,21 +26,20 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
         buildAuditEventRecord({
           id: 5,
           deploymentRecordId: 1,
-          eventType: "deep_linking.request.rejected",
-          actorType: "platform",
-          status: "failed",
-          summary:
-            "Rejected a Canvas Deep Linking request before picker handoff.",
+          eventType: 'deep_linking.request.rejected',
+          actorType: 'platform',
+          status: 'failed',
+          summary: 'Rejected a Canvas Deep Linking request before picker handoff.',
           detail: {
-            lms: "canvas",
-            category: "policyDenied",
-            code: "target_link_uri_drift_not_allowed",
+            lms: 'canvas',
+            category: 'policyDenied',
+            code: 'target_link_uri_drift_not_allowed',
             message:
-              "Deep Linking target_link_uri drift is not allowed for the active LTI profile.",
-            ltiProfileId: "certification",
-            ltiProfileSource: "deploymentOverride",
+              'Deep Linking target_link_uri drift is not allowed for the active LTI profile.',
+            ltiProfileId: 'certification',
+            ltiProfileSource: 'deploymentOverride',
           },
-          occurredAt: "2026-03-24T12:37:00Z",
+          occurredAt: '2026-03-24T12:37:00Z',
         }),
       );
       await insertAuditEvent(
@@ -48,16 +47,15 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
         buildAuditEventRecord({
           id: 6,
           deploymentRecordId: 1,
-          eventType: "interop.path_used",
-          actorType: "platform",
-          status: "accepted",
-          summary:
-            "Lantern tolerated bounded target_link_uri drift during launch validation.",
+          eventType: 'interop.path_used',
+          actorType: 'platform',
+          status: 'accepted',
+          summary: 'Lantern tolerated bounded target_link_uri drift during launch validation.',
           detail: {
-            scope: "launch",
-            path: "target_link_uri_drift",
+            scope: 'launch',
+            path: 'target_link_uri_drift',
           },
-          occurredAt: "2026-03-24T12:38:00Z",
+          occurredAt: '2026-03-24T12:38:00Z',
         }),
       );
     } finally {
@@ -68,70 +66,56 @@ Deno.test("ops repository diagnostics keep only failed follow-up items while rec
 
     assertExists(detail);
     assertEquals(
-      detail.recentLaunches.some((item) => item.attemptId === "attempt-123"),
+      detail.recentLaunches.some((item) => item.attemptId === 'attempt-123'),
       true,
     );
     assertEquals(detail.diagnostics.length, 3);
     assertEquals(
-      detail.diagnostics.some((item) => item.eventType === "launch.accepted"),
+      detail.diagnostics.some((item) => item.eventType === 'launch.accepted'),
       false,
     );
     assertEquals(
-      detail.diagnostics.some((item) =>
-        item.eventType === "deployment.nrps_verified"
-      ),
+      detail.diagnostics.some((item) => item.eventType === 'deployment.nrps_verified'),
       false,
     );
     assertEquals(
-      detail.diagnostics.some((item) =>
-        item.eventType === "grade_publish.failed"
-      ),
+      detail.diagnostics.some((item) => item.eventType === 'grade_publish.failed'),
       true,
     );
     assertEquals(
-      detail.diagnostics.some((item) =>
-        item.eventType === "deep_linking.request.rejected"
-      ),
+      detail.diagnostics.some((item) => item.eventType === 'deep_linking.request.rejected'),
       true,
     );
     assertEquals(
-      detail.diagnostics.some((item) => item.eventType === "interop.path_used"),
+      detail.diagnostics.some((item) => item.eventType === 'interop.path_used'),
       false,
     );
     assertEquals(
-      detail.diagnostics.some((item) =>
-        item.eventType === "reviewer.follow_up_failed"
-      ),
+      detail.diagnostics.some((item) => item.eventType === 'reviewer.follow_up_failed'),
       true,
     );
     assertEquals(
-      detail.diagnostics.find((item) =>
-        item.eventType === "reviewer.follow_up_failed"
-      )?.kind,
-      "reviewer",
+      detail.diagnostics.find((item) => item.eventType === 'reviewer.follow_up_failed')?.kind,
+      'reviewer',
     );
     assertEquals(
-      detail.diagnostics.find((item) =>
-        item.eventType === "deep_linking.request.rejected"
-      )?.kind,
-      "deepLinking",
+      detail.diagnostics.find((item) => item.eventType === 'deep_linking.request.rejected')?.kind,
+      'deepLinking',
     );
     assertEquals(
       (
-        detail.diagnostics.find((item) =>
-          item.eventType === "deep_linking.request.rejected"
-        ) as
+        detail.diagnostics.find((item) => item.eventType === 'deep_linking.request.rejected') as
           | ({ boundaryDenialCategory?: string | null } & {
-            eventType: string;
-          })
+              eventType: string;
+            })
           | undefined
       )?.boundaryDenialCategory,
-      "policyDenied",
+      'policyDenied',
     );
   });
 });
 
-Deno.test("ops repository diagnostics keep broker verification wording LMS-neutral with deployment context", async () => {
+Deno.test('ops repository diagnostics keep broker verification wording LMS-neutral with deployment context', async () => {
   await withSeededOpsRepositoryTest(async (pool, repository) => {
     const client = await pool.connect();
 
@@ -141,13 +125,13 @@ Deno.test("ops repository diagnostics keep broker verification wording LMS-neutr
         buildAuditEventRecord({
           id: 20,
           deploymentRecordId: 2,
-          eventType: "broker_verification.failed",
-          status: "failed",
-          summary: "Moodle broker verification failed.",
+          eventType: 'broker_verification.failed',
+          status: 'failed',
+          summary: 'Moodle broker verification failed.',
           detail: {
-            lms: "moodle",
+            lms: 'moodle',
           },
-          occurredAt: "2026-03-24T12:37:00Z",
+          occurredAt: '2026-03-24T12:37:00Z',
         }),
       );
     } finally {
@@ -158,16 +142,14 @@ Deno.test("ops repository diagnostics keep broker verification wording LMS-neutr
 
     assertExists(moodleDetail);
     assertEquals(
-      moodleDetail.diagnostics.find((item) =>
-        item.eventType === "broker_verification.failed"
-      )
+      moodleDetail.diagnostics.find((item) => item.eventType === 'broker_verification.failed')
         ?.operatorSummary,
-      "Broker verification failed for the saved Moodle deployment path.",
+      'Broker verification failed for the saved Moodle deployment path.',
     );
   });
 });
 
-Deno.test("ops repository diagnostics format governed runtime denials, timeouts, and integrity failures distinctly", async () => {
+Deno.test('ops repository diagnostics format governed runtime denials, timeouts, and integrity failures distinctly', async () => {
   await withSeededOpsRepositoryTest(async (pool, repository) => {
     const client = await pool.connect();
 
@@ -177,20 +159,20 @@ Deno.test("ops repository diagnostics format governed runtime denials, timeouts,
         buildAuditEventRecord({
           id: 21,
           deploymentRecordId: 1,
-          attemptId: "attempt-123",
-          eventType: "runtime.capability.denied",
-          status: "failed",
-          summary: "Denied reviewed app capability write_local_state.",
+          attemptId: 'attempt-123',
+          eventType: 'runtime.capability.denied',
+          status: 'failed',
+          summary: 'Denied reviewed app capability write_local_state.',
           detail: {
-            sessionId: "runtime-session-123",
-            sandboxModel: "contained_browser_runtime",
-            boundary: "app_runtime_origin",
-            route: "local-state.write",
-            category: "policyDenied",
-            capability: "write_local_state",
-            code: "capability_not_granted",
+            sessionId: 'runtime-session-123',
+            sandboxModel: 'contained_browser_runtime',
+            boundary: 'app_runtime_origin',
+            route: 'local-state.write',
+            category: 'policyDenied',
+            capability: 'write_local_state',
+            code: 'capability_not_granted',
           },
-          occurredAt: "2026-03-24T12:36:00Z",
+          occurredAt: '2026-03-24T12:36:00Z',
         }),
       );
       await insertAuditEvent(
@@ -198,19 +180,18 @@ Deno.test("ops repository diagnostics format governed runtime denials, timeouts,
         buildAuditEventRecord({
           id: 22,
           deploymentRecordId: 1,
-          attemptId: "attempt-123",
-          eventType: "runtime.session.timeout",
-          status: "failed",
-          summary:
-            "Runtime session expired before the reviewed app could continue.",
+          attemptId: 'attempt-123',
+          eventType: 'runtime.session.timeout',
+          status: 'failed',
+          summary: 'Runtime session expired before the reviewed app could continue.',
           detail: {
-            sessionId: "runtime-session-123",
-            sandboxModel: "contained_browser_runtime",
-            boundary: "app_runtime_origin",
-            route: "content",
-            code: "session_expired",
+            sessionId: 'runtime-session-123',
+            sandboxModel: 'contained_browser_runtime',
+            boundary: 'app_runtime_origin',
+            route: 'content',
+            code: 'session_expired',
           },
-          occurredAt: "2026-03-24T12:37:00Z",
+          occurredAt: '2026-03-24T12:37:00Z',
         }),
       );
       await insertAuditEvent(
@@ -218,18 +199,18 @@ Deno.test("ops repository diagnostics format governed runtime denials, timeouts,
         buildAuditEventRecord({
           id: 23,
           deploymentRecordId: 1,
-          attemptId: "attempt-123",
-          eventType: "runtime.session.integrity_failed",
-          status: "failed",
-          summary: "Reviewed runtime integrity checks blocked this session.",
+          attemptId: 'attempt-123',
+          eventType: 'runtime.session.integrity_failed',
+          status: 'failed',
+          summary: 'Reviewed runtime integrity checks blocked this session.',
           detail: {
-            sessionId: "runtime-session-123",
-            sandboxModel: "contained_browser_runtime",
-            boundary: "app_runtime_origin",
-            route: "session",
-            code: "package_version_missing",
+            sessionId: 'runtime-session-123',
+            sandboxModel: 'contained_browser_runtime',
+            boundary: 'app_runtime_origin',
+            route: 'session',
+            code: 'package_version_missing',
           },
-          occurredAt: "2026-03-24T12:38:00Z",
+          occurredAt: '2026-03-24T12:38:00Z',
         }),
       );
     } finally {
@@ -239,31 +220,29 @@ Deno.test("ops repository diagnostics format governed runtime denials, timeouts,
     const detail = await repository.getControlPlaneDeploymentDetail(1);
 
     assertExists(detail);
-    const capabilityDenied = detail.diagnostics.find((item) =>
-      item.eventType === "runtime.capability.denied"
+    const capabilityDenied = detail.diagnostics.find(
+      (item) => item.eventType === 'runtime.capability.denied',
     );
-    const timeout = detail.diagnostics.find((item) =>
-      item.eventType === "runtime.session.timeout"
-    );
-    const integrityFailure = detail.diagnostics.find((item) =>
-      item.eventType === "runtime.session.integrity_failed"
+    const timeout = detail.diagnostics.find((item) => item.eventType === 'runtime.session.timeout');
+    const integrityFailure = detail.diagnostics.find(
+      (item) => item.eventType === 'runtime.session.integrity_failed',
     );
 
-    assertEquals(capabilityDenied?.kind, "runtime");
-    assertEquals(capabilityDenied?.boundaryDenialCategory, "policyDenied");
+    assertEquals(capabilityDenied?.kind, 'runtime');
+    assertEquals(capabilityDenied?.boundaryDenialCategory, 'policyDenied');
     assertEquals(
       capabilityDenied?.operatorSummary,
-      "Lantern denied reviewed app capability write_local_state at the governed runtime boundary.",
+      'Lantern denied reviewed app capability write_local_state at the governed runtime boundary.',
     );
-    assertEquals(timeout?.kind, "runtime");
+    assertEquals(timeout?.kind, 'runtime');
     assertEquals(
       timeout?.operatorSummary,
-      "Runtime session timed out before the reviewed app could continue.",
+      'Runtime session timed out before the reviewed app could continue.',
     );
-    assertEquals(integrityFailure?.kind, "runtime");
+    assertEquals(integrityFailure?.kind, 'runtime');
     assertEquals(
       integrityFailure?.operatorSummary,
-      "Reviewed runtime integrity checks blocked this session before app code could continue.",
+      'Reviewed runtime integrity checks blocked this session before app code could continue.',
     );
   });
 });

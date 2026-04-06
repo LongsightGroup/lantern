@@ -1,18 +1,15 @@
-import type { Pool } from "@db/postgres";
-import { withClient, withTransaction } from "./repository_core.ts";
-import {
-  mapLoginStateRow,
-  mapOptionalLoginState,
-} from "./repository_mappers_package.ts";
-import type { LoginStateRow } from "./repository_row_types.ts";
-import { isUniqueViolation } from "./repository_value_support.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+import type { Pool } from '@db/postgres';
+import { withClient, withTransaction } from './repository_core.ts';
+import { mapLoginStateRow, mapOptionalLoginState } from './repository_mappers_package.ts';
+import type { LoginStateRow } from './repository_row_types.ts';
+import { isUniqueViolation } from './repository_value_support.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createLoginStateRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  "createLoginState" | "getLoginStateByState" | "consumeLoginState"
+  'createLoginState' | 'getLoginStateByState' | 'consumeLoginState'
 > {
   return {
     async createLoginState(record) {
@@ -73,9 +70,7 @@ export function createLoginStateRepositoryMethods(
           return mapLoginStateRow(result.rows[0]);
         } catch (error) {
           if (isUniqueViolation(error)) {
-            throw new Error(
-              `Login state ${record.state} already exists and cannot be reused.`,
-            );
+            throw new Error(`Login state ${record.state} already exists and cannot be reused.`);
           }
 
           throw error;
@@ -114,12 +109,9 @@ export function createLoginStateRepositoryMethods(
 
     async consumeLoginState(input) {
       return await withClient(pool, async (client) => {
-        return await withTransaction(
-          client,
-          "consume_login_state",
-          async (transaction) => {
-            const updated = await transaction.queryObject<LoginStateRow>({
-              text: `
+        return await withTransaction(client, 'consume_login_state', async (transaction) => {
+          const updated = await transaction.queryObject<LoginStateRow>({
+            text: `
                 UPDATE lti_login_states
                 SET used_at = $2
                 WHERE state = $1
@@ -139,18 +131,18 @@ export function createLoginStateRepositoryMethods(
                   expires_at,
                   used_at
               `,
-              args: [input.state, input.usedAt],
-              camelCase: true,
-            });
+            args: [input.state, input.usedAt],
+            camelCase: true,
+          });
 
-            const consumed = updated.rows[0];
+          const consumed = updated.rows[0];
 
-            if (consumed) {
-              return mapLoginStateRow(consumed);
-            }
+          if (consumed) {
+            return mapLoginStateRow(consumed);
+          }
 
-            const existing = await transaction.queryObject<LoginStateRow>({
-              text: `
+          const existing = await transaction.queryObject<LoginStateRow>({
+            text: `
                 SELECT
                   lms_type,
                   state,
@@ -168,26 +160,21 @@ export function createLoginStateRepositoryMethods(
                 FROM lti_login_states
                 WHERE state = $1
               `,
-              args: [input.state],
-              camelCase: true,
-            });
-            const row = existing.rows[0];
+            args: [input.state],
+            camelCase: true,
+          });
+          const row = existing.rows[0];
 
-            if (!row) {
-              throw new Error(`Login state ${input.state} was not found.`);
-            }
+          if (!row) {
+            throw new Error(`Login state ${input.state} was not found.`);
+          }
 
-            if (row.usedAt !== null) {
-              throw new Error(
-                `Login state ${input.state} has already been used.`,
-              );
-            }
+          if (row.usedAt !== null) {
+            throw new Error(`Login state ${input.state} has already been used.`);
+          }
 
-            throw new Error(
-              `Login state ${input.state} could not be consumed.`,
-            );
-          },
-        );
+          throw new Error(`Login state ${input.state} could not be consumed.`);
+        });
       });
     },
   };

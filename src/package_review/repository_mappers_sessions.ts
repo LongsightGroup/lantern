@@ -2,14 +2,14 @@ import type {
   DeepLinkingSessionRecord,
   DeepLinkingSessionSelection,
   RuntimeSessionRecord,
-} from "../lti/types.ts";
-import type { ReviewedPlacementRecord } from "./types.ts";
+} from '../lti/types.ts';
+import type { ReviewedPlacementRecord } from './types.ts';
 import type {
   DeepLinkingSessionRow,
   ReviewedPlacementRow,
   RuntimeSessionRow,
-} from "./repository_row_types.ts";
-import { normalizeTimestamp } from "./repository_value_support.ts";
+} from './repository_row_types.ts';
+import { normalizeTimestamp } from './repository_value_support.ts';
 
 export function mapOptionalRuntimeSession(
   row: RuntimeSessionRow | undefined,
@@ -21,11 +21,9 @@ export function mapOptionalRuntimeSession(
   return mapRuntimeSessionRow(row);
 }
 
-export function mapRuntimeSessionRow(
-  row: RuntimeSessionRow | undefined,
-): RuntimeSessionRecord {
+export function mapRuntimeSessionRow(row: RuntimeSessionRow | undefined): RuntimeSessionRecord {
   if (!row) {
-    throw new Error("Expected a runtime session row.");
+    throw new Error('Expected a runtime session row.');
   }
 
   return {
@@ -45,9 +43,7 @@ export function mapRuntimeSessionRow(
     launch: {
       userRole: row.launchUserRole,
       courseId: row.launchCourseId,
-      ...(row.launchAssignmentId === null
-        ? {}
-        : { assignmentId: row.launchAssignmentId }),
+      ...(row.launchAssignmentId === null ? {} : { assignmentId: row.launchAssignmentId }),
       activityId: row.launchActivityId,
     },
     createdAt: normalizeTimestamp(row.createdAt),
@@ -69,7 +65,7 @@ export function mapDeepLinkingSessionRow(
   row: DeepLinkingSessionRow | undefined,
 ): DeepLinkingSessionRecord {
   if (!row) {
-    throw new Error("Expected a deep linking session row.");
+    throw new Error('Expected a deep linking session row.');
   }
 
   return {
@@ -110,7 +106,7 @@ export function mapReviewedPlacementRow(
   row: ReviewedPlacementRow | undefined,
 ): ReviewedPlacementRecord {
   if (!row) {
-    throw new Error("Expected a reviewed placement row.");
+    throw new Error('Expected a reviewed placement row.');
   }
 
   return {
@@ -145,9 +141,7 @@ export function mapDeepLinkingSessionSelection(
     row.selectedActivityId === null ||
     row.selectedContentPath === null
   ) {
-    throw new Error(
-      `Deep Linking session ${row.sessionId} has an incomplete selection.`,
-    );
+    throw new Error(`Deep Linking session ${row.sessionId} has an incomplete selection.`);
   }
 
   return {
@@ -158,26 +152,24 @@ export function mapDeepLinkingSessionSelection(
   };
 }
 
-function mapLaunchServices(
-  row: RuntimeSessionRow,
-): RuntimeSessionRecord["services"] {
-  const hasAgs = row.agsScope.length > 0 || row.agsLineitemsUrl !== null ||
-    row.agsLineitemUrl !== null;
+function mapLaunchServices(row: RuntimeSessionRow): RuntimeSessionRecord['services'] {
+  const hasAgs =
+    row.agsScope.length > 0 || row.agsLineitemsUrl !== null || row.agsLineitemUrl !== null;
   const hasNrps = row.nrpsContextMembershipsUrl !== null;
 
   return {
     ags: hasAgs
       ? {
-        scope: row.agsScope,
-        lineitemsUrl: row.agsLineitemsUrl,
-        lineitemUrl: row.agsLineitemUrl,
-      }
+          scope: row.agsScope,
+          lineitemsUrl: row.agsLineitemsUrl,
+          lineitemUrl: row.agsLineitemUrl,
+        }
       : null,
     nrps: hasNrps
       ? {
-        contextMembershipsUrl: row.nrpsContextMembershipsUrl!,
-        serviceVersions: row.nrpsServiceVersions,
-      }
+          contextMembershipsUrl: row.nrpsContextMembershipsUrl!,
+          serviceVersions: row.nrpsServiceVersions,
+        }
       : null,
   };
 }

@@ -1,24 +1,24 @@
-import { assertEquals } from "@std/assert";
-import type { Pool } from "@db/postgres";
-import { runMigrations } from "../db/migrate.ts";
-import { createTestDatabasePool } from "../test_helpers/postgres.ts";
-import { createPackageReviewRepository } from "./repository.ts";
+import { assertEquals } from '@std/assert';
+import type { Pool } from '@db/postgres';
+import { runMigrations } from '../db/migrate.ts';
+import { createTestDatabasePool } from '../test_helpers/postgres.ts';
+import { createPackageReviewRepository } from './repository.ts';
 
 const PRE_015_MIGRATIONS = [
-  "001_package_review.sql",
-  "002_canvas_install.sql",
-  "003_lti_login_state.sql",
-  "004_gateway_activity_grading_audit.sql",
-  "005_operator_control_plane_indexes.sql",
-  "006_broker_verification_runs.sql",
-  "007_deep_linking_sessions.sql",
-  "008_reviewed_placements.sql",
-  "009_preview_sessions.sql",
-  "010_lms_bindings.sql",
-  "011_lti_login_states_multilms.sql",
-  "012_preview_deployments.sql",
-  "013_broker_verification_scope_profiles.sql",
-  "014_generic_line_item_bindings.sql",
+  '001_package_review.sql',
+  '002_canvas_install.sql',
+  '003_lti_login_state.sql',
+  '004_gateway_activity_grading_audit.sql',
+  '005_operator_control_plane_indexes.sql',
+  '006_broker_verification_runs.sql',
+  '007_deep_linking_sessions.sql',
+  '008_reviewed_placements.sql',
+  '009_preview_sessions.sql',
+  '010_lms_bindings.sql',
+  '011_lti_login_states_multilms.sql',
+  '012_preview_deployments.sql',
+  '013_broker_verification_scope_profiles.sql',
+  '014_generic_line_item_bindings.sql',
 ] as const;
 
 const DROP_PACKAGE_REVIEW_TABLES_SQL = `
@@ -42,7 +42,7 @@ const DROP_PACKAGE_REVIEW_TABLES_SQL = `
   CASCADE;
 `;
 
-Deno.test("migration collapses Moodle and Sakai endpoint columns into the shared platform binding shape", async () => {
+Deno.test('migration collapses Moodle and Sakai endpoint columns into the shared platform binding shape', async () => {
   const pool = createTestDatabasePool();
 
   try {
@@ -66,15 +66,15 @@ Deno.test("migration collapses Moodle and Sakai endpoint columns into the shared
           ) VALUES ($1, $2, $3, 'moodle', $4, $5, $6, $7, $8, $9)
         `,
         [
-          "chapter-4-asteroids-moodle",
-          "Chapter 4 Asteroids Moodle Deployment",
-          "chapter-4-asteroids",
-          "https://moodle.example",
-          "moodle-client-123",
-          "moodle-deployment-123",
-          "https://moodle.example/mod/lti/auth.php",
-          "https://moodle.example/mod/lti/token.php",
-          "https://moodle.example/mod/lti/certs.php",
+          'chapter-4-asteroids-moodle',
+          'Chapter 4 Asteroids Moodle Deployment',
+          'chapter-4-asteroids',
+          'https://moodle.example',
+          'moodle-client-123',
+          'moodle-deployment-123',
+          'https://moodle.example/mod/lti/auth.php',
+          'https://moodle.example/mod/lti/token.php',
+          'https://moodle.example/mod/lti/certs.php',
         ],
       );
       await client.queryArray(
@@ -93,15 +93,15 @@ Deno.test("migration collapses Moodle and Sakai endpoint columns into the shared
           ) VALUES ($1, $2, $3, 'sakai', $4, $5, $6, $7, $8, $9)
         `,
         [
-          "chapter-4-asteroids-sakai",
-          "Chapter 4 Asteroids Sakai Deployment",
-          "chapter-4-asteroids",
-          "https://sakai.example",
-          "sakai-client-123",
-          "sakai-deployment-123",
-          "https://sakai.example/imsoidc/lti13/oidc_auth",
-          "https://sakai.example/imsblis/lti13/token/3",
-          "https://sakai.example/imsblis/lti13/keyset",
+          'chapter-4-asteroids-sakai',
+          'Chapter 4 Asteroids Sakai Deployment',
+          'chapter-4-asteroids',
+          'https://sakai.example',
+          'sakai-client-123',
+          'sakai-deployment-123',
+          'https://sakai.example/imsoidc/lti13/oidc_auth',
+          'https://sakai.example/imsblis/lti13/token/3',
+          'https://sakai.example/imsblis/lti13/keyset',
         ],
       );
     } finally {
@@ -117,31 +117,27 @@ Deno.test("migration collapses Moodle and Sakai endpoint columns into the shared
 
     const repository = createPackageReviewRepository(pool);
     const moodle = await repository.getDeploymentByBinding({
-      lms: "moodle",
-      issuer: "https://moodle.example",
-      clientId: "moodle-client-123",
-      deploymentId: "moodle-deployment-123",
+      lms: 'moodle',
+      issuer: 'https://moodle.example',
+      clientId: 'moodle-client-123',
+      deploymentId: 'moodle-deployment-123',
     });
     const sakai = await repository.getDeploymentByBinding({
-      lms: "sakai",
-      issuer: "https://sakai.example",
-      clientId: "sakai-client-123",
-      deploymentId: "sakai-deployment-123",
+      lms: 'sakai',
+      issuer: 'https://sakai.example',
+      clientId: 'sakai-client-123',
+      deploymentId: 'sakai-deployment-123',
     });
 
-    assertEquals(moodle?.binding?.lms, "moodle");
+    assertEquals(moodle?.binding?.lms, 'moodle');
     assertEquals(
-      moodle?.binding?.lms === "moodle"
-        ? moodle.binding.authorizationEndpoint
-        : null,
-      "https://moodle.example/mod/lti/auth.php",
+      moodle?.binding?.lms === 'moodle' ? moodle.binding.authorizationEndpoint : null,
+      'https://moodle.example/mod/lti/auth.php',
     );
-    assertEquals(sakai?.binding?.lms, "sakai");
+    assertEquals(sakai?.binding?.lms, 'sakai');
     assertEquals(
-      sakai?.binding?.lms === "sakai"
-        ? sakai.binding.authorizationEndpoint
-        : null,
-      "https://sakai.example/imsoidc/lti13/oidc_auth",
+      sakai?.binding?.lms === 'sakai' ? sakai.binding.authorizationEndpoint : null,
+      'https://sakai.example/imsoidc/lti13/oidc_auth',
     );
   } finally {
     await pool.end();
@@ -166,27 +162,20 @@ async function resetToPre015Schema(pool: Pool): Promise<void> {
       );
 
       await client.queryArray(sql);
-      await client.queryArray(
-        "INSERT INTO schema_migrations (filename) VALUES ($1)",
-        [
-          migrationName,
-        ],
-      );
+      await client.queryArray('INSERT INTO schema_migrations (filename) VALUES ($1)', [
+        migrationName,
+      ]);
     }
   } finally {
     client.release();
   }
 }
 
-async function countPendingMigrationsAfter(
-  lastAppliedMigrationName: string,
-): Promise<number> {
+async function countPendingMigrationsAfter(lastAppliedMigrationName: string): Promise<number> {
   let pendingMigrationCount = 0;
 
-  for await (
-    const entry of Deno.readDir(new URL("../db/migrations/", import.meta.url))
-  ) {
-    if (!entry.isFile || !entry.name.endsWith(".sql")) {
+  for await (const entry of Deno.readDir(new URL('../db/migrations/', import.meta.url))) {
+    if (!entry.isFile || !entry.name.endsWith('.sql')) {
       continue;
     }
 

@@ -1,16 +1,14 @@
-import type { Pool } from "@db/postgres";
-import { withClient } from "./repository_core.ts";
-import { mapAuditEventRow } from "./repository_mappers_attempts.ts";
-import type { AuditEventRow } from "./repository_row_types.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+import type { Pool } from '@db/postgres';
+import { withClient } from './repository_core.ts';
+import { mapAuditEventRow } from './repository_mappers_attempts.ts';
+import type { AuditEventRow } from './repository_row_types.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createAuditEventRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | "recordAuditEvent"
-  | "listAuditEventsByAttemptId"
-  | "listAuditEventsByEventType"
+  'recordAuditEvent' | 'listAuditEventsByAttemptId' | 'listAuditEventsByEventType'
 > {
   return {
     async recordAuditEvent(record) {

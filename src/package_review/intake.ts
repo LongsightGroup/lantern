@@ -1,18 +1,17 @@
-import type { PackageArtifactRecord } from "./types.ts";
-import { type ManifestReviewData, validateManifest } from "./manifest.ts";
-import { buildSignedReviewedRuntimeContract } from "./runtime_contract.ts";
-import type { ReviewedRuntimeContract } from "./types.ts";
+import type { PackageArtifactRecord } from './types.ts';
+import { type ManifestReviewData, validateManifest } from './manifest.ts';
+import { buildSignedReviewedRuntimeContract } from './runtime_contract.ts';
+import type { ReviewedRuntimeContract } from './types.ts';
 
 export const REFERENCE_PACKAGE_SOURCE_ROOTS = {
-  "chapter-4-asteroids": "examples/apps/chapter-4-asteroids",
-  "quick-study": "examples/apps/quick-study",
+  'chapter-4-asteroids': 'examples/apps/chapter-4-asteroids',
+  'quick-study': 'examples/apps/quick-study',
 } as const;
 
 export type ReferencePackageId = keyof typeof REFERENCE_PACKAGE_SOURCE_ROOTS;
 
-export const DEMO_PACKAGE_SOURCE_ROOT =
-  REFERENCE_PACKAGE_SOURCE_ROOTS["chapter-4-asteroids"];
-export const DEFAULT_PACKAGE_STORAGE_ROOT = "var/packages";
+export const DEMO_PACKAGE_SOURCE_ROOT = REFERENCE_PACKAGE_SOURCE_ROOTS['chapter-4-asteroids'];
+export const DEFAULT_PACKAGE_STORAGE_ROOT = 'var/packages';
 
 export interface ImportedPackageVersion {
   reviewData: ManifestReviewData;
@@ -27,45 +26,36 @@ export function listReferencePackageIds(): ReferencePackageId[] {
 
 export function getReferencePackageSourceRoot(appId: string): string {
   if (!isReferencePackageId(appId)) {
-    throw new Error(
-      `Lantern does not ship a curated reference package for ${appId}.`,
-    );
+    throw new Error(`Lantern does not ship a curated reference package for ${appId}.`);
   }
 
   return REFERENCE_PACKAGE_SOURCE_ROOTS[appId];
 }
 
-export async function readReferencePackageReviewData(
-  appId: string,
-): Promise<ManifestReviewData> {
+export async function readReferencePackageReviewData(appId: string): Promise<ManifestReviewData> {
   const validation = await validateManifest({
     sourceRoot: getReferencePackageSourceRoot(appId),
   });
 
   if (!validation.ok) {
-    const details = validation.issues.map((issue) => issue.message).join("; ");
-    throw new Error(
-      `Reference package ${appId} failed validation: ${details}`,
-    );
+    const details = validation.issues.map((issue) => issue.message).join('; ');
+    throw new Error(`Reference package ${appId} failed validation: ${details}`);
   }
 
   return validation.reviewData;
 }
 
 export async function readDemoPackageReviewData(): Promise<ManifestReviewData> {
-  return await readReferencePackageReviewData("chapter-4-asteroids");
+  return await readReferencePackageReviewData('chapter-4-asteroids');
 }
 
-export async function loadReferencePackageSnapshot(
-  input: { appId: string; storageRoot?: string },
-): Promise<ImportedPackageVersion | null> {
+export async function loadReferencePackageSnapshot(input: {
+  appId: string;
+  storageRoot?: string;
+}): Promise<ImportedPackageVersion | null> {
   const reviewData = await readReferencePackageReviewData(input.appId);
   const storageRoot = input.storageRoot ?? DEFAULT_PACKAGE_STORAGE_ROOT;
-  const snapshotRoot = joinFileSystemPath(
-    storageRoot,
-    reviewData.appId,
-    reviewData.version,
-  );
+  const snapshotRoot = joinFileSystemPath(storageRoot, reviewData.appId, reviewData.version);
 
   if (!(await pathExists(snapshotRoot))) {
     return null;
@@ -81,24 +71,19 @@ export async function loadDemoPackageSnapshot(
   options: { storageRoot?: string } = {},
 ): Promise<ImportedPackageVersion | null> {
   return await loadReferencePackageSnapshot({
-    appId: "chapter-4-asteroids",
-    ...(options.storageRoot === undefined
-      ? {}
-      : { storageRoot: options.storageRoot }),
+    appId: 'chapter-4-asteroids',
+    ...(options.storageRoot === undefined ? {} : { storageRoot: options.storageRoot }),
   });
 }
 
-export async function importReferencePackage(
-  input: { appId: string; storageRoot?: string },
-): Promise<ImportedPackageVersion> {
+export async function importReferencePackage(input: {
+  appId: string;
+  storageRoot?: string;
+}): Promise<ImportedPackageVersion> {
   const reviewData = await readReferencePackageReviewData(input.appId);
   const sourceRoot = getReferencePackageSourceRoot(input.appId);
   const storageRoot = input.storageRoot ?? DEFAULT_PACKAGE_STORAGE_ROOT;
-  const snapshotRoot = joinFileSystemPath(
-    storageRoot,
-    reviewData.appId,
-    reviewData.version,
-  );
+  const snapshotRoot = joinFileSystemPath(storageRoot, reviewData.appId, reviewData.version);
 
   if (await pathExists(snapshotRoot)) {
     throw new Error(
@@ -108,10 +93,7 @@ export async function importReferencePackage(
 
   await copyDirectory(sourceRoot, snapshotRoot);
 
-  const artifact = await buildArtifactRecord(
-    snapshotRoot,
-    reviewData.entrypoint,
-  );
+  const artifact = await buildArtifactRecord(snapshotRoot, reviewData.entrypoint);
 
   return await finalizeImportedPackageVersion({ reviewData, artifact });
 }
@@ -120,10 +102,8 @@ export async function importDemoPackage(
   options: { storageRoot?: string } = {},
 ): Promise<ImportedPackageVersion> {
   return await importReferencePackage({
-    appId: "chapter-4-asteroids",
-    ...(options.storageRoot === undefined
-      ? {}
-      : { storageRoot: options.storageRoot }),
+    appId: 'chapter-4-asteroids',
+    ...(options.storageRoot === undefined ? {} : { storageRoot: options.storageRoot }),
   });
 }
 
@@ -147,19 +127,13 @@ async function buildArtifactRecord(
 ): Promise<PackageArtifactRecord> {
   return {
     snapshotRoot,
-    manifestPath: joinFileSystemPath(snapshotRoot, "manifest.json"),
-    entrypointPath: joinFileSystemPath(
-      snapshotRoot,
-      trimLeadingSlash(entrypoint),
-    ),
+    manifestPath: joinFileSystemPath(snapshotRoot, 'manifest.json'),
+    entrypointPath: joinFileSystemPath(snapshotRoot, trimLeadingSlash(entrypoint)),
     digest: await createDirectoryDigest(snapshotRoot),
   };
 }
 
-async function copyDirectory(
-  sourceRoot: string,
-  destinationRoot: string,
-): Promise<void> {
+async function copyDirectory(sourceRoot: string, destinationRoot: string): Promise<void> {
   await Deno.mkdir(destinationRoot, { recursive: true });
 
   for await (const entry of Deno.readDir(sourceRoot)) {
@@ -186,13 +160,13 @@ async function createDirectoryDigest(root: string): Promise<string> {
   for (const relativePath of files) {
     parts.push(encoder.encode(`${relativePath}\n`));
     parts.push(await Deno.readFile(joinFileSystemPath(root, relativePath)));
-    parts.push(encoder.encode("\n"));
+    parts.push(encoder.encode('\n'));
   }
 
   const bytes = concatenate(parts);
   const buffer = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(buffer).set(bytes);
-  const digest = await crypto.subtle.digest("SHA-256", buffer);
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
 
   return `sha256:${encodeHex(new Uint8Array(digest))}`;
 }
@@ -200,26 +174,18 @@ async function createDirectoryDigest(root: string): Promise<string> {
 async function collectRelativeFiles(root: string): Promise<string[]> {
   const files: string[] = [];
 
-  await walk(root, "", files);
+  await walk(root, '', files);
 
   files.sort();
 
   return files;
 }
 
-async function walk(
-  root: string,
-  relativeRoot: string,
-  files: string[],
-): Promise<void> {
-  const absoluteRoot = relativeRoot
-    ? joinFileSystemPath(root, relativeRoot)
-    : root;
+async function walk(root: string, relativeRoot: string, files: string[]): Promise<void> {
+  const absoluteRoot = relativeRoot ? joinFileSystemPath(root, relativeRoot) : root;
 
   for await (const entry of Deno.readDir(absoluteRoot)) {
-    const relativePath = relativeRoot
-      ? joinFileSystemPath(relativeRoot, entry.name)
-      : entry.name;
+    const relativePath = relativeRoot ? joinFileSystemPath(relativeRoot, entry.name) : entry.name;
 
     if (entry.isDirectory) {
       await walk(root, relativePath, files);
@@ -246,34 +212,34 @@ function concatenate(parts: Uint8Array[]): Uint8Array {
 }
 
 function encodeHex(bytes: Uint8Array): string {
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function trimLeadingSlash(value: string): string {
-  return value.replace(/^\/+/, "");
+  return value.replace(/^\/+/, '');
 }
 
 function parentDirectory(path: string): string {
-  const parts = path.split("/");
+  const parts = path.split('/');
 
   parts.pop();
 
-  return parts.join("/") || ".";
+  return parts.join('/') || '.';
 }
 
 function joinFileSystemPath(...segments: string[]): string {
   if (segments.length === 0) {
-    return ".";
+    return '.';
   }
 
-  const [firstSegment = ".", ...rest] = segments;
-  let path = firstSegment.replace(/\/+$/, "");
+  const [firstSegment = '.', ...rest] = segments;
+  let path = firstSegment.replace(/\/+$/, '');
 
   for (const segment of rest) {
-    path = `${path}/${segment.replace(/^\/+/, "").replace(/\/+$/, "")}`;
+    path = `${path}/${segment.replace(/^\/+/, '').replace(/\/+$/, '')}`;
   }
 
-  return path.replaceAll(/\/{2,}/g, "/");
+  return path.replaceAll(/\/{2,}/g, '/');
 }
 
 async function pathExists(path: string): Promise<boolean> {

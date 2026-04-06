@@ -1,15 +1,15 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals } from '@std/assert';
 
 export function decodeJwtPayload(token: string): Record<string, unknown> {
-  const parts = token.split(".");
+  const parts = token.split('.');
   const payload = parts[1];
 
   if (!payload) {
-    throw new Error("JWT payload segment is required.");
+    throw new Error('JWT payload segment is required.');
   }
 
-  const normalized = payload.replaceAll("-", "+").replaceAll("_", "/");
-  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  const normalized = payload.replaceAll('-', '+').replaceAll('_', '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
 
   return JSON.parse(atob(padded)) as Record<string, unknown>;
 }
@@ -26,5 +26,5 @@ export async function assertRejectsDeepLinking(
     return;
   }
 
-  throw new Error("Expected Deep Linking validation to reject.");
+  throw new Error('Expected Deep Linking validation to reject.');
 }

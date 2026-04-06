@@ -1,21 +1,19 @@
-import type { Pool } from "@db/postgres";
-import { withClient } from "./repository_core.ts";
+import type { Pool } from '@db/postgres';
+import { withClient } from './repository_core.ts';
 import {
   mapGradePublicationRow,
   mapOptionalGradePublication,
-} from "./repository_mappers_attempts.ts";
-import { GRADE_PUBLICATION_SELECT } from "./repository_query_fragments.ts";
-import type { GradePublicationRow } from "./repository_row_types.ts";
-import { isUniqueViolation } from "./repository_value_support.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+} from './repository_mappers_attempts.ts';
+import { GRADE_PUBLICATION_SELECT } from './repository_query_fragments.ts';
+import type { GradePublicationRow } from './repository_row_types.ts';
+import { isUniqueViolation } from './repository_value_support.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createGradePublicationRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | "getGradePublicationByAttemptId"
-  | "createGradePublication"
-  | "updateGradePublication"
+  'getGradePublicationByAttemptId' | 'createGradePublication' | 'updateGradePublication'
 > {
   return {
     async getGradePublicationByAttemptId(attemptId) {
@@ -84,9 +82,7 @@ export function createGradePublicationRepositoryMethods(
               record.updatedAt,
               record.publishedAt,
               record.errorCode,
-              record.errorDetail === null
-                ? null
-                : JSON.stringify(record.errorDetail),
+              record.errorDetail === null ? null : JSON.stringify(record.errorDetail),
             ],
             camelCase: true,
           });
@@ -148,9 +144,7 @@ export function createGradePublicationRepositoryMethods(
             input.updatedAt,
             input.publishedAt,
             input.errorCode,
-            input.errorDetail === null
-              ? null
-              : JSON.stringify(input.errorDetail),
+            input.errorDetail === null ? null : JSON.stringify(input.errorDetail),
           ],
           camelCase: true,
         });

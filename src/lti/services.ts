@@ -1,6 +1,6 @@
-import * as oauth from "oauth4webapi";
-import { resolveCanvasPlatform } from "./canvas_platform.ts";
-import { resolveServiceTokenEndpoint } from "./platform_binding.ts";
+import * as oauth from 'oauth4webapi';
+import { resolveCanvasPlatform } from './canvas_platform.ts';
+import { resolveServiceTokenEndpoint } from './platform_binding.ts';
 import {
   createServiceHeaders,
   fetchWithUnauthorizedRetry,
@@ -12,15 +12,14 @@ import {
   toLineItemsUrl,
   toScoresUrl,
   uniqueTrimmedStrings,
-} from "./service_support.ts";
-import { loadToolSigningKey } from "./tool_key.ts";
-import type { DeploymentBinding } from "./types.ts";
-import type { GradePublicationRecord } from "../package_review/types.ts";
+} from './service_support.ts';
+import { loadToolSigningKey } from './tool_key.ts';
+import type { DeploymentBinding } from './types.ts';
+import type { GradePublicationRecord } from '../package_review/types.ts';
 
-const LINE_ITEM_CONTENT_TYPE = "application/vnd.ims.lis.v2.lineitem+json";
-const LINE_ITEM_CONTAINER_CONTENT_TYPE =
-  "application/vnd.ims.lis.v2.lineitemcontainer+json";
-const SCORE_CONTENT_TYPE = "application/vnd.ims.lis.v1.score+json";
+const LINE_ITEM_CONTENT_TYPE = 'application/vnd.ims.lis.v2.lineitem+json';
+const LINE_ITEM_CONTAINER_CONTENT_TYPE = 'application/vnd.ims.lis.v2.lineitemcontainer+json';
+const SCORE_CONTENT_TYPE = 'application/vnd.ims.lis.v1.score+json';
 
 export interface ServiceAccessToken {
   accessToken: string;
@@ -57,14 +56,14 @@ export interface PublishFinalScoreInput {
   platformUserId: string;
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: GradePublicationRecord["activityProgress"];
-  gradingProgress: GradePublicationRecord["gradingProgress"];
+  activityProgress: GradePublicationRecord['activityProgress'];
+  gradingProgress: GradePublicationRecord['gradingProgress'];
   timestamp?: string;
 }
 
 export type PublishFinalScoreResult = { accepted: boolean; status: number };
 
-export type { NrpsMembership } from "./service_memberships.ts";
+export type { NrpsMembership } from './service_memberships.ts';
 
 async function performServiceAccessTokenRequest(input: {
   issuer: string;
@@ -75,12 +74,9 @@ async function performServiceAccessTokenRequest(input: {
 }): Promise<ServiceAccessToken> {
   const clientId = requireTrimmedString(
     input.clientId,
-    "LTI client ID is required for service auth.",
+    'LTI client ID is required for service auth.',
   );
-  const scopes = uniqueTrimmedStrings(
-    input.scopes,
-    "At least one LTI service scope is required.",
-  );
+  const scopes = uniqueTrimmedStrings(input.scopes, 'At least one LTI service scope is required.');
   const signingKey = await loadToolSigningKey();
   const as: oauth.AuthorizationServer = {
     issuer: input.issuer,
@@ -90,11 +86,11 @@ async function performServiceAccessTokenRequest(input: {
     client_id: clientId,
   };
   const parameters = new URLSearchParams({
-    scope: scopes.join(" "),
+    scope: scopes.join(' '),
   });
 
   if (input.deploymentId !== undefined) {
-    parameters.set("deployment_id", input.deploymentId);
+    parameters.set('deployment_id', input.deploymentId);
   }
 
   const response = await oauth.clientCredentialsGrantRequest(
@@ -107,13 +103,9 @@ async function performServiceAccessTokenRequest(input: {
     }),
     parameters,
   );
-  const token = await oauth.processClientCredentialsResponse(
-    as,
-    client,
-    response,
-  );
+  const token = await oauth.processClientCredentialsResponse(as, client, response);
 
-  if (token.token_type !== "bearer") {
+  if (token.token_type !== 'bearer') {
     throw new Error(
       `LTI service token endpoint returned unsupported token type ${token.token_type}.`,
     );
@@ -122,7 +114,7 @@ async function performServiceAccessTokenRequest(input: {
   return {
     accessToken: token.access_token,
     expiresIn: token.expires_in ?? null,
-    scope: token.scope ? token.scope.split(" ").filter(Boolean) : scopes,
+    scope: token.scope ? token.scope.split(' ').filter(Boolean) : scopes,
   };
 }
 
@@ -154,22 +146,15 @@ export async function requestCanvasServiceAccessToken(input: {
     clientId: input.clientId,
     tokenEndpoint: resolveCanvasTokenEndpoint(platform.authorizationEndpoint),
     scopes: input.scopes,
-    ...(input.deploymentId === undefined
-      ? {}
-      : { deploymentId: input.deploymentId }),
+    ...(input.deploymentId === undefined ? {} : { deploymentId: input.deploymentId }),
   });
 }
 
-export async function ensureLineItem(
-  input: EnsureLineItemInput,
-): Promise<EnsureLineItemResult> {
+export async function ensureLineItem(input: EnsureLineItemInput): Promise<EnsureLineItemResult> {
   if (input.lineitemUrl) {
     return {
       lineItemsUrl: input.lineitemsUrl ?? toLineItemsUrl(input.lineitemUrl),
-      lineItemUrl: requireTrimmedString(
-        input.lineitemUrl,
-        "AGS line item URL is required.",
-      ),
+      lineItemUrl: requireTrimmedString(input.lineitemUrl, 'AGS line item URL is required.'),
       resourceId: input.resourceId,
       tag: input.tag,
       label: input.label,
@@ -178,10 +163,7 @@ export async function ensureLineItem(
     };
   }
 
-  const lineItemsUrl = requireTrimmedString(
-    input.lineitemsUrl,
-    "AGS lineitems URL is required.",
-  );
+  const lineItemsUrl = requireTrimmedString(input.lineitemsUrl, 'AGS lineitems URL is required.');
   const listResponse = await fetchWithUnauthorizedRetry({
     accessToken: input.accessToken,
     ...(input.retryUnauthorized === undefined
@@ -191,15 +173,11 @@ export async function ensureLineItem(
       fetch(lineItemsUrl, {
         headers: createServiceHeaders({
           Authorization: `Bearer ${accessToken}`,
-          Accept:
-            `${LINE_ITEM_CONTAINER_CONTENT_TYPE}, ${LINE_ITEM_CONTENT_TYPE}, application/json`,
+          Accept: `${LINE_ITEM_CONTAINER_CONTENT_TYPE}, ${LINE_ITEM_CONTENT_TYPE}, application/json`,
         }),
       }),
   });
-  const listedItems = await readJsonResponse(
-    listResponse,
-    "Line item lookup failed.",
-  );
+  const listedItems = await readJsonResponse(listResponse, 'Line item lookup failed.');
   const existing = parseLineItemCollection(listedItems).find(
     (candidate) =>
       candidate.resourceLinkId === input.resourceLinkId &&
@@ -226,11 +204,11 @@ export async function ensureLineItem(
       : { retryUnauthorized: input.retryUnauthorized }),
     request: (accessToken) =>
       fetch(lineItemsUrl, {
-        method: "POST",
+        method: 'POST',
         headers: createServiceHeaders({
           Authorization: `Bearer ${accessToken}`,
           Accept: `${LINE_ITEM_CONTENT_TYPE}, application/json`,
-          "content-type": LINE_ITEM_CONTENT_TYPE,
+          'content-type': LINE_ITEM_CONTENT_TYPE,
         }),
         body: JSON.stringify({
           scoreMaximum: input.scoreMaximum,
@@ -243,30 +221,28 @@ export async function ensureLineItem(
   });
 
   if (!createResponse.ok) {
-    throw new Error(
-      `Line item create failed with status ${createResponse.status}.`,
-    );
+    throw new Error(`Line item create failed with status ${createResponse.status}.`);
   }
 
   const created = await readMaybeJson(createResponse);
-  const lineItemUrl = created && typeof created.id === "string"
-    ? created.id
-    : requireTrimmedString(
-      createResponse.headers.get("location"),
-      "Line item create response did not include an id or location.",
-    );
+  const lineItemUrl =
+    created && typeof created.id === 'string'
+      ? created.id
+      : requireTrimmedString(
+          createResponse.headers.get('location'),
+          'Line item create response did not include an id or location.',
+        );
 
   return {
     lineItemsUrl,
     lineItemUrl,
     resourceId: input.resourceId,
     tag: input.tag,
-    label: created && typeof created.label === "string"
-      ? created.label
-      : input.label,
-    scoreMaximum: created && typeof created.scoreMaximum === "number"
-      ? created.scoreMaximum
-      : input.scoreMaximum,
+    label: created && typeof created.label === 'string' ? created.label : input.label,
+    scoreMaximum:
+      created && typeof created.scoreMaximum === 'number'
+        ? created.scoreMaximum
+        : input.scoreMaximum,
     created: true,
   };
 }
@@ -281,11 +257,11 @@ export async function publishFinalScore(
       : { retryUnauthorized: input.retryUnauthorized }),
     request: (accessToken) =>
       fetch(toScoresUrl(input.lineItemUrl), {
-        method: "POST",
+        method: 'POST',
         headers: createServiceHeaders({
           Authorization: `Bearer ${accessToken}`,
-          Accept: "application/json",
-          "content-type": SCORE_CONTENT_TYPE,
+          Accept: 'application/json',
+          'content-type': SCORE_CONTENT_TYPE,
         }),
         body: JSON.stringify({
           userId: input.platformUserId,
@@ -299,9 +275,7 @@ export async function publishFinalScore(
   });
 
   if (!response.ok) {
-    throw new Error(
-      `Canvas score publish failed with status ${response.status}.`,
-    );
+    throw new Error(`Canvas score publish failed with status ${response.status}.`);
   }
 
   return {
@@ -310,4 +284,4 @@ export async function publishFinalScore(
   };
 }
 
-export { readContextMemberships } from "./service_memberships.ts";
+export { readContextMemberships } from './service_memberships.ts';

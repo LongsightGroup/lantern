@@ -1,41 +1,39 @@
-import type { OfficialBrokerCertificationStatus } from "../ops/types.ts";
-import { assertBrokerVerificationRunInput } from "../ops/repository_mapping.ts";
+import type { OfficialBrokerCertificationStatus } from '../ops/types.ts';
+import { assertBrokerVerificationRunInput } from '../ops/repository_mapping.ts';
 import type {
   InMemoryOpsRepository,
   InMemoryRepositoryState,
-} from "./package_review_in_memory_shared.ts";
+} from './package_review_in_memory_shared.ts';
 import {
   cloneRecord,
   getLatestBrokerVerificationRecord,
-} from "./package_review_in_memory_shared.ts";
+} from './package_review_in_memory_shared.ts';
 import {
   applyOfficialVerificationToDeployment,
   applyOfficialVerificationToDetail,
   latestOfficialForScope,
-} from "./package_review_in_memory_ops_support.ts";
+} from './package_review_in_memory_ops_support.ts';
 import {
   buildBrokerVerificationStatus,
   buildDeploymentGradePublicationSnapshot,
   buildRetryableGradePublicationLookup,
   buildRetryRuntimeSessionLookup,
-} from "./package_review_test_builder_ops.ts";
+} from './package_review_test_builder_ops.ts';
 
 type OpsRepository = Pick<
   InMemoryOpsRepository,
-  | "listControlPlaneDeployments"
-  | "getControlPlaneDeploymentDetail"
-  | "listControlPlaneDiagnostics"
-  | "listCertificationWorkflowStatuses"
-  | "getLatestOfficialCertificationEvidence"
-  | "getLatestBrokerVerification"
-  | "getLatestBrokerVerificationStatus"
-  | "recordBrokerVerificationRun"
-  | "getRetryableGradePublicationLookup"
+  | 'listControlPlaneDeployments'
+  | 'getControlPlaneDeploymentDetail'
+  | 'listControlPlaneDiagnostics'
+  | 'listCertificationWorkflowStatuses'
+  | 'getLatestOfficialCertificationEvidence'
+  | 'getLatestBrokerVerification'
+  | 'getLatestBrokerVerificationStatus'
+  | 'recordBrokerVerificationRun'
+  | 'getRetryableGradePublicationLookup'
 >;
 
-export function createInMemoryOpsRepositorySection(
-  state: InMemoryRepositoryState,
-): OpsRepository {
+export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryState): OpsRepository {
   return {
     listControlPlaneDeployments() {
       return Promise.resolve(
@@ -62,9 +60,7 @@ export function createInMemoryOpsRepositorySection(
     listControlPlaneDiagnostics(deploymentRecordId) {
       return Promise.resolve(
         state.controlPlaneDiagnostics
-          .filter((candidate) =>
-            candidate.deploymentRecordId === deploymentRecordId
-          )
+          .filter((candidate) => candidate.deploymentRecordId === deploymentRecordId)
           .map(cloneRecord)
           .sort((left, right) => {
             const occurredAt = right.occurredAt.localeCompare(left.occurredAt);
@@ -79,9 +75,7 @@ export function createInMemoryOpsRepositorySection(
     },
 
     listCertificationWorkflowStatuses() {
-      return Promise.resolve(
-        state.certificationWorkflowStatuses.map(cloneRecord),
-      );
+      return Promise.resolve(state.certificationWorkflowStatuses.map(cloneRecord));
     },
 
     getLatestOfficialCertificationEvidence() {
@@ -93,54 +87,51 @@ export function createInMemoryOpsRepositorySection(
     },
 
     getLatestBrokerVerification() {
-      const record = getLatestBrokerVerificationRecord(
-        state.brokerVerifications,
-      );
+      const record = getLatestBrokerVerificationRecord(state.brokerVerifications);
       return Promise.resolve(record ? cloneRecord(record) : null);
     },
 
     getLatestBrokerVerificationStatus() {
-      const record = getLatestBrokerVerificationRecord(
-        state.brokerVerifications,
-      );
+      const record = getLatestBrokerVerificationRecord(state.brokerVerifications);
       return Promise.resolve(record ? cloneRecord(record) : null);
     },
 
     recordBrokerVerificationRun(input) {
       assertBrokerVerificationRunInput(input);
       const official: OfficialBrokerCertificationStatus =
-        input.source === "1edtech"
+        input.source === '1edtech'
           ? {
-            state: input.certificationState ?? "notCertified",
-            checkedAt: input.checkedAt,
-            directoryUrl: input.detailUrl,
-          }
+              state: input.certificationState ?? 'notCertified',
+              checkedAt: input.checkedAt,
+              directoryUrl: input.detailUrl,
+            }
           : latestOfficialForScope(state, input.scope);
-      const nextRecord = input.source === "1edtech"
-        ? buildBrokerVerificationStatus({
-          supportedPath: input.scope,
-          internal: null,
-          official,
-        })
-        : buildBrokerVerificationStatus({
-          supportedPath: input.scope,
-          internal: {
-            source: input.source,
-            status: input.status as "failed" | "passed" | "pending",
-            checkedAt: input.checkedAt,
-            summary: input.summary,
-            evidenceUrl: input.detailUrl,
-          },
-          official,
-        });
+      const nextRecord =
+        input.source === '1edtech'
+          ? buildBrokerVerificationStatus({
+              supportedPath: input.scope,
+              internal: null,
+              official,
+            })
+          : buildBrokerVerificationStatus({
+              supportedPath: input.scope,
+              internal: {
+                source: input.source,
+                status: input.status as 'failed' | 'passed' | 'pending',
+                checkedAt: input.checkedAt,
+                summary: input.summary,
+                evidenceUrl: input.detailUrl,
+              },
+              official,
+            });
 
       state.brokerVerifications.push(cloneRecord(nextRecord));
 
-      if (input.source === "1edtech") {
+      if (input.source === '1edtech') {
         const nextOfficialEvidence = {
           workflowKey: input.workflowKey,
           state: (input.certificationState ??
-            "notCertified") as OfficialBrokerCertificationStatus["state"],
+            'notCertified') as OfficialBrokerCertificationStatus['state'],
           checkedAt: input.checkedAt,
           summary: input.summary,
           directoryUrl: input.detailUrl,
@@ -152,69 +143,53 @@ export function createInMemoryOpsRepositorySection(
             nextOfficialEvidence.checkedAt,
           )
         ) {
-          state.latestOfficialCertificationEvidence = cloneRecord(
-            nextOfficialEvidence,
-          );
+          state.latestOfficialCertificationEvidence = cloneRecord(nextOfficialEvidence);
         }
       } else if (input.deploymentRecordId !== null) {
         const deploymentRecordId = input.deploymentRecordId;
 
-        state.certificationWorkflowStatuses = state
-          .certificationWorkflowStatuses
+        state.certificationWorkflowStatuses = state.certificationWorkflowStatuses
           .map((workflowStatus) =>
             workflowStatus.workflowKey === input.workflowKey &&
-              shouldReplaceWorkflowEvidence(
-                workflowStatus.latestInternal?.checkedAt ?? null,
-                input.checkedAt,
-              )
+            shouldReplaceWorkflowEvidence(
+              workflowStatus.latestInternal?.checkedAt ?? null,
+              input.checkedAt,
+            )
               ? {
-                workflowKey: workflowStatus.workflowKey,
-                latestInternal: {
-                  deploymentRecordId,
-                  deploymentLabel: resolveDeploymentLabel(
-                    state,
+                  workflowKey: workflowStatus.workflowKey,
+                  latestInternal: {
                     deploymentRecordId,
-                  ),
-                  status: input.status as "failed" | "passed" | "pending",
-                  checkedAt: input.checkedAt,
-                  summary: input.summary,
-                  evidenceUrl: input.detailUrl,
-                },
-              }
-              : workflowStatus
+                    deploymentLabel: resolveDeploymentLabel(state, deploymentRecordId),
+                    status: input.status as 'failed' | 'passed' | 'pending',
+                    checkedAt: input.checkedAt,
+                    summary: input.summary,
+                    evidenceUrl: input.detailUrl,
+                  },
+                }
+              : workflowStatus,
           )
           .map(cloneRecord);
       }
 
-      if (input.source === "1edtech") {
-        state.controlPlaneDeployments = state.controlPlaneDeployments.map((
-          deployment,
-        ) =>
-          applyOfficialVerificationToDeployment(
-            deployment,
-            input.scope,
-            official,
-          )
+      if (input.source === '1edtech') {
+        state.controlPlaneDeployments = state.controlPlaneDeployments.map((deployment) =>
+          applyOfficialVerificationToDeployment(deployment, input.scope, official),
         );
-        state.controlPlaneDeploymentDetails = state
-          .controlPlaneDeploymentDetails.map((detail) =>
-            applyOfficialVerificationToDetail(detail, input.scope, official)
-          );
+        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
+          applyOfficialVerificationToDetail(detail, input.scope, official),
+        );
       } else if (input.deploymentRecordId !== null) {
-        state.controlPlaneDeployments = state.controlPlaneDeployments.map((
-          deployment,
-        ) =>
+        state.controlPlaneDeployments = state.controlPlaneDeployments.map((deployment) =>
           deployment.deploymentId === input.deploymentRecordId
             ? {
-              ...deployment,
-              brokerVerification: cloneRecord(nextRecord),
-            }
-            : deployment
+                ...deployment,
+                brokerVerification: cloneRecord(nextRecord),
+              }
+            : deployment,
         );
-        state.controlPlaneDeploymentDetails = state
-          .controlPlaneDeploymentDetails.map((detail) =>
-            detail.inventory.deploymentId === input.deploymentRecordId
-              ? {
+        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
+          detail.inventory.deploymentId === input.deploymentRecordId
+            ? {
                 ...detail,
                 inventory: {
                   ...detail.inventory,
@@ -222,8 +197,8 @@ export function createInMemoryOpsRepositorySection(
                 },
                 brokerVerification: cloneRecord(nextRecord),
               }
-              : detail
-          );
+            : detail,
+        );
       }
 
       return Promise.resolve();
@@ -239,12 +214,9 @@ export function createInMemoryOpsRepositorySection(
       }
 
       const publication = state.gradePublications.find(
-        (candidate) =>
-          candidate.attemptId === attemptId && candidate.status === "failed",
+        (candidate) => candidate.attemptId === attemptId && candidate.status === 'failed',
       );
-      const attempt = state.attempts.find((candidate) =>
-        candidate.attemptId === attemptId
-      );
+      const attempt = state.attempts.find((candidate) => candidate.attemptId === attemptId);
 
       if (!publication || !attempt) {
         return Promise.resolve(null);
@@ -279,17 +251,17 @@ export function createInMemoryOpsRepositorySection(
           binding: deployment?.binding ?? null,
           runtimeSession: runtimeSession
             ? buildRetryRuntimeSessionLookup({
-              sessionId: runtimeSession.sessionId,
-              attemptId: runtimeSession.attemptId,
-              deploymentRecordId: runtimeSession.deploymentRecordId,
-              deploymentSlug: runtimeSession.deploymentSlug,
-              appId: runtimeSession.appId,
-              packageVersionId: runtimeSession.packageVersionId,
-              packageVersion: runtimeSession.packageVersion,
-              services: runtimeSession.services,
-              createdAt: runtimeSession.createdAt,
-              expiresAt: runtimeSession.expiresAt,
-            })
+                sessionId: runtimeSession.sessionId,
+                attemptId: runtimeSession.attemptId,
+                deploymentRecordId: runtimeSession.deploymentRecordId,
+                deploymentSlug: runtimeSession.deploymentSlug,
+                appId: runtimeSession.appId,
+                packageVersionId: runtimeSession.packageVersionId,
+                packageVersion: runtimeSession.packageVersion,
+                services: runtimeSession.services,
+                createdAt: runtimeSession.createdAt,
+                expiresAt: runtimeSession.expiresAt,
+              })
             : null,
         }),
       );
@@ -305,9 +277,7 @@ function shouldReplaceWorkflowEvidence(
 }
 
 function shouldReplaceLatestOfficialEvidence(
-  current:
-    | InMemoryRepositoryState["latestOfficialCertificationEvidence"]
-    | null,
+  current: InMemoryRepositoryState['latestOfficialCertificationEvidence'] | null,
   nextCheckedAt: string,
 ): boolean {
   return current === null || nextCheckedAt >= current.checkedAt;
@@ -317,8 +287,9 @@ function resolveDeploymentLabel(
   state: InMemoryRepositoryState,
   deploymentRecordId: number,
 ): string {
-  return state.controlPlaneDeployments.find((deployment) =>
-    deployment.deploymentId === deploymentRecordId
-  )?.deploymentLabel ??
-    `Deployment ${deploymentRecordId}`;
+  return (
+    state.controlPlaneDeployments.find(
+      (deployment) => deployment.deploymentId === deploymentRecordId,
+    )?.deploymentLabel ?? `Deployment ${deploymentRecordId}`
+  );
 }

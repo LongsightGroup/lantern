@@ -1,20 +1,20 @@
-import type { PlacementAuditStatus } from "./types.ts";
+import type { PlacementAuditStatus } from './types.ts';
 import type {
   PlacementAuditSnapshot,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
-} from "./types.ts";
+} from './types.ts';
 import type {
   PlacementAuditSnapshotRow,
   PreviewEvidenceRow,
   PreviewSessionRow,
-} from "./repository_row_types.ts";
-import { mapReviewedPlacementRow } from "./repository_mappers_sessions.ts";
+} from './repository_row_types.ts';
+import { mapReviewedPlacementRow } from './repository_mappers_sessions.ts';
 import {
   normalizeNumeric,
   normalizeOptionalTimestamp,
   normalizeTimestamp,
-} from "./repository_value_support.ts";
+} from './repository_value_support.ts';
 
 export function mapOptionalPlacementAuditSnapshot(
   row: PlacementAuditSnapshotRow | undefined,
@@ -30,7 +30,7 @@ export function mapPlacementAuditSnapshotRow(
   row: PlacementAuditSnapshotRow | undefined,
 ): PlacementAuditSnapshot {
   if (!row) {
-    throw new Error("Expected a placement audit snapshot row.");
+    throw new Error('Expected a placement audit snapshot row.');
   }
 
   const previewEvidenceCount = normalizeNumeric(row.previewEvidenceCount);
@@ -44,9 +44,7 @@ export function mapPlacementAuditSnapshotRow(
       reviewerEventCount,
     }),
     latestPreviewSessionId: row.latestPreviewSessionId,
-    latestPreviewOccurredAt: normalizeOptionalTimestamp(
-      row.latestPreviewOccurredAt,
-    ),
+    latestPreviewOccurredAt: normalizeOptionalTimestamp(row.latestPreviewOccurredAt),
     previewEvidenceCount,
     evidenceSummary: {
       deepLinkingRequestCount: normalizeNumeric(row.deepLinkingRequestCount),
@@ -63,18 +61,18 @@ export function derivePlacementAuditStatus(input: {
   reviewerEventCount: number;
 }): PlacementAuditStatus {
   if (input.reviewerEventCount > 0) {
-    return "reviewed";
+    return 'reviewed';
   }
 
   if (input.resourceLinkId === null) {
-    return "awaiting_canvas_binding";
+    return 'awaiting_canvas_binding';
   }
 
   if (input.previewEvidenceCount > 0) {
-    return "bound_with_preview";
+    return 'bound_with_preview';
   }
 
-  return "bound_no_preview";
+  return 'bound_no_preview';
 }
 
 export function mapOptionalPreviewSession(
@@ -87,11 +85,9 @@ export function mapOptionalPreviewSession(
   return mapPreviewSessionRow(row);
 }
 
-export function mapPreviewSessionRow(
-  row: PreviewSessionRow | undefined,
-): PreviewSessionRecord {
+export function mapPreviewSessionRow(row: PreviewSessionRow | undefined): PreviewSessionRecord {
   if (!row) {
-    throw new Error("Expected a preview session row.");
+    throw new Error('Expected a preview session row.');
   }
 
   return {
@@ -120,11 +116,9 @@ export function mapPreviewSessionRow(
   };
 }
 
-export function mapPreviewEvidenceRow(
-  row: PreviewEvidenceRow | undefined,
-): PreviewEvidenceRecord {
+export function mapPreviewEvidenceRow(row: PreviewEvidenceRow | undefined): PreviewEvidenceRecord {
   if (!row) {
-    throw new Error("Expected a preview evidence row.");
+    throw new Error('Expected a preview evidence row.');
   }
 
   return {

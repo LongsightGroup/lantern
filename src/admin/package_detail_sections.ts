@@ -3,19 +3,17 @@ import {
   approvalStatusDetail,
   approvalStatusLabel,
   summarizeAccessibilityReview,
-} from "../package_review/summary.ts";
+} from '../package_review/summary.ts';
 import {
   ACCESSIBILITY_REVIEW_FIELDS,
   type AccessibilityReview,
   type AccessibilityReviewStatus,
   type PackageVersionRecord,
-} from "../package_review/types.ts";
-import { escapeHtml, formatDateTime } from "./layout.ts";
+} from '../package_review/types.ts';
+import { escapeHtml, formatDateTime } from './layout.ts';
 
-export function renderDecisionSection(
-  packageVersion: PackageVersionRecord,
-): string {
-  if (packageVersion.approvalStatus === "pending") {
+export function renderDecisionSection(packageVersion: PackageVersionRecord): string {
+  if (packageVersion.approvalStatus === 'pending') {
     return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Approval</p>
@@ -29,11 +27,9 @@ export function renderDecisionSection(
             <p class="micro muted">
               Record the required accessibility evidence for this version. Use "Not applicable" only when the reviewed interaction does not apply.
             </p>
-            ${
-      ACCESSIBILITY_REVIEW_FIELDS.map((field) =>
-        renderAccessibilityReviewField(field)
-      ).join("")
-    }
+            ${ACCESSIBILITY_REVIEW_FIELDS.map((field) =>
+              renderAccessibilityReviewField(field),
+            ).join('')}
             <div class="field">
               <label for="accessibility-failure-notes">Accessibility failure notes (optional)</label>
               <textarea
@@ -56,16 +52,12 @@ export function renderDecisionSection(
             <textarea id="review-notes" name="reviewNotes" placeholder="Record why this version is ready, or what still needs to change."></textarea>
           </div>
           <div class="button-row">
-            <button type="submit" class="button-primary" formaction="/admin/packages/${
-      escapeHtml(
-        String(packageVersion.id),
-      )
-    }/approve">Approve version</button>
-            <button type="submit" class="button-danger" formaction="/admin/packages/${
-      escapeHtml(
-        String(packageVersion.id),
-      )
-    }/reject">Reject version</button>
+            <button type="submit" class="button-primary" formaction="/admin/packages/${escapeHtml(
+              String(packageVersion.id),
+            )}/approve">Approve version</button>
+            <button type="submit" class="button-danger" formaction="/admin/packages/${escapeHtml(
+              String(packageVersion.id),
+            )}/reject">Reject version</button>
           </div>
         </form>
       </div>
@@ -78,32 +70,24 @@ export function renderDecisionSection(
       <h2>${escapeHtml(approvalStatusLabel(packageVersion.approvalStatus))}</h2>
       <p>${escapeHtml(approvalStatusDetail(packageVersion.approvalStatus))}</p>
       ${
-    packageVersion.approvalStatus === "approved"
-      ? `<div class="button-row">
-            <a class="button-primary" href="/admin/packages/${
-        escapeHtml(
-          packageVersion.appId,
-        )
-      }/versions/${
-        escapeHtml(packageVersion.version)
-      }/preview">Open test launch</a>
+        packageVersion.approvalStatus === 'approved'
+          ? `<div class="button-row">
+            <a class="button-primary" href="/admin/packages/${escapeHtml(
+              packageVersion.appId,
+            )}/versions/${escapeHtml(packageVersion.version)}/preview">Open test launch</a>
           </div>`
-      : ""
-  }
+          : ''
+      }
       <div class="facts">
         <div class="fact">
           <span class="fact-label">Reviewed at</span>
-          <span class="fact-value">${
-    escapeHtml(formatDateTime(packageVersion.reviewedAt))
-  }</span>
+          <span class="fact-value">${escapeHtml(formatDateTime(packageVersion.reviewedAt))}</span>
         </div>
         <div class="fact">
           <span class="fact-label">Review notes</span>
-          <span class="fact-value">${
-    escapeHtml(
-      packageVersion.reviewNotes ?? "No review notes recorded.",
-    )
-  }</span>
+          <span class="fact-value">${escapeHtml(
+            packageVersion.reviewNotes ?? 'No review notes recorded.',
+          )}</span>
         </div>
       </div>
       ${renderAccessibilityReviewSection(packageVersion)}
@@ -120,27 +104,19 @@ export function renderHistoryRow(
   return `<article class="table-row">
     <div class="table-row-top">
       <p class="line-title">
-        <a href="/admin/packages/${escapeHtml(version.appId)}/versions/${
-    escapeHtml(
-      version.version,
-    )
-  }">Version ${escapeHtml(version.version)}</a>
-        <span class="${approvalStatusClass(version.approvalStatus)}">${
-    escapeHtml(
-      approvalStatusLabel(version.approvalStatus),
-    )
-  }</span>
-        ${isCurrent ? `<span class="chip">Current version</span>` : ""}
+        <a href="/admin/packages/${escapeHtml(version.appId)}/versions/${escapeHtml(
+          version.version,
+        )}">Version ${escapeHtml(version.version)}</a>
+        <span class="${approvalStatusClass(version.approvalStatus)}">${escapeHtml(
+          approvalStatusLabel(version.approvalStatus),
+        )}</span>
+        ${isCurrent ? `<span class="chip">Current version</span>` : ''}
       </p>
-      <p class="micro muted">${
-    escapeHtml(formatDateTime(version.importedAt))
-  }</p>
+      <p class="micro muted">${escapeHtml(formatDateTime(version.importedAt))}</p>
     </div>
-    <p class="line-copy">${
-    escapeHtml(
+    <p class="line-copy">${escapeHtml(
       version.reviewNotes ?? approvalStatusDetail(version.approvalStatus),
-    )
-  }</p>
+    )}</p>
   </article>`;
 }
 
@@ -150,23 +126,9 @@ function renderAccessibilityReviewField(
   return `<fieldset class="field">
     <legend>${escapeHtml(field.label)}</legend>
     <div class="chip-row">
-      ${renderAccessibilityReviewOption(field.formName, "pass", "Pass", true)}
-      ${
-    renderAccessibilityReviewOption(
-      field.formName,
-      "fail",
-      "Fail",
-      false,
-    )
-  }
-      ${
-    renderAccessibilityReviewOption(
-      field.formName,
-      "not_applicable",
-      "Not applicable",
-      false,
-    )
-  }
+      ${renderAccessibilityReviewOption(field.formName, 'pass', 'Pass', true)}
+      ${renderAccessibilityReviewOption(field.formName, 'fail', 'Fail', false)}
+      ${renderAccessibilityReviewOption(field.formName, 'not_applicable', 'Not applicable', false)}
     </div>
   </fieldset>`;
 }
@@ -185,15 +147,13 @@ function renderAccessibilityReviewOption(
       type="radio"
       name="${escapeHtml(fieldName)}"
       value="${escapeHtml(value)}"
-      ${required ? "required" : ""}
+      ${required ? 'required' : ''}
     />
     ${escapeHtml(label)}
   </label>`;
 }
 
-function renderAccessibilityReviewSection(
-  packageVersion: PackageVersionRecord,
-): string {
+function renderAccessibilityReviewSection(packageVersion: PackageVersionRecord): string {
   const review = packageVersion.accessibilityReview;
   const summary = summarizeAccessibilityReview(packageVersion);
 
@@ -220,22 +180,18 @@ function renderAccessibilityReviewSection(
       </div>
     </div>
     <div class="line-list">
-      ${
-    ACCESSIBILITY_REVIEW_FIELDS.map((field) =>
-      renderAccessibilityReviewItem(review, field.key, field.label)
-    ).join("")
-  }
+      ${ACCESSIBILITY_REVIEW_FIELDS.map((field) =>
+        renderAccessibilityReviewItem(review, field.key, field.label),
+      ).join('')}
       <article class="line-item">
         <p class="line-title">Failure notes</p>
-        <p class="line-copy">${
-    escapeHtml(review.failureNotes ?? "No failure notes recorded.")
-  }</p>
+        <p class="line-copy">${escapeHtml(review.failureNotes ?? 'No failure notes recorded.')}</p>
       </article>
       <article class="line-item">
         <p class="line-title">Exception note</p>
-        <p class="line-copy">${
-    escapeHtml(review.exceptionNote ?? "No exception note recorded.")
-  }</p>
+        <p class="line-copy">${escapeHtml(
+          review.exceptionNote ?? 'No exception note recorded.',
+        )}</p>
       </article>
     </div>
   </section>`;
@@ -243,28 +199,22 @@ function renderAccessibilityReviewSection(
 
 function renderAccessibilityReviewItem(
   review: AccessibilityReview,
-  key: keyof Omit<AccessibilityReview, "failureNotes" | "exceptionNote">,
+  key: keyof Omit<AccessibilityReview, 'failureNotes' | 'exceptionNote'>,
   label: string,
 ): string {
   return `<article class="line-item">
     <p class="line-title">${escapeHtml(label)}</p>
-    <p class="line-copy">${
-    escapeHtml(
-      formatAccessibilityReviewStatus(review[key]),
-    )
-  }</p>
+    <p class="line-copy">${escapeHtml(formatAccessibilityReviewStatus(review[key]))}</p>
   </article>`;
 }
 
-function formatAccessibilityReviewStatus(
-  status: AccessibilityReviewStatus,
-): string {
+function formatAccessibilityReviewStatus(status: AccessibilityReviewStatus): string {
   switch (status) {
-    case "pass":
-      return "Pass";
-    case "fail":
-      return "Fail";
-    case "not_applicable":
-      return "Not applicable";
+    case 'pass':
+      return 'Pass';
+    case 'fail':
+      return 'Fail';
+    case 'not_applicable':
+      return 'Not applicable';
   }
 }

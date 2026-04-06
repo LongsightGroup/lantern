@@ -1,38 +1,32 @@
-import { getLtiProfileDefinition } from "../lti/profile.ts";
-import { resolveLtiProfileForDeployment } from "../lti/profile_resolution.ts";
-import type {
-  PublishFinalScoreInput,
-  PublishFinalScoreResult,
-} from "../lti/services.ts";
-import { requestCanvasServiceAccessToken } from "../lti/services.ts";
-import { recordInteropPathUsed } from "../interop_audit.ts";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import { publishGovernedGradePublication } from "../runtime/gateway.ts";
-import type { RetryableGradePublicationLookup } from "./types.ts";
+import { getLtiProfileDefinition } from '../lti/profile.ts';
+import { resolveLtiProfileForDeployment } from '../lti/profile_resolution.ts';
+import type { PublishFinalScoreInput, PublishFinalScoreResult } from '../lti/services.ts';
+import { requestCanvasServiceAccessToken } from '../lti/services.ts';
+import { recordInteropPathUsed } from '../interop_audit.ts';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import { publishGovernedGradePublication } from '../runtime/gateway.ts';
+import type { RetryableGradePublicationLookup } from './types.ts';
 
 export interface RetryScorePublisher {
   (input: PublishFinalScoreInput): Promise<PublishFinalScoreResult>;
 }
 
 export interface RetryAccessTokenRequester {
-  (
-    input: {
-      issuer: string;
-      clientId: string;
-      deploymentId?: string;
-      scopes: string[];
-    },
-  ): Promise<{ accessToken: string }>;
+  (input: {
+    issuer: string;
+    clientId: string;
+    deploymentId?: string;
+    scopes: string[];
+  }): Promise<{ accessToken: string }>;
 }
 
-export interface RetryLookupRepository extends
-  Pick<
-    PackageReviewRepository,
-    | "getDeploymentByBinding"
-    | "getLanternLtiProfileSettings"
-    | "recordAuditEvent"
-    | "updateGradePublication"
-  > {
+export interface RetryLookupRepository extends Pick<
+  PackageReviewRepository,
+  | 'getDeploymentByBinding'
+  | 'getLanternLtiProfileSettings'
+  | 'recordAuditEvent'
+  | 'updateGradePublication'
+> {
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
@@ -45,9 +39,7 @@ export async function retryFailedGradePublication(input: {
   requestAccessToken?: RetryAccessTokenRequester;
   publishScore?: RetryScorePublisher;
 }): Promise<RetryableGradePublicationLookup> {
-  const lookup = await input.repository.getRetryableGradePublicationLookup(
-    input.attemptId,
-  );
+  const lookup = await input.repository.getRetryableGradePublicationLookup(input.attemptId);
 
   if (lookup === null) {
     throw new Error(
@@ -59,7 +51,7 @@ export async function retryFailedGradePublication(input: {
 
   if (runtimeSession === null) {
     throw new Error(
-      "Retry blocked: Lantern no longer has the attempt-scoped runtime session for this grade publication.",
+      'Retry blocked: Lantern no longer has the attempt-scoped runtime session for this grade publication.',
     );
   }
 
@@ -67,22 +59,20 @@ export async function retryFailedGradePublication(input: {
 
   if (ags === null) {
     throw new Error(
-      "Retry blocked: the saved runtime session does not include AGS service context.",
+      'Retry blocked: the saved runtime session does not include AGS service context.',
     );
   }
 
   if (lookup.binding === null) {
     throw new Error(
-      "Retry blocked: Lantern no longer has the saved Canvas binding for this grade publication.",
+      'Retry blocked: Lantern no longer has the saved Canvas binding for this grade publication.',
     );
   }
-  const deployment = await input.repository.getDeploymentByBinding(
-    lookup.binding,
-  );
+  const deployment = await input.repository.getDeploymentByBinding(lookup.binding);
 
   if (deployment === null || deployment.id !== lookup.deploymentRecordId) {
     throw new Error(
-      "Retry blocked: Lantern could not resolve the saved deployment profile for this grade publication.",
+      'Retry blocked: Lantern could not resolve the saved deployment profile for this grade publication.',
     );
   }
 
@@ -91,8 +81,7 @@ export async function retryFailedGradePublication(input: {
     deployment,
   });
 
-  const requestAccessToken = input.requestAccessToken ??
-    requestCanvasServiceAccessToken;
+  const requestAccessToken = input.requestAccessToken ?? requestCanvasServiceAccessToken;
   const now = input.now ?? (() => new Date());
   const token = await requestAccessToken({
     issuer: lookup.binding.issuer,
@@ -101,32 +90,32 @@ export async function retryFailedGradePublication(input: {
     scopes: ags.scope,
   });
   const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
-      .retryServiceUnauthorizedOnce
+    .retryServiceUnauthorizedOnce
     ? async () => {
-      await recordInteropPathUsed({
-        repository: input.repository,
-        scope: "service",
-        path: "service_401_retry",
-        actorType: "system",
-        deploymentRecordId: runtimeSession.deploymentRecordId,
-        packageVersionId: runtimeSession.packageVersionId,
-        attemptId: lookup.attemptId,
-        summary: "Lantern retried an LMS service request after a 401.",
-        detail: {
-          lms: lookup.binding!.lms,
-          deploymentSlug: runtimeSession.deploymentSlug,
-        },
-        ltiProfile,
-      });
-      const refreshed = await requestAccessToken({
-        issuer: lookup.binding!.issuer,
-        clientId: lookup.binding!.clientId,
-        deploymentId: lookup.binding!.deploymentId,
-        scopes: ags.scope,
-      });
+        await recordInteropPathUsed({
+          repository: input.repository,
+          scope: 'service',
+          path: 'service_401_retry',
+          actorType: 'system',
+          deploymentRecordId: runtimeSession.deploymentRecordId,
+          packageVersionId: runtimeSession.packageVersionId,
+          attemptId: lookup.attemptId,
+          summary: 'Lantern retried an LMS service request after a 401.',
+          detail: {
+            lms: lookup.binding!.lms,
+            deploymentSlug: runtimeSession.deploymentSlug,
+          },
+          ltiProfile,
+        });
+        const refreshed = await requestAccessToken({
+          issuer: lookup.binding!.issuer,
+          clientId: lookup.binding!.clientId,
+          deploymentId: lookup.binding!.deploymentId,
+          scopes: ags.scope,
+        });
 
-      return refreshed.accessToken;
-    }
+        return refreshed.accessToken;
+      }
     : undefined;
   const published = await publishGovernedGradePublication({
     repository: input.repository,
@@ -135,9 +124,7 @@ export async function retryFailedGradePublication(input: {
     accessToken: token.accessToken,
     now,
     ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
-    ...(input.publishScore === undefined
-      ? {}
-      : { publishScore: input.publishScore }),
+    ...(input.publishScore === undefined ? {} : { publishScore: input.publishScore }),
   });
 
   return {

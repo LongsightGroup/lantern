@@ -6,16 +6,13 @@ export function assertPathInsideSnapshot(
   const normalizedRoot = normalizeSnapshotPath(snapshotRoot, outsideMessage);
   const normalizedTarget = normalizeSnapshotPath(targetPath, outsideMessage);
 
-  if (
-    normalizedTarget !== normalizedRoot &&
-    !normalizedTarget.startsWith(`${normalizedRoot}/`)
-  ) {
+  if (normalizedTarget !== normalizedRoot && !normalizedTarget.startsWith(`${normalizedRoot}/`)) {
     throw new Error(outsideMessage);
   }
 }
 
 export function ensureLeadingSlash(value: string): string {
-  return value.startsWith("/") ? value : `/${value}`;
+  return value.startsWith('/') ? value : `/${value}`;
 }
 
 export function joinSnapshotPath(
@@ -26,22 +23,19 @@ export function joinSnapshotPath(
   const root = normalizeSnapshotPath(snapshotRoot, outsideMessage);
   const relative = normalizeSnapshotPath(relativePath, outsideMessage);
 
-  return relative === "" ? root : `${root}/${relative}`;
+  return relative === '' ? root : `${root}/${relative}`;
 }
 
-export function normalizeSnapshotPath(
-  path: string,
-  outsideMessage: string,
-): string {
-  const isAbsolute = path.startsWith("/");
+export function normalizeSnapshotPath(path: string, outsideMessage: string): string {
+  const isAbsolute = path.startsWith('/');
   const segments: string[] = [];
 
-  for (const segment of path.split("/")) {
-    if (segment === "" || segment === ".") {
+  for (const segment of path.split('/')) {
+    if (segment === '' || segment === '.') {
       continue;
     }
 
-    if (segment === "..") {
+    if (segment === '..') {
       if (segments.length === 0) {
         throw new Error(outsideMessage);
       }
@@ -53,16 +47,13 @@ export function normalizeSnapshotPath(
     segments.push(segment);
   }
 
-  return `${isAbsolute ? "/" : ""}${segments.join("/")}`;
+  return `${isAbsolute ? '/' : ''}${segments.join('/')}`;
 }
 
-export function requireRelativeSnapshotPath(
-  relativePath: string,
-  message: string,
-): string {
+export function requireRelativeSnapshotPath(relativePath: string, message: string): string {
   const normalized = normalizeSnapshotPath(relativePath, message);
 
-  if (normalized === "" || normalized.startsWith("/")) {
+  if (normalized === '' || normalized.startsWith('/')) {
     throw new Error(message);
   }
 
@@ -78,7 +69,7 @@ export function toRelativeSnapshotPath(
   const normalizedPath = normalizeSnapshotPath(absolutePath, outsideMessage);
 
   if (normalizedPath === normalizedRoot) {
-    return "";
+    return '';
   }
 
   if (!normalizedPath.startsWith(`${normalizedRoot}/`)) {
@@ -89,5 +80,5 @@ export function toRelativeSnapshotPath(
 }
 
 export function trimLeadingSlash(value: string): string {
-  return value.startsWith("/") ? value.slice(1) : value;
+  return value.startsWith('/') ? value.slice(1) : value;
 }

@@ -2,18 +2,15 @@ import type {
   DeepLinkingResourceOption,
   DeepLinkingResourceSelection,
   ReviewedPlacementRecord,
-} from "../package_review/types.ts";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import { createOpaqueToken } from "./token_support.ts";
+} from '../package_review/types.ts';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import { createOpaqueToken } from './token_support.ts';
 import {
   normalizeDeepLinkingSelectionInput,
   resolveDeepLinkingSelection,
-} from "./deep_linking_selection.ts";
-import type {
-  DeepLinkingSessionRecord,
-  ValidatedDeepLinkingRequest,
-} from "./types.ts";
-import { requireTrimmedValue } from "./claim_support.ts";
+} from './deep_linking_selection.ts';
+import type { DeepLinkingSessionRecord, ValidatedDeepLinkingRequest } from './types.ts';
+import { requireTrimmedValue } from './claim_support.ts';
 
 const DEEP_LINKING_SESSION_TTL_MS = 10 * 60 * 1000;
 
@@ -48,8 +45,7 @@ export async function createDeepLinkingSession(input: {
     acceptLineItem: input.request.settings.acceptLineItem,
     selection: null,
     createdAt: createdAt.toISOString(),
-    expiresAt: new Date(createdAt.getTime() + DEEP_LINKING_SESSION_TTL_MS)
-      .toISOString(),
+    expiresAt: new Date(createdAt.getTime() + DEEP_LINKING_SESSION_TTL_MS).toISOString(),
     usedAt: null,
   });
 }
@@ -60,14 +56,8 @@ export async function requireAuthorizedDeepLinkingSession(input: {
   token: string;
   now?: () => Date;
 }): Promise<DeepLinkingSessionRecord> {
-  const sessionId = requireTrimmedValue(
-    input.sessionId,
-    "Deep Linking session id is required.",
-  );
-  const token = requireTrimmedValue(
-    input.token,
-    "Deep Linking session token is required.",
-  );
+  const sessionId = requireTrimmedValue(input.sessionId, 'Deep Linking session id is required.');
+  const token = requireTrimmedValue(input.token, 'Deep Linking session token is required.');
   const session = await input.repository.getDeepLinkingSessionById(sessionId);
 
   if (!session) {
@@ -89,27 +79,18 @@ export function authorizeDeepLinkingSession(input: {
   now?: () => Date;
 }): void {
   const now = input.now ?? (() => new Date());
-  const token = requireTrimmedValue(
-    input.token,
-    "Deep Linking session token is required.",
-  );
+  const token = requireTrimmedValue(input.token, 'Deep Linking session token is required.');
 
   if (Date.parse(input.expected.expiresAt) <= now().getTime()) {
-    throw new Error(
-      `Deep Linking session ${input.expected.sessionId} has expired.`,
-    );
+    throw new Error(`Deep Linking session ${input.expected.sessionId} has expired.`);
   }
 
   if (input.expected.usedAt !== null) {
-    throw new Error(
-      `Deep Linking session ${input.expected.sessionId} has already been used.`,
-    );
+    throw new Error(`Deep Linking session ${input.expected.sessionId} has already been used.`);
   }
 
   if (token !== input.expected.sessionToken) {
-    throw new Error(
-      `Deep Linking session token did not match ${input.expected.sessionId}.`,
-    );
+    throw new Error(`Deep Linking session token did not match ${input.expected.sessionId}.`);
   }
 }
 

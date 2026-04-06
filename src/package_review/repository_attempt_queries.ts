@@ -1,15 +1,12 @@
-import type { Pool } from "@db/postgres";
-import { withClient } from "./repository_core.ts";
-import {
-  mapAttemptEventRow,
-  mapOptionalAttempt,
-} from "./repository_mappers_attempts.ts";
-import type { AttemptEventRow, AttemptRow } from "./repository_row_types.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+import type { Pool } from '@db/postgres';
+import { withClient } from './repository_core.ts';
+import { mapAttemptEventRow, mapOptionalAttempt } from './repository_mappers_attempts.ts';
+import type { AttemptEventRow, AttemptRow } from './repository_row_types.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createAttemptQueryRepositoryMethods(
   pool: Pool,
-): Pick<PackageReviewRepository, "getAttemptById" | "listAttemptEvents"> {
+): Pick<PackageReviewRepository, 'getAttemptById' | 'listAttemptEvents'> {
   return {
     async getAttemptById(attemptId) {
       return await withClient(pool, async (client) => {

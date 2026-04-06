@@ -1,35 +1,27 @@
-import {
-  type AttemptScoreResult,
-  loadReviewedRubric,
-  scoreAttempt,
-} from "../grading/service.ts";
-import type { RuntimeSessionRecord } from "../lti/types.ts";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import type { AttemptRecord } from "../package_review/types.ts";
+import { type AttemptScoreResult, loadReviewedRubric, scoreAttempt } from '../grading/service.ts';
+import type { RuntimeSessionRecord } from '../lti/types.ts';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import type { AttemptRecord } from '../package_review/types.ts';
 import {
   previewSessionHasLiveServicePath,
   requireRuntimeAttempt,
   requireRuntimePackageVersion,
   resolvePreviewSession,
-} from "./gateway_context.ts";
-import {
-  denyRuntimeBroker,
-  errorMessage,
-  toFinalizeError,
-} from "./gateway_errors.ts";
+} from './gateway_context.ts';
+import { denyRuntimeBroker, errorMessage, toFinalizeError } from './gateway_errors.ts';
 import {
   parseAttemptEvent,
   parseAttemptLocalState,
   parseFinalizeAttemptInput,
   parseScoreProposal,
   requireRuntimeCapability,
-} from "./gateway_parsing.ts";
-import { publishRuntimeAttemptScore } from "./gateway_publication.ts";
+} from './gateway_parsing.ts';
+import { publishRuntimeAttemptScore } from './gateway_publication.ts';
 import type {
   FinalizeAttemptInput,
   FinalizeAttemptResult,
   RuntimeScoreProposalResult,
-} from "./gateway_types.ts";
+} from './gateway_types.ts';
 export type {
   FinalizeAttemptInput,
   FinalizeAttemptResult,
@@ -44,25 +36,22 @@ export type {
   RuntimeSandboxModel,
   RuntimeScoreProposal,
   RuntimeScoreProposalResult,
-} from "./gateway_types.ts";
+} from './gateway_types.ts';
 export {
   parseAttemptEvent,
   parseAttemptLocalState,
   parseFinalizeAttemptInput,
   parseScoreProposal,
   requireRuntimeCapability,
-} from "./gateway_parsing.ts";
-export { publishGovernedGradePublication } from "./gateway_publication.ts";
+} from './gateway_parsing.ts';
+export { publishGovernedGradePublication } from './gateway_publication.ts';
 
 export async function readAttemptLocalState(input: {
   repository: PackageReviewRepository;
   session: RuntimeSessionRecord;
-}): Promise<AttemptRecord["localState"]> {
-  requireRuntimeCapability(input.session, "read_local_state");
-  const attempt = await requireRuntimeAttempt(
-    input.repository,
-    input.session,
-  );
+}): Promise<AttemptRecord['localState']> {
+  requireRuntimeCapability(input.session, 'read_local_state');
+  const attempt = await requireRuntimeAttempt(input.repository, input.session);
 
   return attempt.localState;
 }
@@ -72,11 +61,8 @@ export async function writeAttemptLocalState(input: {
   session: RuntimeSessionRecord;
   payload: unknown;
 }): Promise<AttemptRecord> {
-  requireRuntimeCapability(input.session, "write_local_state");
-  const attempt = await requireRuntimeAttempt(
-    input.repository,
-    input.session,
-  );
+  requireRuntimeCapability(input.session, 'write_local_state');
+  const attempt = await requireRuntimeAttempt(input.repository, input.session);
 
   return await input.repository.writeAttemptLocalState({
     attemptId: attempt.attemptId,
@@ -90,11 +76,8 @@ export async function submitScoreProposal(input: {
   payload: unknown;
   now?: () => Date;
 }): Promise<RuntimeScoreProposalResult> {
-  requireRuntimeCapability(input.session, "finalize_attempt");
-  await requireRuntimeAttempt(
-    input.repository,
-    input.session,
-  );
+  requireRuntimeCapability(input.session, 'finalize_attempt');
+  await requireRuntimeAttempt(input.repository, input.session);
 
   return {
     accepted: true,
@@ -110,13 +93,10 @@ export async function acceptAttemptEvent(input: {
 }) {
   const now = input.now ?? (() => new Date());
   const occurredAt = now().toISOString();
-  const previewSession = await resolvePreviewSession(
-    input.repository,
-    input.session,
-  );
+  const previewSession = await resolvePreviewSession(input.repository, input.session);
 
   try {
-    requireRuntimeCapability(input.session, "submit_attempt_event");
+    requireRuntimeCapability(input.session, 'submit_attempt_event');
     const event = parseAttemptEvent(input.payload);
     const attemptEvent = await input.repository.appendAttemptEvent({
       attemptId: input.session.attemptId,
@@ -127,9 +107,9 @@ export async function acceptAttemptEvent(input: {
     if (previewSession !== null) {
       await input.repository.appendPreviewEvidence({
         previewSessionId: previewSession.sessionId,
-        eventType: "preview.attempt_event",
-        capability: "submit_attempt_event",
-        summary: "Recorded app progress in the test session.",
+        eventType: 'preview.attempt_event',
+        capability: 'submit_attempt_event',
+        summary: 'Recorded app progress in the test session.',
         detail: {
           attemptId: input.session.attemptId,
           sequence: attemptEvent.sequence,
@@ -144,10 +124,9 @@ export async function acceptAttemptEvent(input: {
     if (previewSession !== null) {
       await input.repository.appendPreviewEvidence({
         previewSessionId: previewSession.sessionId,
-        eventType: "preview.attempt_event.blocked",
-        capability: "submit_attempt_event",
-        summary:
-          "Blocked an app progress update outside the allowed test-launch actions.",
+        eventType: 'preview.attempt_event.blocked',
+        capability: 'submit_attempt_event',
+        summary: 'Blocked an app progress update outside the allowed test-launch actions.',
         detail: {
           attemptId: input.session.attemptId,
           reason: errorMessage(error),
@@ -168,27 +147,21 @@ export async function finalizeRuntimeAttempt(input: {
 }): Promise<FinalizeAttemptResult> {
   const now = input.now ?? (() => new Date());
   const occurredAt = now().toISOString();
-  const previewSession = await resolvePreviewSession(
-    input.repository,
-    input.session,
-  );
+  const previewSession = await resolvePreviewSession(input.repository, input.session);
   let previewBlockEvidenceRecorded = false;
 
   try {
-    requireRuntimeCapability(input.session, "finalize_attempt");
+    requireRuntimeCapability(input.session, 'finalize_attempt');
     const finalizeInput = parseFinalizeAttemptInput(input.payload);
-    const attempt = await requireRuntimeAttempt(
-      input.repository,
-      input.session,
-    );
+    const attempt = await requireRuntimeAttempt(input.repository, input.session);
 
     if (previewSession !== null) {
       if (previewSessionHasLiveServicePath(input.session)) {
         await input.repository.appendPreviewEvidence({
           previewSessionId: previewSession.sessionId,
-          eventType: "preview.finalize.blocked",
-          capability: "finalize_attempt",
-          summary: "Blocked the test launch from making live LMS changes.",
+          eventType: 'preview.finalize.blocked',
+          capability: 'finalize_attempt',
+          summary: 'Blocked the test launch from making live LMS changes.',
           detail: {
             attemptId: input.session.attemptId,
             hasAgsServices: input.session.services.ags !== null,
@@ -198,10 +171,10 @@ export async function finalizeRuntimeAttempt(input: {
         });
         previewBlockEvidenceRecorded = true;
         denyRuntimeBroker({
-          category: "policyDenied",
-          code: "preview_live_side_effects_blocked",
-          message: "Preview mode blocks live LMS side effects.",
-          capability: "finalize_attempt",
+          category: 'policyDenied',
+          code: 'preview_live_side_effects_blocked',
+          message: 'Preview mode blocks live LMS side effects.',
+          capability: 'finalize_attempt',
           detail: {
             hasAgsServices: input.session.services.ags !== null,
             hasNrpsServices: input.session.services.nrps !== null,
@@ -212,11 +185,11 @@ export async function finalizeRuntimeAttempt(input: {
       const finalizedNow = attempt.finalizedAt === null;
       const finalizedAttempt = finalizedNow
         ? await input.repository.finalizeAttempt({
-          attemptId: attempt.attemptId,
-          status: completionStateToAttemptStatus(finalizeInput.completionState),
-          completionState: finalizeInput.completionState,
-          finalizedAt: occurredAt,
-        })
+            attemptId: attempt.attemptId,
+            status: completionStateToAttemptStatus(finalizeInput.completionState),
+            completionState: finalizeInput.completionState,
+            finalizedAt: occurredAt,
+          })
         : attempt;
       const score: AttemptScoreResult = {
         scoreGiven: 0,
@@ -225,10 +198,9 @@ export async function finalizeRuntimeAttempt(input: {
 
       await input.repository.appendPreviewEvidence({
         previewSessionId: previewSession.sessionId,
-        eventType: "preview.finalize",
-        capability: "finalize_attempt",
-        summary:
-          "Finished the test attempt with simulated scoring and no LMS writes.",
+        eventType: 'preview.finalize',
+        capability: 'finalize_attempt',
+        summary: 'Finished the test attempt with simulated scoring and no LMS writes.',
         detail: {
           attemptId: finalizedAttempt.attemptId,
           completionState: finalizedAttempt.completionState,
@@ -250,17 +222,14 @@ export async function finalizeRuntimeAttempt(input: {
       };
     }
 
-    const packageVersion = await requireRuntimePackageVersion(
-      input.repository,
-      input.session,
-    );
+    const packageVersion = await requireRuntimePackageVersion(input.repository, input.session);
 
-    if (packageVersion.grading.mode === "manual") {
+    if (packageVersion.grading.mode === 'manual') {
       denyRuntimeBroker({
-        category: "policyDenied",
-        code: "manual_grading_requires_operator",
-        message: "Manual grading cannot be finalized automatically in Phase 3.",
-        capability: "finalize_attempt",
+        category: 'policyDenied',
+        code: 'manual_grading_requires_operator',
+        message: 'Manual grading cannot be finalized automatically in Phase 3.',
+        capability: 'finalize_attempt',
         detail: {},
       });
     }
@@ -268,21 +237,20 @@ export async function finalizeRuntimeAttempt(input: {
     const finalizedNow = attempt.finalizedAt === null;
     const finalizedAttempt = finalizedNow
       ? await input.repository.finalizeAttempt({
-        attemptId: attempt.attemptId,
-        status: completionStateToAttemptStatus(finalizeInput.completionState),
-        completionState: finalizeInput.completionState,
-        finalizedAt: now().toISOString(),
-      })
+          attemptId: attempt.attemptId,
+          status: completionStateToAttemptStatus(finalizeInput.completionState),
+          completionState: finalizeInput.completionState,
+          finalizedAt: now().toISOString(),
+        })
       : attempt;
-    const events = await input.repository.listAttemptEvents(
-      finalizedAttempt.attemptId,
-    );
-    const rubric = packageVersion.grading.mode === "declarative"
-      ? await loadReviewedRubric({
-        snapshotRoot: packageVersion.artifact.snapshotRoot,
-        rubricFile: packageVersion.grading.rubricFile,
-      })
-      : undefined;
+    const events = await input.repository.listAttemptEvents(finalizedAttempt.attemptId);
+    const rubric =
+      packageVersion.grading.mode === 'declarative'
+        ? await loadReviewedRubric({
+            snapshotRoot: packageVersion.artifact.snapshotRoot,
+            rubricFile: packageVersion.grading.rubricFile,
+          })
+        : undefined;
     const score = scoreAttempt({
       attempt: finalizedAttempt,
       events,
@@ -308,9 +276,9 @@ export async function finalizeRuntimeAttempt(input: {
     if (previewSession !== null && !previewBlockEvidenceRecorded) {
       await input.repository.appendPreviewEvidence({
         previewSessionId: previewSession.sessionId,
-        eventType: "preview.finalize.blocked",
-        capability: "finalize_attempt",
-        summary: "Blocked the test attempt before any LMS change.",
+        eventType: 'preview.finalize.blocked',
+        capability: 'finalize_attempt',
+        summary: 'Blocked the test attempt before any LMS change.',
         detail: {
           attemptId: input.session.attemptId,
           reason: errorMessage(error),
@@ -324,7 +292,7 @@ export async function finalizeRuntimeAttempt(input: {
 }
 
 function completionStateToAttemptStatus(
-  completionState: FinalizeAttemptInput["completionState"],
-): AttemptRecord["status"] {
-  return completionState === "completed" ? "completed" : "abandoned";
+  completionState: FinalizeAttemptInput['completionState'],
+): AttemptRecord['status'] {
+  return completionState === 'completed' ? 'completed' : 'abandoned';
 }

@@ -1,12 +1,12 @@
-export type UserRole = "learner" | "instructor";
+export type UserRole = 'learner' | 'instructor';
 
 export type Capability =
-  | "read_launch_context"
-  | "read_activity_content"
-  | "submit_attempt_event"
-  | "finalize_attempt"
-  | "read_local_state"
-  | "write_local_state";
+  | 'read_launch_context'
+  | 'read_activity_content'
+  | 'submit_attempt_event'
+  | 'finalize_attempt'
+  | 'read_local_state'
+  | 'write_local_state';
 
 export interface LaunchContext {
   userRole: UserRole;
@@ -49,23 +49,23 @@ export interface BootstrapPayload {
 
 export type AttemptEvent =
   | {
-    type: "answer";
-    questionId: string;
-    answer: string | string[];
-    timestamp: string;
-  }
+      type: 'answer';
+      questionId: string;
+      answer: string | string[];
+      timestamp: string;
+    }
   | {
-    type: "progress";
-    checkpoint: string;
-    value: number;
-    timestamp: string;
-  }
+      type: 'progress';
+      checkpoint: string;
+      value: number;
+      timestamp: string;
+    }
   | {
-    type: "complete";
-    timestamp: string;
-  };
+      type: 'complete';
+      timestamp: string;
+    };
 
-export type GatewayBrokerDenialCategory = "specInvalid" | "policyDenied";
+export type GatewayBrokerDenialCategory = 'specInvalid' | 'policyDenied';
 export type GatewayBrokerDetailValue = string | number | boolean | null;
 
 export interface GatewayBrokerDenial {
@@ -85,17 +85,14 @@ export interface GatewayMutationDeniedResult {
   denial: GatewayBrokerDenial;
 }
 
-export type GatewayMutationResult =
-  | GatewayMutationAcceptedResult
-  | GatewayMutationDeniedResult;
+export type GatewayMutationResult = GatewayMutationAcceptedResult | GatewayMutationDeniedResult;
 
 export interface ScoreProposal {
   scoreGiven: number;
   scoreMaximum: number;
 }
 
-export interface GatewayScoreProposalAcceptedResult
-  extends GatewayMutationAcceptedResult {
+export interface GatewayScoreProposalAcceptedResult extends GatewayMutationAcceptedResult {
   scoreProposal: ScoreProposal;
 }
 
@@ -103,19 +100,16 @@ export type GatewayScoreProposalResult =
   | GatewayScoreProposalAcceptedResult
   | GatewayMutationDeniedResult;
 
-export interface GatewayFinalizeAcceptedResult
-  extends GatewayMutationAcceptedResult {
+export interface GatewayFinalizeAcceptedResult extends GatewayMutationAcceptedResult {
   attemptId: string;
   alreadyFinalized: boolean;
-  completionState: "completed" | "abandoned" | null;
+  completionState: 'completed' | 'abandoned' | null;
   scoreGiven: number;
   scoreMaximum: number;
   gradePublished: boolean;
 }
 
-export type GatewayFinalizeResult =
-  | GatewayFinalizeAcceptedResult
-  | GatewayMutationDeniedResult;
+export type GatewayFinalizeResult = GatewayFinalizeAcceptedResult | GatewayMutationDeniedResult;
 
 export interface GatewayAppClient {
   getLaunchContext(): Promise<LaunchContext>;
@@ -123,11 +117,9 @@ export interface GatewayAppClient {
   readLocalState<T = unknown>(): Promise<T | null>;
   writeLocalState<T = unknown>(value: T): Promise<GatewayMutationResult>;
   emitAttemptEvent(event: AttemptEvent): Promise<GatewayMutationResult>;
-  submitScoreProposal(
-    input: ScoreProposal,
-  ): Promise<GatewayScoreProposalResult>;
+  submitScoreProposal(input: ScoreProposal): Promise<GatewayScoreProposalResult>;
   finalizeAttempt(input?: {
-    completionState?: "completed" | "abandoned";
+    completionState?: 'completed' | 'abandoned';
   }): Promise<GatewayFinalizeResult>;
 }
 

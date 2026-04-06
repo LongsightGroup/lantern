@@ -1,72 +1,60 @@
-import type { Hono } from "@hono/hono";
-import { createRuntimeSession, validateLaunchRequest } from "./lti/launch.ts";
-import { formatLmsLabel } from "./lti/platform_binding.ts";
+import type { Hono } from '@hono/hono';
+import { createRuntimeSession, validateLaunchRequest } from './lti/launch.ts';
+import { formatLmsLabel } from './lti/platform_binding.ts';
 import {
   buildResolvedLtiProfileDetail,
   resolveLtiProfileForDeployment,
-} from "./lti/profile_resolution.ts";
-import {
-  handleLoginInitiation,
-  recordRejectedLaunchAudit,
-} from "./app_lti_support.ts";
-import {
-  normalizeOptionalString,
-  requireTrimmedString,
-} from "./app_request_support.ts";
-import {
-  buildRuntimeSessionUrl,
-  requireConfiguredRuntimeOrigin,
-} from "./runtime_origin.ts";
-import { errorMessage, statusForError } from "./app_status_support.ts";
-import type { AppServices } from "./app_services.ts";
+} from './lti/profile_resolution.ts';
+import { handleLoginInitiation, recordRejectedLaunchAudit } from './app_lti_support.ts';
+import { normalizeOptionalString, requireTrimmedString } from './app_request_support.ts';
+import { buildRuntimeSessionUrl, requireConfiguredRuntimeOrigin } from './runtime_origin.ts';
+import { errorMessage, statusForError } from './app_status_support.ts';
+import type { AppServices } from './app_services.ts';
 
 export function registerLaunchRoutes(app: Hono, services: AppServices): void {
-  app.get("/lti/login", async (context) => {
+  app.get('/lti/login', async (context) => {
     return await handleLoginInitiation(context, services);
   });
 
-  app.post("/lti/login", async (context) => {
+  app.post('/lti/login', async (context) => {
     return await handleLoginInitiation(context, services);
   });
 
-  app.post("/lti/launch", async (context) => {
+  app.post('/lti/launch', async (context) => {
     const repository = services.getRepository();
     const formData = await context.req.formData();
-    const state = normalizeOptionalString(formData.get("state"));
-    const idToken = normalizeOptionalString(formData.get("id_token"));
+    const state = normalizeOptionalString(formData.get('state'));
+    const idToken = normalizeOptionalString(formData.get('id_token'));
 
     try {
       const launch = await validateLaunchRequest({
         repository,
-        state: requireTrimmedString(state, "Launch state is required."),
-        idToken: requireTrimmedString(idToken, "Launch id_token is required."),
+        state: requireTrimmedString(state, 'Launch state is required.'),
+        idToken: requireTrimmedString(idToken, 'Launch id_token is required.'),
         loadJwks: services.loadCanvasJwks,
       });
-      const runtimeOrigin = requireConfiguredRuntimeOrigin(
-        Deno.env.get("APP_RUNTIME_ORIGIN"),
-      );
+      const runtimeOrigin = requireConfiguredRuntimeOrigin(Deno.env.get('APP_RUNTIME_ORIGIN'));
       const runtimeSession = await createRuntimeSession({
         repository,
         launch,
       });
-      const deployment = await repository.getDeploymentBySlug(
-        launch.internalDeploymentSlug,
-      );
-      const ltiProfile = deployment === null
-        ? null
-        : await resolveLtiProfileForDeployment({
-          repository,
-          deployment,
-        });
+      const deployment = await repository.getDeploymentBySlug(launch.internalDeploymentSlug);
+      const ltiProfile =
+        deployment === null
+          ? null
+          : await resolveLtiProfileForDeployment({
+              repository,
+              deployment,
+            });
       await repository.recordAuditEvent({
-        eventType: "launch.accepted",
-        actorType: "platform",
+        eventType: 'launch.accepted',
+        actorType: 'platform',
         actorId: launch.userId,
         deploymentRecordId: launch.internalDeploymentId,
         packageVersionId: launch.packageVersionId,
         attemptId: runtimeSession.attemptId,
         lineItemBindingId: null,
-        status: "accepted",
+        status: 'accepted',
         summary: `Accepted the governed ${formatLmsLabel(launch.lms)} launch.`,
         detail: {
           lms: launch.lms,
@@ -80,9 +68,7 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
           userLogin: launch.userLogin,
           resourceLinkId: launch.resourceLinkId,
           contextId: launch.contextId,
-          ...(ltiProfile === null
-            ? {}
-            : buildResolvedLtiProfileDetail(ltiProfile)),
+          ...(ltiProfile === null ? {} : buildResolvedLtiProfileDetail(ltiProfile)),
         },
         occurredAt: new Date().toISOString(),
       });

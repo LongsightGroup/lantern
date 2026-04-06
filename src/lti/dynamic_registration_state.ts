@@ -1,6 +1,6 @@
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import { createOpaqueToken } from "./token_support.ts";
-import type { DynamicRegistrationStateRecord, LmsType } from "./types.ts";
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import { createOpaqueToken } from './token_support.ts';
+import type { DynamicRegistrationStateRecord, LmsType } from './types.ts';
 
 const DYNAMIC_REGISTRATION_STATE_TTL_MS = 30 * 60 * 1000;
 
@@ -20,9 +20,7 @@ export async function createDynamicRegistrationState(input: {
     appId: input.appId,
     lms: input.lms,
     createdAt: createdAt.toISOString(),
-    expiresAt: new Date(
-      createdAt.getTime() + DYNAMIC_REGISTRATION_STATE_TTL_MS,
-    ).toISOString(),
+    expiresAt: new Date(createdAt.getTime() + DYNAMIC_REGISTRATION_STATE_TTL_MS).toISOString(),
     usedAt: null,
   });
 }
@@ -37,33 +35,31 @@ export async function consumeDynamicRegistrationState(input: {
   const now = input.now ?? (() => new Date());
   const state = requireTrimmedValue(
     input.state,
-    "Dynamic registration state is required. Start again from Lantern app settings.",
+    'Dynamic registration state is required. Start again from Lantern app settings.',
   );
-  const existing = await input.repository.getDynamicRegistrationStateByState(
-    state,
-  );
+  const existing = await input.repository.getDynamicRegistrationStateByState(state);
 
   if (!existing) {
     throw new Error(
-      "Lantern could not verify this dynamic registration link. Start again from Lantern app settings.",
+      'Lantern could not verify this dynamic registration link. Start again from Lantern app settings.',
     );
   }
 
   if (existing.appId !== input.appId || existing.lms !== input.lms) {
     throw new Error(
-      "This dynamic registration link does not match the requested LMS setup. Start again from Lantern app settings.",
+      'This dynamic registration link does not match the requested LMS setup. Start again from Lantern app settings.',
     );
   }
 
   if (existing.usedAt !== null) {
     throw new Error(
-      "This dynamic registration link has already been used. Start again from Lantern app settings.",
+      'This dynamic registration link has already been used. Start again from Lantern app settings.',
     );
   }
 
   if (Date.parse(existing.expiresAt) <= now().getTime()) {
     throw new Error(
-      "This dynamic registration link has expired. Start again from Lantern app settings.",
+      'This dynamic registration link has expired. Start again from Lantern app settings.',
     );
   }
 
@@ -76,7 +72,7 @@ export async function consumeDynamicRegistrationState(input: {
 function requireTrimmedValue(value: string, message: string): string {
   const trimmed = value.trim();
 
-  if (trimmed === "") {
+  if (trimmed === '') {
     throw new Error(message);
   }
 

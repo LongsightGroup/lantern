@@ -1,13 +1,10 @@
-import type { Context } from "@hono/hono";
-import { renderDeepLinkingPickerPage } from "./admin/deep_linking_picker.ts";
-import { type AdminNotice, escapeHtml } from "./admin/layout.ts";
-import {
-  listDeepLinkingResources,
-  resolveDeepLinkingSelection,
-} from "./lti/deep_linking.ts";
-import type { DeepLinkingSessionRecord } from "./lti/types.ts";
-import type { PackageReviewRepository } from "./package_review/repository.ts";
-import type { DeepLinkingResourceSelection } from "./package_review/types.ts";
+import type { Context } from '@hono/hono';
+import { renderDeepLinkingPickerPage } from './admin/deep_linking_picker.ts';
+import { type AdminNotice, escapeHtml } from './admin/layout.ts';
+import { listDeepLinkingResources, resolveDeepLinkingSelection } from './lti/deep_linking.ts';
+import type { DeepLinkingSessionRecord } from './lti/types.ts';
+import type { PackageReviewRepository } from './package_review/repository.ts';
+import type { DeepLinkingResourceSelection } from './package_review/types.ts';
 
 interface DeepLinkingResponseSubmissionView {
   returnUrl: string;
@@ -45,26 +42,28 @@ export async function renderDeepLinkingPickerResponse(input: {
 }
 
 export function renderDeepLinkingSubmitStatusPage(input: {
-  tone: "success" | "error";
+  tone: 'success' | 'error';
   title: string;
   detail: string;
   session?: Pick<
     DeepLinkingSessionRecord,
-    "appId" | "contextTitle" | "deploymentSlug" | "placement"
+    'appId' | 'contextTitle' | 'deploymentSlug' | 'placement'
   >;
   selection?: DeepLinkingResourceSelection | null;
   submission?: DeepLinkingResponseSubmissionView;
 }): string {
-  const surfaceClass = input.tone === "success" ? "success" : "error";
+  const surfaceClass = input.tone === 'success' ? 'success' : 'error';
   const session = input.session ?? null;
   const selection = input.selection ?? null;
   const submission = input.submission ?? null;
-  const selectionSummaryLabel = session?.placement === "resource_selection"
-    ? "Saved reviewed course resource"
-    : "Saved reviewed assignment resource";
-  const returnSummaryLabel = session?.placement === "resource_selection"
-    ? "Course resource return"
-    : "Assignment resource return";
+  const selectionSummaryLabel =
+    session?.placement === 'resource_selection'
+      ? 'Saved reviewed course resource'
+      : 'Saved reviewed assignment resource';
+  const returnSummaryLabel =
+    session?.placement === 'resource_selection'
+      ? 'Course resource return'
+      : 'Assignment resource return';
 
   return `<!doctype html>
 <html lang="en">
@@ -146,9 +145,7 @@ export function renderDeepLinkingSubmitStatusPage(input: {
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: ${
-    surfaceClass === "success" ? "var(--success)" : "var(--error)"
-  };
+        color: ${surfaceClass === 'success' ? 'var(--success)' : 'var(--error)'};
       }
 
       h1 {
@@ -236,68 +233,59 @@ export function renderDeepLinkingSubmitStatusPage(input: {
         </section>
         <div class="layout">
           ${
-    session === null ? "" : `<section class="summary-card">
+            session === null
+              ? ''
+              : `<section class="summary-card">
           <p class="summary-label">Session</p>
-          <p class="summary-item"><strong>Course context</strong>${
-      escapeHtml(
-        session.contextTitle ?? "LMS context",
-      )
-    }</p>
-          <p class="summary-item"><strong>Bound app</strong>${
-      escapeHtml(session.appId)
-    }</p>
-          <p class="summary-item"><strong>Deployment</strong>${
-      escapeHtml(
-        session.deploymentSlug,
-      )
-    }</p>
+          <p class="summary-item"><strong>Course context</strong>${escapeHtml(
+            session.contextTitle ?? 'LMS context',
+          )}</p>
+          <p class="summary-item"><strong>Bound app</strong>${escapeHtml(session.appId)}</p>
+          <p class="summary-item"><strong>Deployment</strong>${escapeHtml(
+            session.deploymentSlug,
+          )}</p>
         </section>`
-  }
+          }
           ${
-    selection === null ? "" : `<section class="summary-card">
+            selection === null
+              ? ''
+              : `<section class="summary-card">
           <p class="summary-label">${escapeHtml(selectionSummaryLabel)}</p>
-          <p class="summary-item"><strong>${
-      escapeHtml(
-        selection.contentTitle ??
-          `${selection.packageVersion} reviewed activity`,
-      )
-    }</strong>${escapeHtml(selection.packageVersion)}</p>
-          <p class="summary-item resource-path">${
-      escapeHtml(selection.contentPath)
-    }</p>
+          <p class="summary-item"><strong>${escapeHtml(
+            selection.contentTitle ?? `${selection.packageVersion} reviewed activity`,
+          )}</strong>${escapeHtml(selection.packageVersion)}</p>
+          <p class="summary-item resource-path">${escapeHtml(selection.contentPath)}</p>
         </section>`
-  }
+          }
           ${
-    submission === null ? "" : `<section class="summary-card">
+            submission === null
+              ? ''
+              : `<section class="summary-card">
           <p class="summary-label">${escapeHtml(returnSummaryLabel)}</p>
           <p class="summary-item"><strong>Signed Deep Linking response</strong>Lantern is posting the reviewed placement back now.</p>
-          <form id="lms-return-form" method="post" action="${
-      escapeHtml(submission.returnUrl)
-    }">
-            ${
-      Object.entries(submission.formFields)
-        .map(
-          ([name, value]) =>
-            `<input type="hidden" name="${escapeHtml(name)}" value="${
-              escapeHtml(value)
-            }">`,
-        )
-        .join("")
-    }
+          <form id="lms-return-form" method="post" action="${escapeHtml(submission.returnUrl)}">
+            ${Object.entries(submission.formFields)
+              .map(
+                ([name, value]) =>
+                  `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`,
+              )
+              .join('')}
             <button type="submit" class="button-primary">Return to LMS</button>
           </form>
           <p class="helper-copy">If the LMS does not resume automatically, use the button above.</p>
         </section>`
-  }
+          }
         </div>
       </div>
       ${
-    submission === null ? "" : `<script>
+        submission === null
+          ? ''
+          : `<script>
         window.addEventListener("load", () => {
           document.getElementById("lms-return-form")?.submit();
         }, { once: true });
       </script>`
-  }
+      }
     </main>
   </body>
 </html>`;

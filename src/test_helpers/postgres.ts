@@ -1,20 +1,15 @@
-import { Pool } from "@db/postgres";
-import {
-  bootstrapPackageReviewSchema,
-  resetPackageReviewTables,
-} from "./package_review_schema.ts";
+import { Pool } from '@db/postgres';
+import { bootstrapPackageReviewSchema, resetPackageReviewTables } from './package_review_schema.ts';
 
 const TEST_POOL_SIZE = 1;
 
 export { bootstrapPackageReviewSchema, resetPackageReviewTables };
 
 export function requireTestDatabaseUrl(): string {
-  const databaseUrl = Deno.env.get("DATABASE_URL");
+  const databaseUrl = Deno.env.get('DATABASE_URL');
 
   if (!databaseUrl) {
-    throw new Error(
-      "DATABASE_URL is required for Postgres-backed package review tests.",
-    );
+    throw new Error('DATABASE_URL is required for Postgres-backed package review tests.');
   }
 
   return databaseUrl;

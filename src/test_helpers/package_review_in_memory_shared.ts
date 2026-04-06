@@ -1,12 +1,12 @@
-import { compare, parse } from "@std/semver";
-import { CERTIFICATION_WORKFLOW_KEYS } from "../ops/types.ts";
+import { compare, parse } from '@std/semver';
+import { CERTIFICATION_WORKFLOW_KEYS } from '../ops/types.ts';
 import type {
   DeepLinkingSessionRecord,
   DynamicRegistrationStateRecord,
   LoginStateRecord,
   LtiPlacement,
   RuntimeSessionRecord,
-} from "../lti/types.ts";
+} from '../lti/types.ts';
 import type {
   BrokerVerificationRunStatus,
   BrokerVerificationSource,
@@ -19,8 +19,8 @@ import type {
   LatestOfficialCertificationEvidence,
   OfficialBrokerCertificationStatus,
   RetryableGradePublicationLookup,
-} from "../ops/types.ts";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
+} from '../ops/types.ts';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type {
   ApprovalStatus,
   AttemptEventRecord,
@@ -35,36 +35,27 @@ import type {
   PreviewEvidenceRecord,
   PreviewSessionRecord,
   ReviewedPlacementRecord,
-} from "../package_review/types.ts";
-import {
-  type AccessibilityReview,
-  parseAccessibilityReview,
-} from "../package_review/types.ts";
-import { DEFAULT_REVIEWED_AT } from "./package_review_test_defaults.ts";
+} from '../package_review/types.ts';
+import { type AccessibilityReview, parseAccessibilityReview } from '../package_review/types.ts';
+import { DEFAULT_REVIEWED_AT } from './package_review_test_defaults.ts';
 
 export interface InMemoryOpsRepository {
   listControlPlaneDeployments(): Promise<ControlPlaneDeploymentInventoryRow[]>;
   getControlPlaneDeploymentDetail(
     deploymentRecordId: number,
   ): Promise<ControlPlaneDeploymentDetailSnapshot | null>;
-  listControlPlaneDiagnostics(
-    deploymentRecordId: number,
-  ): Promise<ControlPlaneDiagnosticItem[]>;
+  listControlPlaneDiagnostics(deploymentRecordId: number): Promise<ControlPlaneDiagnosticItem[]>;
   listCertificationWorkflowStatuses(): Promise<CertificationWorkflowStatus[]>;
-  getLatestOfficialCertificationEvidence(): Promise<
-    LatestOfficialCertificationEvidence | null
-  >;
+  getLatestOfficialCertificationEvidence(): Promise<LatestOfficialCertificationEvidence | null>;
   getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
   getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
   recordBrokerVerificationRun(input: {
     deploymentRecordId: number | null;
     source: BrokerVerificationSource;
-    scope: BrokerVerificationStatus["supportedPath"];
+    scope: BrokerVerificationStatus['supportedPath'];
     workflowKey: CertificationWorkflowKey;
-    status: BrokerVerificationRunStatus | "notCertified";
-    certificationState:
-      | Exclude<OfficialBrokerCertificationStatus["state"], "notCertified">
-      | null;
+    status: BrokerVerificationRunStatus | 'notCertified';
+    certificationState: Exclude<OfficialBrokerCertificationStatus['state'], 'notCertified'> | null;
     summary: string;
     detailUrl: string | null;
     checkedAt: string;
@@ -72,35 +63,27 @@ export interface InMemoryOpsRepository {
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
-  getRuntimeSessionByAttemptId(
-    attemptId: string,
-  ): Promise<RuntimeSessionRecord | null>;
+  getRuntimeSessionByAttemptId(attemptId: string): Promise<RuntimeSessionRecord | null>;
 }
 
 export interface InMemoryDeepLinkingRepository {
   createDynamicRegistrationState(
     record: DynamicRegistrationStateRecord,
   ): Promise<DynamicRegistrationStateRecord>;
-  getDynamicRegistrationStateByState(
-    state: string,
-  ): Promise<DynamicRegistrationStateRecord | null>;
+  getDynamicRegistrationStateByState(state: string): Promise<DynamicRegistrationStateRecord | null>;
   consumeDynamicRegistrationState(input: {
     state: string;
     usedAt: string;
   }): Promise<DynamicRegistrationStateRecord>;
-  createDeepLinkingSession(
-    record: DeepLinkingSessionRecord,
-  ): Promise<DeepLinkingSessionRecord>;
-  getDeepLinkingSessionById(
-    sessionId: string,
-  ): Promise<DeepLinkingSessionRecord | null>;
+  createDeepLinkingSession(record: DeepLinkingSessionRecord): Promise<DeepLinkingSessionRecord>;
+  getDeepLinkingSessionById(sessionId: string): Promise<DeepLinkingSessionRecord | null>;
   consumeDeepLinkingSession(input: {
     sessionId: string;
     usedAt: string;
   }): Promise<DeepLinkingSessionRecord>;
   updateDeepLinkingSessionSelection(input: {
     sessionId: string;
-    selection: DeepLinkingSessionRecord["selection"];
+    selection: DeepLinkingSessionRecord['selection'];
   }): Promise<DeepLinkingSessionRecord>;
   listDeepLinkingResourceOptions(
     appId: string,
@@ -108,10 +91,9 @@ export interface InMemoryDeepLinkingRepository {
   ): Promise<DeepLinkingResourceOption[]>;
 }
 
-export type InMemoryRepository =
-  & PackageReviewRepository
-  & InMemoryOpsRepository
-  & InMemoryDeepLinkingRepository;
+export type InMemoryRepository = PackageReviewRepository &
+  InMemoryOpsRepository &
+  InMemoryDeepLinkingRepository;
 
 export type InMemoryPackageReviewRepositoryOptions = {
   packageVersions?: PackageVersionRecord[];
@@ -134,16 +116,12 @@ export type InMemoryPackageReviewRepositoryOptions = {
   controlPlaneDiagnostics?: ControlPlaneDiagnosticItem[];
   brokerVerifications?: BrokerVerificationStatus[];
   certificationWorkflowStatuses?: CertificationWorkflowStatus[];
-  latestOfficialCertificationEvidence?:
-    | LatestOfficialCertificationEvidence
-    | null;
+  latestOfficialCertificationEvidence?: LatestOfficialCertificationEvidence | null;
   retryableGradePublications?: RetryableGradePublicationLookup[];
   lanternLtiProfileSettings?: LanternLtiProfileSettingsRecord;
 };
 
-export type InMemoryRepositoryState = Required<
-  InMemoryPackageReviewRepositoryOptions
->;
+export type InMemoryRepositoryState = Required<InMemoryPackageReviewRepositoryOptions>;
 
 export function cloneRecord<T>(record: T): T {
   return structuredClone(record);
@@ -161,36 +139,27 @@ export function createState(
     gradePublications: cloneRecord(options.gradePublications ?? []),
     auditEvents: cloneRecord(options.auditEvents ?? []),
     loginStates: cloneRecord(options.loginStates ?? []),
-    dynamicRegistrationStates: cloneRecord(
-      options.dynamicRegistrationStates ?? [],
-    ),
+    dynamicRegistrationStates: cloneRecord(options.dynamicRegistrationStates ?? []),
     runtimeSessions: cloneRecord(options.runtimeSessions ?? []),
     deepLinkingSessions: cloneRecord(options.deepLinkingSessions ?? []),
-    deepLinkingResourceOptions: cloneRecord(
-      options.deepLinkingResourceOptions ?? [],
-    ),
+    deepLinkingResourceOptions: cloneRecord(options.deepLinkingResourceOptions ?? []),
     reviewedPlacements: cloneRecord(options.reviewedPlacements ?? []),
     previewSessions: cloneRecord(options.previewSessions ?? []),
     previewEvidence: cloneRecord(options.previewEvidence ?? []),
     controlPlaneDeployments: cloneRecord(options.controlPlaneDeployments ?? []),
-    controlPlaneDeploymentDetails: cloneRecord(
-      options.controlPlaneDeploymentDetails ?? [],
-    ),
+    controlPlaneDeploymentDetails: cloneRecord(options.controlPlaneDeploymentDetails ?? []),
     controlPlaneDiagnostics: cloneRecord(options.controlPlaneDiagnostics ?? []),
     brokerVerifications: cloneRecord(options.brokerVerifications ?? []),
     certificationWorkflowStatuses: cloneRecord(
-      options.certificationWorkflowStatuses ??
-        createDefaultCertificationWorkflowStatuses(),
+      options.certificationWorkflowStatuses ?? createDefaultCertificationWorkflowStatuses(),
     ),
     latestOfficialCertificationEvidence: cloneRecord(
       options.latestOfficialCertificationEvidence ?? null,
     ),
-    retryableGradePublications: cloneRecord(
-      options.retryableGradePublications ?? [],
-    ),
+    retryableGradePublications: cloneRecord(options.retryableGradePublications ?? []),
     lanternLtiProfileSettings: cloneRecord(
       options.lanternLtiProfileSettings ?? {
-        defaultLtiProfile: "governedCompatibility",
+        defaultLtiProfile: 'governedCompatibility',
         updatedAt: DEFAULT_REVIEWED_AT,
       },
     ),
@@ -216,10 +185,7 @@ export function sortPackageVersions(
       return left.appId.localeCompare(right.appId);
     }
 
-    const versionComparison = compare(
-      parse(right.version),
-      parse(left.version),
-    );
+    const versionComparison = compare(parse(right.version), parse(left.version));
 
     if (versionComparison !== 0) {
       return versionComparison;
@@ -232,7 +198,7 @@ export function sortPackageVersions(
 export function reviewPackageVersion(
   packageVersions: PackageVersionRecord[],
   id: number,
-  approvalStatus: Exclude<ApprovalStatus, "pending">,
+  approvalStatus: Exclude<ApprovalStatus, 'pending'>,
   reviewNotes: string | null,
   accessibilityReview: AccessibilityReview | null,
 ): PackageVersionRecord {
@@ -248,19 +214,18 @@ export function reviewPackageVersion(
     throw new Error(`Package version id ${id} was not found.`);
   }
 
-  if (existing.approvalStatus !== "pending") {
+  if (existing.approvalStatus !== 'pending') {
     throw new Error(
       `Package version ${existing.appId}@${existing.version} has already been reviewed and cannot change state.`,
     );
   }
 
-  const normalizedAccessibilityReview = accessibilityReview === null
-    ? (() => {
-      throw new Error(
-        "Accessibility review is required for new review decisions.",
-      );
-    })()
-    : parseAccessibilityReview(accessibilityReview);
+  const normalizedAccessibilityReview =
+    accessibilityReview === null
+      ? (() => {
+          throw new Error('Accessibility review is required for new review decisions.');
+        })()
+      : parseAccessibilityReview(accessibilityReview);
 
   const nextRecord = cloneRecord({
     ...existing,
@@ -280,10 +245,8 @@ export function getLatestBrokerVerificationRecord(
 ): BrokerVerificationStatus | null {
   return (
     [...brokerVerifications].sort((left, right) => {
-      const leftCheckedAt = left.internal?.checkedAt ??
-        left.official.checkedAt ?? "";
-      const rightCheckedAt = right.internal?.checkedAt ??
-        right.official.checkedAt ?? "";
+      const leftCheckedAt = left.internal?.checkedAt ?? left.official.checkedAt ?? '';
+      const rightCheckedAt = right.internal?.checkedAt ?? right.official.checkedAt ?? '';
 
       return rightCheckedAt.localeCompare(leftCheckedAt);
     })[0] ?? null

@@ -1,26 +1,26 @@
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import { DEFAULT_UPDATED_AT } from "./package_review_test_defaults.ts";
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import { DEFAULT_UPDATED_AT } from './package_review_test_defaults.ts';
 import {
   completePendingCanvasBinding,
   saveCanvasRegistration,
-} from "./package_review_in_memory_canvas_registrations.ts";
-import type { InMemoryRepositoryState } from "./package_review_in_memory_shared.ts";
-import { cloneRecord, nextId } from "./package_review_in_memory_shared.ts";
-import { buildDeploymentRecord } from "./package_review_test_builder_base.ts";
+} from './package_review_in_memory_canvas_registrations.ts';
+import type { InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
+import { cloneRecord, nextId } from './package_review_in_memory_shared.ts';
+import { buildDeploymentRecord } from './package_review_test_builder_base.ts';
 
 type DeploymentRepository = Pick<
   PackageReviewRepository,
-  | "getDeploymentBySlug"
-  | "getLanternLtiProfileSettings"
-  | "listDeploymentsByApp"
-  | "getDeploymentByBinding"
-  | "getDeploymentByPlatformIdentity"
-  | "completePendingCanvasBinding"
-  | "saveLanternDefaultLtiProfile"
-  | "saveDeploymentLtiProfileOverride"
-  | "saveDeploymentBinding"
-  | "saveCanvasRegistration"
-  | "pinDeploymentVersion"
+  | 'getDeploymentBySlug'
+  | 'getLanternLtiProfileSettings'
+  | 'listDeploymentsByApp'
+  | 'getDeploymentByBinding'
+  | 'getDeploymentByPlatformIdentity'
+  | 'completePendingCanvasBinding'
+  | 'saveLanternDefaultLtiProfile'
+  | 'saveDeploymentLtiProfileOverride'
+  | 'saveDeploymentBinding'
+  | 'saveCanvasRegistration'
+  | 'pinDeploymentVersion'
 >;
 
 export function createInMemoryDeploymentRepository(
@@ -28,9 +28,7 @@ export function createInMemoryDeploymentRepository(
 ): DeploymentRepository {
   return {
     getDeploymentBySlug(slug) {
-      const deployment = state.deployments.find((candidate) =>
-        candidate.slug === slug
-      );
+      const deployment = state.deployments.find((candidate) => candidate.slug === slug);
       return Promise.resolve(deployment ? cloneRecord(deployment) : null);
     },
 
@@ -41,9 +39,7 @@ export function createInMemoryDeploymentRepository(
     listDeploymentsByApp(appId) {
       return Promise.resolve(
         state.deployments
-          .filter((candidate) =>
-            candidate.appId === appId && candidate.lmsType !== "preview"
-          )
+          .filter((candidate) => candidate.appId === appId && candidate.lmsType !== 'preview')
           .map((deployment) => cloneRecord(deployment)),
       );
     },
@@ -66,18 +62,18 @@ export function createInMemoryDeploymentRepository(
           candidate.binding?.deploymentId === input.deploymentId,
       );
 
-      const matchingDeployments = input.clientId === null
-        ? deployments
-        : deployments.filter((candidate) =>
-          candidate.binding?.clientId === input.clientId
-        );
+      const matchingDeployments =
+        input.clientId === null
+          ? deployments
+          : deployments.filter((candidate) => candidate.binding?.clientId === input.clientId);
 
       if (matchingDeployments.length === 0) {
         if (input.clientId !== null) {
-          const canvasMatches = state.deployments.filter((candidate) =>
-            candidate.binding?.lms === "canvas" &&
-            candidate.binding.issuer === input.issuer &&
-            candidate.binding.clientId === input.clientId
+          const canvasMatches = state.deployments.filter(
+            (candidate) =>
+              candidate.binding?.lms === 'canvas' &&
+              candidate.binding.issuer === input.issuer &&
+              candidate.binding.clientId === input.clientId,
           );
           const savedCanvas = canvasMatches[0];
 
@@ -130,9 +126,7 @@ export function createInMemoryDeploymentRepository(
     },
 
     saveDeploymentLtiProfileOverride(input) {
-      const index = state.deployments.findIndex((candidate) =>
-        candidate.id === input.deploymentId
-      );
+      const index = state.deployments.findIndex((candidate) => candidate.id === input.deploymentId);
 
       if (index < 0) {
         throw new Error(`Deployment id ${input.deploymentId} was not found.`);
@@ -154,9 +148,7 @@ export function createInMemoryDeploymentRepository(
     },
 
     saveDeploymentBinding(input) {
-      const existing = state.deployments.find((candidate) =>
-        candidate.slug === input.slug
-      );
+      const existing = state.deployments.find((candidate) => candidate.slug === input.slug);
       const existingAppSlot = state.deployments.find(
         (candidate) =>
           candidate.slug !== input.slug &&
@@ -174,33 +166,24 @@ export function createInMemoryDeploymentRepository(
 
       if (conflicting) {
         throw new Error(
-          `${
-            formatBindingLabel(
-              input.binding.lms,
-            )
-          } ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+          `${formatBindingLabel(
+            input.binding.lms,
+          )} ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
         );
       }
 
       if (existing && existing.appId !== input.appId) {
-        throw new Error(
-          `Deployment ${input.slug} belongs to app ${existing.appId}.`,
-        );
+        throw new Error(`Deployment ${input.slug} belongs to app ${existing.appId}.`);
       }
 
-      if (
-        existing && existing.binding !== null &&
-        existing.binding.lms !== input.binding.lms
-      ) {
+      if (existing && existing.binding !== null && existing.binding.lms !== input.binding.lms) {
         throw new Error(
           `Deployment ${input.slug} is already bound as ${existing.binding.lms} and cannot change to ${input.binding.lms}.`,
         );
       }
 
       if (existingAppSlot) {
-        throw new Error(
-          `App ${input.appId} already has a ${input.binding.lms} deployment.`,
-        );
+        throw new Error(`App ${input.appId} already has a ${input.binding.lms} deployment.`);
       }
 
       const nextDeployment = buildDeploymentRecord({
@@ -216,9 +199,7 @@ export function createInMemoryDeploymentRepository(
       });
 
       if (existing) {
-        const index = state.deployments.findIndex((candidate) =>
-          candidate.slug === input.slug
-        );
+        const index = state.deployments.findIndex((candidate) => candidate.slug === input.slug);
         state.deployments.splice(index, 1, nextDeployment);
       } else {
         state.deployments.push(nextDeployment);
@@ -232,19 +213,17 @@ export function createInMemoryDeploymentRepository(
     },
 
     pinDeploymentVersion(input) {
-      const lmsType = input.lmsType ?? "canvas";
+      const lmsType = input.lmsType ?? 'canvas';
       const packageVersion = state.packageVersions.find(
         (candidate) => candidate.id === input.packageVersionId,
       );
 
       if (!packageVersion) {
-        throw new Error(
-          `Package version id ${input.packageVersionId} was not found.`,
-        );
+        throw new Error(`Package version id ${input.packageVersionId} was not found.`);
       }
 
-      if (packageVersion.approvalStatus !== "approved") {
-        throw new Error("Only approved package versions can be enabled.");
+      if (packageVersion.approvalStatus !== 'approved') {
+        throw new Error('Only approved package versions can be enabled.');
       }
 
       if (packageVersion.appId !== input.appId) {
@@ -253,14 +232,10 @@ export function createInMemoryDeploymentRepository(
         );
       }
 
-      const existing = state.deployments.find((candidate) =>
-        candidate.slug === input.slug
-      );
+      const existing = state.deployments.find((candidate) => candidate.slug === input.slug);
 
       if (existing && existing.appId !== input.appId) {
-        throw new Error(
-          `Deployment ${input.slug} belongs to app ${existing.appId}.`,
-        );
+        throw new Error(`Deployment ${input.slug} belongs to app ${existing.appId}.`);
       }
 
       if (existing && existing.lmsType !== lmsType) {
@@ -283,9 +258,7 @@ export function createInMemoryDeploymentRepository(
       });
 
       if (existing) {
-        const index = state.deployments.findIndex((candidate) =>
-          candidate.slug === input.slug
-        );
+        const index = state.deployments.findIndex((candidate) => candidate.slug === input.slug);
         state.deployments.splice(index, 1, nextDeployment);
       } else {
         state.deployments.push(nextDeployment);
@@ -296,6 +269,6 @@ export function createInMemoryDeploymentRepository(
   };
 }
 
-function formatBindingLabel(lms: "canvas" | "moodle" | "sakai"): string {
+function formatBindingLabel(lms: 'canvas' | 'moodle' | 'sakai'): string {
   return `${lms.slice(0, 1).toUpperCase()}${lms.slice(1)} binding`;
 }

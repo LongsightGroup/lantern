@@ -1,16 +1,15 @@
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import type { DeploymentRecord } from "../package_review/types.ts";
-import type { LtiProfileId, ResolvedLtiProfile } from "./profile.ts";
-import { getLtiProfileDefinition } from "./profile.ts";
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import type { DeploymentRecord } from '../package_review/types.ts';
+import type { LtiProfileId, ResolvedLtiProfile } from './profile.ts';
+import { getLtiProfileDefinition } from './profile.ts';
 
 export async function resolveLtiProfileForDeployment(input: {
-  repository: Pick<PackageReviewRepository, "getLanternLtiProfileSettings">;
-  deployment: Pick<DeploymentRecord, "id" | "ltiProfileOverride">;
+  repository: Pick<PackageReviewRepository, 'getLanternLtiProfileSettings'>;
+  deployment: Pick<DeploymentRecord, 'id' | 'ltiProfileOverride'>;
 }): Promise<ResolvedLtiProfile> {
   const settings = await input.repository.getLanternLtiProfileSettings();
-  const source = input.deployment.ltiProfileOverride === null
-    ? "lanternDefault"
-    : "deploymentOverride";
+  const source =
+    input.deployment.ltiProfileOverride === null ? 'lanternDefault' : 'deploymentOverride';
 
   return {
     id: input.deployment.ltiProfileOverride ?? settings.defaultLtiProfile,
@@ -19,11 +18,9 @@ export async function resolveLtiProfileForDeployment(input: {
   };
 }
 
-export function buildResolvedLtiProfileDetail(
-  profile: ResolvedLtiProfile,
-): {
+export function buildResolvedLtiProfileDetail(profile: ResolvedLtiProfile): {
   ltiProfileId: LtiProfileId;
-  ltiProfileSource: ResolvedLtiProfile["source"];
+  ltiProfileSource: ResolvedLtiProfile['source'];
 } {
   return {
     ltiProfileId: profile.id,
@@ -33,11 +30,11 @@ export function buildResolvedLtiProfileDetail(
 
 export function describeResolvedLtiProfile(profile: {
   id: LtiProfileId;
-  source: ResolvedLtiProfile["source"];
+  source: ResolvedLtiProfile['source'];
 }): string {
   const label = getLtiProfileDefinition(profile.id).label;
 
-  return profile.source === "deploymentOverride"
+  return profile.source === 'deploymentOverride'
     ? `${label} override`
     : `${label} from Lantern default`;
 }

@@ -1,14 +1,11 @@
-import type {
-  AuditEventRecord,
-  PlacementAuditSnapshot,
-} from "../package_review/types.ts";
-import { escapeHtml, formatDateTime, renderAdminLayout } from "./layout.ts";
+import type { AuditEventRecord, PlacementAuditSnapshot } from '../package_review/types.ts';
+import { escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 
 export function renderPlacementAuditPage(input: {
   snapshot: PlacementAuditSnapshot;
   timeline: AuditEventRecord[];
   notice?: {
-    tone: "error" | "note" | "success";
+    tone: 'error' | 'note' | 'success';
     title: string;
     detail: string;
     items?: string[];
@@ -16,22 +13,20 @@ export function renderPlacementAuditPage(input: {
 }): string {
   const { placement } = input.snapshot;
   const status = describePlacementStatus(input.snapshot.status);
-  const previewLink =
-    `/admin/packages/${placement.appId}/versions/${placement.packageVersion}/preview`;
-  const packageLink =
-    `/admin/packages/${placement.appId}/versions/${placement.packageVersion}`;
+  const previewLink = `/admin/packages/${placement.appId}/versions/${placement.packageVersion}/preview`;
+  const packageLink = `/admin/packages/${placement.appId}/versions/${placement.packageVersion}`;
   const deploymentLink = `/admin/packages/${placement.appId}/deployment`;
 
   return renderAdminLayout({
     title: `Placement ${placement.placementId}`,
-    eyebrow: "Placement audit",
-    heading: "Placement audit",
+    eyebrow: 'Placement audit',
+    heading: 'Placement audit',
     intro:
-      "Inspect the reviewed placement record and one durable evidence timeline from Lantern-owned logs.",
-    activePath: "/admin/placements",
+      'Inspect the reviewed placement record and one durable evidence timeline from Lantern-owned logs.',
+    activePath: '/admin/placements',
     breadcrumbs: [
-      { label: "Apps", href: "/admin/packages" },
-      { label: "Placements", href: "/admin/placements" },
+      { label: 'Apps', href: '/admin/packages' },
+      { label: 'Placements', href: '/admin/placements' },
       { label: placement.placementId },
     ],
     notice: input.notice ?? null,
@@ -40,11 +35,9 @@ export function renderPlacementAuditPage(input: {
         <div class="stack">
           <p class="section-label">Reviewed placement</p>
           <h2>${escapeHtml(placement.placementId)}</h2>
-          <p>Selected content <strong>${
-      escapeHtml(
-        placement.contentTitle ?? placement.contentPath,
-      )
-    }</strong> from <code>${escapeHtml(placement.contentPath)}</code>.</p>
+          <p>Selected content <strong>${escapeHtml(
+            placement.contentTitle ?? placement.contentPath,
+          )}</strong> from <code>${escapeHtml(placement.contentPath)}</code>.</p>
           <div class="facts">
             <div class="fact">
               <span class="fact-label">Current status</span>
@@ -53,64 +46,44 @@ export function renderPlacementAuditPage(input: {
             </div>
             <div class="fact">
               <span class="fact-label">Reviewed package</span>
-              <span class="fact-value">${
-      escapeHtml(placement.packageTitle)
-    }</span>
-              <p class="micro muted">Version ${
-      escapeHtml(placement.packageVersion)
-    }</p>
+              <span class="fact-value">${escapeHtml(placement.packageTitle)}</span>
+              <p class="micro muted">Version ${escapeHtml(placement.packageVersion)}</p>
             </div>
             <div class="fact">
               <span class="fact-label">Canvas context</span>
-              <span class="fact-value">${
-      escapeHtml(
-        placement.contextTitle ?? "Not recorded yet",
-      )
-    }</span>
-              <p class="micro muted">${
-      escapeHtml(placement.contextId ?? "Not recorded yet")
-    }</p>
+              <span class="fact-value">${escapeHtml(
+                placement.contextTitle ?? 'Not recorded yet',
+              )}</span>
+              <p class="micro muted">${escapeHtml(placement.contextId ?? 'Not recorded yet')}</p>
             </div>
             <div class="fact">
               <span class="fact-label">Resource link</span>
-              <span class="fact-value">${
-      escapeHtml(
-        placement.resourceLinkId ?? "Not recorded yet",
-      )
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                placement.resourceLinkId ?? 'Not recorded yet',
+              )}</span>
             </div>
           </div>
         </div>
         <aside class="stack">
           <section class="fact">
             <span class="fact-label">Evidence summary</span>
-            <strong class="fact-value">${
-      escapeHtml(
-        String(input.snapshot.previewEvidenceCount),
-      )
-    } test-launch events</strong>
-            <p class="micro muted">${
-      escapeHtml(
-        `${input.snapshot.evidenceSummary.deepLinkingRequestCount} deep-linking requests · ${input.snapshot.evidenceSummary.placementEventCount} placement events · ${input.snapshot.evidenceSummary.reviewerEventCount} reviewer events`,
-      )
-    }</p>
+            <strong class="fact-value">${escapeHtml(
+              String(input.snapshot.previewEvidenceCount),
+            )} test-launch events</strong>
+            <p class="micro muted">${escapeHtml(
+              `${input.snapshot.evidenceSummary.deepLinkingRequestCount} deep-linking requests · ${input.snapshot.evidenceSummary.placementEventCount} placement events · ${input.snapshot.evidenceSummary.reviewerEventCount} reviewer events`,
+            )}</p>
           </section>
           <div class="button-row">
-            <a class="button-secondary" href="${
-      escapeHtml(packageLink)
-    }">Open version details</a>
-            <a class="button-secondary" href="${
-      escapeHtml(deploymentLink)
-    }">Open app settings</a>
+            <a class="button-secondary" href="${escapeHtml(packageLink)}">Open version details</a>
+            <a class="button-secondary" href="${escapeHtml(deploymentLink)}">Open app settings</a>
             ${
-      input.snapshot.latestPreviewSessionId === null
-        ? ""
-        : `<a class="button-secondary" href="${
-          escapeHtml(
-            previewLink,
-          )
-        }">Open test activity</a>`
-    }
+              input.snapshot.latestPreviewSessionId === null
+                ? ''
+                : `<a class="button-secondary" href="${escapeHtml(
+                    previewLink,
+                  )}">Open test activity</a>`
+            }
           </div>
         </aside>
       </div>
@@ -129,23 +102,23 @@ export function renderPlacementAuditPage(input: {
 
 export function renderPlacementAuditRequestPage(input: {
   notice?: {
-    tone: "error" | "note" | "success";
+    tone: 'error' | 'note' | 'success';
     title: string;
     detail: string;
     items?: string[];
   } | null;
 }): string {
   return renderAdminLayout({
-    title: "Placements",
-    eyebrow: "Placements",
-    heading: "Placements",
+    title: 'Placements',
+    eyebrow: 'Placements',
+    heading: 'Placements',
     intro:
-      "Open one reviewed placement when you need the exact content choice, package version, Canvas context, and durable reviewer evidence.",
-    activePath: "/admin/placements",
+      'Open one reviewed placement when you need the exact content choice, package version, Canvas context, and durable reviewer evidence.',
+    activePath: '/admin/placements',
     breadcrumbs: [
-      { label: "Apps", href: "/admin/packages" },
+      { label: 'Apps', href: '/admin/packages' },
       {
-        label: "Placements",
+        label: 'Placements',
       },
     ],
     notice: input.notice ?? null,
@@ -209,22 +182,16 @@ function renderTimelineRows(
   if (snapshot.latestPreviewSessionId !== null) {
     rows.unshift(`<article class="line-item">
       <p class="line-title">test_launch.activity</p>
-      <p class="line-copy">Test session ${
-      escapeHtml(
+      <p class="line-copy">Test session ${escapeHtml(
         snapshot.latestPreviewSessionId,
-      )
-    } recorded ${escapeHtml(String(snapshot.previewEvidenceCount))} events.</p>
-      <p class="micro muted">${
-      escapeHtml(formatDateTime(snapshot.latestPreviewOccurredAt))
-    }</p>
-      <a class="button-ghost" href="${
-      escapeHtml(previewLink)
-    }">Open test activity</a>
+      )} recorded ${escapeHtml(String(snapshot.previewEvidenceCount))} events.</p>
+      <p class="micro muted">${escapeHtml(formatDateTime(snapshot.latestPreviewOccurredAt))}</p>
+      <a class="button-ghost" href="${escapeHtml(previewLink)}">Open test activity</a>
     </article>`);
   }
 
   if (rows.length > 0) {
-    return rows.join("");
+    return rows.join('');
   }
 
   return `<article class="line-item">
@@ -233,34 +200,32 @@ function renderTimelineRows(
     </article>`;
 }
 
-function describePlacementStatus(status: PlacementAuditSnapshot["status"]): {
+function describePlacementStatus(status: PlacementAuditSnapshot['status']): {
   label: string;
   detail: string;
 } {
   switch (status) {
-    case "awaiting_canvas_binding":
+    case 'awaiting_canvas_binding':
       return {
-        label: "Awaiting Canvas binding",
-        detail:
-          "The reviewed placement exists but Canvas has not yet bound a resource_link.id.",
+        label: 'Awaiting Canvas binding',
+        detail: 'The reviewed placement exists but Canvas has not yet bound a resource_link.id.',
       };
-    case "bound_no_preview":
+    case 'bound_no_preview':
       return {
-        label: "Bound with no test-launch activity",
+        label: 'Bound with no test-launch activity',
         detail:
-          "Canvas binding exists and Lantern has no test-launch activity for this reviewed package version yet.",
+          'Canvas binding exists and Lantern has no test-launch activity for this reviewed package version yet.',
       };
-    case "bound_with_preview":
+    case 'bound_with_preview':
       return {
-        label: "Bound with test-launch activity",
+        label: 'Bound with test-launch activity',
         detail:
-          "Canvas binding and test-launch activity are both recorded for this reviewed placement.",
+          'Canvas binding and test-launch activity are both recorded for this reviewed placement.',
       };
-    case "reviewed":
+    case 'reviewed':
       return {
-        label: "Reviewed with operator activity",
-        detail:
-          "Reviewer evidence has been recorded against this reviewed placement.",
+        label: 'Reviewed with operator activity',
+        detail: 'Reviewer evidence has been recorded against this reviewed placement.',
       };
   }
 }

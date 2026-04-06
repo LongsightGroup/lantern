@@ -1,74 +1,56 @@
-import type { DeploymentBinding, LaunchServiceClaims } from "../lti/types.ts";
-import type { LtiProfileId, ResolvedLtiProfile } from "../lti/profile.ts";
+import type { DeploymentBinding, LaunchServiceClaims } from '../lti/types.ts';
+import type { LtiProfileId, ResolvedLtiProfile } from '../lti/profile.ts';
 import type {
   ApprovalStatus,
   AuditActorType,
   AuditEventStatus,
   GradePublicationRecord,
   GradePublicationStatus,
-} from "../package_review/types.ts";
+} from '../package_review/types.ts';
 
-export type ControlPlaneHealthStatus =
-  | "healthy"
-  | "attention"
-  | "failed"
-  | "unknown";
+export type ControlPlaneHealthStatus = 'healthy' | 'attention' | 'failed' | 'unknown';
 
 export type ControlPlaneHealthDimensionName =
-  | "review"
-  | "enablement"
-  | "launch"
-  | "gradePublication"
-  | "nrps"
-  | "brokerVerification";
+  | 'review'
+  | 'enablement'
+  | 'launch'
+  | 'gradePublication'
+  | 'nrps'
+  | 'brokerVerification';
 
-export type ControlPlaneActivityStatus =
-  | "succeeded"
-  | "failed"
-  | "pending"
-  | "notRun";
+export type ControlPlaneActivityStatus = 'succeeded' | 'failed' | 'pending' | 'notRun';
 
 export type ControlPlaneDiagnosticKind =
-  | "launch"
-  | "deepLinking"
-  | "nrps"
-  | "gradePublication"
-  | "brokerVerification"
-  | "runtime"
-  | "reviewer";
+  | 'launch'
+  | 'deepLinking'
+  | 'nrps'
+  | 'gradePublication'
+  | 'brokerVerification'
+  | 'runtime'
+  | 'reviewer';
 
-export type ControlPlaneBoundaryDenialCategory =
-  | "specInvalid"
-  | "policyDenied";
+export type ControlPlaneBoundaryDenialCategory = 'specInvalid' | 'policyDenied';
 
-export type ControlPlaneRuntimeSandboxModel = "contained_browser_runtime";
-export type ControlPlaneRuntimeBoundary = "app_runtime_origin";
+export type ControlPlaneRuntimeSandboxModel = 'contained_browser_runtime';
+export type ControlPlaneRuntimeBoundary = 'app_runtime_origin';
 
-export type BrokerVerificationSource = "manual" | "ci" | "1edtech";
-export type BrokerVerificationRunStatus =
-  | "passed"
-  | "failed"
-  | "pending"
-  | "notRun";
-export type CertificationWorkflowKey =
-  | "core"
-  | "deepLinking"
-  | "nrps"
-  | "ags";
+export type BrokerVerificationSource = 'manual' | 'ci' | '1edtech';
+export type BrokerVerificationRunStatus = 'passed' | 'failed' | 'pending' | 'notRun';
+export type CertificationWorkflowKey = 'core' | 'deepLinking' | 'nrps' | 'ags';
 export type OfficialCertificationState =
-  | "notCertified"
-  | "ltiAdvantageCertified"
-  | "ltiAdvantageComplete";
+  | 'notCertified'
+  | 'ltiAdvantageCertified'
+  | 'ltiAdvantageComplete';
 export type BrokerVerificationSupportedPath =
-  | "lti13LaunchAgsNrps"
-  | "lti13LaunchAgsScore"
-  | "lti13LaunchAgsScore";
+  | 'lti13LaunchAgsNrps'
+  | 'lti13LaunchAgsScore'
+  | 'lti13LaunchAgsScore';
 
 export const CERTIFICATION_WORKFLOW_KEYS = [
-  "core",
-  "deepLinking",
-  "nrps",
-  "ags",
+  'core',
+  'deepLinking',
+  'nrps',
+  'ags',
 ] as const satisfies readonly CertificationWorkflowKey[];
 
 export interface ControlPlaneHealthDimension {
@@ -125,7 +107,7 @@ export interface DeploymentRecentLaunch {
   contextId: string | null;
   resourceLinkId: string | null;
   ltiProfileId: LtiProfileId | null;
-  ltiProfileSource: ResolvedLtiProfile["source"] | null;
+  ltiProfileSource: ResolvedLtiProfile['source'] | null;
 }
 
 export interface DeploymentGradePublicationSnapshot {
@@ -135,8 +117,8 @@ export interface DeploymentGradePublicationSnapshot {
   platformUserId: string;
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: GradePublicationRecord["activityProgress"];
-  gradingProgress: GradePublicationRecord["gradingProgress"];
+  activityProgress: GradePublicationRecord['activityProgress'];
+  gradingProgress: GradePublicationRecord['gradingProgress'];
   publishedAt: string | null;
   updatedAt: string;
   errorCode: string | null;
@@ -221,7 +203,7 @@ export interface BrokerVerificationStatus {
 export interface CertificationWorkflowInternalEvidence {
   deploymentRecordId: number;
   deploymentLabel: string;
-  status: Exclude<BrokerVerificationRunStatus, "notRun">;
+  status: Exclude<BrokerVerificationRunStatus, 'notRun'>;
   checkedAt: string;
   summary: string;
   evidenceUrl: string | null;

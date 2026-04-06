@@ -1,4 +1,4 @@
-import { resolveCanvasPlatform } from "./canvas_platform.ts";
+import { resolveCanvasPlatform } from './canvas_platform.ts';
 
 export function assertCanvasDynamicRegistrationMetadata(input: {
   openidConfigurationUrl: string;
@@ -8,40 +8,36 @@ export function assertCanvasDynamicRegistrationMetadata(input: {
 }): void {
   const openidConfigurationUrl = requireHttpsUrl(
     input.openidConfigurationUrl,
-    "Canvas openid_configuration URL",
+    'Canvas openid_configuration URL',
   );
-  const issuer = requireHttpsUrl(input.issuer, "Canvas issuer");
+  const issuer = requireHttpsUrl(input.issuer, 'Canvas issuer');
   const authorizationEndpoint = requireHttpsUrl(
     input.authorizationEndpoint,
-    "Canvas authorization endpoint",
+    'Canvas authorization endpoint',
   );
   const registrationEndpoint = requireHttpsUrl(
     input.registrationEndpoint,
-    "Canvas registration endpoint",
+    'Canvas registration endpoint',
   );
   const platform = resolveCanvasPlatform(input.issuer);
 
   if (openidConfigurationUrl.host !== issuer.host) {
-    throw new Error(
-      "Canvas openid_configuration host did not match the Canvas issuer host.",
-    );
+    throw new Error('Canvas openid_configuration host did not match the Canvas issuer host.');
   }
 
   if (registrationEndpoint.host !== issuer.host) {
-    throw new Error(
-      "Canvas registration endpoint host did not match the Canvas issuer host.",
-    );
+    throw new Error('Canvas registration endpoint host did not match the Canvas issuer host.');
   }
 
   if (authorizationEndpoint.toString() !== platform.authorizationEndpoint) {
     throw new Error(
-      "Canvas authorization endpoint did not match the supported Canvas platform metadata.",
+      'Canvas authorization endpoint did not match the supported Canvas platform metadata.',
     );
   }
 }
 
 export function assertHostedDynamicRegistrationMetadata(input: {
-  platformLabel: "Moodle" | "Sakai";
+  platformLabel: 'Moodle' | 'Sakai';
   openidConfigurationUrl: string;
   issuer: string;
   authorizationEndpoint: string;
@@ -62,10 +58,7 @@ export function assertHostedDynamicRegistrationMetadata(input: {
     input.tokenEndpoint,
     `${input.platformLabel} token endpoint`,
   );
-  const jwksUrl = requireHttpsUrl(
-    input.jwksUrl,
-    `${input.platformLabel} JWKS URL`,
-  );
+  const jwksUrl = requireHttpsUrl(input.jwksUrl, `${input.platformLabel} JWKS URL`);
   const registrationEndpoint = requireHttpsUrl(
     input.registrationEndpoint,
     `${input.platformLabel} registration endpoint`,
@@ -95,7 +88,7 @@ function requireHttpsUrl(value: string, subject: string): URL {
     throw new Error(`${subject} must be an absolute HTTPS URL.`);
   }
 
-  if (url.protocol !== "https:") {
+  if (url.protocol !== 'https:') {
     throw new Error(`${subject} must be an absolute HTTPS URL.`);
   }
 

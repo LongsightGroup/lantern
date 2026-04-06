@@ -1,42 +1,36 @@
-import type { Hono } from "@hono/hono";
+import type { Hono } from '@hono/hono';
 import {
   renderDeploymentsPage as renderDeploymentsResponse,
   renderVerificationPage as renderVerificationResponse,
-} from "./app_admin_support.ts";
+} from './app_admin_support.ts';
 import {
   renderDeploymentsPage as renderDeploymentsView,
   renderVerificationPage as renderVerificationView,
-} from "./admin/control_plane.ts";
-import { createErrorNotice } from "./app_notice_support.ts";
+} from './admin/control_plane.ts';
+import { createErrorNotice } from './app_notice_support.ts';
 import {
   parseBrokerVerificationRunForm,
   parseLanternDefaultLtiProfileForm,
-} from "./app_request_support.ts";
-import {
-  statusForError,
-  statusForVerificationError,
-} from "./app_status_support.ts";
-import type { AppServices } from "./app_services.ts";
+} from './app_request_support.ts';
+import { statusForError, statusForVerificationError } from './app_status_support.ts';
+import type { AppServices } from './app_services.ts';
 
-export function registerAdminOperationsRoutes(
-  app: Hono,
-  services: AppServices,
-): void {
-  app.get("/admin/deployments", async (context) => {
+export function registerAdminOperationsRoutes(app: Hono, services: AppServices): void {
+  app.get('/admin/deployments', async (context) => {
     try {
       return await renderDeploymentsResponse(context, services);
     } catch (error) {
       return context.html(
         renderDeploymentsView({
           deployments: [],
-          notice: createErrorNotice("Connections unavailable", error),
+          notice: createErrorNotice('Connections unavailable', error),
         }),
         statusForError(error),
       );
     }
   });
 
-  app.get("/admin/verification", async (context) => {
+  app.get('/admin/verification', async (context) => {
     try {
       return await renderVerificationResponse(context, services);
     } catch (error) {
@@ -45,46 +39,40 @@ export function registerAdminOperationsRoutes(
           deployments: [],
           latestBrokerVerification: null,
           ltiProfileSettings: null,
-          notice: createErrorNotice("Verification unavailable", error),
+          notice: createErrorNotice('Verification unavailable', error),
         }),
         statusForError(error),
       );
     }
   });
 
-  app.post("/admin/verification", async (context) => {
+  app.post('/admin/verification', async (context) => {
     try {
-      const verificationRun = parseBrokerVerificationRunForm(
-        await context.req.formData(),
-      );
+      const verificationRun = parseBrokerVerificationRunForm(await context.req.formData());
 
-      await services.getOpsRepository().recordBrokerVerificationRun(
-        verificationRun,
-      );
+      await services.getOpsRepository().recordBrokerVerificationRun(verificationRun);
 
-      return context.redirect("/admin/verification", 303);
+      return context.redirect('/admin/verification', 303);
     } catch (error) {
       return await renderVerificationResponse(context, services, {
-        notice: createErrorNotice("Verification update blocked", error),
+        notice: createErrorNotice('Verification update blocked', error),
         status: statusForVerificationError(error),
       });
     }
   });
 
-  app.post("/admin/verification/lti-profile", async (context) => {
+  app.post('/admin/verification/lti-profile', async (context) => {
     try {
-      const defaultLtiProfile = parseLanternDefaultLtiProfileForm(
-        await context.req.formData(),
-      );
+      const defaultLtiProfile = parseLanternDefaultLtiProfileForm(await context.req.formData());
 
       await services.getRepository().saveLanternDefaultLtiProfile({
         defaultLtiProfile,
       });
 
-      return context.redirect("/admin/verification", 303);
+      return context.redirect('/admin/verification', 303);
     } catch (error) {
       return await renderVerificationResponse(context, services, {
-        notice: createErrorNotice("Lantern default blocked", error),
+        notice: createErrorNotice('Lantern default blocked', error),
         status: statusForVerificationError(error),
       });
     }

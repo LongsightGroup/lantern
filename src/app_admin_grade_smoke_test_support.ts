@@ -1,17 +1,17 @@
-import { createInMemoryPackageReviewRepository } from "./test_helpers/package_review.ts";
+import { createInMemoryPackageReviewRepository } from './test_helpers/package_review.ts';
 import {
   buildAttemptRecord,
   buildControlPlaneDeploymentDetailSnapshot,
   buildControlPlaneDeploymentInventoryRow,
   buildDeploymentRecord,
   buildPackageVersionRecord,
-} from "./test_helpers/package_review.ts";
+} from './test_helpers/package_review.ts';
 import {
   buildLaunchServiceClaims,
   buildMoodleDeploymentBinding,
   buildRuntimeSessionRecord,
   buildSakaiDeploymentBinding,
-} from "./test_helpers/lti.ts";
+} from './test_helpers/lti.ts';
 
 export interface SmokeFixture {
   binding:
@@ -21,7 +21,7 @@ export interface SmokeFixture {
   appTitle: string;
   expectedSmokeLineItem: {
     resourceId: string;
-    tag: "smoke-verification";
+    tag: 'smoke-verification';
     label: string;
     scoreMaximum: 1;
   };
@@ -36,16 +36,14 @@ export interface SmokeRouteFixture extends SmokeFixture {
   smokeLineItemUrl: string;
 }
 
-export function buildSmokeFixture(lms: "moodle" | "sakai"): SmokeFixture {
-  const binding = lms === "moodle"
-    ? buildMoodleDeploymentBinding()
-    : buildSakaiDeploymentBinding();
-  const appTitle = "Chapter 4 Asteroids";
+export function buildSmokeFixture(lms: 'moodle' | 'sakai'): SmokeFixture {
+  const binding = lms === 'moodle' ? buildMoodleDeploymentBinding() : buildSakaiDeploymentBinding();
+  const appTitle = 'Chapter 4 Asteroids';
 
   return {
     binding,
     session: buildRuntimeSessionRecord({
-      deploymentRecordId: lms === "moodle" ? 2 : 3,
+      deploymentRecordId: lms === 'moodle' ? 2 : 3,
       deploymentSlug: `chapter-4-asteroids-${lms}`,
       attemptId: `${lms}-attempt-123`,
       servicesLms: lms,
@@ -56,35 +54,35 @@ export function buildSmokeFixture(lms: "moodle" | "sakai"): SmokeFixture {
         },
       }),
       launch: {
-        userRole: "learner",
+        userRole: 'learner',
         courseId: `${lms}-course-42`,
         assignmentId: `${lms}-assignment-9`,
-        activityId: "activity-123",
+        activityId: 'activity-123',
       },
     }),
     appTitle,
     expectedSmokeLineItem: {
       resourceId: `lantern:chapter-4-asteroids:${lms}:smoke`,
-      tag: "smoke-verification",
+      tag: 'smoke-verification',
       label: `${appTitle} Smoke Verification`,
       scoreMaximum: 1,
     },
   };
 }
 
-export function buildSmokeRouteFixture(
-  lms: "moodle" | "sakai",
-): SmokeRouteFixture {
+export function buildSmokeRouteFixture(lms: 'moodle' | 'sakai'): SmokeRouteFixture {
   const base = buildSmokeFixture(lms);
-  const deploymentId = lms === "moodle" ? 2 : 3;
+  const deploymentId = lms === 'moodle' ? 2 : 3;
   const deploymentSlug = `chapter-4-asteroids-${lms}`;
   const attemptId = `${lms}-attempt-123`;
-  const finalGradeLineItemUrl = lms === "moodle"
-    ? "https://moodle.example/mod/lti/services.php/2/lineitems/final-grade"
-    : "https://sakai.example/direct/lti/lineitems/course-42/items/final-grade";
-  const smokeLineItemUrl = lms === "moodle"
-    ? "https://moodle.example/mod/lti/services.php/2/lineitems/9"
-    : "https://sakai.example/direct/lti/lineitems/course-42/items/9";
+  const finalGradeLineItemUrl =
+    lms === 'moodle'
+      ? 'https://moodle.example/mod/lti/services.php/2/lineitems/final-grade'
+      : 'https://sakai.example/direct/lti/lineitems/course-42/items/final-grade';
+  const smokeLineItemUrl =
+    lms === 'moodle'
+      ? 'https://moodle.example/mod/lti/services.php/2/lineitems/9'
+      : 'https://sakai.example/direct/lti/lineitems/course-42/items/9';
 
   return {
     ...base,
@@ -106,10 +104,10 @@ export function buildSmokeRouteFixture(
         },
       }),
       launch: {
-        userRole: "learner",
+        userRole: 'learner',
         courseId: `${lms}-course-42`,
         assignmentId: `${lms}-assignment-9`,
-        activityId: "activity-123",
+        activityId: 'activity-123',
       },
     }),
   };
@@ -125,8 +123,8 @@ export function createSmokeRouteRepository(
     packageVersions: [
       buildPackageVersionRecord({
         id: 1,
-        approvalStatus: "approved",
-        reviewedAt: "2026-03-23T18:05:00Z",
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-23T18:05:00Z',
       }),
     ],
     deployments: [
@@ -134,7 +132,7 @@ export function createSmokeRouteRepository(
         id: fixture.deploymentId,
         slug: fixture.deploymentSlug,
         enabledPackageVersionId: 1,
-        enabledPackageVersion: "0.1.0",
+        enabledPackageVersion: '0.1.0',
         lmsType: fixture.binding.lms,
         binding: fixture.binding,
       }),
@@ -152,27 +150,25 @@ export function createSmokeRouteRepository(
     runtimeSessions: [fixture.session],
     controlPlaneDeploymentDetails: input.includeControlPlaneDetail
       ? [
-        buildControlPlaneDeploymentDetailSnapshot({
-          inventory: buildControlPlaneDeploymentInventoryRow({
-            deploymentId: fixture.deploymentId,
-            deploymentSlug: fixture.deploymentSlug,
-            binding: fixture.binding,
-            enabledPackageVersionId: 1,
-            enabledPackageVersion: "0.1.0",
+          buildControlPlaneDeploymentDetailSnapshot({
+            inventory: buildControlPlaneDeploymentInventoryRow({
+              deploymentId: fixture.deploymentId,
+              deploymentSlug: fixture.deploymentSlug,
+              binding: fixture.binding,
+              enabledPackageVersionId: 1,
+              enabledPackageVersion: '0.1.0',
+            }),
+            latestAgsSmoke: null,
           }),
-          latestAgsSmoke: null,
-        }),
-      ]
+        ]
       : [],
   });
 }
 
-export function buildSmokeVerificationFormData(
-  fixture: SmokeRouteFixture,
-): FormData {
+export function buildSmokeVerificationFormData(fixture: SmokeRouteFixture): FormData {
   const formData = new FormData();
-  formData.set("lms", fixture.binding.lms);
-  formData.set("deploymentRecordId", String(fixture.deploymentId));
+  formData.set('lms', fixture.binding.lms);
+  formData.set('deploymentRecordId', String(fixture.deploymentId));
   return formData;
 }
 
@@ -182,39 +178,33 @@ export function createSuccessfulSmokeFetchHandler(
 ) {
   return (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
-    requestedUrls.push(`${init?.method ?? "GET"} ${url}`);
+    requestedUrls.push(`${init?.method ?? 'GET'} ${url}`);
 
     if (url === fixture.binding.accessTokenUrl) {
       return new Response(
         JSON.stringify({
           access_token: `${fixture.binding.lms}-access-token`,
-          token_type: "bearer",
+          token_type: 'bearer',
         }),
         {
           status: 200,
           headers: {
-            "content-type": "application/json",
+            'content-type': 'application/json',
           },
         },
       );
     }
 
-    if (
-      url === fixture.session.services.ags?.lineitemsUrl &&
-      (init?.method ?? "GET") === "GET"
-    ) {
+    if (url === fixture.session.services.ags?.lineitemsUrl && (init?.method ?? 'GET') === 'GET') {
       return new Response(JSON.stringify([]), {
         status: 200,
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
         },
       });
     }
 
-    if (
-      url === fixture.session.services.ags?.lineitemsUrl &&
-      init?.method === "POST"
-    ) {
+    if (url === fixture.session.services.ags?.lineitemsUrl && init?.method === 'POST') {
       return new Response(
         JSON.stringify({
           id: fixture.smokeLineItemUrl,
@@ -224,23 +214,21 @@ export function createSuccessfulSmokeFetchHandler(
         {
           status: 201,
           headers: {
-            "content-type": "application/json",
+            'content-type': 'application/json',
           },
         },
       );
     }
 
-    if (
-      url === `${fixture.smokeLineItemUrl}/scores` && init?.method === "POST"
-    ) {
-      return new Response("{}", {
+    if (url === `${fixture.smokeLineItemUrl}/scores` && init?.method === 'POST') {
+      return new Response('{}', {
         status: 200,
         headers: {
-          "content-type": "application/json",
+          'content-type': 'application/json',
         },
       });
     }
 
-    throw new Error(`Unexpected smoke request ${init?.method ?? "GET"} ${url}`);
+    throw new Error(`Unexpected smoke request ${init?.method ?? 'GET'} ${url}`);
   };
 }

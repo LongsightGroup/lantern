@@ -257,7 +257,7 @@ The SDK should be tiny.
 
 ```ts
 type LaunchContext = {
-  userRole: "learner" | "instructor";
+  userRole: 'learner' | 'instructor';
   courseId: string;
   assignmentId?: string;
   activityId: string;
@@ -273,25 +273,25 @@ declare function readLocalState<T = unknown>(): Promise<T | null>;
 ```ts
 type AttemptEvent =
   | {
-    type: "answer";
-    questionId: string;
-    answer: string | string[];
-    timestamp: string;
-  }
+      type: 'answer';
+      questionId: string;
+      answer: string | string[];
+      timestamp: string;
+    }
   | {
-    type: "progress";
-    checkpoint: string;
-    value: number;
-    timestamp: string;
-  }
+      type: 'progress';
+      checkpoint: string;
+      value: number;
+      timestamp: string;
+    }
   | {
-    type: "complete";
-    timestamp: string;
-  };
+      type: 'complete';
+      timestamp: string;
+    };
 
 declare function emitAttemptEvent(event: AttemptEvent): Promise<void>;
 declare function finalizeAttempt(input?: {
-  completionState?: "completed" | "abandoned";
+  completionState?: 'completed' | 'abandoned';
 }): Promise<{ accepted: true }>;
 declare function writeLocalState<T = unknown>(value: T): Promise<void>;
 ```

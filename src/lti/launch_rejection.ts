@@ -1,4 +1,4 @@
-export type LtiBoundaryDenialCategory = "specInvalid" | "policyDenied";
+export type LtiBoundaryDenialCategory = 'specInvalid' | 'policyDenied';
 
 export interface LtiBoundaryDenial {
   category: LtiBoundaryDenialCategory;
@@ -8,39 +8,39 @@ export interface LtiBoundaryDenial {
 }
 
 export type LaunchRejectionCode =
-  | "deployment_binding_missing"
-  | "deployment_mismatch"
-  | "launch_package_version_missing"
-  | "login_state_expired"
-  | "login_state_missing"
-  | "login_state_used"
-  | "missing_baseline_claim"
-  | "missing_pinned_package_version"
-  | "package_not_approved"
-  | "reviewed_placement_context_mismatch"
-  | "reviewed_placement_deployment_mismatch"
-  | "reviewed_placement_not_found"
-  | "reviewed_placement_resource_link_conflict"
-  | "signature_validation_failed"
-  | "unsupported_lti_version"
-  | "unsupported_message_type";
+  | 'deployment_binding_missing'
+  | 'deployment_mismatch'
+  | 'launch_package_version_missing'
+  | 'login_state_expired'
+  | 'login_state_missing'
+  | 'login_state_used'
+  | 'missing_baseline_claim'
+  | 'missing_pinned_package_version'
+  | 'package_not_approved'
+  | 'reviewed_placement_context_mismatch'
+  | 'reviewed_placement_deployment_mismatch'
+  | 'reviewed_placement_not_found'
+  | 'reviewed_placement_resource_link_conflict'
+  | 'signature_validation_failed'
+  | 'unsupported_lti_version'
+  | 'unsupported_message_type';
 
 export interface LaunchRejection extends LtiBoundaryDenial {
   code: LaunchRejectionCode;
 }
 
-type LaunchRejectionInput = Omit<LaunchRejection, "category"> & {
+type LaunchRejectionInput = Omit<LaunchRejection, 'category'> & {
   category?: LtiBoundaryDenialCategory;
 };
 
 const POLICY_DENIED_LAUNCH_CODES = new Set<LaunchRejectionCode>([
-  "launch_package_version_missing",
-  "missing_pinned_package_version",
-  "package_not_approved",
-  "reviewed_placement_context_mismatch",
-  "reviewed_placement_deployment_mismatch",
-  "reviewed_placement_not_found",
-  "reviewed_placement_resource_link_conflict",
+  'launch_package_version_missing',
+  'missing_pinned_package_version',
+  'package_not_approved',
+  'reviewed_placement_context_mismatch',
+  'reviewed_placement_deployment_mismatch',
+  'reviewed_placement_not_found',
+  'reviewed_placement_resource_link_conflict',
 ]);
 
 export class LtiBoundaryDenialError extends Error {
@@ -48,7 +48,7 @@ export class LtiBoundaryDenialError extends Error {
 
   constructor(denial: LtiBoundaryDenial) {
     super(denial.message);
-    this.name = "LtiBoundaryDenialError";
+    this.name = 'LtiBoundaryDenialError';
     this.denial = denial;
   }
 
@@ -70,7 +70,7 @@ export class LaunchRejectionError extends LtiBoundaryDenialError {
 
   constructor(rejection: LaunchRejection) {
     super(rejection);
-    this.name = "LaunchRejectionError";
+    this.name = 'LaunchRejectionError';
     this.rejection = rejection;
   }
 
@@ -87,15 +87,11 @@ export class LaunchRejectionError extends LtiBoundaryDenialError {
   }
 }
 
-export function isLtiBoundaryDenialError(
-  error: unknown,
-): error is LtiBoundaryDenialError {
+export function isLtiBoundaryDenialError(error: unknown): error is LtiBoundaryDenialError {
   return error instanceof LtiBoundaryDenialError;
 }
 
-export function isLaunchRejectionError(
-  error: unknown,
-): error is LaunchRejectionError {
+export function isLaunchRejectionError(error: unknown): error is LaunchRejectionError {
   return error instanceof LaunchRejectionError;
 }
 
@@ -112,9 +108,7 @@ export function buildRejectionDetailRecord(
   const normalized: Record<string, string | null> = {};
 
   for (const [key, value] of Object.entries(detail)) {
-    normalized[key] = value === undefined || value === null
-      ? null
-      : String(value);
+    normalized[key] = value === undefined || value === null ? null : String(value);
   }
 
   return normalized;
@@ -122,8 +116,6 @@ export function buildRejectionDetailRecord(
 
 export const buildLaunchDetailRecord = buildRejectionDetailRecord;
 
-function categorizeLaunchRejection(
-  code: LaunchRejectionCode,
-): LtiBoundaryDenialCategory {
-  return POLICY_DENIED_LAUNCH_CODES.has(code) ? "policyDenied" : "specInvalid";
+function categorizeLaunchRejection(code: LaunchRejectionCode): LtiBoundaryDenialCategory {
+  return POLICY_DENIED_LAUNCH_CODES.has(code) ? 'policyDenied' : 'specInvalid';
 }

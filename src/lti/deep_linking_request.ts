@@ -1,11 +1,11 @@
-import type { JSONWebKeySet } from "jose";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import { recordInteropPathUsed } from "../interop_audit.ts";
+import type { JSONWebKeySet } from 'jose';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import { recordInteropPathUsed } from '../interop_audit.ts';
 import {
   buildRejectionDetailRecord,
   type LtiBoundaryDenial,
   LtiBoundaryDenialError,
-} from "./launch_rejection.ts";
+} from './launch_rejection.ts';
 import {
   optionalRecordClaim,
   optionalStringClaim,
@@ -17,56 +17,53 @@ import {
   requireTrimmedValue,
   resolveUserRole,
   validateLtiAudience,
-} from "./claim_support.ts";
-import { verifyIdTokenWithJwksRetry } from "./id_token_verification.ts";
+} from './claim_support.ts';
+import { verifyIdTokenWithJwksRetry } from './id_token_verification.ts';
 import {
   assertLanternTargetLinkKind,
   resolveLanternDeepLinkingPlacement,
   targetLinkUrisMatch,
   targetLinkUriUsesLanternDriftTolerance,
-} from "./target_link_uri.ts";
-import { getLtiProfileDefinition } from "./profile.ts";
-import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
-import { formatLmsLabel, resolveBindingJwksUrl } from "./platform_binding.ts";
-import { loadJwks } from "./token_support.ts";
+} from './target_link_uri.ts';
+import { getLtiProfileDefinition } from './profile.ts';
+import { resolveLtiProfileForDeployment } from './profile_resolution.ts';
+import { formatLmsLabel, resolveBindingJwksUrl } from './platform_binding.ts';
+import { loadJwks } from './token_support.ts';
 import type {
   DeepLinkingAcceptType,
   DeepLinkingPresentationDocumentTarget,
   DeepLinkingSettings,
   LtiPlacement,
   ValidatedDeepLinkingRequest,
-} from "./types.ts";
-import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from "./types.ts";
+} from './types.ts';
+import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from './types.ts';
 
-const CLAIM_MESSAGE_TYPE =
-  "https://purl.imsglobal.org/spec/lti/claim/message_type";
-const CLAIM_VERSION = "https://purl.imsglobal.org/spec/lti/claim/version";
-const CLAIM_DEPLOYMENT_ID =
-  "https://purl.imsglobal.org/spec/lti/claim/deployment_id";
-const CLAIM_TARGET_LINK_URI =
-  "https://purl.imsglobal.org/spec/lti/claim/target_link_uri";
-const CLAIM_CONTEXT = "https://purl.imsglobal.org/spec/lti/claim/context";
-const CLAIM_ROLES = "https://purl.imsglobal.org/spec/lti/claim/roles";
+const CLAIM_MESSAGE_TYPE = 'https://purl.imsglobal.org/spec/lti/claim/message_type';
+const CLAIM_VERSION = 'https://purl.imsglobal.org/spec/lti/claim/version';
+const CLAIM_DEPLOYMENT_ID = 'https://purl.imsglobal.org/spec/lti/claim/deployment_id';
+const CLAIM_TARGET_LINK_URI = 'https://purl.imsglobal.org/spec/lti/claim/target_link_uri';
+const CLAIM_CONTEXT = 'https://purl.imsglobal.org/spec/lti/claim/context';
+const CLAIM_ROLES = 'https://purl.imsglobal.org/spec/lti/claim/roles';
 const CLAIM_DEEP_LINKING_SETTINGS =
-  "https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings";
+  'https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings';
 
 export type DeepLinkingRejectionCode =
-  | "audience_mismatch"
-  | "deployment_binding_missing"
-  | "invalid_value"
-  | "login_state_expired"
-  | "login_state_missing"
-  | "login_state_used"
-  | "missing_required_value"
-  | "nonce_bridge_not_allowed"
-  | "request_mismatch"
-  | "signature_validation_failed"
-  | "target_link_uri_drift_not_allowed"
-  | "unsupported_deep_linking_accept_type"
-  | "unsupported_deep_linking_presentation_target"
-  | "unsupported_lti_version"
-  | "unsupported_message_type"
-  | "unsupported_target_link_uri";
+  | 'audience_mismatch'
+  | 'deployment_binding_missing'
+  | 'invalid_value'
+  | 'login_state_expired'
+  | 'login_state_missing'
+  | 'login_state_used'
+  | 'missing_required_value'
+  | 'nonce_bridge_not_allowed'
+  | 'request_mismatch'
+  | 'signature_validation_failed'
+  | 'target_link_uri_drift_not_allowed'
+  | 'unsupported_deep_linking_accept_type'
+  | 'unsupported_deep_linking_presentation_target'
+  | 'unsupported_lti_version'
+  | 'unsupported_message_type'
+  | 'unsupported_target_link_uri';
 
 export interface DeepLinkingRejection extends LtiBoundaryDenial {
   code: DeepLinkingRejectionCode;
@@ -77,7 +74,7 @@ export class DeepLinkingRequestRejectionError extends LtiBoundaryDenialError {
 
   constructor(rejection: DeepLinkingRejection) {
     super(rejection);
-    this.name = "DeepLinkingRequestRejectionError";
+    this.name = 'DeepLinkingRequestRejectionError';
     this.rejection = rejection;
   }
 
@@ -103,19 +100,19 @@ export async function validateDeepLinkingRequest(input: {
   const loadDeepLinkingJwks = input.loadJwks ?? loadJwks;
   const state = requireDeepLinkingTrimmedValue({
     value: input.state,
-    field: "state",
-    message: "Deep Linking state is required.",
+    field: 'state',
+    message: 'Deep Linking state is required.',
   });
   const idToken = requireDeepLinkingTrimmedValue({
     value: input.idToken,
-    field: "id_token",
-    message: "Deep Linking id_token is required.",
+    field: 'id_token',
+    message: 'Deep Linking id_token is required.',
   });
   const loginState = await input.repository.getLoginStateByState(state);
 
   if (!loginState) {
     rejectDeepLinkingSpecInvalid({
-      code: "login_state_missing",
+      code: 'login_state_missing',
       message: `Login state ${state} was not found.`,
       detail: { state },
     });
@@ -123,7 +120,7 @@ export async function validateDeepLinkingRequest(input: {
 
   if (loginState.usedAt !== null) {
     rejectDeepLinkingSpecInvalid({
-      code: "login_state_used",
+      code: 'login_state_used',
       message: `Login state ${state} has already been used.`,
       detail: { state },
     });
@@ -131,7 +128,7 @@ export async function validateDeepLinkingRequest(input: {
 
   if (Date.parse(loginState.expiresAt) <= now().getTime()) {
     rejectDeepLinkingSpecInvalid({
-      code: "login_state_expired",
+      code: 'login_state_expired',
       message: `Login state ${state} has expired.`,
       detail: { state },
     });
@@ -146,10 +143,10 @@ export async function validateDeepLinkingRequest(input: {
 
   if (!deployment?.binding) {
     rejectDeepLinkingSpecInvalid({
-      code: "deployment_binding_missing",
-      message: `${
-        formatLmsLabel(loginState.lms)
-      } deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
+      code: 'deployment_binding_missing',
+      message: `${formatLmsLabel(
+        loginState.lms,
+      )} deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
       detail: {
         issuer: loginState.issuer,
         clientId: loginState.clientId,
@@ -177,13 +174,12 @@ export async function validateDeepLinkingRequest(input: {
       onRetry: async () => {
         await recordInteropPathUsed({
           repository: input.repository,
-          scope: "deep_linking",
-          path: "jwks_refetch",
-          actorType: "platform",
+          scope: 'deep_linking',
+          path: 'jwks_refetch',
+          actorType: 'platform',
           deploymentRecordId: deployment.id,
           packageVersionId: deployment.enabledPackageVersionId,
-          summary:
-            "Lantern refetched platform JWKS during Deep Linking validation.",
+          summary: 'Lantern refetched platform JWKS during Deep Linking validation.',
           detail: {
             deploymentSlug: deployment.slug,
             issuer: loginState.issuer,
@@ -196,8 +192,8 @@ export async function validateDeepLinkingRequest(input: {
     });
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "signature_validation_failed",
-      message: "Deep Linking id_token signature or issuer validation failed.",
+      code: 'signature_validation_failed',
+      message: 'Deep Linking id_token signature or issuer validation failed.',
       detail: {},
     });
   }
@@ -206,18 +202,18 @@ export async function validateDeepLinkingRequest(input: {
     aud: payload.aud,
     azp: payload.azp,
     clientId: loginState.clientId,
-    subject: "Deep Linking",
+    subject: 'Deep Linking',
   });
 
   const deploymentId = requireDeepLinkingStringClaim({
     value: payload[CLAIM_DEPLOYMENT_ID],
-    claim: "deployment_id",
-    message: "Deep Linking deployment_id is required.",
+    claim: 'deployment_id',
+    message: 'Deep Linking deployment_id is required.',
   });
   const targetLinkUri = requireDeepLinkingStringClaim({
     value: payload[CLAIM_TARGET_LINK_URI],
-    claim: "target_link_uri",
-    message: "Deep Linking target_link_uri is required.",
+    claim: 'target_link_uri',
+    message: 'Deep Linking target_link_uri is required.',
   });
   const placement = requireDeepLinkingRouteTarget(targetLinkUri);
   const nonce = resolveDeepLinkingNonce({
@@ -226,21 +222,20 @@ export async function validateDeepLinkingRequest(input: {
   });
   const messageType = requireDeepLinkingStringClaim({
     value: payload[CLAIM_MESSAGE_TYPE],
-    claim: "message_type",
-    message: "Deep Linking message_type is required.",
+    claim: 'message_type',
+    message: 'Deep Linking message_type is required.',
   });
   const version = requireDeepLinkingStringClaim({
     value: payload[CLAIM_VERSION],
-    claim: "version",
-    message: "Deep Linking LTI version is required.",
+    claim: 'version',
+    message: 'Deep Linking LTI version is required.',
   });
 
   if (deploymentId !== loginState.deploymentId) {
     rejectDeepLinkingRequestMismatch({
-      field: "deployment_id",
-      target: "saved login state",
-      message:
-        "Deep Linking deployment_id did not match the saved login state.",
+      field: 'deployment_id',
+      target: 'saved login state',
+      message: 'Deep Linking deployment_id did not match the saved login state.',
     });
   }
 
@@ -258,9 +253,8 @@ export async function validateDeepLinkingRequest(input: {
       })
     ) {
       rejectDeepLinkingPolicyDenied({
-        code: "target_link_uri_drift_not_allowed",
-        message:
-          "Deep Linking target_link_uri drift is not allowed for the active LTI profile.",
+        code: 'target_link_uri_drift_not_allowed',
+        message: 'Deep Linking target_link_uri drift is not allowed for the active LTI profile.',
         detail: {
           expectedTargetLinkUri: loginState.targetLinkUri,
           actualTargetLinkUri: targetLinkUri,
@@ -269,10 +263,9 @@ export async function validateDeepLinkingRequest(input: {
     }
 
     rejectDeepLinkingRequestMismatch({
-      field: "target_link_uri",
-      target: "saved login state",
-      message:
-        "Deep Linking target_link_uri did not match the saved login state.",
+      field: 'target_link_uri',
+      target: 'saved login state',
+      message: 'Deep Linking target_link_uri did not match the saved login state.',
     });
   }
   if (
@@ -284,13 +277,12 @@ export async function validateDeepLinkingRequest(input: {
   ) {
     await recordInteropPathUsed({
       repository: input.repository,
-      scope: "deep_linking",
-      path: "target_link_uri_drift",
-      actorType: "platform",
+      scope: 'deep_linking',
+      path: 'target_link_uri_drift',
+      actorType: 'platform',
       deploymentRecordId: deployment.id,
       packageVersionId: deployment.enabledPackageVersionId,
-      summary:
-        "Lantern tolerated bounded target_link_uri drift during Deep Linking validation.",
+      summary: 'Lantern tolerated bounded target_link_uri drift during Deep Linking validation.',
       detail: {
         deploymentSlug: deployment.slug,
         issuer: loginState.issuer,
@@ -304,15 +296,15 @@ export async function validateDeepLinkingRequest(input: {
   }
   if (nonce.value !== loginState.nonce) {
     rejectDeepLinkingRequestMismatch({
-      field: "nonce",
-      target: "saved login state",
-      message: "Deep Linking nonce did not match the saved login state.",
+      field: 'nonce',
+      target: 'saved login state',
+      message: 'Deep Linking nonce did not match the saved login state.',
     });
   }
 
   if (messageType !== LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE) {
     rejectDeepLinkingSpecInvalid({
-      code: "unsupported_message_type",
+      code: 'unsupported_message_type',
       message: `Unsupported LTI message type ${messageType}.`,
       detail: {
         messageType,
@@ -321,35 +313,34 @@ export async function validateDeepLinkingRequest(input: {
     });
   }
 
-  if (version !== "1.3.0") {
+  if (version !== '1.3.0') {
     rejectDeepLinkingSpecInvalid({
-      code: "unsupported_lti_version",
+      code: 'unsupported_lti_version',
       message: `Unsupported LTI version ${version}.`,
       detail: {
         version,
-        supportedVersion: "1.3.0",
+        supportedVersion: '1.3.0',
       },
     });
   }
 
   if (deploymentId !== deployment.binding.deploymentId) {
     rejectDeepLinkingRequestMismatch({
-      field: "deployment_id",
-      target: "saved deployment binding",
-      message:
-        "Deep Linking deployment_id did not match the saved deployment binding.",
+      field: 'deployment_id',
+      target: 'saved deployment binding',
+      message: 'Deep Linking deployment_id did not match the saved deployment binding.',
     });
   }
 
-  if (nonce.source === "jti") {
+  if (nonce.source === 'jti') {
     await recordInteropPathUsed({
       repository: input.repository,
-      scope: "deep_linking",
-      path: "jti_nonce_bridge",
-      actorType: "platform",
+      scope: 'deep_linking',
+      path: 'jti_nonce_bridge',
+      actorType: 'platform',
       deploymentRecordId: deployment.id,
       packageVersionId: deployment.enabledPackageVersionId,
-      summary: "Lantern accepted jti as the Deep Linking nonce value.",
+      summary: 'Lantern accepted jti as the Deep Linking nonce value.',
       detail: {
         deploymentSlug: deployment.slug,
         issuer: loginState.issuer,
@@ -360,13 +351,11 @@ export async function validateDeepLinkingRequest(input: {
     });
   }
 
-  const settings = parseDeepLinkingSettingsClaim(
-    payload[CLAIM_DEEP_LINKING_SETTINGS],
-  );
+  const settings = parseDeepLinkingSettingsClaim(payload[CLAIM_DEEP_LINKING_SETTINGS]);
   const context = optionalDeepLinkingRecordClaim({
     value: payload[CLAIM_CONTEXT],
-    claim: "context",
-    message: "Deep Linking context claim must be an object when provided.",
+    claim: 'context',
+    message: 'Deep Linking context claim must be an object when provided.',
   });
   const consumedState = await input.repository.consumeLoginState({
     state,
@@ -389,8 +378,7 @@ export async function validateDeepLinkingRequest(input: {
     settings: {
       acceptTypes: settings.acceptTypes,
       acceptMultiple: settings.acceptMultiple,
-      acceptPresentationDocumentTargets:
-        settings.acceptPresentationDocumentTargets,
+      acceptPresentationDocumentTargets: settings.acceptPresentationDocumentTargets,
       acceptLineItem: settings.acceptLineItem,
     },
     issuedAt: now().toISOString(),
@@ -406,14 +394,14 @@ function resolveDeepLinkingNonce(input: {
   allowJtiBridge: boolean;
 }): {
   value: string;
-  source: "nonce" | "jti";
+  source: 'nonce' | 'jti';
 } {
   const nonce = optionalStringClaim(input.payload.nonce);
 
   if (nonce !== null) {
     return {
       value: nonce,
-      source: "nonce",
+      source: 'nonce',
     };
   }
 
@@ -422,26 +410,25 @@ function resolveDeepLinkingNonce(input: {
   if (jti !== null) {
     if (!input.allowJtiBridge) {
       rejectDeepLinkingPolicyDenied({
-        code: "nonce_bridge_not_allowed",
-        message:
-          "Deep Linking nonce must use the nonce claim for the active LTI profile.",
+        code: 'nonce_bridge_not_allowed',
+        message: 'Deep Linking nonce must use the nonce claim for the active LTI profile.',
         detail: {
-          expectedNonceSource: "nonce",
-          actualNonceSource: "jti",
+          expectedNonceSource: 'nonce',
+          actualNonceSource: 'jti',
         },
       });
     }
 
     return {
       value: jti,
-      source: "jti",
+      source: 'jti',
     };
   }
 
   rejectDeepLinkingSpecInvalid({
-    code: "missing_required_value",
-    message: "Deep Linking nonce is required.",
-    detail: { claim: "nonce" },
+    code: 'missing_required_value',
+    message: 'Deep Linking nonce is required.',
+    detail: { claim: 'nonce' },
   });
 }
 
@@ -449,12 +436,12 @@ function requireDeepLinkingRouteTarget(targetLinkUri: string): LtiPlacement {
   try {
     assertLanternTargetLinkKind({
       targetLinkUri,
-      kind: "deep_linking",
+      kind: 'deep_linking',
       message: `Unsupported Deep Linking target_link_uri ${targetLinkUri}.`,
     });
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "unsupported_target_link_uri",
+      code: 'unsupported_target_link_uri',
       message: `Unsupported Deep Linking target_link_uri ${targetLinkUri}.`,
       detail: { targetLinkUri },
     });
@@ -464,9 +451,8 @@ function requireDeepLinkingRouteTarget(targetLinkUri: string): LtiPlacement {
 
   if (placement === null) {
     rejectDeepLinkingSpecInvalid({
-      code: "unsupported_target_link_uri",
-      message:
-        `Unsupported Deep Linking placement in target_link_uri ${targetLinkUri}.`,
+      code: 'unsupported_target_link_uri',
+      message: `Unsupported Deep Linking placement in target_link_uri ${targetLinkUri}.`,
       detail: { targetLinkUri },
     });
   }
@@ -480,8 +466,8 @@ function parseDeepLinkingSettingsClaim(value: unknown): DeepLinkingSettings & {
 } {
   const settings = requireDeepLinkingRecordClaim({
     value,
-    claim: "deep_linking_settings",
-    message: "Deep Linking settings claim is required.",
+    claim: 'deep_linking_settings',
+    message: 'Deep Linking settings claim is required.',
   });
   const acceptTypes = parseAcceptTypes(settings.accept_types);
 
@@ -489,8 +475,8 @@ function parseDeepLinkingSettingsClaim(value: unknown): DeepLinkingSettings & {
     acceptTypes,
     acceptMultiple: requireDeepLinkingOptionalBooleanClaim({
       value: settings.accept_multiple,
-      claim: "accept_multiple",
-      message: "Deep Linking accept_multiple must be a boolean when provided.",
+      claim: 'accept_multiple',
+      message: 'Deep Linking accept_multiple must be a boolean when provided.',
       fallback: false,
     }),
     acceptPresentationDocumentTargets: parsePresentationDocumentTargets(
@@ -498,19 +484,19 @@ function parseDeepLinkingSettingsClaim(value: unknown): DeepLinkingSettings & {
     ),
     acceptLineItem: requireDeepLinkingOptionalBooleanClaim({
       value: settings.accept_lineitem,
-      claim: "accept_lineitem",
-      message: "Deep Linking accept_lineitem must be a boolean when provided.",
+      claim: 'accept_lineitem',
+      message: 'Deep Linking accept_lineitem must be a boolean when provided.',
       fallback: false,
     }),
     deepLinkReturnUrl: requireDeepLinkingStringClaim({
       value: settings.deep_link_return_url,
-      claim: "deep_link_return_url",
-      message: "Deep Linking return URL is required.",
+      claim: 'deep_link_return_url',
+      message: 'Deep Linking return URL is required.',
     }),
     data: optionalDeepLinkingTypedStringClaim({
       value: settings.data,
-      claim: "data",
-      message: "Deep Linking data must be a string when provided.",
+      claim: 'data',
+      message: 'Deep Linking data must be a string when provided.',
     }),
   };
 }
@@ -520,46 +506,38 @@ function parseAcceptTypes(value: unknown): DeepLinkingAcceptType[] {
 
   if (items.length === 0) {
     rejectDeepLinkingSpecInvalid({
-      code: "missing_required_value",
-      message: "Deep Linking accept_types must include ltiResourceLink.",
-      detail: { claim: "accept_types" },
+      code: 'missing_required_value',
+      message: 'Deep Linking accept_types must include ltiResourceLink.',
+      detail: { claim: 'accept_types' },
     });
   }
 
-  const unsupported = items.filter((item) => item !== "ltiResourceLink");
+  const unsupported = items.filter((item) => item !== 'ltiResourceLink');
 
   if (unsupported.length > 0) {
     rejectDeepLinkingSpecInvalid({
-      code: "unsupported_deep_linking_accept_type",
-      message: `Unsupported Deep Linking accept_types: ${
-        unsupported.join(", ")
-      }.`,
-      detail: { acceptTypes: unsupported.join(", ") },
+      code: 'unsupported_deep_linking_accept_type',
+      message: `Unsupported Deep Linking accept_types: ${unsupported.join(', ')}.`,
+      detail: { acceptTypes: unsupported.join(', ') },
     });
   }
 
-  return ["ltiResourceLink"];
+  return ['ltiResourceLink'];
 }
 
-function parsePresentationDocumentTargets(
-  value: unknown,
-): DeepLinkingPresentationDocumentTarget[] {
+function parsePresentationDocumentTargets(value: unknown): DeepLinkingPresentationDocumentTarget[] {
   const items = readStringArray(value);
 
   if (items.length === 0) {
     return [];
   }
 
-  const supported = new Set<DeepLinkingPresentationDocumentTarget>([
-    "embed",
-    "iframe",
-    "window",
-  ]);
+  const supported = new Set<DeepLinkingPresentationDocumentTarget>(['embed', 'iframe', 'window']);
 
   for (const item of items) {
     if (!supported.has(item as DeepLinkingPresentationDocumentTarget)) {
       rejectDeepLinkingSpecInvalid({
-        code: "unsupported_deep_linking_presentation_target",
+        code: 'unsupported_deep_linking_presentation_target',
         message: `Unsupported Deep Linking presentation target ${item}.`,
         detail: { presentationTarget: item },
       });
@@ -578,7 +556,7 @@ function requireDeepLinkingTrimmedValue(input: {
     return requireTrimmedValue(input.value, input.message);
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "missing_required_value",
+      code: 'missing_required_value',
       message: input.message,
       detail: { field: input.field },
     });
@@ -594,7 +572,7 @@ function requireDeepLinkingStringClaim(input: {
     return requireStringClaim(input.value, input.message);
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "missing_required_value",
+      code: 'missing_required_value',
       message: input.message,
       detail: { claim: input.claim },
     });
@@ -610,7 +588,7 @@ function requireDeepLinkingRecordClaim(input: {
     return requireRecordClaim(input.value, input.message);
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "missing_required_value",
+      code: 'missing_required_value',
       message: input.message,
       detail: { claim: input.claim },
     });
@@ -626,7 +604,7 @@ function optionalDeepLinkingRecordClaim(input: {
     return optionalRecordClaim(input.value, input.message);
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "invalid_value",
+      code: 'invalid_value',
       message: input.message,
       detail: { claim: input.claim },
     });
@@ -640,14 +618,10 @@ function requireDeepLinkingOptionalBooleanClaim(input: {
   fallback: boolean;
 }): boolean {
   try {
-    return requireOptionalBooleanClaim(
-      input.value,
-      input.message,
-      input.fallback,
-    );
+    return requireOptionalBooleanClaim(input.value, input.message, input.fallback);
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "invalid_value",
+      code: 'invalid_value',
       message: input.message,
       detail: { claim: input.claim },
     });
@@ -663,7 +637,7 @@ function optionalDeepLinkingTypedStringClaim(input: {
     return optionalTypedStringClaim(input.value, input.message);
   } catch {
     rejectDeepLinkingSpecInvalid({
-      code: "invalid_value",
+      code: 'invalid_value',
       message: input.message,
       detail: { claim: input.claim },
     });
@@ -680,10 +654,9 @@ function validateDeepLinkingAudience(input: {
     validateLtiAudience(input);
   } catch (error) {
     rejectDeepLinkingSpecInvalid({
-      code: "audience_mismatch",
-      message: error instanceof Error
-        ? error.message
-        : `${input.subject} audience validation failed.`,
+      code: 'audience_mismatch',
+      message:
+        error instanceof Error ? error.message : `${input.subject} audience validation failed.`,
       detail: { clientId: input.clientId },
     });
   }
@@ -695,7 +668,7 @@ function rejectDeepLinkingRequestMismatch(input: {
   message: string;
 }): never {
   rejectDeepLinkingSpecInvalid({
-    code: "request_mismatch",
+    code: 'request_mismatch',
     message: input.message,
     detail: {
       field: input.field,
@@ -710,7 +683,7 @@ function rejectDeepLinkingSpecInvalid(input: {
   detail: Record<string, string | number | null | undefined>;
 }): never {
   rejectDeepLinking({
-    category: "specInvalid",
+    category: 'specInvalid',
     code: input.code,
     message: input.message,
     detail: buildRejectionDetailRecord(input.detail),
@@ -723,7 +696,7 @@ function rejectDeepLinkingPolicyDenied(input: {
   detail: Record<string, string | number | null | undefined>;
 }): never {
   rejectDeepLinking({
-    category: "policyDenied",
+    category: 'policyDenied',
     code: input.code,
     message: input.message,
     detail: buildRejectionDetailRecord(input.detail),

@@ -2,14 +2,9 @@ import {
   approvalStatusClass,
   approvalStatusDetail,
   approvalStatusLabel,
-} from "../package_review/summary.ts";
-import type { PackageVersionRecord } from "../package_review/types.ts";
-import {
-  type AdminNotice,
-  escapeHtml,
-  formatDateTime,
-  renderAdminLayout,
-} from "./layout.ts";
+} from '../package_review/summary.ts';
+import type { PackageVersionRecord } from '../package_review/types.ts';
+import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 
 interface PackageLibraryEntry {
   appId: string;
@@ -17,7 +12,7 @@ interface PackageLibraryEntry {
   description: string | null;
   ownerId: string;
   latestVersion: string;
-  latestApprovalStatus: PackageVersionRecord["approvalStatus"];
+  latestApprovalStatus: PackageVersionRecord['approvalStatus'];
   latestImportedAt: string;
   versionCount: number;
   approvedVersionCount: number;
@@ -27,17 +22,15 @@ export function renderPackageIndexPage(input: {
   versions: PackageVersionRecord[];
   notice?: AdminNotice | null;
 }): string {
-  const body = input.versions.length === 0
-    ? renderEmptyState()
-    : renderPackageLibrary(input.versions);
+  const body =
+    input.versions.length === 0 ? renderEmptyState() : renderPackageLibrary(input.versions);
 
   return renderAdminLayout({
-    title: "Lantern Admin Apps",
-    eyebrow: "Apps",
-    heading: "Open an app.",
-    intro:
-      "From there you can review a version, change app settings, or run a test launch.",
-    activePath: "/admin/packages",
+    title: 'Lantern Admin Apps',
+    eyebrow: 'Apps',
+    heading: 'Open an app.',
+    intro: 'From there you can review a version, change app settings, or run a test launch.',
+    activePath: '/admin/packages',
     notice: input.notice ?? null,
     body,
   });
@@ -92,15 +85,13 @@ function renderPackageLibrary(versions: PackageVersionRecord[]): string {
   <section class="panel">
     <div class="panel-body stack">
       <div class="table-list">
-        ${entries.map(renderPackageEntry).join("")}
+        ${entries.map(renderPackageEntry).join('')}
       </div>
     </div>
   </section>`;
 }
 
-function buildPackageLibraryEntries(
-  versions: PackageVersionRecord[],
-): PackageLibraryEntry[] {
+function buildPackageLibraryEntries(versions: PackageVersionRecord[]): PackageLibraryEntry[] {
   const entries = new Map<string, PackageLibraryEntry>();
 
   for (const version of versions) {
@@ -116,13 +107,13 @@ function buildPackageLibraryEntries(
         latestApprovalStatus: version.approvalStatus,
         latestImportedAt: version.importedAt,
         versionCount: 1,
-        approvedVersionCount: version.approvalStatus === "approved" ? 1 : 0,
+        approvedVersionCount: version.approvalStatus === 'approved' ? 1 : 0,
       });
       continue;
     }
 
     existing.versionCount += 1;
-    if (version.approvalStatus === "approved") {
+    if (version.approvalStatus === 'approved') {
       existing.approvedVersionCount += 1;
     }
   }
@@ -136,46 +127,30 @@ function renderPackageEntry(entry: PackageLibraryEntry): string {
       <div class="stack">
         <p class="line-title">
           <span>${escapeHtml(entry.title)}</span>
-          <span class="${approvalStatusClass(entry.latestApprovalStatus)}">${
-    escapeHtml(
-      approvalStatusLabel(entry.latestApprovalStatus),
-    )
-  }</span>
+          <span class="${approvalStatusClass(entry.latestApprovalStatus)}">${escapeHtml(
+            approvalStatusLabel(entry.latestApprovalStatus),
+          )}</span>
         </p>
-        <p class="line-copy">${
-    escapeHtml(
-      entry.description ?? approvalStatusDetail(entry.latestApprovalStatus),
-    )
-  }</p>
+        <p class="line-copy">${escapeHtml(
+          entry.description ?? approvalStatusDetail(entry.latestApprovalStatus),
+        )}</p>
       </div>
       <div class="button-row">
-        <a class="button-ghost" href="/admin/packages/${
-    escapeHtml(
-      entry.appId,
-    )
-  }/versions/${escapeHtml(entry.latestVersion)}">Open version details</a>
-        <a class="button-secondary" href="/admin/packages/${
-    escapeHtml(
-      entry.appId,
-    )
-  }/deployment">App settings</a>
+        <a class="button-ghost" href="/admin/packages/${escapeHtml(
+          entry.appId,
+        )}/versions/${escapeHtml(entry.latestVersion)}">Open version details</a>
+        <a class="button-secondary" href="/admin/packages/${escapeHtml(
+          entry.appId,
+        )}/deployment">App settings</a>
       </div>
     </div>
     <div class="table-row-meta">
-      <span><strong>Latest version</strong> ${
-    escapeHtml(entry.latestVersion)
-  }</span>
-      <span><strong>Versions</strong> ${
-    escapeHtml(String(entry.versionCount))
-  }</span>
-      <span><strong>Approved</strong> ${
-    escapeHtml(String(entry.approvedVersionCount))
-  }</span>
+      <span><strong>Latest version</strong> ${escapeHtml(entry.latestVersion)}</span>
+      <span><strong>Versions</strong> ${escapeHtml(String(entry.versionCount))}</span>
+      <span><strong>Approved</strong> ${escapeHtml(String(entry.approvedVersionCount))}</span>
       <span><strong>Owner</strong> ${escapeHtml(entry.ownerId)}</span>
       <span><strong>App ID</strong> ${escapeHtml(entry.appId)}</span>
-      <span><strong>Added</strong> ${
-    escapeHtml(formatDateTime(entry.latestImportedAt))
-  }</span>
+      <span><strong>Added</strong> ${escapeHtml(formatDateTime(entry.latestImportedAt))}</span>
     </div>
   </article>`;
 }

@@ -1,32 +1,32 @@
-import { assertEquals, assertStringIncludes } from "@std/assert";
-import { createApp } from "./app.ts";
+import { assertEquals, assertStringIncludes } from '@std/assert';
+import { createApp } from './app.ts';
 import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
-} from "./test_helpers/package_review.ts";
-import { restoreEnv, withFetchStub } from "./app_test_support.ts";
+} from './test_helpers/package_review.ts';
+import { restoreEnv, withFetchStub } from './app_test_support.ts';
 
-Deno.test("GET /admin/packages/:appId/deployment/register/canvas saves a pending Canvas registration and returns a Canvas close page", async () => {
-  const previousOrigin = Deno.env.get("APP_ORIGIN");
-  Deno.env.set("APP_ORIGIN", "http://localhost:8417");
+Deno.test('GET /admin/packages/:appId/deployment/register/canvas saves a pending Canvas registration and returns a Canvas close page', async () => {
+  const previousOrigin = Deno.env.get('APP_ORIGIN');
+  Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
 
   try {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
         buildPackageVersionRecord({
           id: 5,
-          approvalStatus: "approved",
-          reviewNotes: "Ready for pilot.",
-          reviewedAt: "2026-03-23T18:05:00Z",
+          approvalStatus: 'approved',
+          reviewNotes: 'Ready for pilot.',
+          reviewedAt: '2026-03-23T18:05:00Z',
         }),
       ],
     });
     const registrationState = await repository.createDynamicRegistrationState({
-      state: "canvas-registration-state-123",
-      appId: "chapter-4-asteroids",
-      lms: "canvas",
-      createdAt: "2030-03-24T00:00:00Z",
-      expiresAt: "2030-03-24T00:30:00Z",
+      state: 'canvas-registration-state-123',
+      appId: 'chapter-4-asteroids',
+      lms: 'canvas',
+      createdAt: '2030-03-24T00:00:00Z',
+      expiresAt: '2030-03-24T00:30:00Z',
       usedAt: null,
     });
     const app = createApp({ getRepository: () => repository });
@@ -39,41 +39,36 @@ Deno.test("GET /admin/packages/:appId/deployment/register/canvas saves a pending
 
     await withFetchStub(
       (input, init) => {
-        const url = typeof input === "string" ? input : input.toString();
+        const url = typeof input === 'string' ? input : input.toString();
         requests.push({
           url,
-          method: init?.method ?? "GET",
-          authorization: new Headers(init?.headers).get("authorization"),
-          body: typeof init?.body === "string" ? init.body : null,
+          method: init?.method ?? 'GET',
+          authorization: new Headers(init?.headers).get('authorization'),
+          body: typeof init?.body === 'string' ? init.body : null,
         });
 
-        if (
-          url ===
-            "https://canvas.instructure.com/api/lti/security/openid-configuration"
-        ) {
+        if (url === 'https://canvas.instructure.com/api/lti/security/openid-configuration') {
           return new Response(
             JSON.stringify({
-              issuer: "https://canvas.instructure.com",
-              authorization_endpoint:
-                "https://sso.canvaslms.com/api/lti/authorize_redirect",
-              registration_endpoint:
-                "https://canvas.instructure.com/api/lti/registrations",
+              issuer: 'https://canvas.instructure.com',
+              authorization_endpoint: 'https://sso.canvaslms.com/api/lti/authorize_redirect',
+              registration_endpoint: 'https://canvas.instructure.com/api/lti/registrations',
             }),
             {
               status: 200,
-              headers: { "content-type": "application/json" },
+              headers: { 'content-type': 'application/json' },
             },
           );
         }
 
-        if (url === "https://canvas.instructure.com/api/lti/registrations") {
+        if (url === 'https://canvas.instructure.com/api/lti/registrations') {
           return new Response(
             JSON.stringify({
-              client_id: "canvas-client-777",
+              client_id: 'canvas-client-777',
             }),
             {
               status: 200,
-              headers: { "content-type": "application/json" },
+              headers: { 'content-type': 'application/json' },
             },
           );
         }
@@ -84,8 +79,8 @@ Deno.test("GET /admin/packages/:appId/deployment/register/canvas saves a pending
         const params = new URLSearchParams({
           state: registrationState.state,
           openid_configuration:
-            "https://canvas.instructure.com/api/lti/security/openid-configuration",
-          registration_token: "registration-123",
+            'https://canvas.instructure.com/api/lti/security/openid-configuration',
+          registration_token: 'registration-123',
         });
         const response = await app.request(
           `http://localhost/admin/packages/chapter-4-asteroids/deployment/register/canvas?${params.toString()}`,
@@ -93,12 +88,12 @@ Deno.test("GET /admin/packages/:appId/deployment/register/canvas saves a pending
 
         assertEquals(response.status, 200);
         const body = await response.text();
-        assertStringIncludes(body, "Canvas setup saved");
-        assertStringIncludes(body, "Close and return to Canvas");
-        assertStringIncludes(body, "org.imsglobal.lti.close");
+        assertStringIncludes(body, 'Canvas setup saved');
+        assertStringIncludes(body, 'Close and return to Canvas');
+        assertStringIncludes(body, 'org.imsglobal.lti.close');
         assertStringIncludes(
           body,
-          "/admin/packages/chapter-4-asteroids/deployment?lms=canvas&amp;registered=canvas#slot-panel",
+          '/admin/packages/chapter-4-asteroids/deployment?lms=canvas&amp;registered=canvas#slot-panel',
         );
 
         const replay = await app.request(
@@ -107,101 +102,84 @@ Deno.test("GET /admin/packages/:appId/deployment/register/canvas saves a pending
         assertEquals(replay.status, 409);
         assertStringIncludes(
           await replay.text(),
-          "This dynamic registration link has already been used.",
+          'This dynamic registration link has already been used.',
         );
       },
     );
 
     assertEquals(requests.length, 2);
-    assertEquals(requests[0]?.method, "GET");
-    assertEquals(requests[0]?.authorization, "Bearer registration-123");
-    assertEquals(
-      requests[1]?.url,
-      "https://canvas.instructure.com/api/lti/registrations",
-    );
-    assertEquals(requests[1]?.method, "POST");
-    assertEquals(requests[1]?.authorization, "Bearer registration-123");
+    assertEquals(requests[0]?.method, 'GET');
+    assertEquals(requests[0]?.authorization, 'Bearer registration-123');
+    assertEquals(requests[1]?.url, 'https://canvas.instructure.com/api/lti/registrations');
+    assertEquals(requests[1]?.method, 'POST');
+    assertEquals(requests[1]?.authorization, 'Bearer registration-123');
 
-    const registrationRequest = JSON.parse(requests[1]?.body ?? "null") as {
+    const registrationRequest = JSON.parse(requests[1]?.body ?? 'null') as {
       initiate_login_uri: string;
       jwks_uri: string;
       redirect_uris: string[];
       scope: string;
-      "https://purl.imsglobal.org/spec/lti-tool-configuration": {
+      'https://purl.imsglobal.org/spec/lti-tool-configuration': {
         messages: Array<{ type: string; placements: string[] }>;
       };
     };
-    assertEquals(
-      registrationRequest.initiate_login_uri,
-      "http://localhost:8417/lti/login",
-    );
-    assertEquals(
-      registrationRequest.jwks_uri,
-      "http://localhost:8417/lti/jwks.json",
-    );
+    assertEquals(registrationRequest.initiate_login_uri, 'http://localhost:8417/lti/login');
+    assertEquals(registrationRequest.jwks_uri, 'http://localhost:8417/lti/jwks.json');
     assertEquals(registrationRequest.redirect_uris, [
-      "http://localhost:8417/lti/launch",
-      "http://localhost:8417/lti/deep-linking",
-      "http://localhost:8417/lti/deep-linking?placement=resource_selection",
+      'http://localhost:8417/lti/launch',
+      'http://localhost:8417/lti/deep-linking',
+      'http://localhost:8417/lti/deep-linking?placement=resource_selection',
     ]);
     assertEquals(
       registrationRequest.scope,
-      "https://purl.imsglobal.org/spec/lti-ags/scope/score https://purl.imsglobal.org/spec/lti-ags/scope/lineitem https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly",
+      'https://purl.imsglobal.org/spec/lti-ags/scope/score https://purl.imsglobal.org/spec/lti-ags/scope/lineitem https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly',
     );
     assertEquals(
-      registrationRequest[
-        "https://purl.imsglobal.org/spec/lti-tool-configuration"
-      ].messages[0]
+      registrationRequest['https://purl.imsglobal.org/spec/lti-tool-configuration'].messages[0]
         ?.placements,
-      ["course_navigation"],
+      ['course_navigation'],
     );
     assertEquals(
-      registrationRequest[
-        "https://purl.imsglobal.org/spec/lti-tool-configuration"
-      ].messages[2]
+      registrationRequest['https://purl.imsglobal.org/spec/lti-tool-configuration'].messages[2]
         ?.placements,
-      ["resource_selection"],
+      ['resource_selection'],
     );
 
-    const deployment = await repository.getDeploymentBySlug(
-      "chapter-4-asteroids-pilot",
-    );
-    assertEquals(deployment?.lmsType, "canvas");
+    const deployment = await repository.getDeploymentBySlug('chapter-4-asteroids-pilot');
+    assertEquals(deployment?.lmsType, 'canvas');
     assertEquals(deployment?.binding, null);
 
-    const auditEvents = await repository.listAuditEventsByEventType(
-      "deployment.binding_saved",
-    );
+    const auditEvents = await repository.listAuditEventsByEventType('deployment.binding_saved');
     assertEquals(auditEvents.length, 1);
-    assertEquals(auditEvents[0]?.detail.lms, "canvas");
-    assertEquals(auditEvents[0]?.detail.registrationMode, "dynamic");
-    assertEquals(auditEvents[0]?.detail.clientId, "canvas-client-777");
+    assertEquals(auditEvents[0]?.detail.lms, 'canvas');
+    assertEquals(auditEvents[0]?.detail.registrationMode, 'dynamic');
+    assertEquals(auditEvents[0]?.detail.clientId, 'canvas-client-777');
     assertEquals(auditEvents[0]?.detail.deploymentId, null);
   } finally {
-    restoreEnv("APP_ORIGIN", previousOrigin);
+    restoreEnv('APP_ORIGIN', previousOrigin);
   }
 });
 
-Deno.test("GET /admin/packages/:appId/deployment/register/canvas uses the forwarded public origin for registration callbacks", async () => {
-  const previousOrigin = Deno.env.get("APP_ORIGIN");
-  Deno.env.delete("APP_ORIGIN");
+Deno.test('GET /admin/packages/:appId/deployment/register/canvas uses the forwarded public origin for registration callbacks', async () => {
+  const previousOrigin = Deno.env.get('APP_ORIGIN');
+  Deno.env.delete('APP_ORIGIN');
 
   try {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
         buildPackageVersionRecord({
           id: 5,
-          approvalStatus: "approved",
-          reviewedAt: "2026-03-23T18:05:00Z",
+          approvalStatus: 'approved',
+          reviewedAt: '2026-03-23T18:05:00Z',
         }),
       ],
     });
     const registrationState = await repository.createDynamicRegistrationState({
-      state: "canvas-registration-state-forwarded",
-      appId: "chapter-4-asteroids",
-      lms: "canvas",
-      createdAt: "2030-03-24T00:00:00Z",
-      expiresAt: "2030-03-24T00:30:00Z",
+      state: 'canvas-registration-state-forwarded',
+      appId: 'chapter-4-asteroids',
+      lms: 'canvas',
+      createdAt: '2030-03-24T00:00:00Z',
+      expiresAt: '2030-03-24T00:30:00Z',
       usedAt: null,
     });
     const app = createApp({ getRepository: () => repository });
@@ -209,37 +187,32 @@ Deno.test("GET /admin/packages/:appId/deployment/register/canvas uses the forwar
 
     await withFetchStub(
       (input, init) => {
-        const url = typeof input === "string" ? input : input.toString();
+        const url = typeof input === 'string' ? input : input.toString();
 
-        if (
-          url ===
-            "https://canvas.instructure.com/api/lti/security/openid-configuration"
-        ) {
+        if (url === 'https://canvas.instructure.com/api/lti/security/openid-configuration') {
           return new Response(
             JSON.stringify({
-              issuer: "https://canvas.instructure.com",
-              authorization_endpoint:
-                "https://sso.canvaslms.com/api/lti/authorize_redirect",
-              registration_endpoint:
-                "https://canvas.instructure.com/api/lti/registrations",
+              issuer: 'https://canvas.instructure.com',
+              authorization_endpoint: 'https://sso.canvaslms.com/api/lti/authorize_redirect',
+              registration_endpoint: 'https://canvas.instructure.com/api/lti/registrations',
             }),
             {
               status: 200,
-              headers: { "content-type": "application/json" },
+              headers: { 'content-type': 'application/json' },
             },
           );
         }
 
-        if (url === "https://canvas.instructure.com/api/lti/registrations") {
-          registrationBody = typeof init?.body === "string" ? init.body : null;
+        if (url === 'https://canvas.instructure.com/api/lti/registrations') {
+          registrationBody = typeof init?.body === 'string' ? init.body : null;
 
           return new Response(
             JSON.stringify({
-              client_id: "canvas-client-777",
+              client_id: 'canvas-client-777',
             }),
             {
               status: 200,
-              headers: { "content-type": "application/json" },
+              headers: { 'content-type': 'application/json' },
             },
           );
         }
@@ -250,15 +223,15 @@ Deno.test("GET /admin/packages/:appId/deployment/register/canvas uses the forwar
         const params = new URLSearchParams({
           state: registrationState.state,
           openid_configuration:
-            "https://canvas.instructure.com/api/lti/security/openid-configuration",
-          registration_token: "registration-123",
+            'https://canvas.instructure.com/api/lti/security/openid-configuration',
+          registration_token: 'registration-123',
         });
         const response = await app.request(
           `http://worker.internal/admin/packages/chapter-4-asteroids/deployment/register/canvas?${params.toString()}`,
           {
             headers: {
-              "x-forwarded-host": "lantern.example",
-              "x-forwarded-proto": "https",
+              'x-forwarded-host': 'lantern.example',
+              'x-forwarded-proto': 'https',
             },
           },
         );
@@ -267,26 +240,20 @@ Deno.test("GET /admin/packages/:appId/deployment/register/canvas uses the forwar
       },
     );
 
-    const registrationRequest = JSON.parse(registrationBody ?? "null") as {
+    const registrationRequest = JSON.parse(registrationBody ?? 'null') as {
       initiate_login_uri: string;
       jwks_uri: string;
       redirect_uris: string[];
     };
 
-    assertEquals(
-      registrationRequest.initiate_login_uri,
-      "https://lantern.example/lti/login",
-    );
-    assertEquals(
-      registrationRequest.jwks_uri,
-      "https://lantern.example/lti/jwks.json",
-    );
+    assertEquals(registrationRequest.initiate_login_uri, 'https://lantern.example/lti/login');
+    assertEquals(registrationRequest.jwks_uri, 'https://lantern.example/lti/jwks.json');
     assertEquals(registrationRequest.redirect_uris, [
-      "https://lantern.example/lti/launch",
-      "https://lantern.example/lti/deep-linking",
-      "https://lantern.example/lti/deep-linking?placement=resource_selection",
+      'https://lantern.example/lti/launch',
+      'https://lantern.example/lti/deep-linking',
+      'https://lantern.example/lti/deep-linking?placement=resource_selection',
     ]);
   } finally {
-    restoreEnv("APP_ORIGIN", previousOrigin);
+    restoreEnv('APP_ORIGIN', previousOrigin);
   }
 });

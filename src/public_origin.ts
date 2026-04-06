@@ -6,16 +6,13 @@ export interface PublicOriginRequestInput {
 }
 
 const INVALID_PUBLIC_ORIGIN_MESSAGE =
-  "Lantern public origin must be an absolute http or https URL.";
+  'Lantern public origin must be an absolute http or https URL.';
 
 export function normalizePublicOrigin(value: string): string {
   return normalizeHttpOrigin(value, INVALID_PUBLIC_ORIGIN_MESSAGE);
 }
 
-export function normalizeHttpOrigin(
-  value: string,
-  invalidMessage: string,
-): string {
+export function normalizeHttpOrigin(value: string, invalidMessage: string): string {
   let url: URL;
 
   try {
@@ -24,32 +21,29 @@ export function normalizeHttpOrigin(
     throw new Error(invalidMessage);
   }
 
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new Error(invalidMessage);
   }
 
-  if (url.username !== "" || url.password !== "") {
+  if (url.username !== '' || url.password !== '') {
     throw new Error(invalidMessage);
   }
 
-  url.pathname = "";
-  url.search = "";
-  url.hash = "";
+  url.pathname = '';
+  url.search = '';
+  url.hash = '';
 
-  return url.toString().replace(/\/$/, "");
+  return url.toString().replace(/\/$/, '');
 }
 
-export function resolvePublicOriginFromRequest(
-  input: PublicOriginRequestInput,
-): string {
+export function resolvePublicOriginFromRequest(input: PublicOriginRequestInput): string {
   const requestUrl = new URL(input.requestUrl);
   const forwarded = parseForwardedHeader(input.forwardedHeader);
-  const proto = forwarded.proto ??
+  const proto =
+    forwarded.proto ??
     readForwardedValue(input.xForwardedProto) ??
     requestUrl.protocol.slice(0, -1);
-  const host = forwarded.host ??
-    readForwardedValue(input.xForwardedHost) ??
-    requestUrl.host;
+  const host = forwarded.host ?? readForwardedValue(input.xForwardedHost) ?? requestUrl.host;
 
   return normalizePublicOrigin(`${proto}://${host}`);
 }
@@ -78,7 +72,7 @@ function parseForwardedHeader(value: string | null): {
   host: string | null;
   proto: string | null;
 } {
-  if (value === null || value.trim() === "") {
+  if (value === null || value.trim() === '') {
     return {
       host: null,
       proto: null,
@@ -87,10 +81,10 @@ function parseForwardedHeader(value: string | null): {
 
   let host: string | null = null;
   let proto: string | null = null;
-  const firstEntry = value.split(",")[0]?.trim() ?? "";
+  const firstEntry = value.split(',')[0]?.trim() ?? '';
 
-  for (const part of firstEntry.split(";")) {
-    const [rawKey, rawValue] = part.split("=", 2);
+  for (const part of firstEntry.split(';')) {
+    const [rawKey, rawValue] = part.split('=', 2);
 
     if (rawKey === undefined || rawValue === undefined) {
       continue;
@@ -99,15 +93,15 @@ function parseForwardedHeader(value: string | null): {
     const key = rawKey.trim().toLowerCase();
     const decodedValue = unquote(rawValue.trim());
 
-    if (decodedValue === "") {
+    if (decodedValue === '') {
       continue;
     }
 
-    if (key === "host") {
+    if (key === 'host') {
       host = decodedValue;
     }
 
-    if (key === "proto") {
+    if (key === 'proto') {
       proto = decodedValue.toLowerCase();
     }
   }
@@ -123,12 +117,10 @@ function readForwardedValue(value: string | null): string | null {
     return null;
   }
 
-  const first = value.split(",")[0]?.trim() ?? "";
-  return first === "" ? null : unquote(first);
+  const first = value.split(',')[0]?.trim() ?? '';
+  return first === '' ? null : unquote(first);
 }
 
 function unquote(value: string): string {
-  return value.startsWith('"') && value.endsWith('"')
-    ? value.slice(1, -1)
-    : value;
+  return value.startsWith('"') && value.endsWith('"') ? value.slice(1, -1) : value;
 }

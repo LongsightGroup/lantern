@@ -1,6 +1,6 @@
-import { SignJWT } from "jose";
-import { buildCanvasLaunchUrl } from "./config.ts";
-import { loadToolSigningKey } from "./tool_key.ts";
+import { SignJWT } from 'jose';
+import { buildCanvasLaunchUrl } from './config.ts';
+import { loadToolSigningKey } from './tool_key.ts';
 import {
   buildLtiActivityResourceId,
   type DeepLinkingPresentationDocumentTarget,
@@ -10,22 +10,19 @@ import {
   type DeepLinkingSessionRecord,
   LANTERN_PLACEMENT_CUSTOM_KEY,
   LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
-} from "./types.ts";
+} from './types.ts';
 import type {
   DeploymentRecord,
   PackageVersionRecord,
   ReviewedPlacementRecord,
-} from "../package_review/types.ts";
+} from '../package_review/types.ts';
 
-const CLAIM_MESSAGE_TYPE =
-  "https://purl.imsglobal.org/spec/lti/claim/message_type";
-const CLAIM_VERSION = "https://purl.imsglobal.org/spec/lti/claim/version";
-const CLAIM_DEPLOYMENT_ID =
-  "https://purl.imsglobal.org/spec/lti/claim/deployment_id";
-const CLAIM_DATA = "https://purl.imsglobal.org/spec/lti-dl/claim/data";
-const CLAIM_CONTENT_ITEMS =
-  "https://purl.imsglobal.org/spec/lti-dl/claim/content_items";
-const FINAL_GRADE_TAG = "final-grade";
+const CLAIM_MESSAGE_TYPE = 'https://purl.imsglobal.org/spec/lti/claim/message_type';
+const CLAIM_VERSION = 'https://purl.imsglobal.org/spec/lti/claim/version';
+const CLAIM_DEPLOYMENT_ID = 'https://purl.imsglobal.org/spec/lti/claim/deployment_id';
+const CLAIM_DATA = 'https://purl.imsglobal.org/spec/lti-dl/claim/data';
+const CLAIM_CONTENT_ITEMS = 'https://purl.imsglobal.org/spec/lti-dl/claim/content_items';
+const FINAL_GRADE_TAG = 'final-grade';
 const RESPONSE_JWT_TTL_SECONDS = 5 * 60;
 
 interface EnvReader {
@@ -45,9 +42,7 @@ export async function buildDeepLinkingResponseSubmission(input: {
   const binding = input.deployment.binding;
 
   if (binding === null) {
-    throw new Error(
-      `Deployment ${input.deployment.slug} is missing its LTI binding.`,
-    );
+    throw new Error(`Deployment ${input.deployment.slug} is missing its LTI binding.`);
   }
 
   const toolKey = await loadToolSigningKey(input.env ?? Deno.env);
@@ -58,17 +53,15 @@ export async function buildDeepLinkingResponseSubmission(input: {
     nonce: jwtId,
     [CLAIM_DEPLOYMENT_ID]: binding.deploymentId,
     [CLAIM_MESSAGE_TYPE]: LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
-    [CLAIM_VERSION]: "1.3.0",
+    [CLAIM_VERSION]: '1.3.0',
     [CLAIM_CONTENT_ITEMS]: contentItems,
-    ...(input.session.data === null
-      ? {}
-      : { [CLAIM_DATA]: input.session.data }),
+    ...(input.session.data === null ? {} : { [CLAIM_DATA]: input.session.data }),
   };
   const jwt = await new SignJWT(claims)
     .setProtectedHeader({
       alg: toolKey.privateJwk.alg,
       kid: toolKey.publicJwk.kid,
-      typ: "JWT",
+      typ: 'JWT',
     })
     .setIssuer(binding.clientId)
     .setSubject(binding.clientId)
@@ -103,33 +96,36 @@ function buildDeepLinkingResponseContentItem(input: {
   packageVersion: PackageVersionRecord;
   appOrigin?: string;
 }): DeepLinkingResponseContentItem {
-  const title = input.placement.contentTitle ??
+  const title =
+    input.placement.contentTitle ??
     `${input.placement.packageTitle} ${input.placement.packageVersion}`;
-  const lineItem = input.session.acceptLineItem &&
-      input.session.placement === "assignment_selection"
-    ? buildOptionalLineItem({
-      placement: input.placement,
-      packageVersion: input.packageVersion,
-      title,
-    })
-    : null;
+  const lineItem =
+    input.session.acceptLineItem && input.session.placement === 'assignment_selection'
+      ? buildOptionalLineItem({
+          placement: input.placement,
+          packageVersion: input.packageVersion,
+          title,
+        })
+      : null;
   const presentationDocumentTarget = resolvePresentationDocumentTarget(
     input.session.acceptPresentationDocumentTargets,
   );
 
   return {
-    type: "ltiResourceLink",
+    type: 'ltiResourceLink',
     title,
-    text: "Launches one reviewed Lantern activity through the governed broker.",
+    text: 'Launches one reviewed Lantern activity through the governed broker.',
     url: buildCanvasLaunchUrl(input.appOrigin),
     custom: {
       [LANTERN_PLACEMENT_CUSTOM_KEY]: input.placement.placementId,
     },
-    ...(presentationDocumentTarget === null ? {} : {
-      presentation: {
-        documentTarget: presentationDocumentTarget,
-      },
-    }),
+    ...(presentationDocumentTarget === null
+      ? {}
+      : {
+          presentation: {
+            documentTarget: presentationDocumentTarget,
+          },
+        }),
     ...(lineItem === null ? {} : { lineItem }),
   };
 }
@@ -152,11 +148,11 @@ function buildOptionalLineItem(input: {
 }
 
 function resolvePresentationDocumentTarget(
-  targets: DeepLinkingSessionRecord["acceptPresentationDocumentTargets"],
+  targets: DeepLinkingSessionRecord['acceptPresentationDocumentTargets'],
 ): DeepLinkingPresentationDocumentTarget | null {
   if (targets.length === 0) {
     return null;
   }
 
-  return targets.includes("iframe") ? "iframe" : targets[0] ?? null;
+  return targets.includes('iframe') ? 'iframe' : (targets[0] ?? null);
 }

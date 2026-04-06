@@ -1,16 +1,16 @@
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import { getLtiProfileDefinition, type ResolvedLtiProfile } from "./profile.ts";
-import { resolveLtiProfileForDeployment } from "./profile_resolution.ts";
-import { buildLanternTargetLinkUri } from "./target_link_uri.ts";
-import type { LoginStateRecord } from "./types.ts";
-import { resolveAuthorizationEndpoint } from "./platform_binding.ts";
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import { getLtiProfileDefinition, type ResolvedLtiProfile } from './profile.ts';
+import { resolveLtiProfileForDeployment } from './profile_resolution.ts';
+import { buildLanternTargetLinkUri } from './target_link_uri.ts';
+import type { LoginStateRecord } from './types.ts';
+import { resolveAuthorizationEndpoint } from './platform_binding.ts';
 
 const LOGIN_STATE_TTL_MS = 5 * 60 * 1000;
 
 export type LoginCompatibilityPath =
-  | "opaque_login_hint_decode"
-  | "opaque_lti_message_hint_decode"
-  | "platform_default_launch_target";
+  | 'opaque_login_hint_decode'
+  | 'opaque_lti_message_hint_decode'
+  | 'platform_default_launch_target';
 
 export interface LoginRequest {
   iss: string;
@@ -47,9 +47,7 @@ export async function createLoginRedirect(input: {
   const now = input.now ?? (() => new Date());
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const loginRequest = normalizeLoginRequest(input.loginRequest);
-  const loginCompatibility = normalizeLoginRequestCompatibility(
-    input.loginCompatibility,
-  );
+  const loginCompatibility = normalizeLoginRequestCompatibility(input.loginCompatibility);
   let deployment;
 
   try {
@@ -61,11 +59,11 @@ export async function createLoginRedirect(input: {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message.includes("Multiple deployments matched issuer") &&
-      !error.message.includes("must send client_id")
+      error.message.includes('Multiple deployments matched issuer') &&
+      !error.message.includes('must send client_id')
     ) {
       throw new Error(
-        "Choose one supported LMS deployment. Resolve the duplicate LMS bindings before login can continue.",
+        'Choose one supported LMS deployment. Resolve the duplicate LMS bindings before login can continue.',
       );
     }
 
@@ -102,19 +100,19 @@ export async function createLoginRedirect(input: {
   const behavior = getLtiProfileDefinition(ltiProfile.id).behavior;
   const compatibilityPathsUsed: LoginCompatibilityPath[] = [];
   const loginHint = resolveOpaqueLoginCompatibility({
-    field: "login_hint",
+    field: 'login_hint',
     rawValue: loginRequest.loginHint,
     decodedValue: loginCompatibility.decodedLoginHint,
     allowDecode: behavior.decodeOpaqueHints,
-    path: "opaque_login_hint_decode",
+    path: 'opaque_login_hint_decode',
     compatibilityPathsUsed,
   });
   const ltiMessageHint = resolveOptionalOpaqueLoginCompatibility({
-    field: "lti_message_hint",
+    field: 'lti_message_hint',
     rawValue: loginRequest.ltiMessageHint,
     decodedValue: loginCompatibility.decodedLtiMessageHint,
     allowDecode: behavior.decodeOpaqueHints,
-    path: "opaque_lti_message_hint_decode",
+    path: 'opaque_lti_message_hint_decode',
     compatibilityPathsUsed,
   });
   const createdAt = now();
@@ -126,16 +124,14 @@ export async function createLoginRedirect(input: {
   });
 
   if (targetLinkUri.usedCompatibilityPath) {
-    compatibilityPathsUsed.push("platform_default_launch_target");
+    compatibilityPathsUsed.push('platform_default_launch_target');
   }
 
   const loginState = await input.repository.createLoginState({
     lms: binding.lms,
     state: createOpaqueToken(),
     nonce: createOpaqueToken(),
-    canvasEnvironment: binding.lms === "canvas"
-      ? binding.canvasEnvironment
-      : null,
+    canvasEnvironment: binding.lms === 'canvas' ? binding.canvasEnvironment : null,
     issuer: binding.issuer,
     clientId: binding.clientId,
     deploymentId: binding.deploymentId,
@@ -148,17 +144,17 @@ export async function createLoginRedirect(input: {
   });
   const location = new URL(resolveAuthorizationEndpoint(binding));
 
-  location.searchParams.set("client_id", loginState.clientId);
-  location.searchParams.set("login_hint", loginState.loginHint);
-  location.searchParams.set("nonce", loginState.nonce);
-  location.searchParams.set("redirect_uri", loginState.targetLinkUri);
-  location.searchParams.set("response_mode", "form_post");
-  location.searchParams.set("response_type", "id_token");
-  location.searchParams.set("scope", "openid");
-  location.searchParams.set("state", loginState.state);
+  location.searchParams.set('client_id', loginState.clientId);
+  location.searchParams.set('login_hint', loginState.loginHint);
+  location.searchParams.set('nonce', loginState.nonce);
+  location.searchParams.set('redirect_uri', loginState.targetLinkUri);
+  location.searchParams.set('response_mode', 'form_post');
+  location.searchParams.set('response_type', 'id_token');
+  location.searchParams.set('scope', 'openid');
+  location.searchParams.set('state', loginState.state);
 
   if (loginState.ltiMessageHint !== null) {
-    location.searchParams.set("lti_message_hint", loginState.ltiMessageHint);
+    location.searchParams.set('lti_message_hint', loginState.ltiMessageHint);
   }
 
   return {
@@ -174,17 +170,11 @@ export async function createLoginRedirect(input: {
 
 function normalizeLoginRequest(request: LoginRequest): LoginRequest {
   return {
-    iss: requireTrimmedValue(request.iss, "LTI issuer is required."),
-    loginHint: requireTrimmedValue(
-      request.loginHint,
-      "LTI login_hint is required.",
-    ),
+    iss: requireTrimmedValue(request.iss, 'LTI issuer is required.'),
+    loginHint: requireTrimmedValue(request.loginHint, 'LTI login_hint is required.'),
     targetLinkUri: normalizeOptionalValue(request.targetLinkUri),
     clientId: normalizeOptionalValue(request.clientId),
-    deploymentId: requireTrimmedValue(
-      request.deploymentId,
-      "LTI deployment_id is required.",
-    ),
+    deploymentId: requireTrimmedValue(request.deploymentId, 'LTI deployment_id is required.'),
     ltiMessageHint: normalizeOptionalValue(request.ltiMessageHint),
   };
 }
@@ -193,17 +183,13 @@ function normalizeLoginRequestCompatibility(
   compatibility: LoginRequestCompatibility | undefined,
 ): LoginRequestCompatibility {
   return {
-    decodedLoginHint: normalizeOptionalValue(
-      compatibility?.decodedLoginHint ?? null,
-    ),
-    decodedLtiMessageHint: normalizeOptionalValue(
-      compatibility?.decodedLtiMessageHint ?? null,
-    ),
+    decodedLoginHint: normalizeOptionalValue(compatibility?.decodedLoginHint ?? null),
+    decodedLtiMessageHint: normalizeOptionalValue(compatibility?.decodedLtiMessageHint ?? null),
   };
 }
 
 function resolveOpaqueLoginCompatibility(input: {
-  field: "login_hint" | "lti_message_hint";
+  field: 'login_hint' | 'lti_message_hint';
   rawValue: string;
   decodedValue: string | null;
   allowDecode: boolean;
@@ -225,7 +211,7 @@ function resolveOpaqueLoginCompatibility(input: {
 }
 
 function resolveOptionalOpaqueLoginCompatibility(input: {
-  field: "lti_message_hint";
+  field: 'lti_message_hint';
   rawValue: string | null;
   decodedValue: string | null;
   allowDecode: boolean;
@@ -248,7 +234,7 @@ function resolveOptionalOpaqueLoginCompatibility(input: {
 
 function resolveLoginTargetLinkUri(input: {
   targetLinkUri: string | null;
-  lms: LoginStateRecord["lms"];
+  lms: LoginStateRecord['lms'];
   appOrigin: string | undefined;
   allowPlatformDefaultLaunchTarget: boolean;
 }): {
@@ -262,20 +248,18 @@ function resolveLoginTargetLinkUri(input: {
     };
   }
 
-  if (input.lms === "canvas") {
+  if (input.lms === 'canvas') {
     throw new Error(
-      "LTI target_link_uri is required for Canvas login because Canvas launches use more than one Lantern callback route.",
+      'LTI target_link_uri is required for Canvas login because Canvas launches use more than one Lantern callback route.',
     );
   }
 
   if (!input.allowPlatformDefaultLaunchTarget) {
-    throw new Error(
-      "The active LTI profile requires target_link_uri for this login.",
-    );
+    throw new Error('The active LTI profile requires target_link_uri for this login.');
   }
 
   return {
-    value: buildLanternTargetLinkUri("launch", input.appOrigin),
+    value: buildLanternTargetLinkUri('launch', input.appOrigin),
     usedCompatibilityPath: true,
   };
 }
@@ -287,7 +271,7 @@ function normalizeOptionalValue(value: string | null): string | null {
 
   const trimmed = value.trim();
 
-  return trimmed === "" ? null : trimmed;
+  return trimmed === '' ? null : trimmed;
 }
 
 function requireTrimmedValue(value: string | null, message: string): string {
@@ -297,7 +281,7 @@ function requireTrimmedValue(value: string | null, message: string): string {
 
   const trimmed = value.trim();
 
-  if (trimmed === "") {
+  if (trimmed === '') {
     throw new Error(message);
   }
 
@@ -309,12 +293,7 @@ function defaultOpaqueToken(): string {
 }
 
 function encodeBase64Url(bytes: Uint8Array): string {
-  const chunk = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join(
-    "",
-  );
+  const chunk = Array.from(bytes, (byte) => String.fromCodePoint(byte)).join('');
 
-  return btoa(chunk).replaceAll("+", "-").replaceAll("/", "_").replaceAll(
-    "=",
-    "",
-  );
+  return btoa(chunk).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }

@@ -2,9 +2,9 @@ import type {
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
-} from "../package_review/types.ts";
-import { summarizeCapabilities } from "../package_review/summary.ts";
-import { type AdminNotice, escapeHtml, renderAdminLayout } from "./layout.ts";
+} from '../package_review/types.ts';
+import { summarizeCapabilities } from '../package_review/summary.ts';
+import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 
 export interface TestLaunchFormValues {
   userRole: string;
@@ -21,29 +21,26 @@ export function renderPreviewPage(input: {
   previewEvidence: PreviewEvidenceRecord[];
   notice?: AdminNotice | null;
 }): string {
-  const { packageVersion, savedDefaults, latestSession, previewEvidence } =
-    input;
+  const { packageVersion, savedDefaults, latestSession, previewEvidence } = input;
   const capabilitySummary = summarizeCapabilities(packageVersion.capabilities);
   const launchSummary = latestSession?.launch ?? savedDefaults.launch;
 
   return renderAdminLayout({
     title: `${packageVersion.title} ${packageVersion.version} Test Launch`,
-    eyebrow: "Test Launch",
+    eyebrow: 'Test Launch',
     heading: packageVersion.title,
     intro:
-      "Open this approved version as a student or instructor without signing in through the LMS.",
+      'Open this approved version as a student or instructor without signing in through the LMS.',
     breadcrumbs: [
-      { label: "Apps", href: "/admin/packages" },
+      { label: 'Apps', href: '/admin/packages' },
       { label: packageVersion.title },
       {
         label: packageVersion.version,
-        href: `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${
-          escapeHtml(
-            packageVersion.version,
-          )
-        }`,
+        href: `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${escapeHtml(
+          packageVersion.version,
+        )}`,
       },
-      { label: "Test Launch" },
+      { label: 'Test Launch' },
     ],
     notice: input.notice ?? null,
     body: `<section class="panel">
@@ -61,21 +58,15 @@ export function renderPreviewPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">App</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.appId)
-    }</span>
+              <span class="fact-value">${escapeHtml(packageVersion.appId)}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Version</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.version)
-    }</span>
+              <span class="fact-value">${escapeHtml(packageVersion.version)}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Saved files</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.artifact.snapshotRoot)
-    }</span>
+              <span class="fact-value">${escapeHtml(packageVersion.artifact.snapshotRoot)}</span>
             </div>
           </div>
         </section>
@@ -85,31 +76,23 @@ export function renderPreviewPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">Role</span>
-              <span class="fact-value">${
-      escapeHtml(
-        formatRoleLabel(savedDefaults.launch.userRole),
-      )
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                formatRoleLabel(savedDefaults.launch.userRole),
+              )}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Course</span>
-              <span class="fact-value">${
-      escapeHtml(savedDefaults.launch.courseId)
-    }</span>
+              <span class="fact-value">${escapeHtml(savedDefaults.launch.courseId)}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Assignment</span>
-              <span class="fact-value">${
-      escapeHtml(
-        savedDefaults.launch.assignmentId ?? "Course-level launch",
-      )
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                savedDefaults.launch.assignmentId ?? 'Course-level launch',
+              )}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Activity</span>
-              <span class="fact-value">${
-      escapeHtml(savedDefaults.launch.activityId)
-    }</span>
+              <span class="fact-value">${escapeHtml(savedDefaults.launch.activityId)}</span>
             </div>
           </div>
         </section>
@@ -118,25 +101,21 @@ export function renderPreviewPage(input: {
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Launch settings</p>
-        <form method="post" class="stack" action="/admin/packages/${
-      escapeHtml(
-        packageVersion.appId,
-      )
-    }/versions/${escapeHtml(packageVersion.version)}/preview">
+        <form method="post" class="stack" action="/admin/packages/${escapeHtml(
+          packageVersion.appId,
+        )}/versions/${escapeHtml(packageVersion.version)}/preview">
           <div class="two-column">
             <div class="field">
               <label for="test-launch-role">Role</label>
               <select id="test-launch-role" name="userRole">
-                ${
-      packageVersion.roles
-        .map(
-          (role) =>
-            `<option value="${escapeHtml(role)}"${
-              input.formValues.userRole === role ? " selected" : ""
-            }>${escapeHtml(formatRoleLabel(role))}</option>`,
-        )
-        .join("")
-    }
+                ${packageVersion.roles
+                  .map(
+                    (role) =>
+                      `<option value="${escapeHtml(role)}"${
+                        input.formValues.userRole === role ? ' selected' : ''
+                      }>${escapeHtml(formatRoleLabel(role))}</option>`,
+                  )
+                  .join('')}
               </select>
               <p class="field-hint">Choose the LMS role to simulate.</p>
             </div>
@@ -172,13 +151,9 @@ export function renderPreviewPage(input: {
           <p class="micro muted">Starting a test launch saves activity here and opens the app in Lantern's runtime.</p>
           <div class="button-row">
             <button type="submit" class="button-primary">Start test launch</button>
-            <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(
-        packageVersion.appId,
-      )
-    }/versions/${
-      escapeHtml(packageVersion.version)
-    }">Back to version details</a>
+            <a class="button-secondary" href="/admin/packages/${escapeHtml(
+              packageVersion.appId,
+            )}/versions/${escapeHtml(packageVersion.version)}">Back to version details</a>
           </div>
         </form>
       </div>
@@ -187,17 +162,15 @@ export function renderPreviewPage(input: {
       <div class="panel-body stack">
         <p class="section-label">What this test allows</p>
         <div class="line-list">
-          ${
-      capabilitySummary
-        .map(
-          (capability) =>
-            `<article class="line-item">
+          ${capabilitySummary
+            .map(
+              (capability) =>
+                `<article class="line-item">
               <p class="line-title">${escapeHtml(capability.label)}</p>
               <p class="line-copy">${escapeHtml(capability.detail)}</p>
             </article>`,
-        )
-        .join("")
-    }
+            )
+            .join('')}
         </div>
       </div>
     </section>
@@ -207,69 +180,49 @@ export function renderPreviewPage(input: {
         <div class="facts">
           <div class="fact">
             <span class="fact-label">Latest session</span>
-            <span class="fact-value">${
-      escapeHtml(latestSession?.sessionId ?? "None yet")
-    }</span>
+            <span class="fact-value">${escapeHtml(latestSession?.sessionId ?? 'None yet')}</span>
           </div>
           <div class="fact">
             <span class="fact-label">Role</span>
-            <span class="fact-value">${
-      escapeHtml(formatRoleLabel(launchSummary.userRole))
-    }</span>
+            <span class="fact-value">${escapeHtml(formatRoleLabel(launchSummary.userRole))}</span>
           </div>
           <div class="fact">
             <span class="fact-label">Course</span>
-            <span class="fact-value">${
-      escapeHtml(launchSummary.courseId)
-    }</span>
+            <span class="fact-value">${escapeHtml(launchSummary.courseId)}</span>
           </div>
           <div class="fact">
             <span class="fact-label">Assignment</span>
-            <span class="fact-value">${
-      escapeHtml(
-        launchSummary.assignmentId ?? "Course-level launch",
-      )
-    }</span>
+            <span class="fact-value">${escapeHtml(
+              launchSummary.assignmentId ?? 'Course-level launch',
+            )}</span>
           </div>
           <div class="fact">
             <span class="fact-label">Activity</span>
-            <span class="fact-value">${
-      escapeHtml(launchSummary.activityId)
-    }</span>
+            <span class="fact-value">${escapeHtml(launchSummary.activityId)}</span>
           </div>
         </div>
         ${
-      previewEvidence.length === 0
-        ? `<p class="muted">No test activity has been recorded yet. Start a test launch to open the app.</p>`
-        : `<ul class="stack">
-          ${
-          previewEvidence
+          previewEvidence.length === 0
+            ? `<p class="muted">No test activity has been recorded yet. Start a test launch to open the app.</p>`
+            : `<ul class="stack">
+          ${previewEvidence
             .map(
               (record) =>
                 `<li class="stack">
               <div class="micro muted">${escapeHtml(record.occurredAt)}</div>
-              <div><strong>${
-                  escapeHtml(formatPreviewEvidenceLabel(record.eventType))
-                }</strong> ${
-                  record.capability === null
-                    ? ""
-                    : `<code>${escapeHtml(record.capability)}</code>`
-                }</div>
-              <div class="micro muted"><code>${
-                  escapeHtml(record.eventType)
-                }</code></div>
+              <div><strong>${escapeHtml(formatPreviewEvidenceLabel(record.eventType))}</strong> ${
+                record.capability === null ? '' : `<code>${escapeHtml(record.capability)}</code>`
+              }</div>
+              <div class="micro muted"><code>${escapeHtml(record.eventType)}</code></div>
               <div>${escapeHtml(record.summary)}</div>
-              <div class="micro muted">${
-                  escapeHtml(
-                    formatPreviewEvidenceDetail(record.detail),
-                  )
-                }</div>
+              <div class="micro muted">${escapeHtml(
+                formatPreviewEvidenceDetail(record.detail),
+              )}</div>
             </li>`,
             )
-            .join("")
-        }
+            .join('')}
         </ul>`
-    }
+        }
       </div>
     </section>`,
   });
@@ -287,10 +240,10 @@ function formatPreviewEvidenceDetail(detail: Record<string, unknown>): string {
 
 function formatRoleLabel(role: string): string {
   switch (role) {
-    case "learner":
-      return "Student";
-    case "instructor":
-      return "Instructor";
+    case 'learner':
+      return 'Student';
+    case 'instructor':
+      return 'Instructor';
     default:
       return role;
   }
@@ -298,14 +251,14 @@ function formatRoleLabel(role: string): string {
 
 function formatPreviewEvidenceLabel(eventType: string): string {
   switch (eventType) {
-    case "preview.launch":
-      return "Started test launch";
-    case "preview.content_read":
-      return "Loaded app content";
-    case "preview.attempt_event":
-      return "Received app progress update";
-    case "preview.finalize":
-      return "Finished test attempt";
+    case 'preview.launch':
+      return 'Started test launch';
+    case 'preview.content_read':
+      return 'Loaded app content';
+    case 'preview.attempt_event':
+      return 'Received app progress update';
+    case 'preview.finalize':
+      return 'Finished test attempt';
     default:
       return eventType;
   }

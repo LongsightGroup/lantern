@@ -3,27 +3,27 @@ import type {
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDeploymentInventoryRow,
   OfficialBrokerCertificationStatus,
-} from "../ops/types.ts";
-import { resolveSupportedPathForDeployment } from "../ops/broker_verification_paths.ts";
-import type { InMemoryRepositoryState } from "./package_review_in_memory_shared.ts";
-import { buildBrokerVerificationStatus } from "./package_review_test_builder_ops.ts";
+} from '../ops/types.ts';
+import { resolveSupportedPathForDeployment } from '../ops/broker_verification_paths.ts';
+import type { InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
+import { buildBrokerVerificationStatus } from './package_review_test_builder_ops.ts';
 
 export function latestOfficialForScope(
   state: InMemoryRepositoryState,
-  scope: BrokerVerificationStatus["supportedPath"],
+  scope: BrokerVerificationStatus['supportedPath'],
 ): OfficialBrokerCertificationStatus {
   const latestMatch = [...state.brokerVerifications]
     .filter((candidate) => candidate.supportedPath === scope)
     .sort((left, right) => {
-      const leftCheckedAt = left.official.checkedAt ?? "";
-      const rightCheckedAt = right.official.checkedAt ?? "";
+      const leftCheckedAt = left.official.checkedAt ?? '';
+      const rightCheckedAt = right.official.checkedAt ?? '';
 
       return rightCheckedAt.localeCompare(leftCheckedAt);
     })[0];
 
   return (
     latestMatch?.official ?? {
-      state: "notCertified",
+      state: 'notCertified',
       checkedAt: null,
       directoryUrl: null,
     }
@@ -32,7 +32,7 @@ export function latestOfficialForScope(
 
 export function applyOfficialVerificationToDeployment(
   deployment: ControlPlaneDeploymentInventoryRow,
-  scope: BrokerVerificationStatus["supportedPath"],
+  scope: BrokerVerificationStatus['supportedPath'],
   official: OfficialBrokerCertificationStatus,
 ): ControlPlaneDeploymentInventoryRow {
   if (resolveSupportedPathForDeployment(deployment) !== scope) {
@@ -51,7 +51,7 @@ export function applyOfficialVerificationToDeployment(
 
 export function applyOfficialVerificationToDetail(
   detail: ControlPlaneDeploymentDetailSnapshot,
-  scope: BrokerVerificationStatus["supportedPath"],
+  scope: BrokerVerificationStatus['supportedPath'],
   official: OfficialBrokerCertificationStatus,
 ): ControlPlaneDeploymentDetailSnapshot {
   if (resolveSupportedPathForDeployment(detail.inventory) !== scope) {
@@ -60,8 +60,8 @@ export function applyOfficialVerificationToDetail(
 
   const brokerVerification = buildBrokerVerificationStatus({
     supportedPath: scope,
-    internal: detail.brokerVerification?.internal ??
-      detail.inventory.brokerVerification?.internal ?? null,
+    internal:
+      detail.brokerVerification?.internal ?? detail.inventory.brokerVerification?.internal ?? null,
     official,
   });
 

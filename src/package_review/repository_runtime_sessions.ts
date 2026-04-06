@@ -1,13 +1,13 @@
-import type { Pool } from "@db/postgres";
-import { withClient } from "./repository_core.ts";
-import { mapRuntimeSessionRow } from "./repository_mappers_sessions.ts";
-import type { RuntimeSessionRow } from "./repository_row_types.ts";
-import { isUniqueViolation } from "./repository_value_support.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+import type { Pool } from '@db/postgres';
+import { withClient } from './repository_core.ts';
+import { mapRuntimeSessionRow } from './repository_mappers_sessions.ts';
+import type { RuntimeSessionRow } from './repository_row_types.ts';
+import { isUniqueViolation } from './repository_value_support.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createRuntimeSessionRepositoryMethods(
   pool: Pool,
-): Pick<PackageReviewRepository, "createRuntimeSession"> {
+): Pick<PackageReviewRepository, 'createRuntimeSession'> {
   return {
     async createRuntimeSession(record) {
       return await withClient(pool, async (client) => {

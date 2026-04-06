@@ -1,71 +1,71 @@
-import type { Context } from "@hono/hono";
+import type { Context } from '@hono/hono';
 import {
   renderDeploymentsPage as renderAdminDeploymentsPage,
   renderVerificationPage as renderAdminVerificationPage,
-} from "./admin/control_plane.ts";
+} from './admin/control_plane.ts';
 import {
   type DeploymentEditorState,
   renderDeploymentDetailPage,
-} from "./admin/deployment_detail.ts";
-import type { AdminNotice } from "./admin/layout.ts";
-import { listCanvasEnvironments } from "./lti/config.ts";
-import { resolveConfiguredPublicOrigin } from "./public_origin.ts";
+} from './admin/deployment_detail.ts';
+import type { AdminNotice } from './admin/layout.ts';
+import { listCanvasEnvironments } from './lti/config.ts';
+import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 import {
   combineNotices,
   createErrorNotice,
   getCanvasConfigUrlNoticeSafe,
   packageDetailPath,
-} from "./app_notice_support.ts";
-import { loadDeploymentDetailStateSafe } from "./app_deployment_support.ts";
-import { normalizeOptionalString } from "./app_request_support.ts";
-import { statusForError } from "./app_status_support.ts";
-import type { AppServices } from "./app_services.ts";
-import { renderPackageDetailPage } from "./admin/package_detail.ts";
-import { renderPackageIndexPage } from "./admin/package_index.ts";
+} from './app_notice_support.ts';
+import { loadDeploymentDetailStateSafe } from './app_deployment_support.ts';
+import { normalizeOptionalString } from './app_request_support.ts';
+import { statusForError } from './app_status_support.ts';
+import type { AppServices } from './app_services.ts';
+import { renderPackageDetailPage } from './admin/package_detail.ts';
+import { renderPackageIndexPage } from './admin/package_index.ts';
 import {
   ACCESSIBILITY_REVIEW_FIELDS,
   type AccessibilityReview,
   type PackageVersionRecord,
   parseAccessibilityReview,
-} from "./package_review/types.ts";
+} from './package_review/types.ts';
 
 export async function handleReviewDecision(
   context: Context,
   services: AppServices,
-  decision: "approve" | "reject",
+  decision: 'approve' | 'reject',
 ) {
-  const id = Number(context.req.param("id"));
+  const id = Number(context.req.param('id'));
 
   try {
     const formData = await context.req.formData();
-    const reviewNotes = normalizeOptionalString(formData.get("reviewNotes"));
+    const reviewNotes = normalizeOptionalString(formData.get('reviewNotes'));
     const accessibilityReview = readAccessibilityReviewForm(formData);
     const repository = services.getRepository();
-    const packageVersion = decision === "approve"
-      ? await repository.approvePackageVersion({
-        id,
-        reviewNotes,
-        accessibilityReview,
-      })
-      : await repository.rejectPackageVersion({
-        id,
-        reviewNotes,
-        accessibilityReview,
-      });
+    const packageVersion =
+      decision === 'approve'
+        ? await repository.approvePackageVersion({
+            id,
+            reviewNotes,
+            accessibilityReview,
+          })
+        : await repository.rejectPackageVersion({
+            id,
+            reviewNotes,
+            accessibilityReview,
+          });
     await repository.recordAuditEvent({
-      eventType: decision === "approve"
-        ? "package.approved"
-        : "package.rejected",
-      actorType: "user",
+      eventType: decision === 'approve' ? 'package.approved' : 'package.rejected',
+      actorType: 'user',
       actorId: null,
       deploymentRecordId: null,
       packageVersionId: packageVersion.id,
       attemptId: null,
       lineItemBindingId: null,
-      status: "succeeded",
-      summary: decision === "approve"
-        ? "Approved the reviewed package version."
-        : "Rejected the reviewed package version.",
+      status: 'succeeded',
+      summary:
+        decision === 'approve'
+          ? 'Approved the reviewed package version.'
+          : 'Rejected the reviewed package version.',
       detail: {
         appId: packageVersion.appId,
         version: packageVersion.version,
@@ -75,36 +75,27 @@ export async function handleReviewDecision(
       occurredAt: new Date().toISOString(),
     });
 
-    return context.redirect(
-      packageDetailPath(packageVersion.appId, packageVersion.version),
-      303,
-    );
+    return context.redirect(packageDetailPath(packageVersion.appId, packageVersion.version), 303);
   } catch (error) {
     return await renderPackageDetailError(
       context,
       services,
       id,
-      decision === "approve" ? "Approval blocked" : "Rejection blocked",
+      decision === 'approve' ? 'Approval blocked' : 'Rejection blocked',
       error,
     );
   }
 }
 
-function readAccessibilityReviewForm(
-  formData: FormData,
-): AccessibilityReview | null {
+function readAccessibilityReviewForm(formData: FormData): AccessibilityReview | null {
   const review = Object.fromEntries(
     ACCESSIBILITY_REVIEW_FIELDS.map((field) => [
       field.key,
       normalizeOptionalString(formData.get(field.formName)),
     ]),
   );
-  const failureNotes = normalizeOptionalString(
-    formData.get("accessibilityFailureNotes"),
-  );
-  const exceptionNote = normalizeOptionalString(
-    formData.get("accessibilityExceptionNote"),
-  );
+  const failureNotes = normalizeOptionalString(formData.get('accessibilityFailureNotes'));
+  const exceptionNote = normalizeOptionalString(formData.get('accessibilityExceptionNote'));
 
   if (
     Object.values(review).every((value) => value === null) &&
@@ -171,8 +162,7 @@ export async function renderDeploymentsPage(
     status?: 200 | 400 | 500;
   } = {},
 ) {
-  const deployments = await services.getOpsRepository()
-    .listControlPlaneDeployments();
+  const deployments = await services.getOpsRepository().listControlPlaneDeployments();
 
   return context.html(
     renderAdminDeploymentsPage({
@@ -193,14 +183,11 @@ export async function renderVerificationPage(
 ) {
   const opsRepository = services.getOpsRepository();
   const deployments = await opsRepository.listControlPlaneDeployments();
-  const latestBrokerVerification = await opsRepository
-    .getLatestBrokerVerificationStatus();
-  const certificationWorkflowStatuses = await opsRepository
-    .listCertificationWorkflowStatuses();
-  const latestOfficialCertificationEvidence = await opsRepository
-    .getLatestOfficialCertificationEvidence();
-  const ltiProfileSettings = await services.getRepository()
-    .getLanternLtiProfileSettings();
+  const latestBrokerVerification = await opsRepository.getLatestBrokerVerificationStatus();
+  const certificationWorkflowStatuses = await opsRepository.listCertificationWorkflowStatuses();
+  const latestOfficialCertificationEvidence =
+    await opsRepository.getLatestOfficialCertificationEvidence();
+  const ltiProfileSettings = await services.getRepository().getLanternLtiProfileSettings();
 
   return context.html(
     renderAdminVerificationPage({
@@ -236,9 +223,7 @@ export async function renderPackageDetailError(
       );
     }
 
-    const history = await repository.listPackageVersionsByApp(
-      packageVersion.appId,
-    );
+    const history = await repository.listPackageVersionsByApp(packageVersion.appId);
 
     return context.html(
       renderPackageDetailPage({
@@ -266,7 +251,7 @@ export async function renderDeploymentError(
   title: string,
   error: unknown,
   input: {
-    selectedLms?: "canvas" | "moodle" | "sakai" | null;
+    selectedLms?: 'canvas' | 'moodle' | 'sakai' | null;
     editorState?: DeploymentEditorState | null;
   } = {},
 ) {
@@ -284,21 +269,17 @@ export async function renderDeploymentError(
       );
     }
 
-    const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
+    const appTitle = history[0]?.title ?? history[0]?.appId ?? 'Package';
     const deployments = await repository.listDeploymentsByApp(appId);
     const appOrigin = resolveConfiguredPublicOrigin({
       requestUrl: context.req.url,
-      forwardedHeader: context.req.header("forwarded") ?? null,
-      xForwardedHost: context.req.header("x-forwarded-host") ?? null,
-      xForwardedProto: context.req.header("x-forwarded-proto") ?? null,
-      configuredOrigin: Deno.env.get("APP_ORIGIN"),
+      forwardedHeader: context.req.header('forwarded') ?? null,
+      xForwardedHost: context.req.header('x-forwarded-host') ?? null,
+      xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
+      configuredOrigin: Deno.env.get('APP_ORIGIN'),
     });
     const canvasConfigUrl = getCanvasConfigUrlNoticeSafe(appOrigin);
-    const detailState = await loadDeploymentDetailStateSafe(
-      repository,
-      appId,
-      appOrigin,
-    );
+    const detailState = await loadDeploymentDetailStateSafe(repository, appId, appOrigin);
 
     return context.html(
       renderDeploymentDetailPage({
@@ -314,12 +295,10 @@ export async function renderDeploymentError(
         moodleDynamicRegistrationUrl: detailState.moodleDynamicRegistrationUrl,
         sakaiDynamicRegistrationUrl: detailState.sakaiDynamicRegistrationUrl,
         supportedCanvasEnvironments: listCanvasEnvironments(),
-        notice: input.editorState === undefined || input.editorState === null
-          ? combineNotices(
-            canvasConfigUrl.notice,
-            createErrorNotice(title, error),
-          )
-          : canvasConfigUrl.notice,
+        notice:
+          input.editorState === undefined || input.editorState === null
+            ? combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error))
+            : canvasConfigUrl.notice,
       }),
       statusForError(error),
     );

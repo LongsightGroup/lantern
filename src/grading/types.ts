@@ -2,7 +2,7 @@ import type {
   AttemptEventRecord,
   AttemptRecord,
   GradingSettings,
-} from "../package_review/types.ts";
+} from '../package_review/types.ts';
 
 export interface RawReviewedRubricRule {
   question_id: string;
@@ -11,7 +11,7 @@ export interface RawReviewedRubricRule {
 }
 
 export interface RawReviewedRubric {
-  mode: "per-answer";
+  mode: 'per-answer';
   max_score: number;
   rules: RawReviewedRubricRule[];
 }
@@ -23,7 +23,7 @@ export interface ReviewedRubricRule {
 }
 
 export interface ReviewedRubric {
-  mode: "per-answer";
+  mode: 'per-answer';
   maxScore: number;
   rules: ReviewedRubricRule[];
 }

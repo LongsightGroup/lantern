@@ -1,10 +1,10 @@
-import { Ajv2020, type ErrorObject, type ValidateFunction } from "@ajv2020";
+import { Ajv2020, type ErrorObject, type ValidateFunction } from '@ajv2020';
 import {
   assertPathInsideSnapshot,
   joinSnapshotPath,
   normalizeSnapshotPath,
-} from "../package_review/snapshot_path.ts";
-import type { RawReviewedRubric, ReviewedRubric } from "./types.ts";
+} from '../package_review/snapshot_path.ts';
+import type { RawReviewedRubric, ReviewedRubric } from './types.ts';
 
 const ajv = new Ajv2020({
   allErrors: true,
@@ -13,45 +13,45 @@ const ajv = new Ajv2020({
 });
 
 const reviewedRubricSchema = {
-  type: "object",
+  type: 'object',
   additionalProperties: false,
-  required: ["mode", "max_score", "rules"],
+  required: ['mode', 'max_score', 'rules'],
   properties: {
-    mode: { const: "per-answer" },
+    mode: { const: 'per-answer' },
     max_score: {
-      type: "integer",
+      type: 'integer',
       minimum: 0,
     },
     rules: {
-      type: "array",
+      type: 'array',
       minItems: 1,
       items: {
-        type: "object",
+        type: 'object',
         additionalProperties: false,
-        required: ["question_id", "correct_answer", "points"],
+        required: ['question_id', 'correct_answer', 'points'],
         properties: {
           question_id: {
-            type: "string",
+            type: 'string',
             minLength: 1,
           },
           correct_answer: {
             anyOf: [
               {
-                type: "string",
+                type: 'string',
                 minLength: 1,
               },
               {
-                type: "array",
+                type: 'array',
                 minItems: 1,
                 items: {
-                  type: "string",
+                  type: 'string',
                   minLength: 1,
                 },
               },
             ],
           },
           points: {
-            type: "integer",
+            type: 'integer',
             minimum: 0,
           },
         },
@@ -60,8 +60,8 @@ const reviewedRubricSchema = {
   },
 } as const;
 
-const reviewedRubricValidator: ValidateFunction<RawReviewedRubric> = ajv
-  .compile<RawReviewedRubric>(reviewedRubricSchema);
+const reviewedRubricValidator: ValidateFunction<RawReviewedRubric> =
+  ajv.compile<RawReviewedRubric>(reviewedRubricSchema);
 
 export async function loadReviewedRubric(input: {
   snapshotRoot: string;
@@ -69,22 +69,22 @@ export async function loadReviewedRubric(input: {
 }): Promise<ReviewedRubric> {
   const snapshotRoot = requireTrimmedString(
     input.snapshotRoot,
-    "Reviewed snapshot root is required.",
+    'Reviewed snapshot root is required.',
   );
   const rubricFile = requireTrimmedString(
     input.rubricFile,
-    "Declarative grading requires a reviewed rubric file.",
+    'Declarative grading requires a reviewed rubric file.',
   );
   const rubricPath = joinSnapshotPath(
     snapshotRoot,
     toSnapshotRelativePath(rubricFile),
-    "Reviewed rubric file must stay inside the pinned snapshot.",
+    'Reviewed rubric file must stay inside the pinned snapshot.',
   );
 
   assertPathInsideSnapshot(
     snapshotRoot,
     rubricPath,
-    "Reviewed rubric file is outside the pinned snapshot.",
+    'Reviewed rubric file is outside the pinned snapshot.',
   );
 
   let sourceText: string;
@@ -106,15 +106,11 @@ export async function loadReviewedRubric(input: {
   try {
     rubricJson = JSON.parse(sourceText);
   } catch {
-    throw new Error(
-      `Reviewed rubric file ${rubricFile} must contain valid JSON.`,
-    );
+    throw new Error(`Reviewed rubric file ${rubricFile} must contain valid JSON.`);
   }
 
   if (!reviewedRubricValidator(rubricJson)) {
-    throw new Error(
-      explainReviewedRubricIssues(rubricFile, reviewedRubricValidator.errors),
-    );
+    throw new Error(explainReviewedRubricIssues(rubricFile, reviewedRubricValidator.errors));
   }
 
   const rubric = mapReviewedRubric(rubricJson);
@@ -133,78 +129,57 @@ function explainReviewedRubricIssues(
 
   const messages = errors.map((error) => mapReviewedRubricIssue(error));
 
-  return `Reviewed rubric file ${rubricFile} is invalid: ${
-    deduplicate(messages).join(" ")
-  }`;
+  return `Reviewed rubric file ${rubricFile} is invalid: ${deduplicate(messages).join(' ')}`;
 }
 
 function mapReviewedRubricIssue(error: ErrorObject): string {
-  if (error.keyword === "required") {
+  if (error.keyword === 'required') {
     const missingProperty = String(
-      (error.params as Record<string, unknown>).missingProperty ?? "field",
+      (error.params as Record<string, unknown>).missingProperty ?? 'field',
     );
-    return `Missing required field ${
-      joinJsonPointer(error.instancePath, missingProperty)
-    }.`;
+    return `Missing required field ${joinJsonPointer(error.instancePath, missingProperty)}.`;
   }
 
-  if (error.keyword === "additionalProperties") {
+  if (error.keyword === 'additionalProperties') {
     const property = String(
-      (error.params as Record<string, unknown>).additionalProperty ?? "field",
+      (error.params as Record<string, unknown>).additionalProperty ?? 'field',
     );
-    return `Unsupported field ${property} at ${
-      displayInstancePath(error.instancePath)
-    }.`;
+    return `Unsupported field ${property} at ${displayInstancePath(error.instancePath)}.`;
   }
 
-  if (
-    (error.keyword === "const" || error.keyword === "enum") &&
-    error.instancePath === "/mode"
-  ) {
+  if ((error.keyword === 'const' || error.keyword === 'enum') && error.instancePath === '/mode') {
     return 'Only rubric mode "per-answer" is supported.';
   }
 
-  if (error.keyword === "minItems" && error.instancePath === "/rules") {
-    return "At least one scoring rule is required.";
+  if (error.keyword === 'minItems' && error.instancePath === '/rules') {
+    return 'At least one scoring rule is required.';
   }
 
-  if (error.keyword === "type") {
-    return `${
-      displayInstancePath(error.instancePath)
-    } has the wrong value type.`;
+  if (error.keyword === 'type') {
+    return `${displayInstancePath(error.instancePath)} has the wrong value type.`;
   }
 
   if (
-    error.keyword === "minimum" &&
-    (error.instancePath === "/max_score" ||
-      error.instancePath.endsWith("/points"))
+    error.keyword === 'minimum' &&
+    (error.instancePath === '/max_score' || error.instancePath.endsWith('/points'))
   ) {
-    return `${
-      displayInstancePath(error.instancePath)
-    } must be zero or greater.`;
+    return `${displayInstancePath(error.instancePath)} must be zero or greater.`;
   }
 
-  if (error.keyword === "minLength") {
+  if (error.keyword === 'minLength') {
     return `${displayInstancePath(error.instancePath)} cannot be blank.`;
   }
 
-  return `${
-    displayInstancePath(error.instancePath)
-  } is not valid for Lantern scoring.`;
+  return `${displayInstancePath(error.instancePath)} is not valid for Lantern scoring.`;
 }
 
-function validateReviewedRubricSemantics(
-  rubric: ReviewedRubric,
-  rubricFile: string,
-): void {
+function validateReviewedRubricSemantics(rubric: ReviewedRubric, rubricFile: string): void {
   const seenQuestionIds = new Set<string>();
   let totalPoints = 0;
 
   for (const rule of rubric.rules) {
     if (seenQuestionIds.has(rule.questionId)) {
-      throw new Error(
-        `Reviewed rubric file ${rubricFile} repeats question ${rule.questionId}.`,
-      );
+      throw new Error(`Reviewed rubric file ${rubricFile} repeats question ${rule.questionId}.`);
     }
 
     seenQuestionIds.add(rule.questionId);
@@ -230,11 +205,8 @@ function mapReviewedRubric(rubric: RawReviewedRubric): ReviewedRubric {
   };
 }
 
-function requireTrimmedString(
-  value: string | null,
-  errorMessage: string,
-): string {
-  if (value === null || value.trim() === "") {
+function requireTrimmedString(value: string | null, errorMessage: string): string {
+  if (value === null || value.trim() === '') {
     throw new Error(errorMessage);
   }
 
@@ -244,18 +216,18 @@ function requireTrimmedString(
 function toSnapshotRelativePath(path: string): string {
   const normalizedPath = normalizeSnapshotPath(
     path,
-    "Reviewed rubric file must stay inside the pinned snapshot.",
+    'Reviewed rubric file must stay inside the pinned snapshot.',
   );
 
-  if (!normalizedPath.startsWith("/")) {
-    throw new Error("Reviewed rubric path must be an absolute package path.");
+  if (!normalizedPath.startsWith('/')) {
+    throw new Error('Reviewed rubric path must be an absolute package path.');
   }
 
   return normalizedPath.slice(1);
 }
 
 function joinJsonPointer(instancePath: string, property: string): string {
-  if (instancePath === "") {
+  if (instancePath === '') {
     return `/${property}`;
   }
 
@@ -263,7 +235,7 @@ function joinJsonPointer(instancePath: string, property: string): string {
 }
 
 function displayInstancePath(instancePath: string): string {
-  return instancePath === "" ? "Rubric" : instancePath;
+  return instancePath === '' ? 'Rubric' : instancePath;
 }
 
 function deduplicate(values: string[]): string[] {

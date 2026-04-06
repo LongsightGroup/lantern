@@ -1,20 +1,18 @@
-import type { PackageReviewRepository } from "../package_review/repository.ts";
-import type { InMemoryRepositoryState } from "./package_review_in_memory_shared.ts";
-import { cloneRecord, nextId } from "./package_review_in_memory_shared.ts";
-import { buildPreviewEvidenceRecord } from "./package_review_test_builder_preview.ts";
+import type { PackageReviewRepository } from '../package_review/repository.ts';
+import type { InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
+import { cloneRecord, nextId } from './package_review_in_memory_shared.ts';
+import { buildPreviewEvidenceRecord } from './package_review_test_builder_preview.ts';
 
 type PreviewRepository = Pick<
   PackageReviewRepository,
-  | "createPreviewSession"
-  | "getPreviewSessionById"
-  | "getLatestPreviewSessionByPackageVersion"
-  | "appendPreviewEvidence"
-  | "listPreviewEvidence"
+  | 'createPreviewSession'
+  | 'getPreviewSessionById'
+  | 'getLatestPreviewSessionByPackageVersion'
+  | 'appendPreviewEvidence'
+  | 'listPreviewEvidence'
 >;
 
-export function createInMemoryPreviewRepository(
-  state: InMemoryRepositoryState,
-): PreviewRepository {
+export function createInMemoryPreviewRepository(state: InMemoryRepositoryState): PreviewRepository {
   return {
     createPreviewSession(record) {
       const packageVersion = state.packageVersions.find(
@@ -22,9 +20,7 @@ export function createInMemoryPreviewRepository(
       );
 
       if (!packageVersion) {
-        throw new Error(
-          `Package version id ${record.packageVersionId} was not found.`,
-        );
+        throw new Error(`Package version id ${record.packageVersionId} was not found.`);
       }
 
       const existing = state.previewSessions.find(
@@ -43,21 +39,18 @@ export function createInMemoryPreviewRepository(
     },
 
     getPreviewSessionById(sessionId) {
-      const record = state.previewSessions.find((candidate) =>
-        candidate.sessionId === sessionId
-      );
+      const record = state.previewSessions.find((candidate) => candidate.sessionId === sessionId);
       return Promise.resolve(record ? cloneRecord(record) : null);
     },
 
     getLatestPreviewSessionByPackageVersion(packageVersionId, origin) {
       const latest = state.previewSessions
-        .filter((candidate) =>
-          candidate.packageVersionId === packageVersionId &&
-          (origin === undefined || candidate.origin === origin)
+        .filter(
+          (candidate) =>
+            candidate.packageVersionId === packageVersionId &&
+            (origin === undefined || candidate.origin === origin),
         )
-        .sort((left, right) =>
-          Date.parse(right.createdAt) - Date.parse(left.createdAt)
-        )[0];
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0];
 
       return Promise.resolve(latest ? cloneRecord(latest) : null);
     },
@@ -68,16 +61,13 @@ export function createInMemoryPreviewRepository(
       );
 
       if (!session) {
-        throw new Error(
-          `Preview session ${input.previewSessionId} was not found.`,
-        );
+        throw new Error(`Preview session ${input.previewSessionId} was not found.`);
       }
 
-      const sequence = state.previewEvidence
-        .filter((candidate) =>
-          candidate.previewSessionId === input.previewSessionId
-        )
-        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence =
+        state.previewEvidence
+          .filter((candidate) => candidate.previewSessionId === input.previewSessionId)
+          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = buildPreviewEvidenceRecord({
         id: nextId(state.previewEvidence),
         previewSessionId: input.previewSessionId,
@@ -96,9 +86,7 @@ export function createInMemoryPreviewRepository(
     listPreviewEvidence(previewSessionId) {
       return Promise.resolve(
         state.previewEvidence
-          .filter((candidate) =>
-            candidate.previewSessionId === previewSessionId
-          )
+          .filter((candidate) => candidate.previewSessionId === previewSessionId)
           .sort((left, right) => left.sequence - right.sequence)
           .map(cloneRecord),
       );

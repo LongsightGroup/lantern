@@ -10,8 +10,8 @@ import type {
   PreviewSessionRecord,
   ReviewedRuntimeContract,
   ValidationIssue,
-} from "./types.ts";
-import type { LtiProfileId } from "../lti/profile.ts";
+} from './types.ts';
+import type { LtiProfileId } from '../lti/profile.ts';
 import type {
   CanvasDeploymentBinding,
   CanvasEnvironment,
@@ -20,7 +20,7 @@ import type {
   LmsType,
   PersistedDeploymentLmsType,
   RuntimeSessionRecord,
-} from "../lti/types.ts";
+} from '../lti/types.ts';
 
 export interface PackageVersionRow {
   id: number;
@@ -28,13 +28,13 @@ export interface PackageVersionRow {
   version: string;
   title: string;
   description: string | null;
-  ownerType: "user";
+  ownerType: 'user';
   ownerId: string;
   entrypoint: string;
-  roles: PackageVersionRecord["roles"];
-  installScope: PackageVersionRecord["installScope"];
-  capabilities: PackageVersionRecord["capabilities"];
-  gradingMode: PackageVersionRecord["grading"]["mode"];
+  roles: PackageVersionRecord['roles'];
+  installScope: PackageVersionRecord['installScope'];
+  capabilities: PackageVersionRecord['capabilities'];
+  gradingMode: PackageVersionRecord['grading']['mode'];
   gradingRubricFile: string | null;
   gradingMaxScore: number | null;
   approvalStatus: ApprovalStatus;
@@ -77,10 +77,10 @@ export interface LanternLtiProfileSettingsRow {
 export interface LoginStateRow {
   lmsType: LmsType;
   state: string;
-  canvasEnvironment: CanvasDeploymentBinding["canvasEnvironment"] | null;
-  issuer: CanvasDeploymentBinding["issuer"];
-  clientId: CanvasDeploymentBinding["clientId"];
-  deploymentId: CanvasDeploymentBinding["deploymentId"];
+  canvasEnvironment: CanvasDeploymentBinding['canvasEnvironment'] | null;
+  issuer: CanvasDeploymentBinding['issuer'];
+  clientId: CanvasDeploymentBinding['clientId'];
+  deploymentId: CanvasDeploymentBinding['deploymentId'];
   nonce: string;
   loginHint: string;
   targetLinkUri: string;
@@ -93,7 +93,7 @@ export interface LoginStateRow {
 export interface DynamicRegistrationStateRow {
   state: string;
   appId: string;
-  lmsType: DynamicRegistrationStateRecord["lms"];
+  lmsType: DynamicRegistrationStateRecord['lms'];
   createdAt: Date | string;
   expiresAt: Date | string;
   usedAt: Date | string | null;
@@ -108,7 +108,7 @@ export interface RuntimeSessionRow {
   appId: string;
   packageVersionId: number;
   packageVersion: string;
-  capabilities: RuntimeSessionRecord["capabilities"];
+  capabilities: RuntimeSessionRecord['capabilities'];
   snapshotRoot: string;
   entrypointPath: string;
   contentPath: string;
@@ -117,7 +117,7 @@ export interface RuntimeSessionRow {
   agsLineitemUrl: string | null;
   nrpsContextMembershipsUrl: string | null;
   nrpsServiceVersions: string[];
-  launchUserRole: RuntimeSessionRecord["launch"]["userRole"];
+  launchUserRole: RuntimeSessionRecord['launch']['userRole'];
   launchCourseId: string;
   launchAssignmentId: string | null;
   launchActivityId: string;
@@ -132,16 +132,15 @@ export interface DeepLinkingSessionRow {
   deploymentSlug: string;
   appId: string;
   userId: string | null;
-  userRole: DeepLinkingSessionRecord["userRole"];
+  userRole: DeepLinkingSessionRecord['userRole'];
   contextId: string | null;
   contextTitle: string | null;
   deepLinkReturnUrl: string;
   data: string | null;
-  placement: DeepLinkingSessionRecord["placement"];
-  acceptTypes: DeepLinkingSessionRecord["acceptTypes"];
+  placement: DeepLinkingSessionRecord['placement'];
+  acceptTypes: DeepLinkingSessionRecord['acceptTypes'];
   acceptMultiple: boolean;
-  acceptPresentationDocumentTargets:
-    DeepLinkingSessionRecord["acceptPresentationDocumentTargets"];
+  acceptPresentationDocumentTargets: DeepLinkingSessionRecord['acceptPresentationDocumentTargets'];
   acceptLineItem: boolean;
   selectedPackageVersionId: number | null;
   selectedPackageVersion: string | null;
@@ -177,20 +176,20 @@ export interface PreviewSessionRow {
   appId: string;
   packageVersion: string;
   packageTitle: string;
-  origin: PreviewSessionRecord["origin"];
+  origin: PreviewSessionRecord['origin'];
   contentPath: string;
   deepLinkingSessionId: string | null;
-  capabilities: PreviewSessionRecord["capabilities"];
+  capabilities: PreviewSessionRecord['capabilities'];
   snapshotRoot: string;
   entrypointPath: string;
   launchUserId: string;
-  launchUserRole: PreviewSessionRecord["launch"]["userRole"];
+  launchUserRole: PreviewSessionRecord['launch']['userRole'];
   launchCourseId: string;
   launchAssignmentId: string | null;
   launchActivityId: string;
   fakeAttemptId: string;
   fakeScoreMaximum: number | string;
-  fixtureData: PreviewSessionRecord["fixtureData"];
+  fixtureData: PreviewSessionRecord['fixtureData'];
   createdAt: Date | string;
 }
 
@@ -209,9 +208,9 @@ export interface PreviewEvidenceRow {
   previewSessionId: string;
   sequence: number;
   eventType: string;
-  capability: PreviewEvidenceRecord["capability"];
+  capability: PreviewEvidenceRecord['capability'];
   summary: string;
-  detail: PreviewEvidenceRecord["detail"];
+  detail: PreviewEvidenceRecord['detail'];
   occurredAt: Date | string;
 }
 
@@ -227,13 +226,13 @@ export interface AttemptRow {
   userDisplayName: string | null;
   userEmail: string | null;
   userLogin: string | null;
-  userRole: AttemptRecord["userRole"];
+  userRole: AttemptRecord['userRole'];
   contextId: string;
   resourceLinkId: string;
   activityId: string;
-  status: AttemptRecord["status"];
-  completionState: AttemptRecord["completionState"];
-  localState: AttemptRecord["localState"];
+  status: AttemptRecord['status'];
+  completionState: AttemptRecord['completionState'];
+  localState: AttemptRecord['localState'];
   startedAt: Date | string;
   finalizedAt: Date | string | null;
 }
@@ -242,8 +241,8 @@ export interface AttemptEventRow {
   id: number;
   attemptId: string;
   sequence: number;
-  eventType: AttemptEventRecord["eventType"];
-  event: AttemptEventRecord["event"];
+  eventType: AttemptEventRecord['eventType'];
+  event: AttemptEventRecord['event'];
   receivedAt: Date | string;
 }
 
@@ -272,9 +271,9 @@ export interface GradePublicationRow {
   platformUserId: string;
   scoreGiven: number | string;
   scoreMaximum: number | string;
-  activityProgress: GradePublicationRecord["activityProgress"];
-  gradingProgress: GradePublicationRecord["gradingProgress"];
-  status: GradePublicationRecord["status"];
+  activityProgress: GradePublicationRecord['activityProgress'];
+  gradingProgress: GradePublicationRecord['gradingProgress'];
+  status: GradePublicationRecord['status'];
   createdAt: Date | string;
   updatedAt: Date | string;
   publishedAt: Date | string | null;
@@ -285,13 +284,13 @@ export interface GradePublicationRow {
 export interface AuditEventRow {
   id: number;
   eventType: string;
-  actorType: AuditEventRecord["actorType"];
+  actorType: AuditEventRecord['actorType'];
   actorId: string | null;
   deploymentRecordId: number | null;
   packageVersionId: number | null;
   attemptId: string | null;
   lineItemBindingId: number | null;
-  status: AuditEventRecord["status"];
+  status: AuditEventRecord['status'];
   summary: string;
   detail: Record<string, unknown>;
   occurredAt: Date | string;

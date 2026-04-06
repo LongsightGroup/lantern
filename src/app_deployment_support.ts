@@ -1,18 +1,18 @@
-import type { AdminNotice } from "./admin/layout.ts";
+import type { AdminNotice } from './admin/layout.ts';
 import {
   buildManagedDeploymentSlots,
   type DeploymentNrpsVerificationSummary,
   getPersistedManagedDeployment,
   getPrimaryManagedDeployment,
   type ManagedDeploymentSlot,
-} from "./admin/deployment_detail.ts";
-import { getCanvasConfigUrlNoticeSafe } from "./app_notice_support.ts";
-import { requireAppOrigin } from "./lti/config.ts";
-import { buildCanvasDynamicRegistrationUrl } from "./lti/canvas_dynamic_registration.ts";
-import { createDynamicRegistrationState } from "./lti/dynamic_registration_state.ts";
-import { buildMoodleDynamicRegistrationUrl } from "./lti/moodle_dynamic_registration.ts";
-import { buildSakaiDynamicRegistrationUrl } from "./lti/sakai_dynamic_registration.ts";
-import type { PackageReviewRepository } from "./package_review/repository.ts";
+} from './admin/deployment_detail.ts';
+import { getCanvasConfigUrlNoticeSafe } from './app_notice_support.ts';
+import { requireAppOrigin } from './lti/config.ts';
+import { buildCanvasDynamicRegistrationUrl } from './lti/canvas_dynamic_registration.ts';
+import { createDynamicRegistrationState } from './lti/dynamic_registration_state.ts';
+import { buildMoodleDynamicRegistrationUrl } from './lti/moodle_dynamic_registration.ts';
+import { buildSakaiDynamicRegistrationUrl } from './lti/sakai_dynamic_registration.ts';
+import type { PackageReviewRepository } from './package_review/repository.ts';
 import type {
   AuditEventRecord,
   DeploymentRecord,
@@ -20,7 +20,7 @@ import type {
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
-} from "./package_review/types.ts";
+} from './package_review/types.ts';
 
 export interface CanvasConfigUrlState {
   url: string | null;
@@ -50,12 +50,10 @@ export async function loadDeploymentDetailState(
   const history = await repository.listPackageVersionsByApp(appId);
 
   if (history.length === 0) {
-    throw new Error(
-      "Import a package version first so Lantern has an exact app to pin.",
-    );
+    throw new Error('Import a package version first so Lantern has an exact app to pin.');
   }
 
-  const appTitle = history[0]?.title ?? history[0]?.appId ?? "Package";
+  const appTitle = history[0]?.title ?? history[0]?.appId ?? 'Package';
   const deployments = await repository.listDeploymentsByApp(appId);
   const ltiProfileSettings = await repository.getLanternLtiProfileSettings();
   const slots = buildManagedDeploymentSlots({
@@ -64,19 +62,17 @@ export async function loadDeploymentDetailState(
     deployments,
   });
   const primaryDeployment = getPrimaryManagedDeployment(slots);
-  const canvasDeployment = getPersistedManagedDeployment(slots, "canvas");
-  const nrpsVerification = canvasDeployment === null
-    ? null
-    : await getLatestNrpsVerification(repository, canvasDeployment.id);
-  const [
-    canvasDynamicRegistrationUrl,
-    moodleDynamicRegistrationUrl,
-    sakaiDynamicRegistrationUrl,
-  ] = await Promise.all([
-    getCanvasDynamicRegistrationUrlSafe(repository, appId, appOrigin),
-    getMoodleDynamicRegistrationUrlSafe(repository, appId, appOrigin),
-    getSakaiDynamicRegistrationUrlSafe(repository, appId, appOrigin),
-  ]);
+  const canvasDeployment = getPersistedManagedDeployment(slots, 'canvas');
+  const nrpsVerification =
+    canvasDeployment === null
+      ? null
+      : await getLatestNrpsVerification(repository, canvasDeployment.id);
+  const [canvasDynamicRegistrationUrl, moodleDynamicRegistrationUrl, sakaiDynamicRegistrationUrl] =
+    await Promise.all([
+      getCanvasDynamicRegistrationUrlSafe(repository, appId, appOrigin),
+      getMoodleDynamicRegistrationUrlSafe(repository, appId, appOrigin),
+      getSakaiDynamicRegistrationUrlSafe(repository, appId, appOrigin),
+    ]);
 
   return {
     history,
@@ -104,15 +100,15 @@ export async function loadDeploymentDetailStateSafe(
   } catch {
     return {
       history: [],
-      appTitle: "Package",
+      appTitle: 'Package',
       deployments: [],
       slots: [],
       primaryDeployment: null,
       canvasDeployment: null,
       nrpsVerification: null,
       ltiProfileSettings: {
-        defaultLtiProfile: "governedCompatibility",
-        updatedAt: "",
+        defaultLtiProfile: 'governedCompatibility',
+        updatedAt: '',
       },
       canvasConfigUrl: getCanvasConfigUrlNoticeSafe(appOrigin),
       canvasDynamicRegistrationUrl: null,
@@ -134,7 +130,7 @@ async function getCanvasDynamicRegistrationUrlSafe(
     const state = await createDynamicRegistrationState({
       repository,
       appId,
-      lms: "canvas",
+      lms: 'canvas',
     });
     return buildCanvasDynamicRegistrationUrl(appId, state.state, appOrigin);
   } catch {
@@ -154,7 +150,7 @@ async function getMoodleDynamicRegistrationUrlSafe(
     const state = await createDynamicRegistrationState({
       repository,
       appId,
-      lms: "moodle",
+      lms: 'moodle',
     });
     return buildMoodleDynamicRegistrationUrl(appId, state.state, appOrigin);
   } catch {
@@ -174,7 +170,7 @@ async function getSakaiDynamicRegistrationUrlSafe(
     const state = await createDynamicRegistrationState({
       repository,
       appId,
-      lms: "sakai",
+      lms: 'sakai',
     });
     return buildSakaiDynamicRegistrationUrl(appId, state.state, appOrigin);
   } catch {
@@ -186,9 +182,7 @@ export async function getLatestNrpsVerification(
   repository: PackageReviewRepository,
   deploymentRecordId: number,
 ): Promise<DeploymentNrpsVerificationSummary | null> {
-  const events = await repository.listAuditEventsByEventType(
-    "deployment.nrps_verified",
-  );
+  const events = await repository.listAuditEventsByEventType('deployment.nrps_verified');
   const event = [...events]
     .reverse()
     .find((candidate) => candidate.deploymentRecordId === deploymentRecordId);
@@ -197,15 +191,12 @@ export async function getLatestNrpsVerification(
     return null;
   }
 
-  const memberCount = typeof event.detail.memberCount === "number"
-    ? event.detail.memberCount
-    : null;
-  const contextId = typeof event.detail.contextId === "string"
-    ? event.detail.contextId
-    : null;
+  const memberCount =
+    typeof event.detail.memberCount === 'number' ? event.detail.memberCount : null;
+  const contextId = typeof event.detail.contextId === 'string' ? event.detail.contextId : null;
 
   return {
-    status: event.status === "succeeded" ? "succeeded" : "failed",
+    status: event.status === 'succeeded' ? 'succeeded' : 'failed',
     checkedAt: event.occurredAt,
     contextId,
     memberCount,
@@ -219,11 +210,10 @@ export async function loadPreviewCapabilityLog(input: {
   session: PreviewSessionRecord | null;
   evidence: PreviewEvidenceRecord[];
 }> {
-  const session = await input.repository
-    .getLatestPreviewSessionByPackageVersion(
-      input.packageVersionId,
-      "adminTestLaunch",
-    );
+  const session = await input.repository.getLatestPreviewSessionByPackageVersion(
+    input.packageVersionId,
+    'adminTestLaunch',
+  );
 
   if (session === null) {
     return {
@@ -247,15 +237,13 @@ export async function loadPlacementAuditTimeline(
   },
 ): Promise<AuditEventRecord[]> {
   const eventTypes = [
-    "deep_linking.request.accepted",
-    "deep_linking.placement.created",
-    "reviewer.preview_viewed",
+    'deep_linking.request.accepted',
+    'deep_linking.placement.created',
+    'reviewer.preview_viewed',
   ] as const;
 
   const groups = await Promise.all(
-    eventTypes.map((eventType) =>
-      repository.listAuditEventsByEventType(eventType)
-    ),
+    eventTypes.map((eventType) => repository.listAuditEventsByEventType(eventType)),
   );
 
   return groups.flat().filter((event) => {
@@ -266,7 +254,7 @@ export async function loadPlacementAuditTimeline(
       return false;
     }
 
-    if (event.eventType === "deep_linking.request.accepted") {
+    if (event.eventType === 'deep_linking.request.accepted') {
       return true;
     }
 

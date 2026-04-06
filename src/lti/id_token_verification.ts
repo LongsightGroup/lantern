@@ -1,4 +1,4 @@
-import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from "jose";
+import { createLocalJWKSet, type JSONWebKeySet, jwtVerify } from 'jose';
 
 export async function verifyIdTokenWithJwksRetry(input: {
   idToken: string;
@@ -9,7 +9,7 @@ export async function verifyIdTokenWithJwksRetry(input: {
   loadJwks: (url: string) => Promise<JSONWebKeySet>;
   allowRetry?: boolean;
   onRetry?: () => void | Promise<void>;
-}): Promise<Awaited<ReturnType<typeof jwtVerify>>["payload"]> {
+}): Promise<Awaited<ReturnType<typeof jwtVerify>>['payload']> {
   const initialJwks = await input.loadJwks(input.jwksUrl);
 
   try {
@@ -34,7 +34,7 @@ async function verifyIdToken(
     now: () => Date;
   },
   jwks: JSONWebKeySet,
-): Promise<Awaited<ReturnType<typeof jwtVerify>>["payload"]> {
+): Promise<Awaited<ReturnType<typeof jwtVerify>>['payload']> {
   const verified = await jwtVerify(input.idToken, createLocalJWKSet(jwks), {
     issuer: input.issuer,
     audience: input.audience,

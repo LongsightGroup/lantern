@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from "@std/assert";
+import { assertEquals, assertExists } from '@std/assert';
 import {
   buildDeepLinkingSelectionValue,
   createDeepLinkingSession,
@@ -7,142 +7,136 @@ import {
   requireAuthorizedDeepLinkingSession,
   resolveDeepLinkingSelection,
   saveDeepLinkingSessionSelection,
-} from "./deep_linking.ts";
+} from './deep_linking.ts';
 import {
   buildDeepLinkingSessionRecord,
   buildDeploymentBinding,
   buildValidatedDeepLinkingRequest,
-} from "../test_helpers/lti.ts";
+} from '../test_helpers/lti.ts';
 import {
   buildDeepLinkingResourceOption,
   buildDeepLinkingResourceSelection,
   buildDeploymentRecord,
   createInMemoryPackageReviewRepository,
-} from "../test_helpers/package_review.ts";
+} from '../test_helpers/package_review.ts';
 
-Deno.test("deep linking in-memory fixtures preserve reviewed resources and explicit session selection", async () => {
+Deno.test('deep linking in-memory fixtures preserve reviewed resources and explicit session selection', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deepLinkingSessions: [buildDeepLinkingSessionRecord()],
     deepLinkingResourceOptions: [
       buildDeepLinkingResourceOption(),
       buildDeepLinkingResourceOption({
         packageVersionId: 2,
-        packageVersion: "0.2.0",
-        activityId: "/content/bonus.json",
-        contentPath: "/content/bonus.json",
-        contentTitle: "Bonus Activity",
+        packageVersion: '0.2.0',
+        activityId: '/content/bonus.json',
+        contentPath: '/content/bonus.json',
+        contentTitle: 'Bonus Activity',
       }),
     ],
   });
-  const initialSession = await repository.getDeepLinkingSessionById(
-    "deep-linking-session-123",
-  );
+  const initialSession = await repository.getDeepLinkingSessionById('deep-linking-session-123');
   const options = await repository.listDeepLinkingResourceOptions(
-    "chapter-4-asteroids",
-    "assignment_selection",
+    'chapter-4-asteroids',
+    'assignment_selection',
   );
   const updatedSession = await repository.updateDeepLinkingSessionSelection({
-    sessionId: "deep-linking-session-123",
+    sessionId: 'deep-linking-session-123',
     selection: {
       ...buildDeepLinkingResourceSelection({
         packageVersionId: 2,
-        packageVersion: "0.2.0",
-        activityId: "/content/bonus.json",
-        contentPath: "/content/bonus.json",
-        contentTitle: "Bonus Activity",
+        packageVersion: '0.2.0',
+        activityId: '/content/bonus.json',
+        contentPath: '/content/bonus.json',
+        contentTitle: 'Bonus Activity',
       }),
     },
   });
 
   assertEquals(initialSession?.selection, null);
   assertEquals(options.length, 2);
-  assertEquals(options[1]?.contentPath, "/content/bonus.json");
+  assertEquals(options[1]?.contentPath, '/content/bonus.json');
   assertEquals(updatedSession.selection?.packageVersionId, 2);
-  assertEquals(updatedSession.selection?.contentPath, "/content/bonus.json");
+  assertEquals(updatedSession.selection?.contentPath, '/content/bonus.json');
 });
 
-Deno.test("createDeepLinkingSession persists a short-lived authoring session without creating runtime state", async () => {
+Deno.test('createDeepLinkingSession persists a short-lived authoring session without creating runtime state', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deployments: [
       buildDeploymentRecord({
         id: 7,
-        appId: "chapter-4-asteroids",
+        appId: 'chapter-4-asteroids',
         binding: buildDeploymentBinding(),
       }),
     ],
   });
-  const tokens = ["deep-linking-session-456", "deep-linking-token-456"];
+  const tokens = ['deep-linking-session-456', 'deep-linking-token-456'];
   const session = await createDeepLinkingSession({
     repository,
     request: buildValidatedDeepLinkingRequest({
       internalDeploymentId: 7,
-      internalDeploymentSlug: "chapter-4-asteroids-pilot",
-      placement: "resource_selection",
+      internalDeploymentSlug: 'chapter-4-asteroids-pilot',
+      placement: 'resource_selection',
     }),
-    now: () => new Date("2026-03-24T16:20:00Z"),
+    now: () => new Date('2026-03-24T16:20:00Z'),
     createOpaqueToken: () => {
       const next = tokens.shift();
 
       if (!next) {
-        throw new Error("Expected another deterministic deep linking token.");
+        throw new Error('Expected another deterministic deep linking token.');
       }
 
       return next;
     },
   });
-  const saved = await repository.getDeepLinkingSessionById(
-    "deep-linking-session-456",
-  );
-  const runtimeSession = await repository.getLatestRuntimeSessionByDeploymentId(
-    7,
-  );
-  const attempt = await repository.getAttemptById("attempt-123");
+  const saved = await repository.getDeepLinkingSessionById('deep-linking-session-456');
+  const runtimeSession = await repository.getLatestRuntimeSessionByDeploymentId(7);
+  const attempt = await repository.getAttemptById('attempt-123');
 
-  assertEquals(session.sessionId, "deep-linking-session-456");
-  assertEquals(session.sessionToken, "deep-linking-token-456");
-  assertEquals(session.deepLinkReturnUrl.includes("deep_link_return"), true);
-  assertEquals(session.placement, "resource_selection");
+  assertEquals(session.sessionId, 'deep-linking-session-456');
+  assertEquals(session.sessionToken, 'deep-linking-token-456');
+  assertEquals(session.deepLinkReturnUrl.includes('deep_link_return'), true);
+  assertEquals(session.placement, 'resource_selection');
   assertEquals(saved?.selection, null);
-  assertEquals(saved?.placement, "resource_selection");
+  assertEquals(saved?.placement, 'resource_selection');
   assertEquals(runtimeSession, null);
   assertEquals(attempt, null);
 });
 
-Deno.test("deep linking helpers authorize the picker session and store one explicit reviewed selection", async () => {
+Deno.test('deep linking helpers authorize the picker session and store one explicit reviewed selection', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deepLinkingSessions: [
       buildDeepLinkingSessionRecord({
-        sessionId: "deep-linking-session-picker",
-        sessionToken: "deep-linking-token-picker",
+        sessionId: 'deep-linking-session-picker',
+        sessionToken: 'deep-linking-token-picker',
       }),
     ],
     deepLinkingResourceOptions: [
       buildDeepLinkingResourceOption(),
       buildDeepLinkingResourceOption({
         packageVersionId: 2,
-        packageVersion: "0.2.0",
-        contentPath: "/content/bonus.json",
-        activityId: "/content/bonus.json",
-        contentTitle: "Bonus Activity",
+        packageVersion: '0.2.0',
+        contentPath: '/content/bonus.json',
+        activityId: '/content/bonus.json',
+        contentTitle: 'Bonus Activity',
       }),
       buildDeepLinkingResourceOption({
-        appId: "other-app",
-        packageTitle: "Other App",
+        appId: 'other-app',
+        packageTitle: 'Other App',
       }),
     ],
   });
   const session = await requireAuthorizedDeepLinkingSession({
     repository,
-    sessionId: "deep-linking-session-picker",
-    token: "deep-linking-token-picker",
-    now: () => new Date("2026-03-23T22:46:00Z"),
+    sessionId: 'deep-linking-session-picker',
+    token: 'deep-linking-token-picker',
+    now: () => new Date('2026-03-23T22:46:00Z'),
   });
   const saved = await saveDeepLinkingSessionSelection({
     repository,
     session,
     selectionValue: buildDeepLinkingSelectionValue({
       packageVersionId: 2,
-      contentPath: "/content/bonus.json",
+      contentPath: '/content/bonus.json',
     }),
   });
   const resources = await repository.listDeepLinkingResourceOptions(
@@ -156,39 +150,37 @@ Deno.test("deep linking helpers authorize the picker session and store one expli
 
   assertEquals(resources.length, 2);
   assertEquals(saved.session.selection?.packageVersionId, 2);
-  assertEquals(saved.session.selection?.contentPath, "/content/bonus.json");
-  assertEquals(saved.selection.packageTitle, "Chapter 4 Asteroids");
-  assertEquals(selection?.contentTitle, "Bonus Activity");
+  assertEquals(saved.session.selection?.contentPath, '/content/bonus.json');
+  assertEquals(saved.selection.packageTitle, 'Chapter 4 Asteroids');
+  assertEquals(selection?.contentTitle, 'Bonus Activity');
 });
 
-Deno.test("deep linking helpers list course-scoped resources for resource_selection placement", async () => {
+Deno.test('deep linking helpers list course-scoped resources for resource_selection placement', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deepLinkingSessions: [
       buildDeepLinkingSessionRecord({
-        sessionId: "deep-linking-session-course-scope",
-        placement: "resource_selection",
+        sessionId: 'deep-linking-session-course-scope',
+        placement: 'resource_selection',
       }),
     ],
     deepLinkingResourceOptions: [
       buildDeepLinkingResourceOption({
-        installScope: "course",
-        packageVersion: "0.3.0",
-        activityId: "/content/course.json",
-        contentPath: "/content/course.json",
-        contentTitle: "Course Activity",
+        installScope: 'course',
+        packageVersion: '0.3.0',
+        activityId: '/content/course.json',
+        contentPath: '/content/course.json',
+        contentTitle: 'Course Activity',
       }),
       buildDeepLinkingResourceOption({
-        installScope: "assignment",
-        packageVersion: "0.2.0",
-        activityId: "/content/bonus.json",
-        contentPath: "/content/bonus.json",
-        contentTitle: "Bonus Activity",
+        installScope: 'assignment',
+        packageVersion: '0.2.0',
+        activityId: '/content/bonus.json',
+        contentPath: '/content/bonus.json',
+        contentTitle: 'Bonus Activity',
       }),
     ],
   });
-  const session = await repository.getDeepLinkingSessionById(
-    "deep-linking-session-course-scope",
-  );
+  const session = await repository.getDeepLinkingSessionById('deep-linking-session-course-scope');
 
   assertExists(session);
 
@@ -198,62 +190,62 @@ Deno.test("deep linking helpers list course-scoped resources for resource_select
   });
 
   assertEquals(resources.length, 1);
-  assertEquals(resources[0]?.installScope, "course");
-  assertEquals(resources[0]?.contentTitle, "Course Activity");
+  assertEquals(resources[0]?.installScope, 'course');
+  assertEquals(resources[0]?.contentTitle, 'Course Activity');
 });
 
-Deno.test("deep linking helpers keep the same governed list-and-save flow for assignment and resource selection", async () => {
+Deno.test('deep linking helpers keep the same governed list-and-save flow for assignment and resource selection', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deepLinkingSessions: [
       buildDeepLinkingSessionRecord({
-        sessionId: "deep-linking-session-assignment",
-        sessionToken: "deep-linking-token-assignment",
-        placement: "assignment_selection",
+        sessionId: 'deep-linking-session-assignment',
+        sessionToken: 'deep-linking-token-assignment',
+        placement: 'assignment_selection',
       }),
       buildDeepLinkingSessionRecord({
-        sessionId: "deep-linking-session-resource",
-        sessionToken: "deep-linking-token-resource",
-        placement: "resource_selection",
+        sessionId: 'deep-linking-session-resource',
+        sessionToken: 'deep-linking-token-resource',
+        placement: 'resource_selection',
       }),
     ],
     deepLinkingResourceOptions: [
       buildDeepLinkingResourceOption({
         packageVersionId: 2,
-        packageVersion: "0.2.0",
-        installScope: "assignment",
-        activityId: "/content/assignment.json",
-        contentPath: "/content/assignment.json",
-        contentTitle: "Assignment Activity",
+        packageVersion: '0.2.0',
+        installScope: 'assignment',
+        activityId: '/content/assignment.json',
+        contentPath: '/content/assignment.json',
+        contentTitle: 'Assignment Activity',
       }),
       buildDeepLinkingResourceOption({
         packageVersionId: 3,
-        packageVersion: "0.3.0",
-        installScope: "course",
-        activityId: "/content/course.json",
-        contentPath: "/content/course.json",
-        contentTitle: "Course Activity",
+        packageVersion: '0.3.0',
+        installScope: 'course',
+        activityId: '/content/course.json',
+        contentPath: '/content/course.json',
+        contentTitle: 'Course Activity',
       }),
     ],
   });
 
   const assignmentSession = await requireAuthorizedDeepLinkingSession({
     repository,
-    sessionId: "deep-linking-session-assignment",
-    token: "deep-linking-token-assignment",
-    now: () => new Date("2026-03-23T22:46:00Z"),
+    sessionId: 'deep-linking-session-assignment',
+    token: 'deep-linking-token-assignment',
+    now: () => new Date('2026-03-23T22:46:00Z'),
   });
   const resourceSession = await requireAuthorizedDeepLinkingSession({
     repository,
-    sessionId: "deep-linking-session-resource",
-    token: "deep-linking-token-resource",
-    now: () => new Date("2026-03-23T22:46:00Z"),
+    sessionId: 'deep-linking-session-resource',
+    token: 'deep-linking-token-resource',
+    now: () => new Date('2026-03-23T22:46:00Z'),
   });
   const assignmentSaved = await saveDeepLinkingSessionSelection({
     repository,
     session: assignmentSession,
     selectionValue: buildDeepLinkingSelectionValue({
       packageVersionId: 2,
-      contentPath: "/content/assignment.json",
+      contentPath: '/content/assignment.json',
     }),
   });
   const resourceSaved = await saveDeepLinkingSessionSelection({
@@ -261,7 +253,7 @@ Deno.test("deep linking helpers keep the same governed list-and-save flow for as
     session: resourceSession,
     selectionValue: buildDeepLinkingSelectionValue({
       packageVersionId: 3,
-      contentPath: "/content/course.json",
+      contentPath: '/content/course.json',
     }),
   });
 
@@ -274,72 +266,66 @@ Deno.test("deep linking helpers keep the same governed list-and-save flow for as
     session: resourceSaved.session,
   });
 
-  assertEquals(assignmentResources.map((resource) => resource.contentPath), [
-    "/content/assignment.json",
-  ]);
-  assertEquals(resourceResources.map((resource) => resource.contentPath), [
-    "/content/course.json",
-  ]);
   assertEquals(
-    assignmentSaved.selection.contentTitle,
-    "Assignment Activity",
+    assignmentResources.map((resource) => resource.contentPath),
+    ['/content/assignment.json'],
   );
-  assertEquals(resourceSaved.selection.contentTitle, "Course Activity");
+  assertEquals(
+    resourceResources.map((resource) => resource.contentPath),
+    ['/content/course.json'],
+  );
+  assertEquals(assignmentSaved.selection.contentTitle, 'Assignment Activity');
+  assertEquals(resourceSaved.selection.contentTitle, 'Course Activity');
   assertEquals(assignmentSaved.session.selection?.packageVersionId, 2);
   assertEquals(resourceSaved.session.selection?.packageVersionId, 3);
 });
 
-Deno.test("deep linking helpers create one durable reviewed placement from the saved reviewed selection", async () => {
+Deno.test('deep linking helpers create one durable reviewed placement from the saved reviewed selection', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deepLinkingSessions: [
       buildDeepLinkingSessionRecord({
-        sessionId: "deep-linking-session-placement",
+        sessionId: 'deep-linking-session-placement',
         selection: {
           packageVersionId: 2,
-          packageVersion: "0.2.0",
-          activityId: "/content/bonus.json",
-          contentPath: "/content/bonus.json",
+          packageVersion: '0.2.0',
+          activityId: '/content/bonus.json',
+          contentPath: '/content/bonus.json',
         },
       }),
     ],
     deepLinkingResourceOptions: [
       buildDeepLinkingResourceOption({
         packageVersionId: 2,
-        packageVersion: "0.2.0",
-        activityId: "/content/bonus.json",
-        contentPath: "/content/bonus.json",
-        contentTitle: "Bonus Activity",
+        packageVersion: '0.2.0',
+        activityId: '/content/bonus.json',
+        contentPath: '/content/bonus.json',
+        contentTitle: 'Bonus Activity',
       }),
     ],
   });
-  const session = await repository.getDeepLinkingSessionById(
-    "deep-linking-session-placement",
-  );
+  const session = await repository.getDeepLinkingSessionById('deep-linking-session-placement');
 
   assertExists(session);
 
   const created = await createReviewedPlacementFromDeepLinkingSession({
     repository,
     session,
-    now: () => new Date("2026-03-24T17:00:00Z"),
-    createPlacementId: () => "placement-123",
+    now: () => new Date('2026-03-24T17:00:00Z'),
+    createPlacementId: () => 'placement-123',
   });
-  const saved = await repository.getReviewedPlacementById("placement-123");
+  const saved = await repository.getReviewedPlacementById('placement-123');
 
-  assertEquals(created.selection.contentTitle, "Bonus Activity");
-  assertEquals(created.placement.placementId, "placement-123");
-  assertEquals(
-    created.placement.deploymentRecordId,
-    session.deploymentRecordId,
-  );
-  assertEquals(created.placement.contextId, "course-42");
+  assertEquals(created.selection.contentTitle, 'Bonus Activity');
+  assertEquals(created.placement.placementId, 'placement-123');
+  assertEquals(created.placement.deploymentRecordId, session.deploymentRecordId);
+  assertEquals(created.placement.contextId, 'course-42');
   assertEquals(created.placement.packageVersionId, 2);
-  assertEquals(created.placement.packageVersion, "0.2.0");
-  assertEquals(created.placement.packageTitle, "Chapter 4 Asteroids");
-  assertEquals(created.placement.activityId, "/content/bonus.json");
-  assertEquals(created.placement.contentPath, "/content/bonus.json");
-  assertEquals(created.placement.contentTitle, "Bonus Activity");
+  assertEquals(created.placement.packageVersion, '0.2.0');
+  assertEquals(created.placement.packageTitle, 'Chapter 4 Asteroids');
+  assertEquals(created.placement.activityId, '/content/bonus.json');
+  assertEquals(created.placement.contentPath, '/content/bonus.json');
+  assertEquals(created.placement.contentTitle, 'Bonus Activity');
   assertEquals(created.placement.resourceLinkId, null);
   assertEquals(saved?.packageVersionId, 2);
-  assertEquals(saved?.contentPath, "/content/bonus.json");
+  assertEquals(saved?.contentPath, '/content/bonus.json');
 });

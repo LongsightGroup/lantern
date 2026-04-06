@@ -1,15 +1,15 @@
-import type { Pool } from "@db/postgres";
-import { withClient } from "./repository_core.ts";
-import { mapOptionalRuntimeSession } from "./repository_mappers_sessions.ts";
-import { RUNTIME_SESSION_SELECT } from "./repository_query_fragments.ts";
-import type { RuntimeSessionRow } from "./repository_row_types.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+import type { Pool } from '@db/postgres';
+import { withClient } from './repository_core.ts';
+import { mapOptionalRuntimeSession } from './repository_mappers_sessions.ts';
+import { RUNTIME_SESSION_SELECT } from './repository_query_fragments.ts';
+import type { RuntimeSessionRow } from './repository_row_types.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 export function createRuntimeLookupRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  "getRuntimeSessionById" | "getLatestRuntimeSessionByDeploymentId"
+  'getRuntimeSessionById' | 'getLatestRuntimeSessionByDeploymentId'
 > {
   return {
     async getRuntimeSessionById(sessionId) {

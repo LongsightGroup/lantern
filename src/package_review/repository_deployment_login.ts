@@ -1,26 +1,23 @@
-import type { Pool } from "@db/postgres";
-import { withClient, withTransaction } from "./repository_core.ts";
-import {
-  mapDeploymentRow,
-  mapOptionalDeployment,
-} from "./repository_mappers_package.ts";
-import { DEPLOYMENT_SELECT } from "./repository_query_fragments.ts";
-import type { DeploymentRow } from "./repository_row_types.ts";
-import type { PackageReviewRepository } from "./repository.ts";
-import { createLoginStateRepositoryMethods } from "./repository_login_state_methods.ts";
+import type { Pool } from '@db/postgres';
+import { withClient, withTransaction } from './repository_core.ts';
+import { mapDeploymentRow, mapOptionalDeployment } from './repository_mappers_package.ts';
+import { DEPLOYMENT_SELECT } from './repository_query_fragments.ts';
+import type { DeploymentRow } from './repository_row_types.ts';
+import type { PackageReviewRepository } from './repository.ts';
+import { createLoginStateRepositoryMethods } from './repository_login_state_methods.ts';
 
 export function createDeploymentLoginRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | "getDeploymentBySlug"
-  | "listDeploymentsByApp"
-  | "getDeploymentByBinding"
-  | "getDeploymentByPlatformIdentity"
-  | "completePendingCanvasBinding"
-  | "createLoginState"
-  | "getLoginStateByState"
-  | "consumeLoginState"
+  | 'getDeploymentBySlug'
+  | 'listDeploymentsByApp'
+  | 'getDeploymentByBinding'
+  | 'getDeploymentByPlatformIdentity'
+  | 'completePendingCanvasBinding'
+  | 'createLoginState'
+  | 'getLoginStateByState'
+  | 'consumeLoginState'
 > {
   return {
     async getDeploymentBySlug(slug) {
@@ -48,9 +45,7 @@ export function createDeploymentLoginRepositoryMethods(
           camelCase: true,
         });
 
-        return result.rows.map((row) => mapOptionalDeployment(row)).filter((
-          row,
-        ) => row !== null);
+        return result.rows.map((row) => mapOptionalDeployment(row)).filter((row) => row !== null);
       });
     },
 
@@ -64,12 +59,7 @@ export function createDeploymentLoginRepositoryMethods(
               AND deployments.client_id = $3
               AND deployments.deployment_id = $4
           `,
-          args: [
-            binding.lms,
-            binding.issuer,
-            binding.clientId,
-            binding.deploymentId,
-          ],
+          args: [binding.lms, binding.issuer, binding.clientId, binding.deploymentId],
           camelCase: true,
         });
 
@@ -158,7 +148,7 @@ export function createDeploymentLoginRepositoryMethods(
       return await withClient(pool, async (client) => {
         return await withTransaction(
           client,
-          "complete_pending_canvas_binding",
+          'complete_pending_canvas_binding',
           async (transaction) => {
             const exactMatch = await transaction.queryObject<DeploymentRow>({
               text: `

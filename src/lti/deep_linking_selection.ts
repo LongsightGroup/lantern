@@ -1,9 +1,9 @@
 import type {
   DeepLinkingResourceOption,
   DeepLinkingResourceSelection,
-} from "../package_review/types.ts";
-import type { DeepLinkingSessionRecord } from "./types.ts";
-import { requireStringClaim, requireTrimmedValue } from "./claim_support.ts";
+} from '../package_review/types.ts';
+import type { DeepLinkingSessionRecord } from './types.ts';
+import { requireStringClaim, requireTrimmedValue } from './claim_support.ts';
 
 export function buildDeepLinkingSelectionValue(input: {
   packageVersionId: number;
@@ -51,30 +51,24 @@ export function normalizeDeepLinkingSelectionInput(input: {
 }): DeepLinkingResourceSelection {
   const selectionValue = requireTrimmedValue(
     input.selectionValue,
-    "Choose one reviewed resource before continuing.",
+    'Choose one reviewed resource before continuing.',
   );
   let payload: unknown;
 
   try {
     payload = JSON.parse(selectionValue);
   } catch {
-    throw new Error("Deep Linking selection payload was invalid.");
+    throw new Error('Deep Linking selection payload was invalid.');
   }
 
   const record = requireSelectionRecord(payload);
-  const packageVersionId = parseSelectionPackageVersionId(
-    record.packageVersionId,
-  );
+  const packageVersionId = parseSelectionPackageVersionId(record.packageVersionId);
   const contentPath = normalizeContentPath(
-    requireStringClaim(
-      record.contentPath,
-      "Deep Linking selection content path is required.",
-    ),
+    requireStringClaim(record.contentPath, 'Deep Linking selection content path is required.'),
   );
   const resource = input.resources.find(
     (candidate) =>
-      candidate.packageVersionId === packageVersionId &&
-      candidate.contentPath === contentPath,
+      candidate.packageVersionId === packageVersionId && candidate.contentPath === contentPath,
   );
 
   if (!resource) {
@@ -94,25 +88,25 @@ export function normalizeDeepLinkingSelectionInput(input: {
 }
 
 function requireSelectionRecord(value: unknown): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Deep Linking selection payload was invalid.");
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Deep Linking selection payload was invalid.');
   }
 
   return value as Record<string, unknown>;
 }
 
 function parseSelectionPackageVersionId(value: unknown): number {
-  if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) {
     return value;
   }
 
-  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) {
     return Number(value.trim());
   }
 
-  throw new Error("Deep Linking selection package version is required.");
+  throw new Error('Deep Linking selection package version is required.');
 }
 
 function normalizeContentPath(value: string): string {
-  return value.startsWith("/") ? value : `/${value}`;
+  return value.startsWith('/') ? value : `/${value}`;
 }
