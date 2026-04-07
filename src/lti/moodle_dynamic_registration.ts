@@ -1,5 +1,6 @@
 import { requireAppOrigin } from './config.ts';
 import { assertHostedDynamicRegistrationMetadata } from './dynamic_registration_support.ts';
+import { type FetchLike, performFetch } from './fetch_like.ts';
 import { type DeploymentBinding, LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from './types.ts';
 
 const LTI_TOOL_CONFIGURATION_CLAIM = 'https://purl.imsglobal.org/spec/lti-tool-configuration';
@@ -17,10 +18,6 @@ interface MoodleOpenIdProviderConfiguration {
   tokenEndpoint: string;
   jwksUrl: string;
   registrationEndpoint: string;
-}
-
-interface FetchLike {
-  (input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
 }
 
 export function buildMoodleDynamicRegistrationUrl(
@@ -53,17 +50,16 @@ export async function completeMoodleDynamicRegistration(input: {
   };
 }> {
   const appOrigin = input.appOrigin ?? requireAppOrigin();
-  const fetcher = input.fetch ?? fetch;
   const providerConfiguration = await loadMoodleOpenIdProviderConfiguration(
     input.openidConfigurationUrl,
-    fetcher,
+    input.fetch,
   );
   const registrationResponse = await submitMoodleRegistration({
     appOrigin,
     appTitle: input.appTitle,
     registrationEndpoint: providerConfiguration.registrationEndpoint,
     registrationToken: input.registrationToken,
-    fetch: fetcher,
+    ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
   });
 
   const deploymentId = requireDeploymentId(registrationResponse, input.openidConfigurationUrl);
@@ -87,9 +83,9 @@ export async function completeMoodleDynamicRegistration(input: {
 
 async function loadMoodleOpenIdProviderConfiguration(
   openidConfigurationUrl: string,
-  fetcher: FetchLike,
+  fetcher?: FetchLike,
 ): Promise<MoodleOpenIdProviderConfiguration> {
-  const response = await fetcher(openidConfigurationUrl);
+  const response = await performFetch(openidConfigurationUrl, undefined, fetcher);
 
   if (!response.ok) {
     throw new Error(`Moodle openid_configuration fetch failed with status ${response.status}.`);
@@ -120,7 +116,7 @@ async function submitMoodleRegistration(input: {
   appTitle: string;
   registrationEndpoint: string;
   registrationToken: string | null;
-  fetch: FetchLike;
+  fetch?: FetchLike;
 }): Promise<Record<string, unknown>> {
   const headers = new Headers({
     'content-type': 'application/json',
@@ -130,11 +126,15 @@ async function submitMoodleRegistration(input: {
     headers.set('authorization', `Bearer ${input.registrationToken}`);
   }
 
-  const response = await input.fetch(input.registrationEndpoint, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(buildMoodleRegistrationRequest(input.appOrigin, input.appTitle)),
-  });
+  const response = await performFetch(
+    input.registrationEndpoint,
+    {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(buildMoodleRegistrationRequest(input.appOrigin, input.appTitle)),
+    },
+    input.fetch,
+  );
 
   if (!response.ok) {
     throw new Error(`Moodle registration failed with status ${response.status}.`);

@@ -11,6 +11,7 @@ import type {
   ManagedDeploymentSlot,
 } from './deployment_detail.ts';
 import {
+  describeBindingStatusChipClass,
   describeBindingStatusHeading,
   describeManagedSlotIntro,
   formatLmsLabel,
@@ -42,6 +43,7 @@ export function renderSelectedSlotPanel(input: {
 }): string {
   const lmsLabel = formatLmsLabel(input.slot.lms);
   const bindingStatusHeading = describeBindingStatusHeading(input.slot);
+  const bindingStatusChipClass = describeBindingStatusChipClass(input.slot);
 
   return `<section id="slot-panel" class="deployment-tab-panel stack">
       <div class="table-row-top">
@@ -52,7 +54,9 @@ export function renderSelectedSlotPanel(input: {
             describeManagedSlotIntro(input.slot.lms),
           )}</p>
         </div>
-        <span class="chip chip-flagged">${escapeHtml(bindingStatusHeading)}</span>
+        <span class="chip ${escapeHtml(bindingStatusChipClass)}">${escapeHtml(
+          bindingStatusHeading,
+        )}</span>
       </div>
       <div class="facts deployment-summary-grid">
         <div class="fact">

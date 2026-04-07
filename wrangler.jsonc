@@ -1,0 +1,37 @@
+{
+  // Cloudflare Workers starter config.
+  // Replace the placeholder binding values with your account values before deploy.
+  "name": "lantern",
+  "main": "output/worker.bundle.mjs",
+  "compatibility_date": "2026-04-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "build": {
+    // Wrangler cannot consume Deno import-map specifiers directly, so build one
+    // bundled Worker artifact before local dev or deploy.
+    "command": "deno task build:worker",
+    "watch_dir": ["src", "sdk", "schemas", "deno.json", "deno.lock"],
+  },
+  // The build step already emits a single Worker module.
+  "no_bundle": true,
+  "placement": {
+    "mode": "smart",
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000-0000-0000-0000-000000000000",
+      // Sample local DSN only. Prefer overriding this for local development
+      // with CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE so the
+      // checked-in config stays generic.
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5432/lantern_dev",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PACKAGE_ARTIFACTS",
+      // Store reviewed snapshots under var/packages/... and curated
+      // reference package sources under reference-packages/<app-id>/source/...
+      "bucket_name": "replace-with-package-artifact-bucket",
+    },
+  ],
+}

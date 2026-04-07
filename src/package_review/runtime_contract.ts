@@ -1,6 +1,7 @@
 import { CompactSign, compactVerify, createLocalJWKSet } from 'jose';
 import type { Capability } from '../../sdk/app-sdk.ts';
 import { getPublicJwkSet, loadToolSigningKey } from '../lti/tool_key.ts';
+import type { EnvReader } from '../platform/env.ts';
 import type { ManifestReviewData } from './manifest.ts';
 import type { ReviewedRuntimeContract } from './types.ts';
 
@@ -15,10 +16,6 @@ const RUNTIME_CONTRACT_CAPABILITIES = new Set<Capability>([
 ]);
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
-
-interface EnvReader {
-  get(name: string): string | undefined;
-}
 
 export interface SignedReviewedRuntimeContract {
   runtimeContract: ReviewedRuntimeContract;
@@ -41,7 +38,7 @@ export function createReviewedRuntimeContract(input: {
 export async function buildSignedReviewedRuntimeContract(input: {
   reviewData: Pick<ManifestReviewData, 'appId' | 'version' | 'entrypoint' | 'capabilities'>;
   artifactDigest: string;
-  env?: EnvReader;
+  env: EnvReader;
 }): Promise<SignedReviewedRuntimeContract> {
   const runtimeContract = createReviewedRuntimeContract({
     reviewData: input.reviewData,
@@ -52,7 +49,7 @@ export async function buildSignedReviewedRuntimeContract(input: {
     runtimeContract,
     runtimeContractSignature: await signReviewedRuntimeContract({
       runtimeContract,
-      ...(input.env === undefined ? {} : { env: input.env }),
+      env: input.env,
     }),
   };
 }
@@ -74,12 +71,12 @@ export function parseReviewedRuntimeContract(value: unknown): ReviewedRuntimeCon
 export async function verifyReviewedRuntimeContractSignature(input: {
   runtimeContract: ReviewedRuntimeContract;
   runtimeContractSignature: string;
-  env?: EnvReader;
+  env: EnvReader;
 }): Promise<void> {
   try {
     const verified = await compactVerify(
       input.runtimeContractSignature,
-      createLocalJWKSet(await getPublicJwkSet(input.env ?? Deno.env)),
+      createLocalJWKSet(await getPublicJwkSet(input.env)),
     );
 
     if (verified.protectedHeader.typ !== REVIEWED_RUNTIME_CONTRACT_JWS_TYPE) {
@@ -102,9 +99,9 @@ export async function verifyReviewedRuntimeContractSignature(input: {
 
 async function signReviewedRuntimeContract(input: {
   runtimeContract: ReviewedRuntimeContract;
-  env?: EnvReader;
+  env: EnvReader;
 }): Promise<string> {
-  const toolKey = await loadToolSigningKey(input.env ?? Deno.env);
+  const toolKey = await loadToolSigningKey(input.env);
 
   return await new CompactSign(
     textEncoder.encode(serializeReviewedRuntimeContract(input.runtimeContract)),

@@ -12,7 +12,13 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from '../test_helpers/package_review.ts';
-import { EXAMPLE_SNAPSHOT_ROOT, restoreEnv, withFetchStub } from './gateway_test_helpers.ts';
+import {
+  EXAMPLE_SNAPSHOT_ROOT,
+  FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
+  restoreEnv,
+  TEST_RUNTIME_ENV,
+  withFetchStub,
+} from './gateway_test_helpers.ts';
 
 Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubric and stays idempotent', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
@@ -94,6 +100,8 @@ Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubr
           payload: {
             completionState: 'completed',
           },
+          env: TEST_RUNTIME_ENV,
+          artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-03-24T02:35:00Z'),
         });
         const secondResult = await finalizeRuntimeAttempt({
@@ -102,6 +110,8 @@ Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubr
           payload: {
             completionState: 'abandoned',
           },
+          env: TEST_RUNTIME_ENV,
+          artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-03-24T02:40:00Z'),
         });
 
@@ -211,6 +221,8 @@ Deno.test('runtime gateway keeps the AGS line-item resource id aligned with the 
           payload: {
             completionState: 'completed',
           },
+          env: TEST_RUNTIME_ENV,
+          artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-03-24T02:35:00Z'),
         });
 

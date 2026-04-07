@@ -1,12 +1,11 @@
 import { type ClientOptions, Pool } from '@db/postgres';
+import type { EnvReader } from '../platform/env.ts';
 
 const DEFAULT_POOL_SIZE = 3;
 const DATABASE_CA_CERT_ENV = 'DATABASE_CA_CERT';
 const DATABASE_URL_ENV = 'DATABASE_URL';
 
-type EnvReader = Pick<Deno.Env, 'get'>;
-
-export function requireDatabaseUrl(env: EnvReader = Deno.env): string {
+export function requireDatabaseUrl(env: EnvReader): string {
   const databaseUrl = env.get(DATABASE_URL_ENV)?.trim();
 
   if (!databaseUrl) {
@@ -16,7 +15,7 @@ export function requireDatabaseUrl(env: EnvReader = Deno.env): string {
   return databaseUrl;
 }
 
-export function resolveDatabasePoolConfig(env: EnvReader = Deno.env): string | ClientOptions {
+export function resolveDatabasePoolConfig(env: EnvReader): string | ClientOptions {
   const databaseUrl = requireDatabaseUrl(env);
   const databaseCaCert = readOptionalEnv(env, DATABASE_CA_CERT_ENV);
 
@@ -27,8 +26,33 @@ export function resolveDatabasePoolConfig(env: EnvReader = Deno.env): string | C
   return buildDatabaseClientOptions(databaseUrl, databaseCaCert);
 }
 
-export function createDatabasePool(size = DEFAULT_POOL_SIZE): Pool {
-  return new Pool(resolveDatabasePoolConfig(), size, true);
+export function createDatabasePool(env: EnvReader, size = DEFAULT_POOL_SIZE): Pool {
+  return new Pool(resolveDatabasePoolConfig(env), size, true);
+}
+
+export interface HyperdriveBinding {
+  connectionString: string;
+}
+
+export function createHyperdriveDatabasePool(binding: HyperdriveBinding): Pool {
+  // Hyperdrive owns the database connection pool. The Worker adapter creates
+  // a fresh SQL connection for each repository connect instead of maintaining a
+  // second pool inside the isolate.
+  return new Pool(requireHyperdriveConnectionString(binding), 1, true, {
+    hyperdrive: true,
+  });
+}
+
+export function requireHyperdriveConnectionString(binding: HyperdriveBinding): string {
+  const connectionString = binding.connectionString.trim();
+
+  if (connectionString === '') {
+    throw new Error(
+      'Cloudflare Hyperdrive binding HYPERDRIVE.connectionString is required for Worker persistence.',
+    );
+  }
+
+  return connectionString;
 }
 
 export function buildDatabaseClientOptions(

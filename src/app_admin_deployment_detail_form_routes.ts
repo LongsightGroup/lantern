@@ -18,6 +18,7 @@ import {
 import { parseDeploymentLtiProfileOverrideForm } from './app_request_support.ts';
 import type { LmsType } from './lti/types.ts';
 import type { AppServices } from './app_services.ts';
+import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 
 export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServices): void {
@@ -33,7 +34,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       formData = await context.req.formData();
       lms = parseManagedDeploymentLms(formData);
@@ -127,7 +128,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       formData = await context.req.formData();
       lms = parseManagedDeploymentLms(formData);
@@ -212,7 +213,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       const formData = await context.req.formData();
       lms = parseManagedDeploymentLms(formData);

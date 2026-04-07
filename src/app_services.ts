@@ -1,23 +1,40 @@
-import type { Pool } from '@db/postgres';
-import type { JSONWebKeySet } from 'jose';
-import { createDatabasePool } from './db/pool.ts';
+import type { Pool } from "@db/postgres";
+import type { JSONWebKeySet } from "jose";
+import { createDatabasePool } from "./db/pool.ts";
+import { getDenoEnvReader } from "./platform/deno_env.ts";
+import { type EnvReader, getDefaultEnvReader } from "./platform/env.ts";
 import {
-  importDemoPackage,
+  getReferencePackageSourceRoot,
   type ImportedPackageVersion,
-  loadDemoPackageSnapshot,
-} from './package_review/intake.ts';
+  importReferencePackage,
+  loadReferencePackageSnapshot,
+  readReferencePackageReviewData,
+} from "./package_review/intake.ts";
+import { createFileSystemPackageSource } from "./package_review/package_source_fs.ts";
+import { getDefaultPackageSnapshotStore } from "./package_review/snapshot_store_fs.ts";
 import {
   createPackageReviewRepository,
   type PackageReviewRepository,
-} from './package_review/repository.ts';
-import { createOpsRepository, type OpsRepository } from './ops/repository.ts';
+} from "./package_review/repository.ts";
+import { createOpsRepository, type OpsRepository } from "./ops/repository.ts";
+import type { RuntimeArtifactStore } from "./runtime/artifact_store.ts";
+import { getDefaultRuntimeArtifactStore } from "./runtime/artifact_store_fs.ts";
+import type { ManifestReviewData } from "./package_review/manifest.ts";
 
 export interface AppServices {
+  env: EnvReader;
+  runtimeArtifactStore: RuntimeArtifactStore;
   getRepository: () => PackageReviewRepository;
   getOpsRepository: () => OpsRepository;
   loadCanvasJwks: (url: string) => Promise<JSONWebKeySet>;
-  importDemoPackage: (options?: { storageRoot?: string }) => Promise<ImportedPackageVersion>;
-  loadDemoPackageSnapshot: (options?: {
+  readReferencePackageReviewData: (
+    appId: string,
+  ) => Promise<ManifestReviewData>;
+  importReferencePackage: (
+    appId: string,
+    options?: { storageRoot?: string },
+  ) => Promise<ImportedPackageVersion>;
+  loadReferencePackageSnapshot: (appId: string, options?: {
     storageRoot?: string;
   }) => Promise<ImportedPackageVersion | null>;
 }
@@ -27,21 +44,53 @@ let defaultRepository: PackageReviewRepository | null = null;
 let defaultOpsRepository: OpsRepository | null = null;
 
 export function resolveServices(services: Partial<AppServices>): AppServices {
+  const env = services.env ?? getDefaultEnvReader();
   const getRepository = services.getRepository ?? getDefaultRepository;
+  const snapshotStore = getDefaultPackageSnapshotStore();
 
   return {
+    env,
+    runtimeArtifactStore: services.runtimeArtifactStore ??
+      getDefaultRuntimeArtifactStore(),
     getRepository,
-    getOpsRepository:
-      services.getOpsRepository ??
+    getOpsRepository: services.getOpsRepository ??
       (() => {
         const repository = getRepository();
 
-        return isOpsRepository(repository) ? repository : getDefaultOpsRepository();
+        return isOpsRepository(repository)
+          ? repository
+          : getDefaultOpsRepository();
       }),
     loadCanvasJwks: services.loadCanvasJwks ?? defaultLoadCanvasJwks,
-    importDemoPackage: services.importDemoPackage ?? importDemoPackage,
-    loadDemoPackageSnapshot: services.loadDemoPackageSnapshot ?? loadDemoPackageSnapshot,
+    readReferencePackageReviewData: services.readReferencePackageReviewData ??
+      ((appId) =>
+        readReferencePackageReviewData(
+          appId,
+          resolveReferencePackageSource(appId),
+        )),
+    importReferencePackage: services.importReferencePackage ??
+      ((appId, options = {}) =>
+        importReferencePackage({
+          appId,
+          ...options,
+          env,
+          source: resolveReferencePackageSource(appId),
+          snapshotStore,
+        })),
+    loadReferencePackageSnapshot: services.loadReferencePackageSnapshot ??
+      ((appId, options = {}) =>
+        loadReferencePackageSnapshot({
+          appId,
+          ...options,
+          env,
+          source: resolveReferencePackageSource(appId),
+          snapshotStore,
+        })),
   };
+}
+
+function resolveReferencePackageSource(appId: string) {
+  return createFileSystemPackageSource(getReferencePackageSourceRoot(appId));
 }
 
 function getDefaultRepository(): PackageReviewRepository {
@@ -72,7 +121,7 @@ async function defaultLoadCanvasJwks(url: string): Promise<JSONWebKeySet> {
 
 function getDefaultPool(): Pool {
   if (defaultPool === null) {
-    defaultPool = createDatabasePool();
+    defaultPool = createDatabasePool(getDenoEnvReader());
   }
 
   return defaultPool;
@@ -82,10 +131,14 @@ function isOpsRepository(
   repository: PackageReviewRepository,
 ): repository is PackageReviewRepository & OpsRepository {
   return (
-    typeof (repository as Partial<OpsRepository>).listControlPlaneDeployments === 'function' &&
-    typeof (repository as Partial<OpsRepository>).getLatestBrokerVerificationStatus ===
-      'function' &&
-    typeof (repository as Partial<OpsRepository>).recordBrokerVerificationRun === 'function' &&
-    typeof (repository as Partial<OpsRepository>).getRetryableGradePublicationLookup === 'function'
+    typeof (repository as Partial<OpsRepository>)
+        .listControlPlaneDeployments === "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .getLatestBrokerVerificationStatus ===
+      "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .recordBrokerVerificationRun === "function" &&
+    typeof (repository as Partial<OpsRepository>)
+        .getRetryableGradePublicationLookup === "function"
   );
 }

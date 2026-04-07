@@ -1,13 +1,23 @@
 import type { AppManifest } from './manifest_contract.ts';
+import type { PackageSource } from './package_source.ts';
 import type { ValidationIssue } from './types.ts';
 
-export async function readManifestJson(
-  manifestPath: string,
+export async function readManifestJsonFromSource(
+  source: PackageSource,
+  manifestPath = 'manifest.json',
 ): Promise<{ value: unknown } | { issues: ValidationIssue[] }> {
   let sourceText: string;
 
   try {
-    sourceText = await Deno.readTextFile(manifestPath);
+    const text = await source.readText(manifestPath);
+
+    if (text === null) {
+      return {
+        issues: [createMissingFileIssue('/manifest.json', '/manifest.json')],
+      };
+    }
+
+    sourceText = text;
   } catch {
     return {
       issues: [createMissingFileIssue('/manifest.json', '/manifest.json')],
@@ -32,8 +42,8 @@ export async function readManifestJson(
   }
 }
 
-export async function collectReferencedFileIssues(
-  sourceRoot: string,
+export async function collectReferencedFileIssuesFromSource(
+  source: PackageSource,
   manifest: AppManifest,
 ): Promise<ValidationIssue[]> {
   const references: Array<{ field: string; path: string }> = [
@@ -78,18 +88,14 @@ export async function collectReferencedFileIssues(
   const issues: ValidationIssue[] = [];
 
   for (const reference of references) {
-    const exists = await fileExists(
-      joinFileSystemPath(sourceRoot, trimLeadingSlash(reference.path)),
-    );
+    const exists = await source.fileExists(trimLeadingSlash(reference.path));
 
     if (!exists) {
       issues.push(createMissingFileIssue(reference.field, reference.path));
     }
   }
 
-  const layoutEntrypointExists = await fileExists(
-    joinFileSystemPath(sourceRoot, 'dist', 'index.html'),
-  );
+  const layoutEntrypointExists = await source.fileExists('dist/index.html');
 
   if (!layoutEntrypointExists) {
     issues.push({
@@ -114,32 +120,4 @@ function createMissingFileIssue(field: string, path: string): ValidationIssue {
 
 function trimLeadingSlash(value: string): string {
   return value.replace(/^\/+/, '');
-}
-
-function joinFileSystemPath(...segments: string[]): string {
-  if (segments.length === 0) {
-    return '.';
-  }
-
-  const [firstSegment = '.', ...rest] = segments;
-  let path = firstSegment.replace(/\/+$/, '');
-
-  for (const segment of rest) {
-    path = `${path}/${segment.replace(/^\/+/, '').replace(/\/+$/, '')}`;
-  }
-
-  return path.replaceAll(/\/{2,}/g, '/');
-}
-
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    const stat = await Deno.stat(path);
-    return stat.isFile;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-
-    throw error;
-  }
 }

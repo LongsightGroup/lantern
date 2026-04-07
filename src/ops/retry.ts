@@ -3,6 +3,7 @@ import { resolveLtiProfileForDeployment } from '../lti/profile_resolution.ts';
 import type { PublishFinalScoreInput, PublishFinalScoreResult } from '../lti/services.ts';
 import { requestCanvasServiceAccessToken } from '../lti/services.ts';
 import { recordInteropPathUsed } from '../interop_audit.ts';
+import type { EnvReader } from '../platform/env.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import { publishGovernedGradePublication } from '../runtime/gateway.ts';
 import type { RetryableGradePublicationLookup } from './types.ts';
@@ -17,6 +18,7 @@ export interface RetryAccessTokenRequester {
     clientId: string;
     deploymentId?: string;
     scopes: string[];
+    env: EnvReader;
   }): Promise<{ accessToken: string }>;
 }
 
@@ -35,6 +37,7 @@ export interface RetryLookupRepository extends Pick<
 export async function retryFailedGradePublication(input: {
   repository: RetryLookupRepository;
   attemptId: string;
+  env: EnvReader;
   now?: () => Date;
   requestAccessToken?: RetryAccessTokenRequester;
   publishScore?: RetryScorePublisher;
@@ -88,6 +91,7 @@ export async function retryFailedGradePublication(input: {
     clientId: lookup.binding.clientId,
     deploymentId: lookup.binding.deploymentId,
     scopes: ags.scope,
+    env: input.env,
   });
   const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
     .retryServiceUnauthorizedOnce
@@ -112,6 +116,7 @@ export async function retryFailedGradePublication(input: {
           clientId: lookup.binding!.clientId,
           deploymentId: lookup.binding!.deploymentId,
           scopes: ags.scope,
+          env: input.env,
         });
 
         return refreshed.accessToken;

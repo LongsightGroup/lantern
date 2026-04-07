@@ -13,6 +13,7 @@ import { consumeDynamicRegistrationState } from './lti/dynamic_registration_stat
 import { completeMoodleDynamicRegistration } from './lti/moodle_dynamic_registration.ts';
 import { completeSakaiDynamicRegistration } from './lti/sakai_dynamic_registration.ts';
 import { errorMessage, statusForError } from './app_status_support.ts';
+import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 import type { AppServices } from './app_services.ts';
 
@@ -30,7 +31,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const searchParams = new URL(context.req.url).searchParams;
@@ -126,7 +127,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const searchParams = new URL(context.req.url).searchParams;
@@ -248,7 +249,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       await consumeDynamicRegistrationState({

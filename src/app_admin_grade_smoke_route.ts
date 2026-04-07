@@ -13,6 +13,7 @@ import {
   recordGradeSmokeAuditEvent,
   runGradeSmokeVerification,
 } from './app_admin_grade_smoke_support.ts';
+import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 import {
   formatGradeSmokeLmsLabel,
@@ -38,7 +39,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const formData = await context.req.formData();
@@ -82,6 +83,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
         binding,
         session: latestSession,
         attempt,
+        env: services.env,
         ltiProfile,
       });
 
@@ -135,7 +137,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
           forwardedHeader: context.req.header('forwarded') ?? null,
           xForwardedHost: context.req.header('x-forwarded-host') ?? null,
           xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-          configuredOrigin: Deno.env.get('APP_ORIGIN'),
+          configuredOrigin: readEnv('APP_ORIGIN', services.env),
         }),
       );
 

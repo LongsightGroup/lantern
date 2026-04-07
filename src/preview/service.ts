@@ -7,6 +7,7 @@ import {
   trimLeadingSlash,
 } from '../package_review/snapshot_path.ts';
 import type { PackageVersionRecord, PreviewSessionRecord } from '../package_review/types.ts';
+import type { RuntimeArtifactStore } from '../runtime/artifact_store.ts';
 import { loadPreviewFixtureData, resolvePreviewContentPath } from './fixture.ts';
 
 export interface PreviewFakeScoringDefaults {
@@ -32,6 +33,7 @@ export interface PreviewLaunchOverrides {
 export async function createPreviewSession(input: {
   repository: PackageReviewRepository;
   packageVersion: PackageVersionRecord;
+  artifactStore: RuntimeArtifactStore;
   launch?: PreviewLaunchOverrides | null;
   previewOrigin?: PreviewSessionRecord['origin'];
   deepLinkingSessionId?: string | null;
@@ -58,6 +60,7 @@ const PREVIEW_RUNTIME_SESSION_TTL_MS = 10 * 60 * 1000;
 export async function launchPreviewRuntimeSession(input: {
   repository: PackageReviewRepository;
   packageVersion: PackageVersionRecord;
+  artifactStore: RuntimeArtifactStore;
   launch?: PreviewLaunchOverrides | null;
   previewOrigin?: PreviewSessionRecord['origin'];
   deepLinkingSessionId?: string | null;
@@ -73,6 +76,7 @@ export async function launchPreviewRuntimeSession(input: {
   const created = await createPreviewSession({
     repository: input.repository,
     packageVersion: input.packageVersion,
+    artifactStore: input.artifactStore,
     launch: input.launch ?? null,
     ...(input.previewOrigin === undefined ? {} : { previewOrigin: input.previewOrigin }),
     ...(input.deepLinkingSessionId === undefined
@@ -176,6 +180,7 @@ function buildPreviewDeploymentLabel(packageTitle: string): string {
 
 export async function preparePreviewSession(input: {
   packageVersion: PackageVersionRecord;
+  artifactStore: RuntimeArtifactStore;
   launch?: PreviewLaunchOverrides | null;
   previewOrigin?: PreviewSessionRecord['origin'];
   deepLinkingSessionId?: string | null;
@@ -192,10 +197,11 @@ export async function preparePreviewSession(input: {
     );
   }
 
-  const fixtureData = await loadPreviewFixtureData(packageVersion);
+  const fixtureData = await loadPreviewFixtureData(packageVersion, input.artifactStore);
   const origin = input.previewOrigin ?? 'adminTestLaunch';
   const contentPath = await resolvePreparedPreviewContentPath(
     packageVersion,
+    input.artifactStore,
     input.launch?.contentPath,
   );
   const createdAt = now().toISOString();
@@ -283,10 +289,11 @@ function normalizeOptionalTestLaunchValue(value: string | null): string | null {
 
 async function resolvePreparedPreviewContentPath(
   packageVersion: PackageVersionRecord,
+  artifactStore: RuntimeArtifactStore,
   overrideContentPath: string | undefined,
 ): Promise<string> {
   if (overrideContentPath === undefined) {
-    return await resolvePreviewContentPath(packageVersion);
+    return await resolvePreviewContentPath(packageVersion, artifactStore);
   }
 
   const trimmed = overrideContentPath.trim();

@@ -2,6 +2,16 @@ import { assertEquals, assertStringIncludes } from '@std/assert';
 import { CANVAS_LTI_SCOPES } from './types.ts';
 import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
 
+const TEST_CONFIG_ENV = {
+  get(name: string): string | undefined {
+    return name === 'APP_ORIGIN'
+      ? 'http://localhost:8417'
+      : name === 'LTI_TOOL_PRIVATE_JWK'
+        ? getTestToolPrivateJwkEnvValue()
+        : undefined;
+  },
+};
+
 Deno.test('GET /lti/canvas/config.json publishes one supported Canvas config document', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
   const previousJwk = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
@@ -63,7 +73,7 @@ Deno.test('config document advertises exactly the Phase 3 AGS and NRPS scopes', 
 
   try {
     const { buildCanvasConfigDocument } = await import('./config.ts');
-    const document = await buildCanvasConfigDocument();
+    const document = await buildCanvasConfigDocument('http://localhost:8417', TEST_CONFIG_ENV);
 
     assertEquals(Array.isArray(document.extensions), true);
     assertEquals(document.scopes, [...CANVAS_LTI_SCOPES]);
@@ -86,7 +96,7 @@ Deno.test('config document advertises assignment-selection Deep Linking on a ded
 
   try {
     const { buildCanvasConfigDocument } = await import('./config.ts');
-    const document = await buildCanvasConfigDocument();
+    const document = await buildCanvasConfigDocument('http://localhost:8417', TEST_CONFIG_ENV);
     const placements = document.extensions.flatMap((extension) => extension.settings.placements);
     const assignmentSelection = placements.find(
       (placement) => placement.placement === 'assignment_selection',

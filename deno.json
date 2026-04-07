@@ -2,16 +2,18 @@
   "tasks": {
     "dev": "deno run --unsafely-ignore-certificate-errors --watch --allow-read --allow-write --allow-env --allow-net main.ts",
     "start": "deno run --allow-read --allow-write --allow-env --allow-net main.ts",
+    "build:worker": "deno bundle --platform=browser src/worker.ts -o output/worker.bundle.mjs",
+    "check:worker": "deno task build:worker && deno run --allow-read tools/check_worker_bundle.ts",
     "fmt": "deno run -A npm:oxfmt@0.43.0 --write .",
     "fmt:check": "deno run -A npm:oxfmt@0.43.0 --check .",
     "lint": "deno run -A npm:oxlint@1.58.0",
     "check": "deno check main.ts src/**/*.ts sdk/**/*.ts",
     "test": "deno test --allow-read --allow-write --allow-env --allow-net",
-    "validate": "deno task fmt:check && deno task lint && deno task check && deno test --allow-read --allow-write --allow-env --allow-net"
+    "validate": "deno task fmt:check && deno task lint && deno task check && deno task check:worker && deno test --allow-read --allow-write --allow-env --allow-net"
   },
   "imports": {
     "@ajv2020": "npm:ajv@8.18.0/dist/2020.js",
-    "@db/postgres": "jsr:@db/postgres@0.19.5",
+    "@db/postgres": "./src/db/postgres.ts",
     "@hono/hono": "jsr:@hono/hono@^4.10.1",
     "@std/assert": "jsr:@std/assert@^1.0.15",
     "@std/semver": "jsr:@std/semver@1.0.8",

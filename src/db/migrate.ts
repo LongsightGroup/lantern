@@ -1,5 +1,6 @@
 import type { Pool } from '@db/postgres';
 import { createDatabasePool } from './pool.ts';
+import { getDenoEnvReader } from '../platform/deno_env.ts';
 
 const MIGRATIONS_DIRECTORY = new URL('./migrations/', import.meta.url);
 
@@ -80,7 +81,7 @@ async function loadMigrations(): Promise<MigrationFile[]> {
 }
 
 if (import.meta.main) {
-  const pool = createDatabasePool();
+  const pool = createDatabasePool(getDenoEnvReader());
 
   try {
     const applied = await runMigrations(pool);

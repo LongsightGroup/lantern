@@ -1,5 +1,3 @@
-import type { PostgresError } from '@db/postgres';
-
 export function normalizeTimestamp(value: Date | string | null): string {
   if (value instanceof Date) {
     return value.toISOString();
@@ -28,12 +26,14 @@ export function normalizeNumeric(value: number | string): number {
   return Number(value);
 }
 
-export function isUniqueViolation(error: unknown): error is PostgresError {
+export function isUniqueViolation(error: unknown): error is Error & {
+  code?: string;
+  fields?: { code?: string };
+} {
+  const withCode = error as { code?: string } | null;
+  const withFields = error as { fields?: { code?: string } } | null;
+
   return (
-    error instanceof Error &&
-    error.name === 'PostgresError' &&
-    'fields' in error &&
-    typeof (error as { fields?: { code?: string } }).fields?.code === 'string' &&
-    (error as { fields: { code: string } }).fields.code === '23505'
+    error instanceof Error && (withCode?.code === '23505' || withFields?.fields?.code === '23505')
   );
 }

@@ -9,6 +9,12 @@ import {
 import { restoreEnv, withFetchStub } from '../test_helpers/fetch_stub.ts';
 import { ensureLineItem, publishFinalScore, requestServiceAccessToken } from './services.ts';
 
+const TEST_SERVICE_ENV = {
+  get(name: string): string | undefined {
+    return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
+  },
+};
+
 Deno.test('LTI services client reuses a launch lineitem or creates one from the lineitems container before score publish', async () => {
   const ags = buildAgsLaunchService({}, 'lineitems');
   let requestCount = 0;
@@ -150,6 +156,7 @@ Deno.test('LTI services client requests RS256 client-credentials tokens from the
               'https://purl.imsglobal.org/spec/lti-ags/scope/score',
               'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
             ],
+            env: TEST_SERVICE_ENV,
           });
 
           assertEquals(token.accessToken, `${binding.lms}-access-token`);

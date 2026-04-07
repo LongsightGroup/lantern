@@ -1,4 +1,5 @@
 import * as oauth from 'oauth4webapi';
+import type { EnvReader } from '../platform/env.ts';
 import { resolveCanvasPlatform } from './canvas_platform.ts';
 import { resolveServiceTokenEndpoint } from './platform_binding.ts';
 import {
@@ -70,6 +71,7 @@ async function performServiceAccessTokenRequest(input: {
   clientId: string;
   tokenEndpoint: string;
   scopes: string[];
+  env: EnvReader;
   deploymentId?: string;
 }): Promise<ServiceAccessToken> {
   const clientId = requireTrimmedString(
@@ -77,7 +79,7 @@ async function performServiceAccessTokenRequest(input: {
     'LTI client ID is required for service auth.',
   );
   const scopes = uniqueTrimmedStrings(input.scopes, 'At least one LTI service scope is required.');
-  const signingKey = await loadToolSigningKey();
+  const signingKey = await loadToolSigningKey(input.env);
   const as: oauth.AuthorizationServer = {
     issuer: input.issuer,
     token_endpoint: input.tokenEndpoint,
@@ -121,12 +123,14 @@ async function performServiceAccessTokenRequest(input: {
 export async function requestServiceAccessToken(input: {
   binding: DeploymentBinding;
   scopes: string[];
+  env: EnvReader;
 }): Promise<ServiceAccessToken> {
   return await performServiceAccessTokenRequest({
     issuer: input.binding.issuer,
     clientId: input.binding.clientId,
     tokenEndpoint: resolveServiceTokenEndpoint(input.binding),
     scopes: input.scopes,
+    env: input.env,
     ...(input.binding.deploymentId === undefined
       ? {}
       : { deploymentId: input.binding.deploymentId }),
@@ -137,6 +141,7 @@ export async function requestCanvasServiceAccessToken(input: {
   issuer: string;
   clientId: string;
   scopes: string[];
+  env: EnvReader;
   deploymentId?: string;
 }): Promise<ServiceAccessToken> {
   const platform = resolveCanvasPlatform(input.issuer);
@@ -146,6 +151,7 @@ export async function requestCanvasServiceAccessToken(input: {
     clientId: input.clientId,
     tokenEndpoint: resolveCanvasTokenEndpoint(platform.authorizationEndpoint),
     scopes: input.scopes,
+    env: input.env,
     ...(input.deploymentId === undefined ? {} : { deploymentId: input.deploymentId }),
   });
 }

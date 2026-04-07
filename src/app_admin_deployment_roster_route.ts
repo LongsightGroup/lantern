@@ -18,6 +18,7 @@ import { LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE } from './lti/types.ts';
 import { readContextMemberships, requestCanvasServiceAccessToken } from './lti/services.ts';
 import { recordInteropPathUsed } from './interop_audit.ts';
 import type { AppServices } from './app_services.ts';
+import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 
 export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServices): void {
@@ -31,7 +32,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const canvasDeployment = detail.canvasDeployment;
@@ -86,6 +87,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
               clientId: canvasDeployment.binding!.clientId,
               deploymentId: canvasDeployment.binding!.deploymentId,
               scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
+              env: services.env,
             });
 
             return refreshed.accessToken;
@@ -97,6 +99,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
         clientId: canvasDeployment.binding.clientId,
         deploymentId: canvasDeployment.binding.deploymentId,
         scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
+        env: services.env,
       });
       const members = await readContextMemberships({
         accessToken: token.accessToken,
@@ -132,7 +135,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
           forwardedHeader: context.req.header('forwarded') ?? null,
           xForwardedHost: context.req.header('x-forwarded-host') ?? null,
           xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-          configuredOrigin: Deno.env.get('APP_ORIGIN'),
+          configuredOrigin: readEnv('APP_ORIGIN', services.env),
         }),
       );
       const canvasDeployment = detail.canvasDeployment;

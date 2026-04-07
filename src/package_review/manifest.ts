@@ -7,7 +7,11 @@ import {
   type ManifestReviewData,
   type ManifestValidationResult,
 } from './manifest_contract.ts';
-import { collectReferencedFileIssues, readManifestJson } from './manifest_files.ts';
+import type { PackageSource } from './package_source.ts';
+import {
+  collectReferencedFileIssuesFromSource,
+  readManifestJsonFromSource,
+} from './manifest_files.ts';
 
 const ajv = new Ajv2020({
   allErrors: true,
@@ -20,11 +24,8 @@ const validator: ValidateFunction<AppManifest> = ajv.compile<AppManifest>(manife
 export { explainManifestIssues };
 export type { ManifestReviewData, ManifestValidationResult };
 
-export async function validateManifest(options: {
-  sourceRoot: string;
-}): Promise<ManifestValidationResult> {
-  const manifestPath = `${options.sourceRoot}/manifest.json`;
-  const manifestJson = await readManifestJson(manifestPath);
+export async function validateManifest(source: PackageSource): Promise<ManifestValidationResult> {
+  const manifestJson = await readManifestJsonFromSource(source);
 
   if ('issues' in manifestJson) {
     return {
@@ -41,7 +42,7 @@ export async function validateManifest(options: {
   }
 
   const manifest = manifestJson.value;
-  const fileIssues = await collectReferencedFileIssues(options.sourceRoot, manifest);
+  const fileIssues = await collectReferencedFileIssuesFromSource(source, manifest);
 
   if (fileIssues.length > 0) {
     return {
@@ -56,3 +57,5 @@ export async function validateManifest(options: {
     reviewData: buildManifestReviewData(manifest),
   };
 }
+
+export { validateManifest as validateManifestSource };

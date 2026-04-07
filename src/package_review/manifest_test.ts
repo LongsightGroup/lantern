@@ -7,6 +7,7 @@ import {
 } from '@std/assert';
 import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
 import { validateManifest } from './manifest.ts';
+import { createFileSystemPackageSource } from './package_source_fs.ts';
 import {
   buildSignedReviewedRuntimeContract,
   verifyReviewedRuntimeContractSignature,
@@ -133,7 +134,7 @@ function buildValidManifest(): ManifestFixture {
 }
 
 Deno.test('validateManifest accepts the demo manifest and returns typed review data', async () => {
-  const result = await validateManifest({ sourceRoot: DEMO_SOURCE_ROOT });
+  const result = await validateManifest(createFileSystemPackageSource(DEMO_SOURCE_ROOT));
 
   assertEquals(result.ok, true);
 
@@ -153,7 +154,7 @@ Deno.test('validateManifest accepts the demo manifest and returns typed review d
 });
 
 Deno.test('reviewed runtime contracts fail closed when the approved artifact, capability manifest, or signature drifts', async () => {
-  const result = await validateManifest({ sourceRoot: DEMO_SOURCE_ROOT });
+  const result = await validateManifest(createFileSystemPackageSource(DEMO_SOURCE_ROOT));
 
   assertEquals(result.ok, true);
 
@@ -211,9 +212,9 @@ Deno.test('reviewed runtime contracts fail closed when the approved artifact, ca
 
 Deno.test('validateManifest accepts each curated reference app manifest and keeps the governed contract narrow', async () => {
   for (const appId of listReferencePackageIds()) {
-    const result = await validateManifest({
-      sourceRoot: getReferencePackageSourceRoot(appId),
-    });
+    const result = await validateManifest(
+      createFileSystemPackageSource(getReferencePackageSourceRoot(appId)),
+    );
 
     assertEquals(result.ok, true);
 
@@ -239,7 +240,7 @@ Deno.test('validateManifest maps schema failures into a plain-language fix list'
   });
 
   try {
-    const result = await validateManifest({ sourceRoot: root });
+    const result = await validateManifest(createFileSystemPackageSource(root));
 
     assertEquals(result.ok, false);
 
@@ -270,7 +271,7 @@ Deno.test('validateManifest reports missing referenced files as field-oriented f
   });
 
   try {
-    const result = await validateManifest({ sourceRoot: root });
+    const result = await validateManifest(createFileSystemPackageSource(root));
 
     assertEquals(result.ok, false);
 

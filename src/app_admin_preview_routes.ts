@@ -8,6 +8,7 @@ import { createErrorNotice } from './app_notice_support.ts';
 import { formValueAsString } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { readEnv } from './platform/env.ts';
 import type { PreviewSessionRecord } from './package_review/types.ts';
 import { buildRuntimeSessionUrl, requireConfiguredRuntimeOrigin } from './runtime_origin.ts';
 import {
@@ -41,6 +42,7 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
 
       const savedDefaults = await preparePreviewSession({
         packageVersion,
+        artifactStore: services.runtimeArtifactStore,
       });
       const { session, evidence } = await loadPreviewCapabilityLog({
         repository,
@@ -128,9 +130,12 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
       const launched = await launchPreviewRuntimeSession({
         repository,
         packageVersion,
+        artifactStore: services.runtimeArtifactStore,
         launch: buildTestLaunchOverrides(formValues),
       });
-      const runtimeOrigin = requireConfiguredRuntimeOrigin(Deno.env.get('APP_RUNTIME_ORIGIN'));
+      const runtimeOrigin = requireConfiguredRuntimeOrigin(
+        readEnv('APP_RUNTIME_ORIGIN', services.env),
+      );
 
       await repository.recordAuditEvent({
         eventType: 'preview.launch',
@@ -181,6 +186,7 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
       try {
         savedDefaults = await preparePreviewSession({
           packageVersion,
+          artifactStore: services.runtimeArtifactStore,
         });
       } catch {
         savedDefaults = null;

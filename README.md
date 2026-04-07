@@ -97,6 +97,63 @@ This keeps LTI config, login redirects, dynamic registration callbacks, and Deep
 Linking responses consistent when Lantern is deployed behind Cloudflare or
 another proxy.
 
+The repo now treats the Workers entrypoint at [src/worker.ts](src/worker.ts) as
+the canonical runtime path. The Deno server entrypoint in [main.ts](main.ts) is
+a local adapter for development and tooling. The repo also includes a starter
+Wrangler config at [wrangler.jsonc](wrangler.jsonc).
+
+Current Workers boundaries:
+
+- reviewed runtime HTML, JSON content, and static assets load from an R2 bucket
+  binding named `PACKAGE_ARTIFACTS`
+- reviewed package snapshots are also written to and reloaded from that same
+  `PACKAGE_ARTIFACTS` bucket on Workers
+- repository-backed routes use Postgres through a Hyperdrive binding named
+  `HYPERDRIVE`
+- curated reference package imports on Workers read source files from
+  `PACKAGE_ARTIFACTS` under `reference-packages/<app-id>/source`
+- the Wrangler starter enables `nodejs_compat` and Smart Placement because
+  Lantern makes multiple database queries per request
+
+The R2 bucket should contain two key layouts:
+
+- reviewed snapshots under `var/packages/<app-id>/<version>/...`, for example
+  `var/packages/<app-id>/<version>/dist/index.html`
+- curated reference package sources under
+  `reference-packages/<app-id>/source/...`, for example
+  `reference-packages/chapter-4-asteroids/source/manifest.json`
+
+The Worker app path no longer depends on local disk for demo package import or
+reviewed runtime delivery. The remaining deployment work is operational:
+provision the curated reference package source files into `PACKAGE_ARTIFACTS` as
+part of your Cloudflare bootstrap or release flow.
+
+For local Worker development, Wrangler now builds a single generated Worker
+artifact through `deno task build:worker` before `dev` or `deploy`. The repo
+also enforces `deno task check:worker`, which rebuilds the Worker bundle and
+fails if Deno-only runtime references slip back into it. The generated file is
+`output/worker.bundle.mjs` and is not checked in.
+
+To run the Worker locally:
+
+- set Worker vars such as `APP_ORIGIN` and `LTI_TOOL_PRIVATE_JWK` with
+  `--var ...` flags or `.dev.vars`
+- prefer exporting `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`
+  with your real local Postgres connection string before `wrangler dev --local`;
+  Wrangler uses that to override the sample
+  `hyperdrive[0].localConnectionString` in `wrangler.jsonc` without editing the
+  checked-in file
+- if you do not use the override env var, replace `wrangler.jsonc`
+  `hyperdrive[0].localConnectionString` with a real local Postgres connection
+  string before using repository-backed admin routes like `/admin/packages`
+- when using `wrangler dev --local`, make sure that local Hyperdrive connection
+  string includes a password segment because Miniflare rejects passwordless DSNs
+  even if your local Postgres allows them
+- if you want the demo import path to work on Workers, seed
+  `PACKAGE_ARTIFACTS/reference-packages/<app-id>/source/...` in your local or
+  remote R2 bucket before calling `/admin/packages/import-reference`
+- then run `npx wrangler dev --local`
+
 ## Public Entry Points
 
 - App package contract: [APP_PACKAGE_SPEC.md](APP_PACKAGE_SPEC.md)
@@ -107,8 +164,9 @@ another proxy.
   [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
   and [examples/apps/quick-study/README.md](examples/apps/quick-study/README.md)
   These are governed reference apps, not a generic app gallery.
-- Main HTTP app: [src/app.ts](src/app.ts)
-- Server entrypoint: [main.ts](main.ts)
+- Canonical Workers entrypoint: [src/worker.ts](src/worker.ts)
+- Local Deno app wrapper: [src/app.ts](src/app.ts)
+- Local Deno server entrypoint: [main.ts](main.ts)
 
 ## Stack
 
@@ -139,6 +197,7 @@ Common commands:
 - `deno task fmt:check`
 - `deno task lint`
 - `deno task check`
+- `deno task check:worker`
 - `deno task test`
 - `deno task validate`
 

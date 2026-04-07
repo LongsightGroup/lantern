@@ -1,5 +1,9 @@
 import { assertEquals, assertObjectMatch } from '@std/assert';
-import { buildDatabaseClientOptions, resolveDatabasePoolConfig } from './pool.ts';
+import {
+  buildDatabaseClientOptions,
+  requireHyperdriveConnectionString,
+  resolveDatabasePoolConfig,
+} from './pool.ts';
 
 Deno.test('resolveDatabasePoolConfig returns the raw connection string when no CA cert is configured', () => {
   const databaseUrl =
@@ -50,4 +54,13 @@ Deno.test('buildDatabaseClientOptions preserves sslmode=disable when a CA cert i
       enabled: false,
     },
   });
+});
+
+Deno.test('requireHyperdriveConnectionString returns the binding connection string', () => {
+  assertEquals(
+    requireHyperdriveConnectionString({
+      connectionString: 'postgres://hyperdrive.example/lantern',
+    }),
+    'postgres://hyperdrive.example/lantern',
+  );
 });

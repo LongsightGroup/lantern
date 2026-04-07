@@ -5,6 +5,7 @@ import { createDatabasePool } from '../db/pool.ts';
 import { resetPackageReviewTables } from '../test_helpers/postgres.ts';
 import type { ImportedPackageVersion } from './intake.ts';
 import { validateManifest } from './manifest.ts';
+import { createFileSystemPackageSource } from './package_source_fs.ts';
 import { createPackageReviewRepository } from './repository.ts';
 import { buildSignedReviewedRuntimeContract } from './runtime_contract.ts';
 
@@ -21,7 +22,7 @@ export async function withRepositoryTestDatabase(
     repository: ReturnType<typeof createPackageReviewRepository>;
   }) => Promise<void>,
 ): Promise<void> {
-  const pool = createDatabasePool(1);
+  const pool = createDatabasePool(getDatabaseEnv(), 1);
 
   try {
     await runMigrations(pool);
@@ -40,7 +41,7 @@ export async function buildImportedPackageVersion(
     snapshotRoot?: string;
   } = {},
 ): Promise<ImportedPackageVersion> {
-  const validation = await validateManifest({ sourceRoot: DEMO_SOURCE_ROOT });
+  const validation = await validateManifest(createFileSystemPackageSource(DEMO_SOURCE_ROOT));
 
   if (!validation.ok) {
     throw new Error(
@@ -81,5 +82,13 @@ export async function buildImportedPackageVersion(
       artifactDigest: artifact.digest,
       env: TEST_RUNTIME_CONTRACT_ENV,
     })),
+  };
+}
+
+function getDatabaseEnv(): { get(name: string): string | undefined } {
+  return {
+    get(name: string): string | undefined {
+      return Deno.env.get(name) ?? undefined;
+    },
   };
 }

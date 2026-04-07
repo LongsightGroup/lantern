@@ -1,5 +1,6 @@
 import { type AttemptScoreResult } from '../grading/service.ts';
 import { publishFinalScore, requestServiceAccessToken } from '../lti/services.ts';
+import type { EnvReader } from '../platform/env.ts';
 import {
   LTI_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE,
@@ -86,6 +87,7 @@ export async function publishRuntimeAttemptScore(input: {
   attempt: AttemptRecord;
   packageVersion: PackageVersionRecord;
   score: AttemptScoreResult;
+  env: EnvReader;
   now: () => Date;
 }): Promise<
   Pick<
@@ -160,6 +162,7 @@ export async function publishRuntimeAttemptScore(input: {
     scope: ags.scope,
     binding: deployment.binding,
     lineItemBinding: existingBinding,
+    env: input.env,
   });
 
   if (typeof accessToken !== 'string') {
@@ -187,6 +190,7 @@ export async function publishRuntimeAttemptScore(input: {
         const refreshed = await requestServiceAccessToken({
           binding: deployment.binding!,
           scopes: ags.scope,
+          env: input.env,
         });
 
         return refreshed.accessToken;

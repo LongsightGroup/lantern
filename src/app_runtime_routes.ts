@@ -1,16 +1,16 @@
-import type { Context, Hono } from '@hono/hono';
-import type { RuntimeSessionRecord } from './lti/types.ts';
+import type { Context, Hono } from "@hono/hono";
+import type { RuntimeSessionRecord } from "./lti/types.ts";
 import {
   readBearerToken,
   readRuntimeFileRequest,
   requireTrimmedString,
-} from './app_request_support.ts';
+} from "./app_request_support.ts";
 import {
   errorMessage,
   statusForFinalizePublishError,
   statusForRuntimeError,
-} from './app_status_support.ts';
-import type { AppServices } from './app_services.ts';
+} from "./app_status_support.ts";
+import type { AppServices } from "./app_services.ts";
 import {
   recordRuntimeCapabilityAllowed,
   recordRuntimeRouteFailure,
@@ -19,49 +19,58 @@ import {
   recordRuntimeSessionStarted,
   requireRuntimeSession,
   resolveRuntimeSessionForAudit,
-} from './app_runtime_support.ts';
+} from "./app_runtime_support.ts";
 import {
   acceptAttemptEvent,
   finalizeRuntimeAttempt,
   readAttemptLocalState,
   submitScoreProposal,
   writeAttemptLocalState,
-} from './runtime/gateway.ts';
-import { failRuntimeOutcome, toRuntimeBrokerResult } from './runtime/gateway_errors.ts';
+} from "./runtime/gateway.ts";
+import {
+  failRuntimeOutcome,
+  toRuntimeBrokerResult,
+} from "./runtime/gateway_errors.ts";
 import {
   authorizeRuntimeSession,
   contentTypeForRuntimePath,
   loadRuntimeActivityContent,
   loadRuntimeAssetBytes,
   renderRuntimeSessionPage,
-} from './runtime/session.ts';
-import { requireRuntimeRequestOrigin } from './runtime_origin.ts';
+} from "./runtime/session.ts";
+import { readEnv } from "./platform/env.ts";
+import { buildRequestAuditEnvelope } from "./request_audit.ts";
+import { requireRuntimeRequestOrigin } from "./runtime_origin.ts";
 
 export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
-  app.get('/runtime/sessions/:sessionId', async (context) => {
+  app.get("/runtime/sessions/:sessionId", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const request = buildRequestAuditEnvelope({ context });
 
     try {
-      const runtimeOrigin = requireRuntimeOriginBoundary(context);
+      const runtimeOrigin = requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const url = new URL(context.req.url);
 
       authorizeRuntimeSession({
         token: requireTrimmedString(
-          url.searchParams.get('token'),
-          'Runtime session token is required.',
+          url.searchParams.get("token"),
+          "Runtime session token is required.",
         ),
         expected: session,
       });
-      const packageVersion = await repository.getPackageVersionById(session.packageVersionId);
+      const packageVersion = await repository.getPackageVersionById(
+        session.packageVersionId,
+      );
 
       if (!packageVersion) {
         failRuntimeOutcome({
-          type: 'integrity_failure',
-          code: 'package_version_missing',
-          message: `Runtime session package version id ${session.packageVersionId} was not found.`,
+          type: "integrity_failure",
+          code: "package_version_missing",
+          message:
+            `Runtime session package version id ${session.packageVersionId} was not found.`,
           status: 409,
           detail: {
             packageVersionId: session.packageVersionId,
@@ -69,11 +78,12 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         });
       }
 
-      if (packageVersion.approvalStatus !== 'approved') {
+      if (packageVersion.approvalStatus !== "approved") {
         failRuntimeOutcome({
-          type: 'integrity_failure',
-          code: 'package_version_not_approved',
-          message: `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+          type: "integrity_failure",
+          code: "package_version_not_approved",
+          message:
+            `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
           status: 409,
           detail: {
             packageVersionId: packageVersion.id,
@@ -84,6 +94,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       const response = context.html(
         await renderRuntimeSessionPage(session, {
           runtimeContractSignature: packageVersion.runtimeContractSignature,
+          env: services.env,
+          artifactStore: services.runtimeArtifactStore,
         }),
       );
 
@@ -92,46 +104,55 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         runtimeOrigin,
-        route: 'session',
+        route: "session",
       });
       return response;
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'session',
+        route: "session",
+        request,
       });
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }
   });
 
-  app.get('/runtime/sessions/:sessionId/content', async (context) => {
+  app.get("/runtime/sessions/:sessionId/content", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const request = buildRequestAuditEnvelope({ context });
 
     try {
-      requireRuntimeOriginBoundary(context);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
 
       authorizeRuntimeSession({
         token: requireTrimmedString(
-          readBearerToken(context.req.header('authorization')),
-          'Runtime session token is required.',
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
         ),
         expected: session,
       });
 
-      const content = await loadRuntimeActivityContent(session);
+      const content = await loadRuntimeActivityContent(
+        session,
+        services.runtimeArtifactStore,
+      );
 
       if (session.preview !== undefined) {
         await repository.appendPreviewEvidence({
           previewSessionId: session.preview.previewSessionId,
-          eventType: 'preview.content_read',
-          capability: 'read_activity_content',
-          summary: 'Loaded the app content for this test launch.',
+          eventType: "preview.content_read",
+          capability: "read_activity_content",
+          summary: "Loaded the app content for this test launch.",
           detail: {
             attemptId: session.attemptId,
             contentPath: session.contentPath,
@@ -142,30 +163,36 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
       return context.json(content);
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'content',
+        route: "content",
+        request,
       });
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }
   });
 
-  app.get('/runtime/sessions/:sessionId/local-state', async (context) => {
+  app.get("/runtime/sessions/:sessionId/local-state", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const request = buildRequestAuditEnvelope({ context });
 
     try {
-      requireRuntimeOriginBoundary(context);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
 
       authorizeRuntimeSession({
         token: requireTrimmedString(
-          readBearerToken(context.req.header('authorization')),
-          'Runtime session token is required.',
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
         ),
         expected: session,
       });
@@ -177,85 +204,107 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         }),
       );
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'local-state.read',
+        route: "local-state.read",
+        request,
       });
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }
   });
 
-  app.put('/runtime/sessions/:sessionId/local-state', async (context) => {
+  app.put("/runtime/sessions/:sessionId/local-state", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let request = buildRequestAuditEnvelope({ context });
 
     try {
-      requireRuntimeOriginBoundary(context);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
 
       authorizeRuntimeSession({
         token: requireTrimmedString(
-          readBearerToken(context.req.header('authorization')),
-          'Runtime session token is required.',
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
         ),
         expected: session,
       });
 
+      const payload = await context.req.json();
+      request = buildRequestAuditEnvelope({
+        context,
+        body: payload,
+      });
       await writeAttemptLocalState({
         repository,
         session,
-        payload: await context.req.json(),
+        payload,
       });
 
       return new Response(null, { status: 204 });
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'local-state.write',
+        route: "local-state.write",
+        request,
       });
       return runtimeMutationErrorResponse(context, error);
     }
   });
 
-  app.post('/runtime/sessions/:sessionId/attempt-events', async (context) => {
+  app.post("/runtime/sessions/:sessionId/attempt-events", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let request = buildRequestAuditEnvelope({ context });
 
     try {
-      requireRuntimeOriginBoundary(context);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
 
       authorizeRuntimeSession({
         token: requireTrimmedString(
-          readBearerToken(context.req.header('authorization')),
-          'Runtime session token is required.',
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
         ),
         expected: session,
       });
 
+      const payload = await context.req.json();
+      request = buildRequestAuditEnvelope({
+        context,
+        body: payload,
+      });
       const attemptEvent = await acceptAttemptEvent({
         repository,
         session,
-        payload: await context.req.json(),
+        payload,
       });
       await repository.recordAuditEvent({
-        eventType: 'attempt.submitted',
-        actorType: 'system',
+        eventType: "attempt.submitted",
+        actorType: "system",
         actorId: null,
         deploymentRecordId: session.deploymentRecordId,
         packageVersionId: session.packageVersionId,
         attemptId: session.attemptId,
         lineItemBindingId: null,
-        status: 'accepted',
-        summary: 'Accepted attempt submission through the runtime gateway.',
+        status: "accepted",
+        summary: "Accepted attempt submission through the runtime gateway.",
         detail: {
           sequence: attemptEvent.sequence,
           eventType: attemptEvent.eventType,
@@ -265,8 +314,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       await recordRuntimeCapabilityAllowed({
         repository,
         session,
-        capability: 'submit_attempt_event',
-        route: 'attempt-events',
+        capability: "submit_attempt_event",
+        route: "attempt-events",
         detail: {
           eventType: attemptEvent.eventType,
           sequence: attemptEvent.sequence,
@@ -275,98 +324,125 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
       return context.json({ accepted: true }, 202);
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'attempt-events',
+        route: "attempt-events",
+        request,
       });
       return runtimeMutationErrorResponse(context, error);
     }
   });
 
-  app.post('/runtime/sessions/:sessionId/score-proposal', async (context) => {
+  app.post("/runtime/sessions/:sessionId/score-proposal", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let request = buildRequestAuditEnvelope({ context });
 
     try {
-      requireRuntimeOriginBoundary(context);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
 
       authorizeRuntimeSession({
         token: requireTrimmedString(
-          readBearerToken(context.req.header('authorization')),
-          'Runtime session token is required.',
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
         ),
         expected: session,
       });
 
+      const payload = await context.req.json();
+      request = buildRequestAuditEnvelope({
+        context,
+        body: payload,
+      });
       const result = await submitScoreProposal({
         repository,
         session,
-        payload: await context.req.json(),
+        payload,
       });
 
       if (!result.accepted) {
-        return context.json(result, result.denial.category === 'policyDenied' ? 409 : 400);
+        return context.json(
+          result,
+          result.denial.category === "policyDenied" ? 409 : 400,
+        );
       }
 
       await recordRuntimeScoreProposalAccepted({
         repository,
         session,
         scoreProposal: result.scoreProposal,
-        route: 'score-proposal',
+        route: "score-proposal",
       });
 
       return context.json(result, 202);
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'score-proposal',
+        route: "score-proposal",
+        request,
       });
       return runtimeMutationErrorResponse(context, error);
     }
   });
 
-  app.post('/runtime/sessions/:sessionId/finalize', async (context) => {
+  app.post("/runtime/sessions/:sessionId/finalize", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let request = buildRequestAuditEnvelope({ context });
 
     try {
-      requireRuntimeOriginBoundary(context);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
 
       authorizeRuntimeSession({
         token: requireTrimmedString(
-          readBearerToken(context.req.header('authorization')),
-          'Runtime session token is required.',
+          readBearerToken(context.req.header("authorization")),
+          "Runtime session token is required.",
         ),
         expected: session,
       });
 
+      const payload = await context.req.json();
+      request = buildRequestAuditEnvelope({
+        context,
+        body: payload,
+      });
       const result = await finalizeRuntimeAttempt({
         repository,
         session,
-        payload: await context.req.json(),
+        payload,
+        env: services.env,
+        artifactStore: services.runtimeArtifactStore,
       });
 
       if (result.finalizedNow) {
         await repository.recordAuditEvent({
-          eventType: 'attempt.finalized',
-          actorType: 'system',
+          eventType: "attempt.finalized",
+          actorType: "system",
           actorId: null,
           deploymentRecordId: session.deploymentRecordId,
           packageVersionId: session.packageVersionId,
           attemptId: session.attemptId,
           lineItemBindingId: null,
-          status: 'accepted',
-          summary: 'Finalized the durable attempt inside the runtime gateway.',
+          status: "accepted",
+          summary: "Finalized the durable attempt inside the runtime gateway.",
           detail: {
             completionState: result.attempt.completionState,
             scoreGiven: result.score.scoreGiven,
@@ -380,22 +456,22 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           completionState: result.attempt.completionState,
           scoreGiven: result.score.scoreGiven,
           scoreMaximum: result.score.scoreMaximum,
-          gradePublished: result.gradePublication?.status === 'published',
-          route: 'finalize',
+          gradePublished: result.gradePublication?.status === "published",
+          route: "finalize",
         });
       }
 
       if (result.gradePublishedNow && result.gradePublication !== null) {
         await repository.recordAuditEvent({
-          eventType: 'grade_publish.succeeded',
-          actorType: 'system',
+          eventType: "grade_publish.succeeded",
+          actorType: "system",
           actorId: null,
           deploymentRecordId: session.deploymentRecordId,
           packageVersionId: session.packageVersionId,
           attemptId: session.attemptId,
           lineItemBindingId: result.lineItemBinding?.id ?? null,
-          status: 'succeeded',
-          summary: 'Published the final score to Canvas through AGS.',
+          status: "succeeded",
+          summary: "Published the final score to Canvas through AGS.",
           detail: {
             lineItemUrl: result.gradePublication.lineItemUrl,
             scoreGiven: result.gradePublication.scoreGiven,
@@ -407,18 +483,19 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
       if (result.publishError !== null) {
         await repository.recordAuditEvent({
-          eventType: 'grade_publish.failed',
-          actorType: 'system',
+          eventType: "grade_publish.failed",
+          actorType: "system",
           actorId: null,
           deploymentRecordId: session.deploymentRecordId,
           packageVersionId: session.packageVersionId,
           attemptId: session.attemptId,
           lineItemBindingId: result.lineItemBinding?.id ?? null,
-          status: 'failed',
-          summary: 'Canvas AGS score publish failed.',
+          status: "failed",
+          summary: "Canvas AGS score publish failed.",
           detail: {
             code: result.publishError.code,
             message: result.publishError.message,
+            request,
             ...result.publishError.detail,
           },
           occurredAt: new Date().toISOString(),
@@ -438,29 +515,35 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           completionState: result.attempt.completionState,
           scoreGiven: result.score.scoreGiven,
           scoreMaximum: result.score.scoreMaximum,
-          gradePublished: result.gradePublication?.status === 'published',
+          gradePublished: result.gradePublication?.status === "published",
         },
         202,
       );
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'finalize',
+        route: "finalize",
+        request,
       });
       return runtimeMutationErrorResponse(context, error);
     }
   });
 
-  app.get('/runtime/sessions/:sessionId/files/*', async (context) => {
+  app.get("/runtime/sessions/:sessionId/files/*", async (context) => {
     const repository = services.getRepository();
-    const sessionId = context.req.param('sessionId');
+    const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const request = buildRequestAuditEnvelope({ context });
 
     try {
-      requireRuntimeOriginBoundary(context);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const fileRequest = readRuntimeFileRequest(context);
 
@@ -471,7 +554,11 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
       const relativePath = fileRequest.relativePath;
       const contentType = contentTypeForRuntimePath(relativePath);
-      const assetBytes = await loadRuntimeAssetBytes(session, relativePath);
+      const assetBytes = await loadRuntimeAssetBytes(
+        session,
+        relativePath,
+        services.runtimeArtifactStore,
+      );
       const assetBody = new Uint8Array(assetBytes.byteLength);
 
       assetBody.set(assetBytes);
@@ -481,54 +568,67 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         headers: buildRuntimeAssetHeaders(contentType),
       });
     } catch (error) {
-      session = await resolveRuntimeSessionForAudit(repository, session, sessionId);
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
       await recordRuntimeRouteFailure({
         repository,
         session,
         error,
-        route: 'files',
+        route: "files",
+        request,
       });
       return context.text(errorMessage(error), statusForRuntimeError(error));
     }
   });
 }
 
-function requireRuntimeOriginBoundary(context: Context): string {
+function requireRuntimeOriginBoundary(
+  context: Context,
+  services: AppServices,
+): string {
   try {
     return requireRuntimeRequestOrigin({
       requestUrl: context.req.url,
-      forwardedHeader: context.req.header('forwarded') ?? null,
-      xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-      xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-      configuredOrigin: Deno.env.get('APP_RUNTIME_ORIGIN'),
+      forwardedHeader: context.req.header("forwarded") ?? null,
+      xForwardedHost: context.req.header("x-forwarded-host") ?? null,
+      xForwardedProto: context.req.header("x-forwarded-proto") ?? null,
+      configuredOrigin: readEnv("APP_RUNTIME_ORIGIN", services.env),
     });
   } catch (error) {
     const message = errorMessage(error);
 
-    if (message === 'APP_RUNTIME_ORIGIN is required to serve reviewed runtime sessions.') {
+    if (
+      message ===
+        "APP_RUNTIME_ORIGIN is required to serve reviewed runtime sessions."
+    ) {
       failRuntimeOutcome({
-        type: 'integrity_failure',
-        code: 'runtime_origin_missing',
+        type: "integrity_failure",
+        code: "runtime_origin_missing",
         message,
         status: 500,
         detail: {},
       });
     }
 
-    if (message === 'APP_RUNTIME_ORIGIN must be an absolute http or https URL.') {
+    if (
+      message === "APP_RUNTIME_ORIGIN must be an absolute http or https URL."
+    ) {
       failRuntimeOutcome({
-        type: 'integrity_failure',
-        code: 'runtime_origin_invalid',
+        type: "integrity_failure",
+        code: "runtime_origin_invalid",
         message,
         status: 500,
         detail: {},
       });
     }
 
-    if (message === 'Runtime session requests must use APP_RUNTIME_ORIGIN.') {
+    if (message === "Runtime session requests must use APP_RUNTIME_ORIGIN.") {
       failRuntimeOutcome({
-        type: 'deny',
-        code: 'runtime_origin_mismatch',
+        type: "deny",
+        code: "runtime_origin_mismatch",
         message,
         status: 409,
         detail: {},
@@ -539,7 +639,10 @@ function requireRuntimeOriginBoundary(context: Context): string {
   }
 }
 
-function runtimeMutationErrorResponse(context: Context, error: unknown): Response {
+function runtimeMutationErrorResponse(
+  context: Context,
+  error: unknown,
+): Response {
   const brokerResult = toRuntimeBrokerResult(error);
 
   if (brokerResult !== null) {
@@ -551,13 +654,13 @@ function runtimeMutationErrorResponse(context: Context, error: unknown): Respons
 
 function applyRuntimeDocumentHeaders(headers: Headers): void {
   applyRuntimeResponseHeaders(headers);
-  headers.set('content-security-policy', runtimeContentSecurityPolicy());
-  headers.set('permissions-policy', runtimePermissionsPolicy());
+  headers.set("content-security-policy", runtimeContentSecurityPolicy());
+  headers.set("permissions-policy", runtimePermissionsPolicy());
 }
 
 function buildRuntimeAssetHeaders(contentType: string): Headers {
   const headers = new Headers({
-    'content-type': contentType,
+    "content-type": contentType,
   });
 
   applyRuntimeResponseHeaders(headers);
@@ -565,10 +668,10 @@ function buildRuntimeAssetHeaders(contentType: string): Headers {
 }
 
 function applyRuntimeResponseHeaders(headers: Headers): void {
-  headers.set('cache-control', 'no-store');
-  headers.set('cross-origin-resource-policy', 'same-origin');
-  headers.set('referrer-policy', 'no-referrer');
-  headers.set('x-content-type-options', 'nosniff');
+  headers.set("cache-control", "no-store");
+  headers.set("cross-origin-resource-policy", "same-origin");
+  headers.set("referrer-policy", "no-referrer");
+  headers.set("x-content-type-options", "nosniff");
 }
 
 function runtimeContentSecurityPolicy(): string {
@@ -586,28 +689,28 @@ function runtimeContentSecurityPolicy(): string {
     "base-uri 'self'",
     "form-action 'none'",
     "frame-src 'none'",
-  ].join('; ');
+  ].join("; ");
 }
 
 function runtimePermissionsPolicy(): string {
   return [
-    'accelerometer=()',
-    'camera=()',
-    'clipboard-read=()',
-    'clipboard-write=()',
-    'display-capture=()',
-    'fullscreen=()',
-    'geolocation=()',
-    'gyroscope=()',
-    'magnetometer=()',
-    'microphone=()',
-    'midi=()',
-    'payment=()',
-    'publickey-credentials-get=()',
-    'screen-wake-lock=()',
-    'serial=()',
-    'usb=()',
-    'web-share=()',
-    'xr-spatial-tracking=()',
-  ].join(', ');
+    "accelerometer=()",
+    "camera=()",
+    "clipboard-read=()",
+    "clipboard-write=()",
+    "display-capture=()",
+    "fullscreen=()",
+    "geolocation=()",
+    "gyroscope=()",
+    "magnetometer=()",
+    "microphone=()",
+    "midi=()",
+    "payment=()",
+    "publickey-credentials-get=()",
+    "screen-wake-lock=()",
+    "serial=()",
+    "usb=()",
+    "web-share=()",
+    "xr-spatial-tracking=()",
+  ].join(", ");
 }

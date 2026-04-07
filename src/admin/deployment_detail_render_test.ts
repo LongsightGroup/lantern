@@ -50,6 +50,8 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
     'Connect this app to one LMS and choose what version people should open.',
   );
   assertStringIncludes(html, 'deployment-tab-strip');
+  assertStringIncludes(html, 'Past versions and review notes');
+  assertStringIncludes(html, 'version-history-table');
   assertStringIncludes(html, 'Set up Canvas');
   assertStringIncludes(html, 'Dynamic Registration');
   assertStringIncludes(
@@ -67,8 +69,10 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
   assertStringIncludes(html, 'Configuration URL');
   assertStringIncludes(html, 'Canvas environment');
   assertStringIncludes(html, binding.issuer);
+  assertStringIncludes(html, 'chip-status-healthy');
   assertStringIncludes(html, 'Recent launches');
   assertStringIncludes(html, 'Open checks and troubleshooting');
+  assertFalse(html.includes('<summary>Past versions and review notes</summary>'));
 });
 
 Deno.test('deployment page renders the selected Sakai tab without leaking the Canvas form', () => {
@@ -155,7 +159,7 @@ Deno.test('deployment page shows the Canvas pending-registration state before th
   assertStringIncludes(html, 'Waiting for first Canvas launch');
   assertStringIncludes(html, 'Pending connection');
   assertStringIncludes(html, 'one real Canvas launch to capture the exact');
-  assertStringIncludes(html, 'Save live version');
+  assertStringIncludes(html, 'Save version for learners');
 });
 
 Deno.test('deployment page shows the latest roster verification summary and action', () => {

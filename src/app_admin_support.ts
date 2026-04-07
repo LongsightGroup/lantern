@@ -20,6 +20,7 @@ import { loadDeploymentDetailStateSafe } from './app_deployment_support.ts';
 import { normalizeOptionalString } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { readEnv } from './platform/env.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
 import {
@@ -276,7 +277,7 @@ export async function renderDeploymentError(
       forwardedHeader: context.req.header('forwarded') ?? null,
       xForwardedHost: context.req.header('x-forwarded-host') ?? null,
       xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-      configuredOrigin: Deno.env.get('APP_ORIGIN'),
+      configuredOrigin: readEnv('APP_ORIGIN', services.env),
     });
     const canvasConfigUrl = getCanvasConfigUrlNoticeSafe(appOrigin);
     const detailState = await loadDeploymentDetailStateSafe(repository, appId, appOrigin);

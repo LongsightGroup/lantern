@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import { getReferencePackageSourceRoot } from '../package_review/intake.ts';
+import { getDefaultRuntimeArtifactStore } from '../runtime/artifact_store_fs.ts';
 import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 import { createInMemoryPackageReviewRepository } from '../test_helpers/package_review.ts';
 import {
@@ -7,6 +8,8 @@ import {
   launchPreviewRuntimeSession,
   preparePreviewSession,
 } from './service.ts';
+
+const artifactStore = getDefaultRuntimeArtifactStore();
 
 Deno.test('preview service loads preview.fixtures_file and validates required fields before preparing launch context', async () => {
   const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
@@ -46,6 +49,7 @@ Deno.test('preview service loads preview.fixtures_file and validates required fi
 
     const prepared = await preparePreviewSession({
       packageVersion: approvedPackage,
+      artifactStore,
       now: () => new Date('2026-03-25T02:00:00Z'),
       createOpaqueToken: () => 'opaque-1',
     });
@@ -86,6 +90,7 @@ Deno.test('preview service fails clearly when preview fixtures are missing and d
       () =>
         preparePreviewSession({
           packageVersion: approvedPackage,
+          artifactStore,
           now: () => new Date('2026-03-25T02:05:00Z'),
           createOpaqueToken: () => 'opaque-1',
         }),
@@ -131,6 +136,7 @@ Deno.test('preview service applies explicit test-launch overrides over saved def
 
     const prepared = await preparePreviewSession({
       packageVersion: approvedPackage,
+      artifactStore,
       launch: {
         userRole: 'instructor',
         courseId: 'physics-201',
@@ -200,6 +206,7 @@ Deno.test('preview service returns fake identity/session defaults shaped for run
     const created = await createPreviewSession({
       repository,
       packageVersion: approvedPackage,
+      artifactStore,
       now: () => new Date('2026-03-25T02:10:00Z'),
       createOpaqueToken: () => {
         const token = tokens[index] ?? 'opaque-fallback';
@@ -259,6 +266,7 @@ Deno.test('preview service defaults admin launches to admin origin and canonical
 
     const prepared = await preparePreviewSession({
       packageVersion: approvedPackage,
+      artifactStore,
       now: () => new Date('2026-04-01T10:00:00Z'),
       createOpaqueToken: () => 'opaque-admin',
     });
@@ -316,6 +324,7 @@ Deno.test('preview service keeps explicit authoring origin and selected content 
     const launched = await launchPreviewRuntimeSession({
       repository,
       packageVersion: approvedPackage,
+      artifactStore,
       launch: {
         userRole: 'instructor',
         courseId: 'physics-201',
@@ -387,12 +396,14 @@ Deno.test('preview runtime sessions from admin and authoring origins both keep l
     const adminLaunch = await launchPreviewRuntimeSession({
       repository,
       packageVersion: approvedPackage,
+      artifactStore,
       now: () => new Date('2026-04-01T10:07:00Z'),
       createOpaqueToken: () => crypto.randomUUID(),
     });
     const authoringLaunch = await launchPreviewRuntimeSession({
       repository,
       packageVersion: approvedPackage,
+      artifactStore,
       launch: {
         userRole: 'instructor',
         courseId: 'physics-202',
@@ -450,6 +461,7 @@ Deno.test('preview service reads committed quick-study fixtures without inventin
 
   const prepared = await preparePreviewSession({
     packageVersion: approvedPackage,
+    artifactStore,
     now: () => new Date('2026-04-05T14:00:00Z'),
     createOpaqueToken: () => 'quick-study-preview',
   });

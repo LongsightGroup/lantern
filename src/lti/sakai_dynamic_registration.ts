@@ -1,5 +1,6 @@
 import { requireAppOrigin } from './config.ts';
 import { assertHostedDynamicRegistrationMetadata } from './dynamic_registration_support.ts';
+import { type FetchLike, performFetch } from './fetch_like.ts';
 import { type DeploymentBinding, LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from './types.ts';
 
 const SAKAI_TOOL_CONFIGURATION_CLAIM = 'https://purl.imsglobal.org/spec/lti-tool-configuration';
@@ -10,10 +11,6 @@ interface SakaiOpenIdProviderConfiguration {
   tokenEndpoint: string;
   jwksUrl: string;
   registrationEndpoint: string;
-}
-
-interface FetchLike {
-  (input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
 }
 
 export function buildSakaiDynamicRegistrationUrl(
@@ -41,17 +38,16 @@ export async function completeSakaiDynamicRegistration(input: {
   fetch?: FetchLike;
 }): Promise<Extract<DeploymentBinding, { lms: 'sakai' }>> {
   const appOrigin = input.appOrigin ?? requireAppOrigin();
-  const fetcher = input.fetch ?? fetch;
   const providerConfiguration = await loadSakaiOpenIdProviderConfiguration(
     input.openidConfigurationUrl,
-    fetcher,
+    input.fetch,
   );
   const registrationResponse = await submitSakaiRegistration({
     appOrigin,
     appTitle: input.appTitle,
     registrationEndpoint: providerConfiguration.registrationEndpoint,
     registrationToken: input.registrationToken,
-    fetch: fetcher,
+    ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
   });
 
   return extractSakaiDeploymentBinding(
@@ -63,9 +59,9 @@ export async function completeSakaiDynamicRegistration(input: {
 
 async function loadSakaiOpenIdProviderConfiguration(
   openidConfigurationUrl: string,
-  fetcher: FetchLike,
+  fetcher?: FetchLike,
 ): Promise<SakaiOpenIdProviderConfiguration> {
-  const response = await fetcher(openidConfigurationUrl);
+  const response = await performFetch(openidConfigurationUrl, undefined, fetcher);
 
   if (!response.ok) {
     throw new Error(`Sakai openid_configuration fetch failed with status ${response.status}.`);
@@ -96,16 +92,20 @@ async function submitSakaiRegistration(input: {
   appTitle: string;
   registrationEndpoint: string;
   registrationToken: string;
-  fetch: FetchLike;
+  fetch?: FetchLike;
 }): Promise<Record<string, unknown>> {
-  const response = await input.fetch(input.registrationEndpoint, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${input.registrationToken}`,
-      'content-type': 'application/json',
+  const response = await performFetch(
+    input.registrationEndpoint,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${input.registrationToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(buildSakaiRegistrationRequest(input.appOrigin, input.appTitle)),
     },
-    body: JSON.stringify(buildSakaiRegistrationRequest(input.appOrigin, input.appTitle)),
-  });
+    input.fetch,
+  );
 
   if (!response.ok) {
     throw new Error(`Sakai registration failed with status ${response.status}.`);

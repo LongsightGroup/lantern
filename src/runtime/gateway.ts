@@ -1,7 +1,9 @@
 import { type AttemptScoreResult, loadReviewedRubric, scoreAttempt } from '../grading/service.ts';
 import type { RuntimeSessionRecord } from '../lti/types.ts';
+import type { EnvReader } from '../platform/env.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type { AttemptRecord } from '../package_review/types.ts';
+import type { RuntimeArtifactStore } from './artifact_store.ts';
 import {
   previewSessionHasLiveServicePath,
   requireRuntimeAttempt,
@@ -143,6 +145,8 @@ export async function finalizeRuntimeAttempt(input: {
   repository: PackageReviewRepository;
   session: RuntimeSessionRecord;
   payload: unknown;
+  env: EnvReader;
+  artifactStore: RuntimeArtifactStore;
   now?: () => Date;
 }): Promise<FinalizeAttemptResult> {
   const now = input.now ?? (() => new Date());
@@ -249,6 +253,7 @@ export async function finalizeRuntimeAttempt(input: {
         ? await loadReviewedRubric({
             snapshotRoot: packageVersion.artifact.snapshotRoot,
             rubricFile: packageVersion.grading.rubricFile,
+            artifactStore: input.artifactStore,
           })
         : undefined;
     const score = scoreAttempt({
@@ -263,6 +268,7 @@ export async function finalizeRuntimeAttempt(input: {
       attempt: finalizedAttempt,
       packageVersion,
       score,
+      env: input.env,
       now,
     });
 

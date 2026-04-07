@@ -14,6 +14,7 @@ import {
   resolveDeepLinkingSelection,
 } from './lti/deep_linking.ts';
 import type { DeepLinkingSessionRecord, LtiPlacement } from './lti/types.ts';
+import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 
 const sessionVerificationFailureDetail =
@@ -154,8 +155,9 @@ export function registerDeepLinkingSubmitRoutes(app: Hono, services: AppServices
           forwardedHeader: context.req.header('forwarded') ?? null,
           xForwardedHost: context.req.header('x-forwarded-host') ?? null,
           xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-          configuredOrigin: Deno.env.get('APP_ORIGIN'),
+          configuredOrigin: readEnv('APP_ORIGIN', services.env),
         }),
+        env: services.env,
       });
 
       return context.html(

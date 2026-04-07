@@ -1,11 +1,13 @@
 import type { Hono } from '@hono/hono';
+import type { AppServices } from './app_services.ts';
 import { renderHomePage } from './pages/home.ts';
 import { buildCanvasConfigDocument } from './lti/config.ts';
 import { getPublicJwkSet } from './lti/tool_key.ts';
 import { statusForError } from './app_status_support.ts';
+import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 
-export function registerBasicRoutes(app: Hono): void {
+export function registerBasicRoutes(app: Hono, services: AppServices): void {
   app.get('/', (context) => {
     return context.html(renderHomePage());
   });
@@ -23,8 +25,9 @@ export function registerBasicRoutes(app: Hono): void {
             forwardedHeader: context.req.header('forwarded') ?? null,
             xForwardedHost: context.req.header('x-forwarded-host') ?? null,
             xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-            configuredOrigin: Deno.env.get('APP_ORIGIN'),
+            configuredOrigin: readEnv('APP_ORIGIN', services.env),
           }),
+          services.env,
         ),
       );
     } catch (error) {
@@ -39,7 +42,7 @@ export function registerBasicRoutes(app: Hono): void {
 
   app.get('/lti/jwks.json', async (context) => {
     try {
-      return context.json(await getPublicJwkSet());
+      return context.json(await getPublicJwkSet(services.env));
     } catch (error) {
       return context.json(
         { error: error instanceof Error ? error.message : 'JWKS unavailable.' },

@@ -46,6 +46,20 @@ export function describeBindingStatusHeading(slot: ManagedDeploymentSlot): strin
   }
 }
 
+export function describeBindingStatusChipClass(slot: ManagedDeploymentSlot): string {
+  switch (describeBindingStatusHeading(slot)) {
+    case 'Connected and live':
+      return 'chip-status chip-status-healthy';
+    case 'Connected, choose a live version':
+    case 'Waiting for first Canvas launch':
+      return 'chip-status chip-status-attention';
+    case 'Not connected':
+      return 'chip-status chip-status-unknown';
+  }
+
+  return 'chip-status chip-status-unknown';
+}
+
 export function describeEditorCopy(lms: ManagedDeploymentSlot['lms']): string {
   switch (lms) {
     case 'canvas':

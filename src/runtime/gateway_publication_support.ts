@@ -5,6 +5,7 @@ import {
   type EnsureLineItemResult,
   requestServiceAccessToken,
 } from '../lti/services.ts';
+import type { EnvReader } from '../platform/env.ts';
 import {
   buildLtiActivityResourceId,
   type DeploymentBinding,
@@ -87,6 +88,7 @@ export async function requestAccessToken(input: {
   scope: string[];
   binding: DeploymentBinding;
   lineItemBinding: Awaited<ReturnType<PackageReviewRepository['getLineItemBinding']>>;
+  env: EnvReader;
   requestToken?: typeof requestServiceAccessToken;
 }): Promise<
   | string
@@ -100,6 +102,7 @@ export async function requestAccessToken(input: {
     const token = await requestToken({
       binding: input.binding,
       scopes: input.scope,
+      env: input.env,
     });
 
     return token.accessToken;

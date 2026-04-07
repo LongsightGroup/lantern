@@ -191,7 +191,7 @@ Deno.test('GET /admin/packages/:appId/deployment renders an LMS tab strip with o
     assertStringIncludes(body, 'Use Lantern default');
     assertStringIncludes(body, 'Certification');
     assertStringIncludes(body, 'Governed interoperability');
-    assertStringIncludes(body, 'Save live version');
+    assertStringIncludes(body, 'Save version for learners');
     assertStringIncludes(body, 'Save the app settings first');
     assertStringIncludes(body, 'Accessibility');
     assertStringIncludes(body, 'Flagged review');

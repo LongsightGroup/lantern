@@ -5,6 +5,7 @@ import type { ResolvedLtiProfile } from './lti/profile.ts';
 import type { DeploymentBinding, RuntimeSessionRecord } from './lti/types.ts';
 import { LTI_AGS_LINEITEM_SCOPE, LTI_AGS_SCORE_SCOPE } from './lti/types.ts';
 import { publishFinalScore, requestServiceAccessToken } from './lti/services.ts';
+import type { EnvReader } from './platform/env.ts';
 import type { PackageReviewRepository } from './package_review/repository.ts';
 import type { AttemptRecord, DeploymentRecord } from './package_review/types.ts';
 import {
@@ -43,6 +44,7 @@ export async function runGradeSmokeVerification(input: {
   binding: Extract<DeploymentBinding, { lms: SupportedSmokeLms }>;
   session: RuntimeSessionRecord;
   attempt: AttemptRecord;
+  env: EnvReader;
   ltiProfile?: ResolvedLtiProfile | null;
 }): Promise<GradeSmokeVerificationResult> {
   const ags = input.session.services.ags;
@@ -77,6 +79,7 @@ export async function runGradeSmokeVerification(input: {
     scope: ags.scope,
     binding: input.binding,
     lineItemBinding: null,
+    env: input.env,
   });
 
   if (typeof accessToken !== 'string') {
@@ -119,6 +122,7 @@ export async function runGradeSmokeVerification(input: {
           const refreshed = await requestServiceAccessToken({
             binding: input.binding,
             scopes: ags.scope,
+            env: input.env,
           });
 
           return refreshed.accessToken;

@@ -1,3 +1,5 @@
+import { readEnv } from '../platform/env.ts';
+
 export interface AdminBreadcrumb {
   label: string;
   href?: string;
@@ -146,9 +148,9 @@ export function renderNotice(notice: AdminNotice): string {
 
 function resolveAdminIdentity(): AdminIdentity {
   const displayName =
-    normalizeIdentityValue(Deno.env.get('LANTERN_OPERATOR_NAME')) ??
-    normalizeIdentityValue(Deno.env.get('USER')) ??
-    normalizeIdentityValue(Deno.env.get('LOGNAME')) ??
+    normalizeIdentityValue(readEnv('LANTERN_OPERATOR_NAME')) ??
+    normalizeIdentityValue(readEnv('USER')) ??
+    normalizeIdentityValue(readEnv('LOGNAME')) ??
     'Local operator';
 
   return {

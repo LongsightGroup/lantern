@@ -3,31 +3,31 @@ import {
   assertPathInsideSnapshot,
   ensureLeadingSlash,
   joinSnapshotPath,
+  toRelativeSnapshotPath,
   trimLeadingSlash,
 } from '../package_review/snapshot_path.ts';
 import type { PackageVersionRecord, PreviewFixtureData } from '../package_review/types.ts';
+import type { RuntimeArtifactStore } from '../runtime/artifact_store.ts';
 
 export async function loadPreviewFixtureData(
   packageVersion: PackageVersionRecord,
+  artifactStore: RuntimeArtifactStore,
 ): Promise<PreviewFixtureData> {
-  const manifestJson = await loadReviewedManifestJson(packageVersion);
+  const manifestJson = await loadReviewedManifestJson(packageVersion, artifactStore);
   const fixturesFile = readFixturesFilePath(manifestJson);
-  const fixtureAbsolutePath = resolveSnapshotPath(
-    packageVersion.artifact.snapshotRoot,
-    fixturesFile,
-  );
   let sourceText: string;
 
   try {
-    sourceText = await Deno.readTextFile(fixtureAbsolutePath);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      throw new TypeError(
-        `Saved test launch file ${fixturesFile} is missing from the reviewed app files.`,
-      );
-    }
-
-    throw error;
+    sourceText = new TextDecoder().decode(
+      await artifactStore.readBytes(
+        packageVersion.artifact.snapshotRoot,
+        resolveSnapshotRelativePath(packageVersion.artifact.snapshotRoot, fixturesFile),
+      ),
+    );
+  } catch {
+    throw new TypeError(
+      `Saved test launch file ${fixturesFile} is missing from the reviewed app files.`,
+    );
   }
 
   let parsed: unknown;
@@ -41,34 +41,33 @@ export async function loadPreviewFixtureData(
   return parsePreviewFixtureData(parsed);
 }
 
-export async function resolvePreviewRuntimeContentPath(
-  packageVersion: PackageVersionRecord,
-): Promise<string> {
-  const canonicalContentPath = await resolvePreviewContentPath(packageVersion);
-
-  return `${packageVersion.artifact.snapshotRoot}${ensureLeadingSlash(canonicalContentPath)}`;
-}
-
 export async function resolvePreviewContentPath(
   packageVersion: PackageVersionRecord,
+  artifactStore: RuntimeArtifactStore,
 ): Promise<string> {
-  const manifestJson = await loadReviewedManifestJson(packageVersion);
+  const manifestJson = await loadReviewedManifestJson(packageVersion, artifactStore);
   return ensureLeadingSlash(readCanonicalContentPath(manifestJson));
 }
 
 async function loadReviewedManifestJson(
   packageVersion: PackageVersionRecord,
+  artifactStore: RuntimeArtifactStore,
 ): Promise<Record<string, unknown>> {
   let sourceText: string;
 
   try {
-    sourceText = await Deno.readTextFile(packageVersion.artifact.manifestPath);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      throw new TypeError('Reviewed manifest.json is missing from the saved app files.');
-    }
-
-    throw error;
+    sourceText = new TextDecoder().decode(
+      await artifactStore.readBytes(
+        packageVersion.artifact.snapshotRoot,
+        toRelativeSnapshotPath(
+          packageVersion.artifact.snapshotRoot,
+          packageVersion.artifact.manifestPath,
+          'Reviewed manifest.json is missing from the saved app files.',
+        ),
+      ),
+    );
+  } catch {
+    throw new TypeError('Reviewed manifest.json is missing from the saved app files.');
   }
 
   let parsed: unknown;
@@ -141,7 +140,7 @@ function parseLocalState(value: unknown): Record<string, unknown> | null {
   return value as Record<string, unknown>;
 }
 
-function resolveSnapshotPath(snapshotRoot: string, filePath: string): string {
+function resolveSnapshotRelativePath(snapshotRoot: string, filePath: string): string {
   const relativePath = trimLeadingSlash(filePath);
   const absolutePath = joinSnapshotPath(
     snapshotRoot,
@@ -155,7 +154,11 @@ function resolveSnapshotPath(snapshotRoot: string, filePath: string): string {
     'Saved test launch file path must stay inside the reviewed app files.',
   );
 
-  return absolutePath;
+  return toRelativeSnapshotPath(
+    snapshotRoot,
+    absolutePath,
+    'Saved test launch file path must stay inside the reviewed app files.',
+  );
 }
 
 function readCanonicalContentPath(manifestJson: Record<string, unknown>): string {

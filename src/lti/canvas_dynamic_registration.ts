@@ -6,6 +6,7 @@ import {
 } from './config.ts';
 import { assertCanvasDynamicRegistrationMetadata } from './dynamic_registration_support.ts';
 import { resolveCanvasPlatform } from './canvas_platform.ts';
+import { type FetchLike, performFetch } from './fetch_like.ts';
 import {
   CANVAS_LTI_SCOPES,
   LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
@@ -20,10 +21,6 @@ interface CanvasOpenIdProviderConfiguration {
   issuer: string;
   authorizationEndpoint: string;
   registrationEndpoint: string;
-}
-
-interface FetchLike {
-  (input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
 }
 
 export function buildCanvasDynamicRegistrationUrl(
@@ -54,18 +51,17 @@ export async function completeCanvasDynamicRegistration(input: {
   clientId: string;
 }> {
   const appOrigin = input.appOrigin ?? requireAppOrigin();
-  const fetcher = input.fetch ?? fetch;
   const providerConfiguration = await loadCanvasOpenIdProviderConfiguration({
     openidConfigurationUrl: input.openidConfigurationUrl,
     registrationToken: input.registrationToken,
-    fetch: fetcher,
+    ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
   });
   const registrationResponse = await submitCanvasRegistration({
     appOrigin,
     appTitle: input.appTitle,
     registrationEndpoint: providerConfiguration.registrationEndpoint,
     registrationToken: input.registrationToken,
-    fetch: fetcher,
+    ...(input.fetch === undefined ? {} : { fetch: input.fetch }),
   });
   const platform = resolveCanvasPlatform(providerConfiguration.issuer);
 
@@ -79,13 +75,17 @@ export async function completeCanvasDynamicRegistration(input: {
 async function loadCanvasOpenIdProviderConfiguration(input: {
   openidConfigurationUrl: string;
   registrationToken: string;
-  fetch: FetchLike;
+  fetch?: FetchLike;
 }): Promise<CanvasOpenIdProviderConfiguration> {
-  const response = await input.fetch(input.openidConfigurationUrl, {
-    headers: {
-      authorization: `Bearer ${input.registrationToken}`,
+  const response = await performFetch(
+    input.openidConfigurationUrl,
+    {
+      headers: {
+        authorization: `Bearer ${input.registrationToken}`,
+      },
     },
-  });
+    input.fetch,
+  );
 
   if (!response.ok) {
     throw new Error(`Canvas openid_configuration fetch failed with status ${response.status}.`);
@@ -114,16 +114,20 @@ async function submitCanvasRegistration(input: {
   appTitle: string;
   registrationEndpoint: string;
   registrationToken: string;
-  fetch: FetchLike;
+  fetch?: FetchLike;
 }): Promise<Record<string, unknown>> {
-  const response = await input.fetch(input.registrationEndpoint, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${input.registrationToken}`,
-      'content-type': 'application/json',
+  const response = await performFetch(
+    input.registrationEndpoint,
+    {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${input.registrationToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(buildCanvasRegistrationRequest(input.appOrigin, input.appTitle)),
     },
-    body: JSON.stringify(buildCanvasRegistrationRequest(input.appOrigin, input.appTitle)),
-  });
+    input.fetch,
+  );
 
   if (!response.ok) {
     throw new Error(`Canvas registration failed with status ${response.status}.`);

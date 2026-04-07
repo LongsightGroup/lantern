@@ -2,6 +2,8 @@ import { assertEquals, assertRejects, assertStringIncludes } from '@std/assert';
 import { compactVerify, createLocalJWKSet } from 'jose';
 import type { BootstrapPayload } from '../../sdk/app-sdk.ts';
 import { getPublicJwkSet } from '../lti/tool_key.ts';
+import { createR2RuntimeArtifactStore, type RuntimeArtifactBucket } from './artifact_store.ts';
+import { getDefaultRuntimeArtifactStore } from './artifact_store_fs.ts';
 import {
   authorizeRuntimeSession,
   loadRuntimeActivityContent,
@@ -10,6 +12,8 @@ import {
 import { buildRuntimeSessionRecord, getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
 
 const EXAMPLE_SNAPSHOT_ROOT = 'examples/apps/chapter-4-asteroids';
+const WORKER_SNAPSHOT_ROOT = 'var/packages/chapter-4-asteroids/1.0.0';
+const fileSystemArtifactStore = getDefaultRuntimeArtifactStore();
 const TEST_SIGNING_ENV = {
   get(name: string): string | undefined {
     return name === 'LTI_TOOL_PRIVATE_JWK'
@@ -30,6 +34,7 @@ Deno.test('runtime session route serves the pinned reviewed entrypoint with an i
     {
       runtimeContractSignature: 'test-reviewed-runtime-contract-signature',
       env: TEST_SIGNING_ENV,
+      artifactStore: fileSystemArtifactStore,
     },
   );
   const bootstrap = extractBootstrapFromHtml(html);
@@ -79,10 +84,41 @@ Deno.test('runtime content route serves reviewed activity content through the La
       entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
       contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
     }),
+    fileSystemArtifactStore,
   )) as { title: string; questions: Array<{ id: string }> };
 
   assertEquals(content.title, 'Chapter 4 Asteroids');
   assertEquals(content.questions[0]?.id, 'q1');
+});
+
+Deno.test('runtime session helpers can load reviewed artifacts from an R2-backed store', async () => {
+  const artifactStore = createR2RuntimeArtifactStore(
+    createTestRuntimeArtifactBucket({
+      [`${WORKER_SNAPSHOT_ROOT}/dist/index.html`]:
+        '<html><head></head><body>Worker Artifact</body></html>',
+      [`${WORKER_SNAPSHOT_ROOT}/content/activity.json`]:
+        '{"title":"Worker Artifact","questions":[{"id":"worker-q1"}]}',
+    }),
+  );
+  const session = buildRuntimeSessionRecord({
+    snapshotRoot: WORKER_SNAPSHOT_ROOT,
+    entrypointPath: `${WORKER_SNAPSHOT_ROOT}/dist/index.html`,
+    contentPath: `${WORKER_SNAPSHOT_ROOT}/content/activity.json`,
+  });
+  const html = await renderRuntimeSessionPage(session, {
+    runtimeContractSignature: 'test-reviewed-runtime-contract-signature',
+    env: TEST_SIGNING_ENV,
+    artifactStore,
+  });
+  const content = (await loadRuntimeActivityContent(session, artifactStore)) as {
+    title: string;
+    questions: Array<{ id: string }>;
+  };
+
+  assertStringIncludes(html, 'Worker Artifact');
+  assertStringIncludes(html, 'GatewayBootstrap');
+  assertEquals(content.title, 'Worker Artifact');
+  assertEquals(content.questions[0]?.id, 'worker-q1');
 });
 
 Deno.test('missing or expired runtime session tokens are blocked before artifact bytes are served', async () => {
@@ -147,4 +183,26 @@ async function assertBootstrapSignature(bootstrap: BootstrapPayload): Promise<vo
       expires_at: bootstrap.session.expires_at,
     },
   });
+}
+
+function createTestRuntimeArtifactBucket(files: Record<string, string>): RuntimeArtifactBucket {
+  const encodedFiles = new Map(
+    Object.entries(files).map(([path, contents]) => [path, new TextEncoder().encode(contents)]),
+  );
+
+  return {
+    get(key: string) {
+      const bytes = encodedFiles.get(key);
+
+      if (bytes === undefined) {
+        return Promise.resolve(null);
+      }
+
+      return Promise.resolve({
+        arrayBuffer() {
+          return Promise.resolve(bytes.slice().buffer);
+        },
+      });
+    },
+  };
 }

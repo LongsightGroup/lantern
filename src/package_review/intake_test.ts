@@ -6,7 +6,16 @@ import {
   importReferencePackage,
   listReferencePackageIds,
 } from './intake.ts';
+import { createFileSystemPackageSource } from './package_source_fs.ts';
 import { verifyReviewedRuntimeContractSignature } from './runtime_contract.ts';
+import { getDefaultPackageSnapshotStore } from './snapshot_store_fs.ts';
+
+const snapshotStore = getDefaultPackageSnapshotStore();
+const TEST_RUNTIME_CONTRACT_ENV = {
+  get(name: string): string | undefined {
+    return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
+  },
+};
 
 async function withToolSigningEnv(run: () => Promise<void>): Promise<void> {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
@@ -28,7 +37,12 @@ Deno.test('importDemoPackage snapshots the demo package into Lantern-managed sto
     const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
 
     try {
-      const result = await importDemoPackage({ storageRoot });
+      const result = await importDemoPackage({
+        storageRoot,
+        source: createFileSystemPackageSource('examples/apps/chapter-4-asteroids'),
+        snapshotStore,
+        env: TEST_RUNTIME_CONTRACT_ENV,
+      });
 
       assertEquals(result.reviewData.appId, 'chapter-4-asteroids');
       assertEquals(result.reviewData.version, '0.1.0');
@@ -49,6 +63,7 @@ Deno.test('importDemoPackage snapshots the demo package into Lantern-managed sto
       await verifyReviewedRuntimeContractSignature({
         runtimeContract: result.runtimeContract,
         runtimeContractSignature: result.runtimeContractSignature,
+        env: TEST_RUNTIME_CONTRACT_ENV,
       });
 
       const sourceManifest = await Deno.readTextFile(
@@ -73,10 +88,21 @@ Deno.test('importDemoPackage refuses to overwrite an existing immutable snapshot
     const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
 
     try {
-      await importDemoPackage({ storageRoot });
+      await importDemoPackage({
+        storageRoot,
+        source: createFileSystemPackageSource('examples/apps/chapter-4-asteroids'),
+        snapshotStore,
+        env: TEST_RUNTIME_CONTRACT_ENV,
+      });
 
       await assertRejects(
-        () => importDemoPackage({ storageRoot }),
+        () =>
+          importDemoPackage({
+            storageRoot,
+            source: createFileSystemPackageSource('examples/apps/chapter-4-asteroids'),
+            snapshotStore,
+            env: TEST_RUNTIME_CONTRACT_ENV,
+          }),
         Error,
         'Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.',
       );
@@ -95,6 +121,9 @@ Deno.test('importReferencePackage snapshots each curated reference app into Lant
         const result = await importReferencePackage({
           appId,
           storageRoot,
+          source: createFileSystemPackageSource(getReferencePackageSourceRoot(appId)),
+          snapshotStore,
+          env: TEST_RUNTIME_CONTRACT_ENV,
         });
         const sourceRoot = getReferencePackageSourceRoot(appId);
 
@@ -111,6 +140,7 @@ Deno.test('importReferencePackage snapshots each curated reference app into Lant
         await verifyReviewedRuntimeContractSignature({
           runtimeContract: result.runtimeContract,
           runtimeContractSignature: result.runtimeContractSignature,
+          env: TEST_RUNTIME_CONTRACT_ENV,
         });
 
         const sourceManifest = await Deno.readTextFile(`${sourceRoot}/manifest.json`);

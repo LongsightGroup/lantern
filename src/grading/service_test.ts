@@ -4,9 +4,11 @@ import {
   buildAttemptRecord,
   buildPackageVersionRecord,
 } from '../test_helpers/package_review.ts';
+import { getDefaultRuntimeArtifactStore } from '../runtime/artifact_store_fs.ts';
 import type { ReviewedRubric } from './service.ts';
 
 const EXAMPLE_SNAPSHOT_ROOT = 'examples/apps/chapter-4-asteroids';
+const artifactStore = getDefaultRuntimeArtifactStore();
 
 Deno.test('loadReviewedRubric loads the reviewed rubric from the pinned snapshot', async () => {
   const grading = await import(`./${'service.ts'}`);
@@ -22,6 +24,7 @@ Deno.test('loadReviewedRubric loads the reviewed rubric from the pinned snapshot
   const rubric = await grading.loadReviewedRubric({
     snapshotRoot: packageVersion.artifact.snapshotRoot,
     rubricFile: packageVersion.grading.rubricFile,
+    artifactStore,
   });
 
   assertEquals(rubric, {
@@ -62,6 +65,7 @@ Deno.test('loadReviewedRubric rejects malformed or unsupported rubric JSON at th
         grading.loadReviewedRubric({
           snapshotRoot,
           rubricFile: '/scoring/rubric.json',
+          artifactStore,
         }),
       Error,
       'Only rubric mode "per-answer" is supported.',
@@ -76,6 +80,7 @@ Deno.test('scoreAttempt computes the authoritative final declarative score from 
   const rubric = await grading.loadReviewedRubric({
     snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
     rubricFile: '/scoring/rubric.json',
+    artifactStore,
   });
   const packageVersion = buildPackageVersionRecord({
     artifact: {

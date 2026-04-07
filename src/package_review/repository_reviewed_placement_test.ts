@@ -55,12 +55,12 @@ Deno.test('repository stores reviewed placements separately from line-item bindi
     let bindingCounts: bigint;
 
     try {
-      const result = await client.queryObject<{ count: bigint }>({
+      const result = await client.queryObject<{ count: bigint | number | string }>({
         text: 'SELECT COUNT(*)::bigint AS count FROM line_item_bindings',
         camelCase: true,
       });
 
-      bindingCounts = result.rows[0]?.count ?? 0n;
+      bindingCounts = BigInt(result.rows[0]?.count ?? 0);
     } finally {
       client.release();
     }

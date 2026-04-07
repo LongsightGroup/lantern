@@ -17,6 +17,12 @@ import {
 import { getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
 import { buildSmokeFixture, buildSmokeRouteFixture } from './app_admin_grade_smoke_test_support.ts';
 
+const TEST_ENV = {
+  get(name: string): string | undefined {
+    return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
+  },
+};
+
 Deno.test('grade smoke scaffolding seeds one blessed Moodle smoke path with a dedicated smoke line item identity', () => {
   const fixture = buildSmokeFixture('moodle');
 
@@ -141,6 +147,7 @@ Deno.test('grade smoke verification records a bounded token failure without reus
     scope: fixture.session.services.ags!.scope,
     binding: fixture.binding,
     lineItemBinding: null,
+    env: TEST_ENV,
     requestToken: () => Promise.reject(new Error('simulated token failure')),
   });
 
@@ -289,6 +296,7 @@ Deno.test('grade smoke verification retries one AGS 401 only when governed compa
           binding: fixture.binding,
           session: fixture.session,
           attempt,
+          env: TEST_ENV,
           ltiProfile: {
             id: 'governedCompatibility',
             source: 'lanternDefault',
@@ -389,6 +397,7 @@ Deno.test('grade smoke verification does not record service retry evidence when 
           binding: fixture.binding,
           session: fixture.session,
           attempt,
+          env: TEST_ENV,
           ltiProfile: {
             id: 'governedCompatibility',
             source: 'lanternDefault',
@@ -481,6 +490,7 @@ Deno.test('grade smoke verification fails on AGS 401 without retry when certific
           binding: fixture.binding,
           session: fixture.session,
           attempt,
+          env: TEST_ENV,
           ltiProfile: {
             id: 'certification',
             source: 'lanternDefault',

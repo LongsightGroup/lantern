@@ -8,6 +8,7 @@ import {
 } from './types.ts';
 import { getPublicJwkSet } from './tool_key.ts';
 import { listCanvasPlatforms, resolveCanvasPlatform } from './canvas_platform.ts';
+import { type EnvReader, readEnv } from '../platform/env.ts';
 import { normalizePublicOrigin } from '../public_origin.ts';
 
 export interface CanvasEnvironmentOption {
@@ -59,7 +60,7 @@ export type CanvasConfigPlacement =
     };
 
 export function requireAppOrigin(): string {
-  const appOrigin = Deno.env.get(APP_ORIGIN_ENV)?.trim();
+  const appOrigin = readEnv(APP_ORIGIN_ENV)?.trim();
 
   if (!appOrigin) {
     throw new Error(
@@ -108,7 +109,8 @@ function buildCanvasResourceSelectionUrl(appOrigin = requireAppOrigin()): string
 }
 
 export async function buildCanvasConfigDocument(
-  appOrigin = requireAppOrigin(),
+  appOrigin: string,
+  env: EnvReader,
 ): Promise<CanvasConfigDocument> {
   const normalizedOrigin = normalizePublicOrigin(appOrigin);
   const origin = new URL(normalizedOrigin);
@@ -116,7 +118,7 @@ export async function buildCanvasConfigDocument(
   const deepLinkingUrl = buildCanvasDeepLinkingUrl(normalizedOrigin);
   const resourceSelectionUrl = buildCanvasResourceSelectionUrl(normalizedOrigin);
 
-  await getPublicJwkSet();
+  await getPublicJwkSet(env);
 
   return {
     title: 'Lantern Demo Broker',

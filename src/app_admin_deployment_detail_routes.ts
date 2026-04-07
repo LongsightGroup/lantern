@@ -15,6 +15,7 @@ import { createErrorNotice } from './app_notice_support.ts';
 import { listCanvasEnvironments } from './lti/config.ts';
 import type { AppServices } from './app_services.ts';
 import { statusForError } from './app_status_support.ts';
+import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 
 export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServices): void {
@@ -29,7 +30,7 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
         forwardedHeader: context.req.header('forwarded') ?? null,
         xForwardedHost: context.req.header('x-forwarded-host') ?? null,
         xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: Deno.env.get('APP_ORIGIN'),
+        configuredOrigin: readEnv('APP_ORIGIN', services.env),
       });
       const detail = await loadDeploymentDetailState(
         repository,

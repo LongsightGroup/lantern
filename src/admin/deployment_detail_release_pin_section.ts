@@ -72,12 +72,12 @@ export function renderVersionPinForm(
     ? approvedVersions.length === 0
       ? 'Approve a version before you choose what learners should open.'
       : hasPendingCanvasRegistration(slot)
-        ? 'Choose the live version now. Lantern will finish the exact Canvas setup on the first launch.'
-        : 'Choose the approved version this app setup should open.'
-    : 'Save the app settings first. Lantern keeps the live version secondary until the slot is identified.';
+        ? 'Choose what learners should open now. Lantern will finish the exact Canvas setup on the first launch.'
+        : 'Choose which approved version learners should open.'
+    : 'Save the app settings first. Lantern only lets you choose what learners open after this LMS slot is identified.';
 
   return `<div class="stack">
-      <p class="section-label">Live version</p>
+      <p class="section-label">Version for learners</p>
       <p class="deployment-form-note">${escapeHtml(pinHint)}</p>
       <form method="post" action="/admin/packages/${escapeHtml(
         appId,
@@ -126,7 +126,7 @@ export function renderVersionPinForm(
         <div class="button-row">
           <button type="submit" class="button-secondary" ${
             pinEnabled ? '' : 'disabled'
-          }>Save live version</button>
+          }>Save version for learners</button>
         </div>
       </form>
     </div>`;

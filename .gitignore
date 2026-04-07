@@ -2,3 +2,5 @@ private/
 .DS_Store
 var/packages/
 .playwright-cli/
+.wrangler/
+output/worker.bundle.mjs

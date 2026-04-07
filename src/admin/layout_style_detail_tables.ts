@@ -1,4 +1,54 @@
 export const ADMIN_LAYOUT_STYLE_DETAIL_TABLES = `
+      .table-scroll {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+      }
+
+      .detail-table {
+        width: 100%;
+        min-width: 760px;
+        border-collapse: collapse;
+      }
+
+      .detail-table th,
+      .detail-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line-light);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .detail-table th {
+        background: color-mix(in srgb, var(--bg) 74%, white);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .detail-table tbody tr:last-child td {
+        border-bottom: none;
+      }
+
+      .detail-table-primary strong {
+        font-size: 14px;
+        color: var(--ink);
+      }
+
+      .detail-table-stack {
+        display: grid;
+        gap: 4px;
+      }
+
+      .detail-table-notes {
+        min-width: 20rem;
+        color: var(--secondary);
+        white-space: pre-wrap;
+      }
+
       .table-list {
         display: grid;
         gap: 0;

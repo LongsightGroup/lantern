@@ -25,5 +25,8 @@ jobs:
       - name: Type check
         run: deno task check
 
+      - name: Worker bundle check
+        run: deno task check:worker
+
       - name: Test
         run: deno task test

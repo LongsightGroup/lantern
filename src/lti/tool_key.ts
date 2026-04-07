@@ -1,4 +1,5 @@
 import { calculateJwkThumbprint, importJWK } from 'jose';
+import type { EnvReader } from '../platform/env.ts';
 
 const TOOL_PRIVATE_JWK_ENV = 'LTI_TOOL_PRIVATE_JWK';
 
@@ -26,11 +27,7 @@ export interface LoadedToolSigningKey {
   publicJwk: ToolPublicJwk;
 }
 
-interface EnvReader {
-  get(name: string): string | undefined;
-}
-
-export async function loadToolSigningKey(env: EnvReader = Deno.env): Promise<LoadedToolSigningKey> {
+export async function loadToolSigningKey(env: EnvReader): Promise<LoadedToolSigningKey> {
   const rawValue = env.get(TOOL_PRIVATE_JWK_ENV);
 
   if (!rawValue) {
@@ -55,9 +52,7 @@ export async function loadToolSigningKey(env: EnvReader = Deno.env): Promise<Loa
   };
 }
 
-export async function getPublicJwkSet(
-  env: EnvReader = Deno.env,
-): Promise<{ keys: ToolPublicJwk[] }> {
+export async function getPublicJwkSet(env: EnvReader): Promise<{ keys: ToolPublicJwk[] }> {
   const toolKey = await loadToolSigningKey(env);
 
   return {

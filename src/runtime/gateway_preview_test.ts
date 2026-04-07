@@ -9,7 +9,12 @@ import {
   buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from '../test_helpers/package_review.ts';
-import { getReferenceAppSnapshotRoot, withFetchStub } from './gateway_test_helpers.ts';
+import {
+  FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
+  TEST_RUNTIME_ENV,
+  getReferenceAppSnapshotRoot,
+  withFetchStub,
+} from './gateway_test_helpers.ts';
 
 Deno.test('preview gateway finalize returns fake scoring and never calls Canvas side-effect services', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -69,6 +74,8 @@ Deno.test('preview gateway finalize returns fake scoring and never calls Canvas 
         payload: {
           completionState: 'completed',
         },
+        env: TEST_RUNTIME_ENV,
+        artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
         now: () => new Date('2026-03-24T02:35:00Z'),
       });
 
@@ -272,6 +279,8 @@ Deno.test('preview gateway blocks live-service finalize paths clearly and record
         payload: {
           completionState: 'completed',
         },
+        env: TEST_RUNTIME_ENV,
+        artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
         now: () => new Date('2026-03-24T02:35:00Z'),
       }),
     RuntimeBrokerDenialError,

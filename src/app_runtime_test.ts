@@ -373,7 +373,7 @@ function extractBootstrapFromHtml(html: string): BootstrapPayload {
 async function assertBootstrapSignature(bootstrap: BootstrapPayload): Promise<void> {
   const verified = await compactVerify(
     bootstrap.signature,
-    createLocalJWKSet(await getPublicJwkSet()),
+    createLocalJWKSet(await getPublicJwkSet(createToolKeyEnv())),
   );
   const payload = JSON.parse(new TextDecoder().decode(verified.payload));
 
@@ -391,4 +391,12 @@ async function assertBootstrapSignature(bootstrap: BootstrapPayload): Promise<vo
       expires_at: bootstrap.session.expires_at,
     },
   });
+}
+
+function createToolKeyEnv(): { get(name: string): string | undefined } {
+  return {
+    get(name: string): string | undefined {
+      return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
+    },
+  };
 }

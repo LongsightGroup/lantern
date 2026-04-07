@@ -17,6 +17,12 @@ import {
 } from '../test_helpers/lti.ts';
 import { formatDiagnosticItem } from './service.ts';
 
+const TEST_ENV = {
+  get(name: string): string | undefined {
+    return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
+  },
+};
+
 Deno.test('ops service retries failed grade publication against the attempt-scoped runtime session and updates the existing ledger row', async () => {
   const modulePath = `./${'service.ts'}`;
   const opsServiceModule = await import(modulePath);
@@ -91,6 +97,7 @@ Deno.test('ops service retries failed grade publication against the attempt-scop
   const result = await opsServiceModule.retryFailedGradePublication({
     repository,
     attemptId: 'attempt-123',
+    env: TEST_ENV,
     now: () => new Date('2026-03-24T12:45:00Z'),
     requestAccessToken: (request: { deploymentId?: string }) => {
       tokenRequests.push(request);
@@ -195,6 +202,7 @@ Deno.test('ops service blocks retry when no failed publication or AGS context re
       opsServiceModule.retryFailedGradePublication({
         repository: missingPublicationRepository,
         attemptId: 'attempt-123',
+        env: TEST_ENV,
         requestAccessToken: () =>
           Promise.resolve({
             accessToken: 'unused',
@@ -210,6 +218,7 @@ Deno.test('ops service blocks retry when no failed publication or AGS context re
       opsServiceModule.retryFailedGradePublication({
         repository: missingAgsRepository,
         attemptId: 'attempt-456',
+        env: TEST_ENV,
         requestAccessToken: () =>
           Promise.resolve({
             accessToken: 'unused',
@@ -422,6 +431,7 @@ Deno.test('runtime publication retries one Canvas 401 when governed compatibilit
             scoreGiven: 85,
             scoreMaximum: 100,
           },
+          env: TEST_ENV,
           now: () => new Date('2026-03-24T12:45:00Z'),
         }),
     );
@@ -548,6 +558,7 @@ Deno.test('runtime publication fails on Canvas 401 without retry when certificat
             scoreGiven: 85,
             scoreMaximum: 100,
           },
+          env: TEST_ENV,
           now: () => new Date('2026-03-24T12:45:00Z'),
         }),
     );
@@ -621,6 +632,7 @@ Deno.test('ops service fails a manual retry Canvas 401 without retry when certif
   const result = await opsServiceModule.retryFailedGradePublication({
     repository,
     attemptId: 'attempt-123',
+    env: TEST_ENV,
     now: () => new Date('2026-03-24T12:45:00Z'),
     requestAccessToken: (request: { deploymentId?: string }) => {
       tokenRequests.push(request);

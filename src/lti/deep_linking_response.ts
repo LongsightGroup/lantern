@@ -1,6 +1,7 @@
 import { SignJWT } from 'jose';
 import { buildCanvasLaunchUrl } from './config.ts';
 import { loadToolSigningKey } from './tool_key.ts';
+import type { EnvReader } from '../platform/env.ts';
 import {
   buildLtiActivityResourceId,
   type DeepLinkingPresentationDocumentTarget,
@@ -25,18 +26,14 @@ const CLAIM_CONTENT_ITEMS = 'https://purl.imsglobal.org/spec/lti-dl/claim/conten
 const FINAL_GRADE_TAG = 'final-grade';
 const RESPONSE_JWT_TTL_SECONDS = 5 * 60;
 
-interface EnvReader {
-  get(name: string): string | undefined;
-}
-
 export async function buildDeepLinkingResponseSubmission(input: {
   session: DeepLinkingSessionRecord;
   deployment: DeploymentRecord;
   placement: ReviewedPlacementRecord;
   packageVersion: PackageVersionRecord;
+  env: EnvReader;
   appOrigin?: string;
   now?: () => Date;
-  env?: EnvReader;
 }): Promise<DeepLinkingResponseSubmission> {
   const now = input.now ?? (() => new Date());
   const binding = input.deployment.binding;
@@ -45,7 +42,7 @@ export async function buildDeepLinkingResponseSubmission(input: {
     throw new Error(`Deployment ${input.deployment.slug} is missing its LTI binding.`);
   }
 
-  const toolKey = await loadToolSigningKey(input.env ?? Deno.env);
+  const toolKey = await loadToolSigningKey(input.env);
   const issuedAt = Math.floor(now().getTime() / 1000);
   const contentItems = [buildDeepLinkingResponseContentItem(input)];
   const jwtId = crypto.randomUUID();

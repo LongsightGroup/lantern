@@ -1,9 +1,6 @@
 import { Ajv2020, type ErrorObject, type ValidateFunction } from '@ajv2020';
-import {
-  assertPathInsideSnapshot,
-  joinSnapshotPath,
-  normalizeSnapshotPath,
-} from '../package_review/snapshot_path.ts';
+import { normalizeSnapshotPath, toRelativeSnapshotPath } from '../package_review/snapshot_path.ts';
+import type { RuntimeArtifactStore } from '../runtime/artifact_store.ts';
 import type { RawReviewedRubric, ReviewedRubric } from './types.ts';
 
 const ajv = new Ajv2020({
@@ -66,6 +63,7 @@ const reviewedRubricValidator: ValidateFunction<RawReviewedRubric> =
 export async function loadReviewedRubric(input: {
   snapshotRoot: string;
   rubricFile: string | null;
+  artifactStore: RuntimeArtifactStore;
 }): Promise<ReviewedRubric> {
   const snapshotRoot = requireTrimmedString(
     input.snapshotRoot,
@@ -75,30 +73,17 @@ export async function loadReviewedRubric(input: {
     input.rubricFile,
     'Declarative grading requires a reviewed rubric file.',
   );
-  const rubricPath = joinSnapshotPath(
-    snapshotRoot,
-    toSnapshotRelativePath(rubricFile),
-    'Reviewed rubric file must stay inside the pinned snapshot.',
-  );
-
-  assertPathInsideSnapshot(
-    snapshotRoot,
-    rubricPath,
-    'Reviewed rubric file is outside the pinned snapshot.',
-  );
-
   let sourceText: string;
 
   try {
-    sourceText = await Deno.readTextFile(rubricPath);
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      throw new TypeError(
-        `Reviewed rubric file ${rubricFile} was not found in the pinned snapshot.`,
-      );
-    }
-
-    throw error;
+    sourceText = new TextDecoder().decode(
+      await input.artifactStore.readBytes(
+        snapshotRoot,
+        toSnapshotRelativePath(snapshotRoot, rubricFile),
+      ),
+    );
+  } catch {
+    throw new TypeError(`Reviewed rubric file ${rubricFile} was not found in the pinned snapshot.`);
   }
 
   let rubricJson: unknown;
@@ -213,7 +198,7 @@ function requireTrimmedString(value: string | null, errorMessage: string): strin
   return value.trim();
 }
 
-function toSnapshotRelativePath(path: string): string {
+function toSnapshotRelativePath(snapshotRoot: string, path: string): string {
   const normalizedPath = normalizeSnapshotPath(
     path,
     'Reviewed rubric file must stay inside the pinned snapshot.',
@@ -223,7 +208,11 @@ function toSnapshotRelativePath(path: string): string {
     throw new Error('Reviewed rubric path must be an absolute package path.');
   }
 
-  return normalizedPath.slice(1);
+  return toRelativeSnapshotPath(
+    snapshotRoot,
+    `${snapshotRoot}/${normalizedPath.slice(1)}`,
+    'Reviewed rubric file must stay inside the pinned snapshot.',
+  );
 }
 
 function joinJsonPointer(instancePath: string, property: string): string {
