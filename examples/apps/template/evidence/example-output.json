@@ -1,7 +1,11 @@
 {
-  "attempt_id": "attempt_template_demo",
-  "status": "completed",
-  "browser_grader_result": {
+  "submissionMode": "anonymous_submission",
+  "completionState": "completed",
+  "localState": {
+    "answers": 2,
+    "finalized": "completed"
+  },
+  "browserGraderResult": {
     "scoreGiven": 100,
     "scoreMaximum": 100,
     "specResults": [

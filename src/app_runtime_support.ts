@@ -1,4 +1,9 @@
-import type { Capability, ScoreProposal } from "../sdk/app-sdk.ts";
+import type {
+  BrowserGraderResult,
+  Capability,
+  ScoreProposal,
+  SubmissionMode,
+} from "../sdk/app-sdk.ts";
 import type { RuntimeSessionRecord } from "./lti/types.ts";
 import type { PackageReviewRepository } from "./package_review/repository.ts";
 import type { AuditEventStatus } from "./package_review/types.ts";
@@ -123,6 +128,14 @@ export async function recordRuntimeSessionExited(input: {
   scoreGiven: number;
   scoreMaximum: number;
   gradePublished: boolean;
+  submissionMode: SubmissionMode;
+  evidenceArtifactCount?: number;
+  evidenceArtifacts?: Array<{
+    artifactId: string;
+    kind: string;
+    fileName: string;
+  }>;
+  browserGraderResult?: BrowserGraderResult | null;
   route: string;
   occurredAt?: string;
 }): Promise<void> {
@@ -139,6 +152,12 @@ export async function recordRuntimeSessionExited(input: {
       scoreGiven: input.scoreGiven,
       scoreMaximum: input.scoreMaximum,
       gradePublished: input.gradePublished,
+      submissionMode: input.submissionMode,
+      evidenceArtifactCount: input.evidenceArtifactCount ?? 0,
+      evidenceArtifacts: input.evidenceArtifacts ?? [],
+      ...(input.browserGraderResult === undefined
+        ? {}
+        : { browserGraderResult: input.browserGraderResult }),
     },
   });
 }

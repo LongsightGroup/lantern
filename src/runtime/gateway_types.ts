@@ -6,6 +6,7 @@ import type {
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
   AttemptRecord,
+  AttemptEvidenceArtifactRecord,
   GradePublicationRecord,
   LineItemBindingRecord,
 } from "../package_review/types.ts";
@@ -20,6 +21,7 @@ import type {
   GatewayMutationResult,
   GatewayScoreProposalResult,
   ScoreProposal,
+  SubmissionMode,
 } from "../../sdk/app-sdk.ts";
 
 export const RUNTIME_SANDBOX_MODEL = "contained_browser_runtime";
@@ -60,6 +62,10 @@ export interface FinalizeAttemptResult {
   attempt: AttemptRecord;
   score: AttemptScoreResult;
   browserGraderResult: BrowserGraderResult | null;
+  submissionMode: SubmissionMode;
+  evidenceArtifacts: Array<
+    Pick<AttemptEvidenceArtifactRecord, "artifactId" | "kind" | "fileName">
+  >;
   finalizedNow: boolean;
   lineItemBinding: LineItemBindingRecord | null;
   gradePublication: GradePublicationRecord | null;

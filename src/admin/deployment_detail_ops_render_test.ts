@@ -2,9 +2,11 @@ import { assertFalse, assertStringIncludes } from "@std/assert";
 import { resolveCanvasIssuer } from "../lti/config.ts";
 import {
   buildBrokerVerificationStatus,
+  buildControlPlaneAnonymousEvidenceArtifact,
   buildControlPlaneDeploymentDetailSnapshot,
   buildControlPlaneDeploymentInventoryRow,
   buildControlPlaneDiagnosticItem,
+  buildControlPlaneRuntimeEvidenceSnapshot,
   buildDeploymentActivitySnapshot,
   buildDeploymentGradePublicationSnapshot,
   buildDeploymentRecentLaunch,
@@ -434,4 +436,74 @@ Deno.test("deployment page shows reviewed runtime boundary facts without exposin
   );
   assertFalse(html.includes("contained_browser_runtime"));
   assertFalse(html.includes("app_runtime_origin"));
+});
+
+Deno.test("deployment page renders anonymous submission evidence links beside the latest normalized browser outcome", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
+      latestRuntimeOutcome: buildControlPlaneRuntimeEvidenceSnapshot({
+        eventType: "runtime.session.exited",
+        summary:
+          "Exited the reviewed runtime through Lantern's finalize boundary.",
+        detail: {
+          submissionMode: "anonymous_submission",
+          scoreGiven: 100,
+          scoreMaximum: 100,
+          browserGraderResult: {
+            specResults: [
+              {
+                source: "/grading/specs/checks.spec.js",
+                result: "passed",
+                failures: [],
+              },
+            ],
+          },
+        },
+      }),
+      latestAnonymousEvidence: [
+        buildControlPlaneAnonymousEvidenceArtifact({
+          artifactId: "artifact-001",
+          fileName: "submission.json",
+          artifactUrl:
+            "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001",
+        }),
+      ],
+    }),
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, "Anonymous submission evidence");
+  assertStringIncludes(
+    html,
+    "Latest browser-grader outcome: 100 / 100 across 1 reviewed specs.",
+  );
+  assertStringIncludes(html, "submission.json");
+  assertStringIncludes(
+    html,
+    "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001",
+  );
+  assertStringIncludes(html, "Open stored artifact");
 });

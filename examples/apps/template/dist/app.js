@@ -105,6 +105,29 @@
       timestamp: new Date().toISOString(),
     });
     const browserGraderResult = await gateway.runBrowserGrader();
+
+    if (launchContext.submissionMode === "anonymous_submission") {
+      const evidenceResult = await gateway.submitEvidenceArtifact({
+        kind: "structured_json",
+        contentType: "application/json",
+        fileName: "submission.json",
+        bodyBase64: encodeJsonBase64({
+          submissionMode: launchContext.submissionMode,
+          completionState: "completed",
+          localState: {
+            answers: state.answers,
+            finalized: "completed",
+          },
+          browserGraderResult,
+        }),
+      });
+
+      if (!evidenceResult.accepted) {
+        root.statusChip.textContent = evidenceResult.denial.message;
+        return;
+      }
+    }
+
     const result = await gateway.finalizeAttempt({
       completionState: "completed",
       browserGraderResult,
@@ -127,5 +150,9 @@
   function render() {
     root.answerCount.textContent = String(state.answers);
     root.finalizeState.textContent = state.finalized;
+  }
+
+  function encodeJsonBase64(value) {
+    return btoa(JSON.stringify(value));
   }
 })();

@@ -2,6 +2,7 @@ import type { RetryRuntimeSessionLookup } from '../ops/types.ts';
 import type {
   BrokerVerificationStatus,
   CertificationWorkflowStatus,
+  ControlPlaneAnonymousEvidenceArtifact,
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneDeploymentHealth,
   ControlPlaneDeploymentInventoryRow,
@@ -221,6 +222,19 @@ export function buildControlPlaneRuntimeEvidenceSnapshot(
   };
 }
 
+export function buildControlPlaneAnonymousEvidenceArtifact(
+  overrides: Partial<ControlPlaneAnonymousEvidenceArtifact> = {},
+): ControlPlaneAnonymousEvidenceArtifact {
+  return {
+    artifactId: overrides.artifactId ?? "artifact-001",
+    kind: overrides.kind ?? "structured_json",
+    fileName: overrides.fileName ?? "submission.json",
+    artifactUrl:
+      overrides.artifactUrl ??
+      "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001",
+  };
+}
+
 export function buildInternalBrokerVerificationStatus(
   overrides: Partial<InternalBrokerVerificationStatus> = {},
 ): InternalBrokerVerificationStatus {
@@ -326,6 +340,7 @@ export function buildControlPlaneDeploymentDetailSnapshot(
       }),
     latestRuntimeSession: overrides.latestRuntimeSession ?? null,
     latestRuntimeOutcome: overrides.latestRuntimeOutcome ?? null,
+    latestAnonymousEvidence: overrides.latestAnonymousEvidence ?? [],
     recentLaunches: overrides.recentLaunches ?? [buildDeploymentRecentLaunch()],
     latestCompatibilityPath: overrides.latestCompatibilityPath ?? null,
     latestAgsSmoke: overrides.latestAgsSmoke ?? null,

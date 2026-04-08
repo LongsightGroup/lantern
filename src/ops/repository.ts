@@ -1,8 +1,9 @@
-import type { Pool, PoolClient } from '@db/postgres';
-import { createPackageReviewRepository } from '../package_review/repository.ts';
+import type { Pool, PoolClient } from "@db/postgres";
+import { createPackageReviewRepository } from "../package_review/repository.ts";
 import type {
   BrokerVerificationStatus,
   CertificationWorkflowStatus,
+  ControlPlaneAnonymousEvidenceArtifact,
   ControlPlaneDeploymentInventoryRow,
   ControlPlaneDiagnosticItem,
   ControlPlaneRuntimeEvidenceSnapshot,
@@ -10,7 +11,7 @@ import type {
   DeploymentGradePublicationSnapshot,
   LatestOfficialCertificationEvidence,
   RetryableGradePublicationLookup,
-} from './types.ts';
+} from "./types.ts";
 import {
   DIAGNOSTICS_QUERY,
   INSERT_BROKER_VERIFICATION_RUN_QUERY,
@@ -30,7 +31,7 @@ import {
   LATEST_RUNTIME_SESSION_QUERY,
   RECENT_ACCEPTED_LAUNCHES_QUERY,
   RETRYABLE_GRADE_PUBLICATION_LOOKUP_QUERY,
-} from './repository_queries.ts';
+} from "./repository_queries.ts";
 import type {
   ActivitySnapshotRow,
   CertificationWorkflowStatusRow,
@@ -44,7 +45,7 @@ import type {
   RecentLaunchRow,
   RecordBrokerVerificationRunInput,
   RetryLookupRow,
-} from './repository_types.ts';
+} from "./repository_types.ts";
 import {
   assertBrokerVerificationRunInput,
   mapActivitySnapshotRow,
@@ -56,10 +57,13 @@ import {
   mapLatestOfficialCertificationEvidenceRow,
   mapRecentLaunchRows,
   mapRuntimeEvidenceSnapshotRow,
-} from './repository_mapping.ts';
-import { mapRetryLookupRow } from './repository_retry_mapping.ts';
+} from "./repository_mapping.ts";
+import { mapRetryLookupRow } from "./repository_retry_mapping.ts";
 
-export type { OpsRepository, RecordBrokerVerificationRunInput } from './repository_types.ts';
+export type {
+  OpsRepository,
+  RecordBrokerVerificationRunInput,
+} from "./repository_types.ts";
 
 export function createOpsRepository(pool: Pool): OpsRepository {
   const packageReviewRepository = createPackageReviewRepository(pool);
@@ -95,25 +99,45 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           latestGradePublish,
         ] = await Promise.all([
           getActivitySnapshot(client, LATEST_LAUNCH_QUERY, deploymentRecordId),
-          getRuntimeEvidenceSnapshot(client, LATEST_RUNTIME_SESSION_QUERY, deploymentRecordId),
-          getRuntimeEvidenceSnapshot(client, LATEST_RUNTIME_OUTCOME_QUERY, deploymentRecordId),
+          getRuntimeEvidenceSnapshot(
+            client,
+            LATEST_RUNTIME_SESSION_QUERY,
+            deploymentRecordId,
+          ),
+          getRuntimeEvidenceSnapshot(
+            client,
+            LATEST_RUNTIME_OUTCOME_QUERY,
+            deploymentRecordId,
+          ),
           listRecentAcceptedLaunches(client, deploymentRecordId),
-          getActivitySnapshot(client, LATEST_COMPATIBILITY_PATH_QUERY, deploymentRecordId),
-          getActivitySnapshot(client, LATEST_AGS_SMOKE_QUERY, deploymentRecordId),
+          getActivitySnapshot(
+            client,
+            LATEST_COMPATIBILITY_PATH_QUERY,
+            deploymentRecordId,
+          ),
+          getActivitySnapshot(
+            client,
+            LATEST_AGS_SMOKE_QUERY,
+            deploymentRecordId,
+          ),
           getActivitySnapshot(client, LATEST_NRPS_QUERY, deploymentRecordId),
           getLatestGradePublication(client, deploymentRecordId),
         ]);
         const retryableGradePublication =
-          latestGradePublish?.status === 'failed'
+          latestGradePublish?.status === "failed"
             ? await getRetryableGradePublicationLookupForClient(
-                client,
-                latestGradePublish.attemptId,
-              )
+              client,
+              latestGradePublish.attemptId,
+            )
             : null;
         const diagnostics = await listDiagnostics(
           client,
           deploymentRecordId,
           retryableGradePublication?.attemptId ?? null,
+        );
+        const latestAnonymousEvidence = deriveLatestAnonymousEvidence(
+          inventory.appId,
+          latestRuntimeOutcome,
         );
 
         return {
@@ -122,6 +146,7 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           latestLaunch,
           latestRuntimeSession,
           latestRuntimeOutcome,
+          latestAnonymousEvidence,
           recentLaunches,
           latestCompatibilityPath,
           latestAgsSmoke,
@@ -138,14 +163,16 @@ export function createOpsRepository(pool: Pool): OpsRepository {
     async listCertificationWorkflowStatuses() {
       return await withClient(
         pool,
-        async (client) => await listCertificationWorkflowStatusesForClient(client),
+        async (client) =>
+          await listCertificationWorkflowStatusesForClient(client),
       );
     },
 
     async getLatestOfficialCertificationEvidence() {
       return await withClient(
         pool,
-        async (client) => await getLatestOfficialCertificationEvidenceForClient(client),
+        async (client) =>
+          await getLatestOfficialCertificationEvidenceForClient(client),
       );
     },
 
@@ -156,31 +183,39 @@ export function createOpsRepository(pool: Pool): OpsRepository {
     async getLatestBrokerVerificationStatus() {
       return await withClient(
         pool,
-        async (client) => await getLatestBrokerVerificationStatusForClient(client),
+        async (client) =>
+          await getLatestBrokerVerificationStatusForClient(client),
       );
     },
 
     async recordBrokerVerificationRun(input) {
       return await withClient(
         pool,
-        async (client) => await recordBrokerVerificationRunForClient(client, input),
+        async (client) =>
+          await recordBrokerVerificationRunForClient(client, input),
       );
     },
 
     async getRetryableGradePublicationLookup(attemptId) {
       return await withClient(
         pool,
-        async (client) => await getRetryableGradePublicationLookupForClient(client, attemptId),
+        async (client) =>
+          await getRetryableGradePublicationLookupForClient(client, attemptId),
       );
     },
 
     async getPlacementAuditSnapshot(placementId) {
-      return await packageReviewRepository.requirePlacementAuditSnapshotById(placementId);
+      return await packageReviewRepository.requirePlacementAuditSnapshotById(
+        placementId,
+      );
     },
   };
 }
 
-async function listRecentAcceptedLaunches(client: PoolClient, deploymentRecordId: number) {
+async function listRecentAcceptedLaunches(
+  client: PoolClient,
+  deploymentRecordId: number,
+) {
   const result = await client.queryObject<RecentLaunchRow>({
     text: RECENT_ACCEPTED_LAUNCHES_QUERY,
     args: [deploymentRecordId],
@@ -266,23 +301,32 @@ async function listDiagnostics(
 async function getLatestBrokerVerificationStatusForClient(
   client: PoolClient,
 ): Promise<BrokerVerificationStatus | null> {
-  const internalResult = await client.queryObject<InternalBrokerVerificationRow>({
+  const internalResult = await client.queryObject<
+    InternalBrokerVerificationRow
+  >({
     text: LATEST_GLOBAL_INTERNAL_BROKER_VERIFICATION_QUERY,
     camelCase: true,
   });
   const internalRow = internalResult.rows[0] ?? null;
 
   if (internalRow !== null) {
-    const officialResult = await client.queryObject<OfficialBrokerVerificationRow>({
+    const officialResult = await client.queryObject<
+      OfficialBrokerVerificationRow
+    >({
       text: LATEST_OFFICIAL_BROKER_VERIFICATION_QUERY,
       args: [internalRow.scope],
       camelCase: true,
     });
 
-    return mapBrokerVerificationStatusRows(internalRow, officialResult.rows[0] ?? null);
+    return mapBrokerVerificationStatusRows(
+      internalRow,
+      officialResult.rows[0] ?? null,
+    );
   }
 
-  const officialResult = await client.queryObject<OfficialBrokerVerificationRow>({
+  const officialResult = await client.queryObject<
+    OfficialBrokerVerificationRow
+  >({
     text: LATEST_GLOBAL_OFFICIAL_BROKER_VERIFICATION_QUERY,
     camelCase: true,
   });
@@ -304,7 +348,9 @@ async function listCertificationWorkflowStatusesForClient(
 async function getLatestOfficialCertificationEvidenceForClient(
   client: PoolClient,
 ): Promise<LatestOfficialCertificationEvidence | null> {
-  const result = await client.queryObject<LatestOfficialCertificationEvidenceRow>({
+  const result = await client.queryObject<
+    LatestOfficialCertificationEvidenceRow
+  >({
     text: LATEST_OFFICIAL_CERTIFICATION_EVIDENCE_QUERY,
     camelCase: true,
   });
@@ -347,7 +393,52 @@ async function getRetryableGradePublicationLookupForClient(
   return row ? mapRetryLookupRow(row) : null;
 }
 
-async function withClient<T>(pool: Pool, run: (client: PoolClient) => Promise<T>): Promise<T> {
+function deriveLatestAnonymousEvidence(
+  appId: string,
+  latestRuntimeOutcome: ControlPlaneRuntimeEvidenceSnapshot | null,
+): ControlPlaneAnonymousEvidenceArtifact[] {
+  const evidenceArtifacts = latestRuntimeOutcome?.detail.evidenceArtifacts;
+
+  if (!Array.isArray(evidenceArtifacts)) {
+    return [];
+  }
+
+  return evidenceArtifacts.flatMap((artifact) => {
+    if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
+      return [];
+    }
+
+    const record = artifact as Record<string, unknown>;
+    const artifactId = readDetailString(record, "artifactId");
+    const kind = readDetailString(record, "kind");
+    const fileName = readDetailString(record, "fileName");
+
+    if (artifactId === null || kind === null || fileName === null) {
+      return [];
+    }
+
+    return [{
+      artifactId,
+      kind,
+      fileName,
+      artifactUrl: `/admin/packages/${appId}/deployment/evidence/${artifactId}`,
+    }];
+  });
+}
+
+function readDetailString(
+  detail: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = detail[key];
+
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+}
+
+async function withClient<T>(
+  pool: Pool,
+  run: (client: PoolClient) => Promise<T>,
+): Promise<T> {
   const client = await pool.connect();
 
   try {

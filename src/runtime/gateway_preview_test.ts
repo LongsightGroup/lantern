@@ -4,6 +4,7 @@ import { RuntimeBrokerDenialError } from "./gateway_errors.ts";
 import { buildRuntimeSessionRecord } from "../test_helpers/lti.ts";
 import {
   buildAttemptEventRecord,
+  buildAttemptEvidenceArtifactRecord,
   buildAttemptRecord,
   buildPackageVersionRecord,
   buildPreviewSessionRecord,
@@ -226,6 +227,7 @@ Deno.test("preview gateway records allowed quick-study attempt events through th
       courseId: "course_demo",
       assignmentId: "assignment_demo",
       activityId: "quick-study",
+      submissionMode: "standard",
     },
     preview: {
       previewSessionId: "preview-session-quick-study-allowed",
@@ -314,6 +316,13 @@ Deno.test("preview gateway records browser grader evidence instead of fake scori
       buildPackageVersionRecord({
         appId: "web-checkup",
         title: "Web Checkup",
+        capabilities: [
+          "read_launch_context",
+          "read_activity_content",
+          "submit_attempt_event",
+          "submit_evidence_artifact",
+          "finalize_attempt",
+        ],
         grading: {
           mode: "browser",
           rubricFile: null,
@@ -360,6 +369,14 @@ Deno.test("preview gateway records browser grader evidence instead of fake scori
         appId: "web-checkup",
       }),
     ],
+    attemptEvidenceArtifacts: [
+      buildAttemptEvidenceArtifactRecord({
+        artifactId: "artifact-001",
+        attemptId: "preview-attempt-123",
+        kind: "structured_json",
+        fileName: "submission.json",
+      }),
+    ],
   });
   const session = buildRuntimeSessionRecord({
     attemptId: "preview-attempt-123",
@@ -369,6 +386,13 @@ Deno.test("preview gateway records browser grader evidence instead of fake scori
     snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
     entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
     contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
+    capabilities: [
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "submit_evidence_artifact",
+      "finalize_attempt",
+    ],
     services: {
       ags: null,
       nrps: null,
@@ -416,12 +440,15 @@ Deno.test("preview gateway records browser grader evidence instead of fake scori
         scoreGiven: 100,
         scoreMaximum: 100,
       });
+      assertEquals(result.evidenceArtifacts.length, 1);
+      assertEquals(result.evidenceArtifacts[0]?.artifactId, "artifact-001");
       const evidence = await repository.listPreviewEvidence(
         "preview-session-browser-grading",
       );
 
       assertEquals(evidence.length, 1);
       assertEquals(evidence[0]?.eventType, "preview.finalize");
+      assertEquals(evidence[0]?.detail.evidenceArtifactCount, 1);
       assertEquals(
         (evidence[0]?.detail.browserGraderResult as {
           specResults: Array<{ source: string }>;
@@ -430,6 +457,13 @@ Deno.test("preview gateway records browser grader evidence instead of fake scori
           "/grading/specs/structure.spec.js",
           "/grading/specs/behavior.spec.js",
         ],
+      );
+      assertEquals(
+        (evidence[0]?.detail.evidenceArtifacts as Array<
+          { artifactId: string }
+        >)[0]
+          ?.artifactId,
+        "artifact-001",
       );
     },
   );

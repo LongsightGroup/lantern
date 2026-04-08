@@ -12,6 +12,7 @@ import { createOpaqueToken } from "../lti/token_support.ts";
 import type { EnvReader } from "../platform/env.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
+  AttemptEvidenceArtifactRecord,
   AttemptRecord,
   PackageVersionRecord,
 } from "../package_review/types.ts";
@@ -277,6 +278,11 @@ export async function finalizeRuntimeAttempt(input: {
       input.repository,
       input.session,
     );
+    const evidenceArtifacts = await loadFinalizeEvidenceArtifacts({
+      repository: input.repository,
+      session: input.session,
+      attemptId: attempt.attemptId,
+    });
 
     if (previewSession !== null) {
       if (previewSessionHasLiveServicePath(input.session)) {
@@ -343,6 +349,9 @@ export async function finalizeRuntimeAttempt(input: {
             completionState: finalizedAttempt.completionState,
             scoreGiven: score.scoreGiven,
             scoreMaximum: score.scoreMaximum,
+            submissionMode: input.session.launch.submissionMode,
+            evidenceArtifactCount: evidenceArtifacts.length,
+            evidenceArtifacts,
             alreadyFinalized: !finalizedNow,
           }
           : {
@@ -350,6 +359,9 @@ export async function finalizeRuntimeAttempt(input: {
             completionState: finalizedAttempt.completionState,
             scoreGiven: score.scoreGiven,
             scoreMaximum: score.scoreMaximum,
+            submissionMode: input.session.launch.submissionMode,
+            evidenceArtifactCount: evidenceArtifacts.length,
+            evidenceArtifacts,
             alreadyFinalized: !finalizedNow,
             browserGraderResult,
           },
@@ -360,6 +372,8 @@ export async function finalizeRuntimeAttempt(input: {
         attempt: finalizedAttempt,
         score,
         browserGraderResult,
+        submissionMode: input.session.launch.submissionMode,
+        evidenceArtifacts,
         finalizedNow,
         lineItemBinding: null,
         gradePublication: null,
@@ -428,6 +442,8 @@ export async function finalizeRuntimeAttempt(input: {
       attempt: finalizedAttempt,
       score,
       browserGraderResult,
+      submissionMode: input.session.launch.submissionMode,
+      evidenceArtifacts,
       finalizedNow,
       ...publishResult,
     };
@@ -527,6 +543,41 @@ function completionStateToAttemptStatus(
   completionState: FinalizeAttemptInput["completionState"],
 ): AttemptRecord["status"] {
   return completionState === "completed" ? "completed" : "abandoned";
+}
+
+async function loadFinalizeEvidenceArtifacts(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+  attemptId: string;
+}): Promise<
+  Array<Pick<AttemptEvidenceArtifactRecord, "artifactId" | "kind" | "fileName">>
+> {
+  if (input.session.launch.submissionMode !== "anonymous_submission") {
+    return [];
+  }
+
+  const evidenceArtifacts = await input.repository.listAttemptEvidenceArtifacts(
+    input.attemptId,
+  );
+
+  if (evidenceArtifacts.length === 0) {
+    denyRuntimeBroker({
+      category: "policyDenied",
+      code: "anonymous_evidence_required",
+      message:
+        "Anonymous submission requires at least one stored evidence artifact before finalize.",
+      capability: "finalize_attempt",
+      detail: {
+        attemptId: input.attemptId,
+      },
+    });
+  }
+
+  return evidenceArtifacts.map((artifact) => ({
+    artifactId: artifact.artifactId,
+    kind: artifact.kind,
+    fileName: artifact.fileName,
+  }));
 }
 
 function buildEvidenceArtifactId(token: string): string {

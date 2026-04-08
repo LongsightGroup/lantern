@@ -4,6 +4,7 @@ import type { ControlPlaneDeploymentDetailSnapshot } from "../ops/types.ts";
 import { escapeHtml } from "./layout.ts";
 import {
   renderAgsSmokeSection,
+  renderAnonymousEvidenceSection,
   renderBrokerVerificationSection,
   renderDiagnosticsSection,
   renderRuntimeSection,
@@ -198,6 +199,7 @@ export function renderOperationalEvidenceSection(
           <div class="detail-stack">
             ${renderControlPlaneStatusSection(detail)}
             ${renderRuntimeSection(detail)}
+            ${renderAnonymousEvidenceSection(detail)}
             ${renderAgsSmokeSection(appId, slot, detail)}
             ${renderBrokerVerificationSection(detail)}
             ${renderPilotUsageSection(detail)}

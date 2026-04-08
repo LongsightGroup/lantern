@@ -8,6 +8,7 @@ import {
 } from "./app_test_support.ts";
 import {
   buildAttemptEventRecord,
+  buildAttemptEvidenceArtifactRecord,
   buildAttemptRecord,
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -199,6 +200,13 @@ Deno.test("POST /runtime/sessions/:id/finalize accepts browser grader results wh
           buildPackageVersionRecord({
             appId: "web-checkup",
             title: "Web Checkup",
+            capabilities: [
+              "read_launch_context",
+              "read_activity_content",
+              "submit_attempt_event",
+              "submit_evidence_artifact",
+              "finalize_attempt",
+            ],
             grading: {
               mode: "browser",
               rubricFile: null,
@@ -243,10 +251,25 @@ Deno.test("POST /runtime/sessions/:id/finalize accepts browser grader results wh
             deploymentSlug: "web-checkup-pilot",
           }),
         ],
+        attemptEvidenceArtifacts: [
+          buildAttemptEvidenceArtifactRecord({
+            artifactId: "artifact-001",
+            attemptId: "attempt-123",
+            kind: "structured_json",
+            fileName: "submission.json",
+          }),
+        ],
         runtimeSessions: [
           buildRuntimeSessionRecord({
             appId: "web-checkup",
             deploymentSlug: "web-checkup-pilot",
+            capabilities: [
+              "read_launch_context",
+              "read_activity_content",
+              "submit_attempt_event",
+              "submit_evidence_artifact",
+              "finalize_attempt",
+            ],
             snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
             entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
             contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
@@ -320,6 +343,13 @@ Deno.test("POST /runtime/sessions/:id/finalize accepts browser grader results wh
 
           assertEquals(attemptAuditEvents.length, 1);
           assertObjectMatch(attemptAuditEvents[0]?.detail ?? {}, {
+            submissionMode: "anonymous_submission",
+            evidenceArtifactCount: 1,
+            evidenceArtifacts: [
+              {
+                artifactId: "artifact-001",
+              },
+            ],
             browserGraderResult: {
               specResults: [
                 {
@@ -337,6 +367,120 @@ Deno.test("POST /runtime/sessions/:id/finalize accepts browser grader results wh
   } finally {
     restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
   }
+});
+
+Deno.test("POST /runtime/sessions/:id/finalize rejects anonymous submissions that have no stored evidence artifacts", async () => {
+  await withRuntimeOriginEnv(async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          appId: "web-checkup",
+          title: "Web Checkup",
+          capabilities: [
+            "read_launch_context",
+            "read_activity_content",
+            "submit_attempt_event",
+            "submit_evidence_artifact",
+            "finalize_attempt",
+          ],
+          grading: {
+            mode: "browser",
+            rubricFile: null,
+            maxScore: 100,
+          },
+          manifestJson: {
+            app_id: "web-checkup",
+            version: "0.1.0",
+            title: "Web Checkup",
+            grading: {
+              mode: "browser",
+              max_score: 100,
+            },
+            authoring: {
+              kind: "browser_autograder",
+              grader_spec_files: [
+                "/grading/specs/structure.spec.js",
+                "/grading/specs/behavior.spec.js",
+              ],
+              evidence_example_file: "/evidence/example-output.json",
+            },
+          },
+          artifact: {
+            snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
+            manifestPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/manifest.json`,
+            entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
+            digest: "sha256:web-checkup-snapshot",
+          },
+        }),
+      ],
+      attempts: [
+        buildAttemptRecord({
+          appId: "web-checkup",
+          deploymentSlug: "web-checkup-pilot",
+        }),
+      ],
+      runtimeSessions: [
+        buildRuntimeSessionRecord({
+          appId: "web-checkup",
+          deploymentSlug: "web-checkup-pilot",
+          capabilities: [
+            "read_launch_context",
+            "read_activity_content",
+            "submit_attempt_event",
+            "submit_evidence_artifact",
+            "finalize_attempt",
+          ],
+          snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
+          entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
+          contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
+          expiresAt: "2099-03-26T02:45:00Z",
+        }),
+      ],
+    });
+    const app = createApp({ getRepository: () => repository });
+
+    const response = await app.request(
+      "https://runtime.lantern.example/runtime/sessions/runtime-session-123/finalize",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer runtime-token-123",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          completionState: "completed",
+          browserGraderResult: {
+            scoreGiven: 100,
+            scoreMaximum: 100,
+            specResults: [
+              {
+                source: "/grading/specs/structure.spec.js",
+                result: "passed",
+                failures: [],
+              },
+              {
+                source: "/grading/specs/behavior.spec.js",
+                result: "passed",
+                failures: [],
+              },
+            ],
+          },
+        }),
+      },
+    );
+    const body = (await response.json()) as {
+      accepted: boolean;
+      denial: {
+        code: string;
+        capability: string | null;
+      };
+    };
+
+    assertEquals(response.status, 409);
+    assertEquals(body.accepted, false);
+    assertEquals(body.denial.code, "anonymous_evidence_required");
+    assertEquals(body.denial.capability, "finalize_attempt");
+  });
 });
 
 Deno.test("POST /runtime/sessions/:id/score-proposal accepts typed app proposals without direct grade writes", async () => {

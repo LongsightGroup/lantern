@@ -1,9 +1,9 @@
-import type { ManagedDeploymentSlot } from './deployment_detail.ts';
+import type { ManagedDeploymentSlot } from "./deployment_detail.ts";
 import type {
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneRuntimeEvidenceSnapshot,
-} from '../ops/types.ts';
-import { escapeHtml } from './layout.ts';
+} from "../ops/types.ts";
+import { escapeHtml } from "./layout.ts";
 import {
   describeActivityLtiProfile,
   describeRuntimeRoute,
@@ -14,7 +14,7 @@ import {
   readStringDetail,
   renderActivityFact,
   renderDiagnosticRow,
-} from './deployment_detail_ops_support.ts';
+} from "./deployment_detail_ops_support.ts";
 import {
   describeBrokerVerificationStatus as describeBrokerVerificationStatusLabel,
   describeRuntimeBoundary,
@@ -26,7 +26,7 @@ import {
   describeSmokePublicationSummary,
   describeSmokeStatus,
   formatLmsLabel,
-} from './deployment_detail_ops_labels.ts';
+} from "./deployment_detail_ops_labels.ts";
 
 export function renderDiagnosticsSection(
   appId: string,
@@ -40,27 +40,32 @@ export function renderDiagnosticsSection(
         <p class="section-label">Problems</p>
         <h2>Problems to review</h2>
         ${
-          diagnostics.length === 0
-            ? `<div class="callout">
+    diagnostics.length === 0
+      ? `<div class="callout">
               <h3>No problems recorded</h3>
               <p>Lantern has not recorded a failed launch, reviewed runtime event, roster read, or grade write for this setup.</p>
             </div>`
-            : `<div class="table-list">
-              ${diagnostics
-                .map((item) => renderDiagnosticRow(item, appId, retryAttemptId))
-                .join('')}
+      : `<div class="table-list">
+              ${
+        diagnostics
+          .map((item) => renderDiagnosticRow(item, appId, retryAttemptId))
+          .join("")
+      }
             </div>`
-        }
+  }
       </div>
     </section>`;
 }
 
-export function renderRuntimeSection(detail: ControlPlaneDeploymentDetailSnapshot | null): string {
+export function renderRuntimeSection(
+  detail: ControlPlaneDeploymentDetailSnapshot | null,
+): string {
   const latestRuntimeSession = detail?.latestRuntimeSession ?? null;
   const latestRuntimeOutcome = detail?.latestRuntimeOutcome ?? null;
-  const sandboxModel =
-    latestRuntimeSession?.sandboxModel ?? latestRuntimeOutcome?.sandboxModel ?? null;
-  const boundary = latestRuntimeSession?.boundary ?? latestRuntimeOutcome?.boundary ?? null;
+  const sandboxModel = latestRuntimeSession?.sandboxModel ??
+    latestRuntimeOutcome?.sandboxModel ?? null;
+  const boundary = latestRuntimeSession?.boundary ??
+    latestRuntimeOutcome?.boundary ?? null;
 
   return `<section class="panel">
       <div class="panel-body stack">
@@ -68,46 +73,102 @@ export function renderRuntimeSection(detail: ControlPlaneDeploymentDetailSnapsho
         <h2>Runtime session</h2>
         <p>Lantern records which reviewed sandbox model and runtime boundary were active for this setup.</p>
         <div class="facts">
-          ${renderRuntimeFact(
-            'Runtime session',
-            latestRuntimeSession?.sessionId ?? 'Not recorded yet',
-            latestRuntimeSession?.summary ??
-              'Lantern has not recorded a reviewed runtime session for this setup yet.',
-          )}
-          ${renderActivityFact(
-            'Started at',
-            formatRuntimeTimestamp(latestRuntimeSession),
-            latestRuntimeSession?.attemptId === null ||
-              latestRuntimeSession?.attemptId === undefined
-              ? 'Lantern has not tied a reviewed runtime session to an attempt for this setup yet.'
-              : `Lantern tied this reviewed runtime session to attempt ${latestRuntimeSession.attemptId}.`,
-          )}
-          ${renderActivityFact(
-            'Sandbox model',
-            describeRuntimeSandboxModel(sandboxModel),
-            sandboxModel === null
-              ? 'Lantern has not recorded the enforced sandbox model for this setup yet.'
-              : `Lantern enforced the ${describeRuntimeSandboxModel(
-                  sandboxModel,
-                )} for the latest reviewed runtime session.`,
-          )}
-          ${renderActivityFact(
-            'Runtime boundary',
-            describeRuntimeBoundary(boundary),
-            boundary === null
-              ? 'Lantern has not recorded the enforced runtime boundary for this setup yet.'
-              : `Lantern kept reviewed app traffic inside the ${describeRuntimeBoundary(
-                  boundary,
-                )} boundary.`,
-          )}
-          ${renderRuntimeFact(
-            'Latest outcome',
-            describeRuntimeOutcome(latestRuntimeOutcome?.eventType),
-            latestRuntimeOutcome?.summary ??
-              'Lantern has not recorded a reviewed runtime outcome for this setup yet.',
-          )}
+          ${
+    renderRuntimeFact(
+      "Runtime session",
+      latestRuntimeSession?.sessionId ?? "Not recorded yet",
+      latestRuntimeSession?.summary ??
+        "Lantern has not recorded a reviewed runtime session for this setup yet.",
+    )
+  }
+          ${
+    renderActivityFact(
+      "Started at",
+      formatRuntimeTimestamp(latestRuntimeSession),
+      latestRuntimeSession?.attemptId === null ||
+        latestRuntimeSession?.attemptId === undefined
+        ? "Lantern has not tied a reviewed runtime session to an attempt for this setup yet."
+        : `Lantern tied this reviewed runtime session to attempt ${latestRuntimeSession.attemptId}.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      "Sandbox model",
+      describeRuntimeSandboxModel(sandboxModel),
+      sandboxModel === null
+        ? "Lantern has not recorded the enforced sandbox model for this setup yet."
+        : `Lantern enforced the ${
+          describeRuntimeSandboxModel(
+            sandboxModel,
+          )
+        } for the latest reviewed runtime session.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      "Runtime boundary",
+      describeRuntimeBoundary(boundary),
+      boundary === null
+        ? "Lantern has not recorded the enforced runtime boundary for this setup yet."
+        : `Lantern kept reviewed app traffic inside the ${
+          describeRuntimeBoundary(
+            boundary,
+          )
+        } boundary.`,
+    )
+  }
+          ${
+    renderRuntimeFact(
+      "Latest outcome",
+      describeRuntimeOutcome(latestRuntimeOutcome?.eventType),
+      latestRuntimeOutcome?.summary ??
+        "Lantern has not recorded a reviewed runtime outcome for this setup yet.",
+    )
+  }
         </div>
         ${renderRuntimeOutcomeCallout(latestRuntimeOutcome)}
+      </div>
+    </section>`;
+}
+
+export function renderAnonymousEvidenceSection(
+  detail: ControlPlaneDeploymentDetailSnapshot | null,
+): string {
+  const anonymousEvidence = detail?.latestAnonymousEvidence ?? [];
+  const runtimeOutcome = detail?.latestRuntimeOutcome ?? null;
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Anonymous submission evidence</p>
+        <h2>Anonymous submission evidence</h2>
+        ${
+    anonymousEvidence.length === 0
+      ? `<div class="callout">
+              <h3>No anonymous evidence recorded</h3>
+              <p>Lantern has not recorded a stored anonymous submission artifact for this deployment yet.</p>
+            </div>`
+      : `<p>${escapeHtml(describeAnonymousEvidenceOutcome(runtimeOutcome))}</p>
+            <div class="line-list">
+              ${
+        anonymousEvidence
+          .map(
+            (artifact) =>
+              `<article class="line-item">
+                    <p class="line-title">${escapeHtml(artifact.fileName)}</p>
+                    <p class="line-copy">${
+                escapeHtml(
+                  `${artifact.kind} stored for ${artifact.artifactId}.`,
+                )
+              }</p>
+                    <p><a href="${
+                escapeHtml(artifact.artifactUrl)
+              }">Open stored artifact</a></p>
+                  </article>`,
+          )
+          .join("")
+      }
+            </div>`
+  }
       </div>
     </section>`;
 }
@@ -123,22 +184,28 @@ export function renderBrokerVerificationSection(
         <h2>Setup history</h2>
         <p>If you need past setup records or test logs for this app setup, open Verification. Most admins can ignore this unless they are troubleshooting.</p>
         <div class="facts">
-          ${renderActivityFact(
-            'Latest saved result',
-            describeBrokerVerificationStatusLabel(internalVerification?.status ?? null),
-            internalVerification?.summary ??
-              'No setup record has been saved for this app setup yet.',
-          )}
+          ${
+    renderActivityFact(
+      "Latest saved result",
+      describeBrokerVerificationStatusLabel(
+        internalVerification?.status ?? null,
+      ),
+      internalVerification?.summary ??
+        "No setup record has been saved for this app setup yet.",
+    )
+  }
         </div>
         <div class="button-row">
           <a class="button-ghost" href="/admin/verification">Open Verification</a>
           ${
-            internalVerification?.evidenceUrl
-              ? `<a class="button-ghost" href="${escapeHtml(
-                  internalVerification.evidenceUrl,
-                )}">Open log</a>`
-              : ''
-          }
+    internalVerification?.evidenceUrl
+      ? `<a class="button-ghost" href="${
+        escapeHtml(
+          internalVerification.evidenceUrl,
+        )
+      }">Open log</a>`
+      : ""
+  }
         </div>
       </div>
     </section>`;
@@ -150,50 +217,59 @@ export function renderAgsSmokeSection(
   detail: ControlPlaneDeploymentDetailSnapshot | null,
 ): string {
   const latestAgsSmoke = detail?.latestAgsSmoke ?? null;
-  const lineItemUrl = readStringDetail(latestAgsSmoke?.detail, 'lineItemUrl');
-  const errorCode = readNestedStringDetail(latestAgsSmoke?.detail, 'error', 'code');
-  const errorText = readNestedStringDetail(latestAgsSmoke?.detail, 'error', 'message');
-  const canRunSmoke =
-    slot.persisted &&
-    (slot.lms === 'moodle' || slot.lms === 'sakai') &&
+  const lineItemUrl = readStringDetail(latestAgsSmoke?.detail, "lineItemUrl");
+  const errorCode = readNestedStringDetail(
+    latestAgsSmoke?.detail,
+    "error",
+    "code",
+  );
+  const errorText = readNestedStringDetail(
+    latestAgsSmoke?.detail,
+    "error",
+    "message",
+  );
+  const canRunSmoke = slot.persisted &&
+    (slot.lms === "moodle" || slot.lms === "sakai") &&
     slot.deployment.binding?.lms === slot.lms;
-  const runCopy =
-    slot.lms === 'canvas'
-      ? 'This test is available for Moodle and Sakai only.'
-      : canRunSmoke
-        ? `Run a grade return test for this ${formatLmsLabel(slot.lms)} setup.`
-        : `Save the exact ${formatLmsLabel(slot.lms)} setup before running a grade return test.`;
-  const runAction =
-    slot.lms === 'canvas'
-      ? ''
-      : `<form method="post" action="/admin/packages/${escapeHtml(
-          appId,
-        )}/deployment/verify-grade-smoke" class="stack">
+  const runCopy = slot.lms === "canvas"
+    ? "This test is available for Moodle and Sakai only."
+    : canRunSmoke
+    ? `Run a grade return test for this ${formatLmsLabel(slot.lms)} setup.`
+    : `Save the exact ${
+      formatLmsLabel(slot.lms)
+    } setup before running a grade return test.`;
+  const runAction = slot.lms === "canvas"
+    ? ""
+    : `<form method="post" action="/admin/packages/${
+      escapeHtml(
+        appId,
+      )
+    }/deployment/verify-grade-smoke" class="stack">
             <input type="hidden" name="lms" value="${escapeHtml(slot.lms)}" />
-            <input type="hidden" name="deploymentRecordId" value="${escapeHtml(
-              String(slot.deployment.id),
-            )}" />
+            <input type="hidden" name="deploymentRecordId" value="${
+      escapeHtml(
+        String(slot.deployment.id),
+      )
+    }" />
             <div class="button-row">
               <button type="submit" class="button-secondary" ${
-                canRunSmoke ? '' : 'disabled'
-              }>Run grade return check</button>
+      canRunSmoke ? "" : "disabled"
+    }>Run grade return check</button>
             </div>
           </form>`;
-  const lineItemFact =
-    lineItemUrl === null
-      ? ''
-      : `<div class="fact">
+  const lineItemFact = lineItemUrl === null ? "" : `<div class="fact">
             <span class="fact-label">Test line item</span>
             <span class="fact-value">${escapeHtml(lineItemUrl)}</span>
             <p class="micro muted">Lantern uses a separate test line item so this check does not touch learner grades.</p>
           </div>`;
-  const failureCallout =
-    errorText === null
-      ? ''
-      : `<div class="callout">
+  const failureCallout = errorText === null ? "" : `<div class="callout">
             <h3>Latest check failure</h3>
             <p>${escapeHtml(errorText)}</p>
-            ${errorCode === null ? '' : `<p class="micro muted">Code ${escapeHtml(errorCode)}</p>`}
+            ${
+    errorCode === null
+      ? ""
+      : `<p class="micro muted">Code ${escapeHtml(errorCode)}</p>`
+  }
           </div>`;
 
   return `<section class="panel">
@@ -202,36 +278,48 @@ export function renderAgsSmokeSection(
         <h2>Latest grade return check</h2>
         <p>${escapeHtml(runCopy)}</p>
         <div class="facts">
-          ${renderActivityFact(
-            'Status',
-            describeSmokeStatus(latestAgsSmoke),
-            latestAgsSmoke?.summary ??
-              'No grade return check has been recorded for this setup yet.',
-          )}
-          ${renderActivityFact(
-            'Checked at',
-            formatActivityTimestamp(latestAgsSmoke),
-            latestAgsSmoke === null
-              ? 'Lantern has not recorded a grade return check for this setup yet.'
-              : `Lantern keeps this result scoped to the viewed ${formatLmsLabel(slot.lms)} setup.`,
-          )}
-          ${renderActivityFact(
-            'Grade return access',
-            describeSmokeCapability(latestAgsSmoke, readBooleanDetail),
-            describeSmokeCapabilitySummary(latestAgsSmoke, readBooleanDetail),
-          )}
-          ${renderActivityFact(
-            'Test write',
-            describeSmokePublication(latestAgsSmoke, readStringDetail),
-            describeSmokePublicationSummary(latestAgsSmoke, readStringDetail),
-          )}
-          ${renderActivityFact(
-            'LTI profile',
-            describeActivityLtiProfile(latestAgsSmoke?.detail) ?? 'Not recorded yet',
-            latestAgsSmoke === null
-              ? 'Lantern has not recorded a grade return check for this setup yet.'
-              : 'Lantern records which saved LTI profile was enforced for this check.',
-          )}
+          ${
+    renderActivityFact(
+      "Status",
+      describeSmokeStatus(latestAgsSmoke),
+      latestAgsSmoke?.summary ??
+        "No grade return check has been recorded for this setup yet.",
+    )
+  }
+          ${
+    renderActivityFact(
+      "Checked at",
+      formatActivityTimestamp(latestAgsSmoke),
+      latestAgsSmoke === null
+        ? "Lantern has not recorded a grade return check for this setup yet."
+        : `Lantern keeps this result scoped to the viewed ${
+          formatLmsLabel(slot.lms)
+        } setup.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      "Grade return access",
+      describeSmokeCapability(latestAgsSmoke, readBooleanDetail),
+      describeSmokeCapabilitySummary(latestAgsSmoke, readBooleanDetail),
+    )
+  }
+          ${
+    renderActivityFact(
+      "Test write",
+      describeSmokePublication(latestAgsSmoke, readStringDetail),
+      describeSmokePublicationSummary(latestAgsSmoke, readStringDetail),
+    )
+  }
+          ${
+    renderActivityFact(
+      "LTI profile",
+      describeActivityLtiProfile(latestAgsSmoke?.detail) ?? "Not recorded yet",
+      latestAgsSmoke === null
+        ? "Lantern has not recorded a grade return check for this setup yet."
+        : "Lantern records which saved LTI profile was enforced for this check.",
+    )
+  }
         </div>
         ${lineItemFact}
         ${failureCallout}
@@ -244,7 +332,7 @@ function renderRuntimeOutcomeCallout(
   latestRuntimeOutcome: ControlPlaneRuntimeEvidenceSnapshot | null,
 ): string {
   if (latestRuntimeOutcome === null) {
-    return '';
+    return "";
   }
 
   const runtimeFacts = [
@@ -252,17 +340,83 @@ function renderRuntimeOutcomeCallout(
     latestRuntimeOutcome.capability === null
       ? null
       : `Capability ${latestRuntimeOutcome.capability}`,
-    latestRuntimeOutcome.code === null ? null : `Code ${latestRuntimeOutcome.code}`,
+    latestRuntimeOutcome.code === null
+      ? null
+      : `Code ${latestRuntimeOutcome.code}`,
   ].filter((value): value is string => value !== null);
 
   if (runtimeFacts.length === 0) {
-    return '';
+    return "";
   }
 
-  return `<p class="micro muted">${escapeHtml(runtimeFacts.join(' · '))}</p>`;
+  return `<p class="micro muted">${escapeHtml(runtimeFacts.join(" · "))}</p>`;
 }
 
-function renderRuntimeFact(label: string, value: string, summary: string): string {
+function describeAnonymousEvidenceOutcome(
+  latestRuntimeOutcome: ControlPlaneRuntimeEvidenceSnapshot | null,
+): string {
+  if (latestRuntimeOutcome === null) {
+    return "Lantern has not recorded an anonymous finalize outcome for this deployment yet.";
+  }
+
+  const detail = latestRuntimeOutcome.detail;
+  const submissionMode = readStringDetail(detail, "submissionMode");
+  const scoreGiven = readFiniteDetailNumber(detail, "scoreGiven");
+  const scoreMaximum = readFiniteDetailNumber(detail, "scoreMaximum");
+  const specCount = readBrowserGraderSpecCount(detail);
+
+  if (
+    submissionMode === "anonymous_submission" &&
+    scoreGiven !== null &&
+    scoreMaximum !== null &&
+    specCount !== null
+  ) {
+    return `Latest browser-grader outcome: ${scoreGiven} / ${scoreMaximum} across ${specCount} reviewed specs.`;
+  }
+
+  if (
+    submissionMode === "anonymous_submission" &&
+    scoreGiven !== null &&
+    scoreMaximum !== null
+  ) {
+    return `Latest finalize outcome: ${scoreGiven} / ${scoreMaximum} recorded through anonymous submission.`;
+  }
+
+  return latestRuntimeOutcome.summary;
+}
+
+function readFiniteDetailNumber(
+  detail: Record<string, unknown>,
+  key: string,
+): number | null {
+  const value = detail[key];
+
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readBrowserGraderSpecCount(
+  detail: Record<string, unknown>,
+): number | null {
+  const browserGraderResult = detail.browserGraderResult;
+
+  if (
+    !browserGraderResult || typeof browserGraderResult !== "object" ||
+    Array.isArray(browserGraderResult)
+  ) {
+    return null;
+  }
+
+  const specResults =
+    (browserGraderResult as Record<string, unknown>).specResults;
+
+  return Array.isArray(specResults) ? specResults.length : null;
+}
+
+function renderRuntimeFact(
+  label: string,
+  value: string,
+  summary: string,
+): string {
   return `<div class="fact">
       <span class="fact-label">${escapeHtml(label)}</span>
       <span class="fact-value">${escapeHtml(value)}</span>
@@ -272,8 +426,8 @@ function renderRuntimeFact(label: string, value: string, summary: string): strin
 
 function escapeTextContent(value: string): string {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }

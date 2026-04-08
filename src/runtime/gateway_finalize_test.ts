@@ -1,5 +1,6 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { finalizeRuntimeAttempt } from "./gateway.ts";
+import { RuntimeBrokerDenialError } from "./gateway_errors.ts";
 import {
   buildDeploymentBinding,
   buildRuntimeSessionRecord,
@@ -7,6 +8,7 @@ import {
 } from "../test_helpers/lti.ts";
 import {
   buildAttemptEventRecord,
+  buildAttemptEvidenceArtifactRecord,
   buildAttemptRecord,
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -282,6 +284,255 @@ Deno.test("runtime gateway finalizes browser grading through the reviewed browse
   }
 });
 
+Deno.test("runtime gateway rejects anonymous finalize when no evidence artifacts are stored", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        appId: "web-checkup",
+        title: "Web Checkup",
+        capabilities: [
+          "read_launch_context",
+          "read_activity_content",
+          "submit_attempt_event",
+          "submit_evidence_artifact",
+          "finalize_attempt",
+        ],
+        grading: {
+          mode: "browser",
+          rubricFile: null,
+          maxScore: 100,
+        },
+        manifestJson: {
+          app_id: "web-checkup",
+          version: "0.1.0",
+          title: "Web Checkup",
+          grading: {
+            mode: "browser",
+            max_score: 100,
+          },
+          authoring: {
+            kind: "browser_autograder",
+            grader_spec_files: [
+              "/grading/specs/structure.spec.js",
+              "/grading/specs/behavior.spec.js",
+            ],
+            evidence_example_file: "/evidence/example-output.json",
+          },
+        },
+      }),
+    ],
+    attempts: [
+      buildAttemptRecord({
+        appId: "web-checkup",
+        deploymentSlug: "web-checkup-pilot",
+      }),
+    ],
+  });
+  const session = buildRuntimeSessionRecord({
+    appId: "web-checkup",
+    deploymentSlug: "web-checkup-pilot",
+    capabilities: [
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "submit_evidence_artifact",
+      "finalize_attempt",
+    ],
+    snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
+    entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
+    contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
+    expiresAt: "2099-03-26T02:45:00Z",
+  });
+
+  const error = (await assertRejects(
+    () =>
+      finalizeRuntimeAttempt({
+        repository,
+        session,
+        payload: {
+          completionState: "completed",
+          browserGraderResult: {
+            scoreGiven: 100,
+            scoreMaximum: 100,
+            specResults: [
+              {
+                source: "/grading/specs/structure.spec.js",
+                result: "passed",
+                failures: [],
+              },
+              {
+                source: "/grading/specs/behavior.spec.js",
+                result: "passed",
+                failures: [],
+              },
+            ],
+          },
+        },
+        env: TEST_RUNTIME_ENV,
+        artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
+        now: () => new Date("2026-04-08T19:00:00Z"),
+      }),
+    RuntimeBrokerDenialError,
+  )) as RuntimeBrokerDenialError;
+
+  assertEquals(error.category, "policyDenied");
+  assertEquals(error.code, "anonymous_evidence_required");
+  assertEquals(error.capability, "finalize_attempt");
+});
+
+Deno.test("runtime gateway finalizes anonymous browser attempts only after evidence artifacts are already stored", async () => {
+  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        appId: "web-checkup",
+        title: "Web Checkup",
+        capabilities: [
+          "read_launch_context",
+          "read_activity_content",
+          "submit_attempt_event",
+          "submit_evidence_artifact",
+          "finalize_attempt",
+        ],
+        grading: {
+          mode: "browser",
+          rubricFile: null,
+          maxScore: 100,
+        },
+        manifestJson: {
+          app_id: "web-checkup",
+          version: "0.1.0",
+          title: "Web Checkup",
+          grading: {
+            mode: "browser",
+            max_score: 100,
+          },
+          authoring: {
+            kind: "browser_autograder",
+            grader_spec_files: [
+              "/grading/specs/structure.spec.js",
+              "/grading/specs/behavior.spec.js",
+            ],
+            evidence_example_file: "/evidence/example-output.json",
+          },
+        },
+        artifact: {
+          snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
+          manifestPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/manifest.json`,
+          entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
+          digest: "sha256:web-checkup-snapshot",
+        },
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        appId: "web-checkup",
+        slug: "web-checkup-pilot",
+        label: "Web Checkup Pilot",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    attempts: [
+      buildAttemptRecord({
+        appId: "web-checkup",
+        deploymentSlug: "web-checkup-pilot",
+      }),
+    ],
+    attemptEvidenceArtifacts: [
+      buildAttemptEvidenceArtifactRecord({
+        artifactId: "artifact-001",
+        attemptId: "attempt-123",
+        kind: "structured_json",
+        fileName: "submission.json",
+      }),
+    ],
+  });
+  const session = buildRuntimeSessionRecord({
+    appId: "web-checkup",
+    deploymentSlug: "web-checkup-pilot",
+    capabilities: [
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "submit_evidence_artifact",
+      "finalize_attempt",
+    ],
+    snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
+    entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
+    contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
+    expiresAt: "2099-03-26T02:45:00Z",
+  });
+
+  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+  try {
+    await withFetchStub(
+      (input, init) => {
+        const url = String(input);
+
+        if (url === "https://sso.canvaslms.com/login/oauth2/token") {
+          return new Response(
+            JSON.stringify({
+              access_token: "canvas-access-token",
+              token_type: "bearer",
+            }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            },
+          );
+        }
+
+        assertEquals(
+          url,
+          "https://canvas.example/api/lti/courses/42/line_items/9/scores",
+        );
+        assertEquals(init?.method, "POST");
+
+        return new Response(null, { status: 202 });
+      },
+      async () => {
+        const result = await finalizeRuntimeAttempt({
+          repository,
+          session,
+          payload: {
+            completionState: "completed",
+            browserGraderResult: {
+              scoreGiven: 100,
+              scoreMaximum: 100,
+              specResults: [
+                {
+                  source: "/grading/specs/structure.spec.js",
+                  result: "passed",
+                  failures: [],
+                },
+                {
+                  source: "/grading/specs/behavior.spec.js",
+                  result: "passed",
+                  failures: [],
+                },
+              ],
+            },
+          },
+          env: TEST_RUNTIME_ENV,
+          artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
+          now: () => new Date("2026-04-08T19:02:00Z"),
+        });
+
+        assertEquals(result.finalizedNow, true);
+        assertEquals(result.submissionMode, "anonymous_submission");
+        assertEquals(result.evidenceArtifacts.length, 1);
+        assertEquals(result.evidenceArtifacts[0]?.artifactId, "artifact-001");
+        assertEquals(result.gradePublishedNow, true);
+      },
+    );
+  } finally {
+    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+  }
+});
+
 Deno.test("runtime gateway keeps the AGS line-item resource id aligned with the reviewed activity", async () => {
   const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
   const repository = createInMemoryPackageReviewRepository({
@@ -325,6 +576,7 @@ Deno.test("runtime gateway keeps the AGS line-item resource id aligned with the 
       courseId: "course-42",
       assignmentId: "assignment-9",
       activityId: "/content/bonus.json",
+      submissionMode: "standard",
     },
     expiresAt: "2099-03-26T02:45:00Z",
   });

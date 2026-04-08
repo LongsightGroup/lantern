@@ -519,11 +519,17 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
               completionState: result.attempt.completionState,
               scoreGiven: result.score.scoreGiven,
               scoreMaximum: result.score.scoreMaximum,
+              submissionMode: result.submissionMode,
+              evidenceArtifactCount: result.evidenceArtifacts.length,
+              evidenceArtifacts: result.evidenceArtifacts,
             }
             : {
               completionState: result.attempt.completionState,
               scoreGiven: result.score.scoreGiven,
               scoreMaximum: result.score.scoreMaximum,
+              submissionMode: result.submissionMode,
+              evidenceArtifactCount: result.evidenceArtifacts.length,
+              evidenceArtifacts: result.evidenceArtifacts,
               browserGraderResult: result.browserGraderResult,
             },
           occurredAt: new Date().toISOString(),
@@ -535,6 +541,10 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           scoreGiven: result.score.scoreGiven,
           scoreMaximum: result.score.scoreMaximum,
           gradePublished: result.gradePublication?.status === "published",
+          submissionMode: result.submissionMode,
+          evidenceArtifactCount: result.evidenceArtifacts.length,
+          evidenceArtifacts: result.evidenceArtifacts,
+          browserGraderResult: result.browserGraderResult,
           route: "finalize",
         });
       }
