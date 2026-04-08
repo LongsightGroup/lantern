@@ -9,9 +9,15 @@ It shows one blessed path:
 - one content file
 - one preview fixtures file
 - one preview tests file
-- one grader spec starter file
+- one reviewed browser grading starter file
 - one example evidence artifact
 - one runtime seam through `window.GatewayApp`
+
+Its reviewed browser grading contract is explicit:
+
+- `manifest.json` uses `grading.mode = "browser"`
+- `manifest.authoring.grader_spec_files` is the reviewed spec list
+- Lantern runs those files through its Lantern-owned Jasmine harness
 
 Start here:
 

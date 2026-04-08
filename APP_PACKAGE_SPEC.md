@@ -119,8 +119,7 @@ The manifest is the review contract.
     "write_local_state"
   ],
   "grading": {
-    "mode": "declarative",
-    "rubric_file": "/scoring/rubric.json",
+    "mode": "browser",
     "max_score": 100
   },
   "browser": {
@@ -207,8 +206,11 @@ Allowed values in v1:
 - `declarative`
 - `manual`
 - `completion`
+- `browser`
 
 `declarative` means the gateway computes the score from a rubric or rule set.
+`browser` means Lantern runs the reviewed `authoring.grader_spec_files` through
+a Lantern-owned Jasmine harness on the contained runtime origin.
 
 ### `browser`
 
@@ -243,6 +245,14 @@ Canonical browser-autograder layout:
 
 These files are reviewable artifacts for teachers and future AI authoring flows.
 They do not grant LMS access, outbound HTTP, or direct grade writes.
+
+When `grading.mode = "browser"`:
+
+- `grading.max_score` is required
+- `grading.rubric_file` is not used
+- `authoring.kind` must be `browser_autograder`
+- `authoring.grader_spec_files` is the only reviewed grader spec source
+- Lantern runs those reviewed files through its Lantern-owned Jasmine harness
 
 ## Bootstrap Payload
 

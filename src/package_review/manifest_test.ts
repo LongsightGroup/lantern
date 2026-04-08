@@ -440,7 +440,9 @@ Deno.test("validateManifest rejects browser grading when authoring kind is absen
     assertEquals(result.ok, false);
 
     if (result.ok) {
-      throw new Error("Expected browser grading without authoring kind to fail.");
+      throw new Error(
+        "Expected browser grading without authoring kind to fail.",
+      );
     }
 
     assertEquals(

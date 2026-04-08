@@ -163,6 +163,16 @@ function mapManifestIssue(error: ErrorObject): ValidationIssue {
     };
   }
 
+  if (error.keyword === "const" && error.instancePath === "/authoring/kind") {
+    return {
+      field: "/authoring/kind",
+      keyword: error.keyword,
+      severity: "error",
+      message:
+        'Browser grading requires authoring.kind = "browser_autograder".',
+    };
+  }
+
   if (error.keyword === "enum") {
     return buildSimpleIssue(
       error,
@@ -231,7 +241,19 @@ function requiredFieldMessage(field: string): string {
   }
 
   if (field === "/grading/max_score") {
-    return "Declarative grading requires a max score.";
+    return "Declarative and browser grading require a max score.";
+  }
+
+  if (field === "/authoring") {
+    return "Browser grading requires reviewed authoring artifacts.";
+  }
+
+  if (field === "/authoring/kind") {
+    return 'Browser grading requires authoring.kind = "browser_autograder".';
+  }
+
+  if (field === "/authoring/grader_spec_files") {
+    return "Browser grading requires reviewed grader spec files.";
   }
 
   return `${

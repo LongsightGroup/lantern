@@ -7,7 +7,7 @@ import type {
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 export type InstallScope = "course" | "assignment";
-export type GradingMode = "declarative" | "manual" | "completion";
+export type GradingMode = "declarative" | "manual" | "completion" | "browser";
 export type ValidationSeverity = "error";
 export type AttemptStatus = "in_progress" | "completed" | "abandoned";
 export type AttemptCompletionState = "completed" | "abandoned";

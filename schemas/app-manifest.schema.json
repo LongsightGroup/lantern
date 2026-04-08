@@ -90,7 +90,7 @@
       "required": ["mode"],
       "properties": {
         "mode": {
-          "enum": ["declarative", "manual", "completion"]
+          "enum": ["declarative", "manual", "completion", "browser"]
         },
         "rubric_file": {
           "type": "string",
@@ -113,6 +113,19 @@
           },
           "then": {
             "required": ["rubric_file", "max_score"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "browser"
+              }
+            },
+            "required": ["mode"]
+          },
+          "then": {
+            "required": ["max_score"]
           }
         }
       ]
@@ -179,5 +192,50 @@
       "type": "string",
       "pattern": "^/.+"
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "grading": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "const": "browser"
+              }
+            },
+            "required": ["mode"]
+          }
+        },
+        "required": ["grading"]
+      },
+      "then": {
+        "required": ["authoring"],
+        "properties": {
+          "authoring": {
+            "type": "object",
+            "required": ["kind", "grader_spec_files", "evidence_example_file"],
+            "properties": {
+              "kind": {
+                "const": "browser_autograder"
+              },
+              "grader_spec_files": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "pattern": "^/grading/.+\\.js$"
+                }
+              },
+              "evidence_example_file": {
+                "type": "string",
+                "pattern": "^/evidence/.+\\.json$"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
