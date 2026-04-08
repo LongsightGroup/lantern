@@ -2,6 +2,8 @@ import type { DraftFileDiff } from "../authoring/draft_diff.ts";
 import type {
   AuthoringDraftRecord,
   PackageVersionRecord,
+  PreviewEvidenceRecord,
+  PreviewSessionRecord,
 } from "../package_review/types.ts";
 import {
   type AdminNotice,
@@ -26,10 +28,14 @@ export function renderAuthoringPage(input: {
   packageVersion: PackageVersionRecord;
   draft: AuthoringDraftRecord;
   currentFiles: AuthoringPageFileView[];
+  latestPreviewSession?: PreviewSessionRecord | null;
+  previewEvidence?: PreviewEvidenceRecord[];
   generatedDraft?: AuthoringGeneratedDraftView | null;
   notice?: AdminNotice | null;
 }): string {
   const generatedDraft = input.generatedDraft ?? null;
+  const latestPreviewSession = input.latestPreviewSession ?? null;
+  const previewEvidence = input.previewEvidence ?? [];
   const pagePath = `/admin/packages/${
     escapeHtml(input.packageVersion.appId)
   }/versions/${
@@ -94,6 +100,12 @@ export function renderAuthoringPage(input: {
       escapeHtml(formatDateTime(input.draft.lastPreviewedAt))
     }</span>
             </div>
+            <div class="fact">
+              <span class="fact-label">Latest draft preview</span>
+              <span class="fact-value">${
+      escapeHtml(latestPreviewSession?.sessionId ?? "None yet")
+    }</span>
+            </div>
           </div>
         </section>
       </div>
@@ -105,6 +117,64 @@ export function renderAuthoringPage(input: {
         <div class="line-list">
           ${input.currentFiles.map(renderCurrentFileCard).join("")}
         </div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Latest draft preview</p>
+        <div class="facts">
+          <div class="fact">
+            <span class="fact-label">Session</span>
+            <span class="fact-value">${
+      escapeHtml(latestPreviewSession?.sessionId ?? "No draft preview yet")
+    }</span>
+          </div>
+          <div class="fact">
+            <span class="fact-label">Snapshot root</span>
+            <span class="fact-value">${
+      escapeHtml(latestPreviewSession?.snapshotRoot ?? "Not created yet")
+    }</span>
+          </div>
+          <div class="fact">
+            <span class="fact-label">Route</span>
+            <span class="fact-value">/admin/packages/${
+      escapeHtml(input.packageVersion.appId)
+    }/versions/${escapeHtml(input.packageVersion.version)}/authoring</span>
+          </div>
+        </div>
+        <form method="post" class="stack" action="${pagePath}/preview">
+          <p class="micro muted">${
+      input.draft.files.length === 0
+        ? "Save at least one draft file before preview starts."
+        : "Preview uses a materialized draft snapshot and the existing governed preview/runtime path."
+    }</p>
+          <div class="button-row">
+            <button type="submit" class="button-primary"${
+      input.draft.files.length === 0 ? " disabled" : ""
+    }>Preview draft</button>
+          </div>
+        </form>
+        ${
+      previewEvidence.length === 0
+        ? '<p class="muted">No draft preview evidence has been recorded yet.</p>'
+        : `<ul class="stack">${
+          previewEvidence
+            .map(
+              (record) =>
+                `<li class="stack">
+              <div class="micro muted">${escapeHtml(record.occurredAt)}</div>
+              <div><strong>${
+                  escapeHtml(formatPreviewEvidenceLabel(record.eventType))
+                }</strong></div>
+              <div>${escapeHtml(record.summary)}</div>
+              <div class="micro muted">${
+                  escapeHtml(formatPreviewEvidenceDetail(record.detail))
+                }</div>
+            </li>`,
+            )
+            .join("")
+        }</ul>`
+    }
       </div>
     </section>
     <section class="panel">
@@ -253,5 +323,30 @@ function formatSavedSource(
       return "Manual draft save";
     case "ai":
       return "AI-assisted draft save";
+  }
+}
+
+function formatPreviewEvidenceDetail(detail: Record<string, unknown>): string {
+  const source = JSON.stringify(detail);
+
+  if (source.length <= 180) {
+    return source;
+  }
+
+  return `${source.slice(0, 177)}...`;
+}
+
+function formatPreviewEvidenceLabel(eventType: string): string {
+  switch (eventType) {
+    case "preview.launch":
+      return "Started draft preview";
+    case "preview.content_read":
+      return "Loaded authoring preview content";
+    case "preview.attempt_event":
+      return "Received authoring preview progress";
+    case "preview.finalize":
+      return "Completed authoring preview";
+    default:
+      return eventType;
   }
 }

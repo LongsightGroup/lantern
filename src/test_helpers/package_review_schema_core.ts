@@ -200,7 +200,9 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
       app_id text NOT NULL,
       package_version text NOT NULL,
       package_title text NOT NULL,
-      origin text NOT NULL CHECK (origin IN ('adminTestLaunch', 'deepLinkingAuthoring')),
+      origin text NOT NULL CHECK (
+        origin IN ('adminTestLaunch', 'deepLinkingAuthoring', 'adminAuthoringDraft')
+      ),
       content_path text NOT NULL,
       deep_linking_session_id text REFERENCES deep_linking_sessions (session_id) ON DELETE SET NULL,
       capabilities text[] NOT NULL,

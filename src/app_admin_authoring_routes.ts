@@ -20,6 +20,8 @@ import { trimLeadingSlash } from "./package_review/snapshot_path.ts";
 import type {
   AuthoringDraftRecord,
   PackageVersionRecord,
+  PreviewEvidenceRecord,
+  PreviewSessionRecord,
 } from "./package_review/types.ts";
 
 const AUTHORING_SAVED_NOTICE = {
@@ -34,6 +36,8 @@ type AuthoringRouteState = {
   packageVersion: PackageVersionRecord;
   draft: AuthoringDraftRecord;
   currentFiles: AuthoringDraftFileInput[];
+  latestPreviewSession: PreviewSessionRecord | null;
+  previewEvidence: PreviewEvidenceRecord[];
 };
 
 export function registerAdminAuthoringRoutes(
@@ -61,6 +65,8 @@ export function registerAdminAuthoringRoutes(
             packageVersion: state.packageVersion,
             draft: state.draft,
             currentFiles: state.currentFiles,
+            latestPreviewSession: state.latestPreviewSession,
+            previewEvidence: state.previewEvidence,
             notice: saved ? AUTHORING_SAVED_NOTICE : null,
           }),
         );
@@ -124,6 +130,8 @@ export function registerAdminAuthoringRoutes(
             packageVersion: state.packageVersion,
             draft: state.draft,
             currentFiles: state.currentFiles,
+            latestPreviewSession: state.latestPreviewSession,
+            previewEvidence: state.previewEvidence,
             generatedDraft,
           }),
         );
@@ -237,6 +245,7 @@ async function loadAuthoringRouteState(
     packageVersion,
     draft,
     currentFiles: await loadCurrentDraftFiles(draft, services),
+    ...(await loadAuthoringPreviewLog(repository, packageVersion.id)),
   };
 }
 
@@ -334,6 +343,34 @@ function readRepeatedFormStrings(
   });
 }
 
+async function loadAuthoringPreviewLog(
+  repository: ReturnType<AppServices["getRepository"]>,
+  packageVersionId: number,
+): Promise<{
+  latestPreviewSession: PreviewSessionRecord | null;
+  previewEvidence: PreviewEvidenceRecord[];
+}> {
+  const latestPreviewSession = await repository
+    .getLatestPreviewSessionByPackageVersion(
+      packageVersionId,
+      "adminAuthoringDraft",
+    );
+
+  if (latestPreviewSession === null) {
+    return {
+      latestPreviewSession: null,
+      previewEvidence: [],
+    };
+  }
+
+  return {
+    latestPreviewSession,
+    previewEvidence: await repository.listPreviewEvidence(
+      latestPreviewSession.sessionId,
+    ),
+  };
+}
+
 async function renderAuthoringError(
   context: Context,
   services: AppServices,
@@ -349,6 +386,8 @@ async function renderAuthoringError(
         packageVersion: state.packageVersion,
         draft: state.draft,
         currentFiles: state.currentFiles,
+        latestPreviewSession: state.latestPreviewSession,
+        previewEvidence: state.previewEvidence,
         generatedDraft,
         notice: createErrorNotice("Authoring draft unavailable", error),
       }),

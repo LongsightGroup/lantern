@@ -1,6 +1,7 @@
 import { csrf } from "@hono/hono/csrf";
 import { Hono } from "@hono/hono";
 import { registerAdminAuthoringRoutes } from "./app_admin_authoring_routes.ts";
+import { registerAdminAuthoringPreviewRoutes } from "./app_admin_authoring_preview_routes.ts";
 import { registerAdminDeploymentDetailRoutes } from "./app_admin_deployment_detail_routes.ts";
 import { registerAdminDeploymentOpsRoutes } from "./app_admin_deployment_ops_routes.ts";
 import { registerAdminDeploymentRetryRoutes } from "./app_admin_deployment_retry_routes.ts";
@@ -27,6 +28,7 @@ export function buildApp(services: AppServices): Hono {
   registerRuntimeRoutes(app, services);
   registerAdminInventoryRoutes(app, services);
   registerAdminAuthoringRoutes(app, services);
+  registerAdminAuthoringPreviewRoutes(app, services);
   registerAdminOperationsRoutes(app, services);
   registerAdminPlacementRoutes(app, services);
   registerAdminPreviewRoutes(app, services);
