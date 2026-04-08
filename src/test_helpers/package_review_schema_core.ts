@@ -218,6 +218,38 @@ export const PACKAGE_REVIEW_CORE_SCHEMA_STATEMENTS = [
     )
   `,
   `
+    CREATE TABLE IF NOT EXISTS authoring_drafts (
+      draft_id text PRIMARY KEY,
+      package_version_id bigint NOT NULL REFERENCES package_versions (id) ON DELETE CASCADE,
+      app_id text NOT NULL,
+      package_version text NOT NULL,
+      package_title text NOT NULL,
+      authoring_kind text NOT NULL CHECK (authoring_kind = 'browser_autograder'),
+      authoring_paths jsonb NOT NULL,
+      base_snapshot_root text NOT NULL,
+      latest_prompt_text text,
+      latest_generation_notes jsonb NOT NULL DEFAULT '[]'::jsonb,
+      saved_source text NOT NULL CHECK (saved_source IN ('manual', 'ai')) DEFAULT 'manual',
+      last_previewed_at timestamptz,
+      created_at timestamptz NOT NULL,
+      updated_at timestamptz NOT NULL,
+      UNIQUE (package_version_id)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS authoring_draft_files (
+      draft_id text NOT NULL REFERENCES authoring_drafts (draft_id) ON DELETE CASCADE,
+      relative_path text NOT NULL,
+      contents text NOT NULL,
+      sequence integer NOT NULL,
+      PRIMARY KEY (draft_id, relative_path)
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS authoring_draft_files_draft_sequence_idx
+      ON authoring_draft_files (draft_id, sequence, relative_path)
+  `,
+  `
     CREATE TABLE IF NOT EXISTS preview_evidence (
       id bigserial PRIMARY KEY,
       preview_session_id text NOT NULL REFERENCES preview_sessions (session_id) ON DELETE CASCADE,
