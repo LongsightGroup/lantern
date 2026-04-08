@@ -16,6 +16,9 @@ export function buildRuntimeBootstrapScript(input: {
   const attemptEventsUrl = serializeForInlineScript(
     `${input.runtimeBaseUrl}/attempt-events`,
   );
+  const evidenceArtifactsUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/evidence-artifacts`,
+  );
   const scoreProposalUrl = serializeForInlineScript(
     `${input.runtimeBaseUrl}/score-proposal`,
   );
@@ -166,6 +169,18 @@ window.GatewayApp = {
     });
 
     return await readGatewayMutationResponse(response, 'Attempt event request');
+  },
+  async submitEvidenceArtifact(input) {
+    const response = await fetch(${evidenceArtifactsUrl}, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + window.GatewayBootstrap.session.token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(input),
+    });
+
+    return await readGatewayMutationResponse(response, 'Evidence artifact request');
   },
   async submitScoreProposal(input) {
     const response = await fetch(${scoreProposalUrl}, {

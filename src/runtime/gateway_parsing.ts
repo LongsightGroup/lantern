@@ -3,6 +3,8 @@ import type {
   BrowserGraderResult,
   BrowserGraderSpecResult,
   Capability,
+  EvidenceArtifactContentType,
+  EvidenceArtifactKind,
   ScoreProposal,
 } from "../../sdk/app-sdk.ts";
 import type { RuntimeSessionRecord } from "../lti/types.ts";
@@ -12,7 +14,10 @@ import {
   errorMessage,
   isRuntimeBrokerDenialError,
 } from "./gateway_errors.ts";
-import type { FinalizeAttemptInput } from "./gateway_types.ts";
+import type {
+  FinalizeAttemptInput,
+  ParsedEvidenceArtifactUpload,
+} from "./gateway_types.ts";
 
 export function parseAttemptEvent(payload: unknown): AttemptEvent {
   try {
@@ -269,6 +274,60 @@ export function parseScoreProposal(payload: unknown): ScoreProposal {
   }
 }
 
+export function parseEvidenceArtifactUpload(
+  payload: unknown,
+): ParsedEvidenceArtifactUpload {
+  try {
+    const record = requireRecord(
+      payload,
+      "Evidence artifact payload must be an object.",
+    );
+    const kind = requireEvidenceArtifactKind(record.kind);
+    const contentType = requireEvidenceArtifactContentType(record.contentType);
+
+    if (!isAllowedEvidenceArtifactPair(kind, contentType)) {
+      throw new Error(
+        "Evidence artifact kind and contentType must use a supported pair.",
+      );
+    }
+
+    const fileName = requireString(
+      record.fileName,
+      "Evidence artifact fileName is required.",
+    );
+    const bodyBase64 = requireString(
+      record.bodyBase64,
+      "Evidence artifact bodyBase64 is required.",
+    );
+    const body = decodeBase64(bodyBase64);
+
+    if (body.byteLength === 0) {
+      throw new Error(
+        "Evidence artifact bodyBase64 must decode to non-empty bytes.",
+      );
+    }
+
+    return {
+      kind,
+      contentType,
+      fileName,
+      body,
+    };
+  } catch (error) {
+    if (isRuntimeBrokerDenialError(error)) {
+      throw error;
+    }
+
+    denyRuntimeBroker({
+      category: "specInvalid",
+      code: "invalid_evidence_artifact",
+      message: errorMessage(error),
+      capability: "submit_evidence_artifact",
+      detail: {},
+    });
+  }
+}
+
 function requireRecord(
   payload: unknown,
   message: string,
@@ -340,6 +399,49 @@ function requireSpecResults(value: unknown): BrowserGraderSpecResult[] {
   }
 
   return value.map((candidate, index) => parseSpecResult(candidate, index));
+}
+
+function requireEvidenceArtifactKind(value: unknown): EvidenceArtifactKind {
+  if (value === "screenshot_png" || value === "structured_json") {
+    return value;
+  }
+
+  throw new Error("Evidence artifact kind must use a supported value.");
+}
+
+function requireEvidenceArtifactContentType(
+  value: unknown,
+): EvidenceArtifactContentType {
+  if (value === "image/png" || value === "application/json") {
+    return value;
+  }
+
+  throw new Error("Evidence artifact contentType must use a supported value.");
+}
+
+function isAllowedEvidenceArtifactPair(
+  kind: EvidenceArtifactKind,
+  contentType: EvidenceArtifactContentType,
+): boolean {
+  return (
+    (kind === "screenshot_png" && contentType === "image/png") ||
+    (kind === "structured_json" && contentType === "application/json")
+  );
+}
+
+function decodeBase64(value: string): Uint8Array {
+  try {
+    const decoded = atob(value);
+    const bytes = new Uint8Array(decoded.length);
+
+    for (let index = 0; index < decoded.length; index += 1) {
+      bytes[index] = decoded.charCodeAt(index);
+    }
+
+    return bytes;
+  } catch {
+    throw new Error("Evidence artifact bodyBase64 must be valid base64.");
+  }
 }
 
 function parseSpecResult(

@@ -23,11 +23,14 @@ import {
 import { createOpsRepository, type OpsRepository } from "./ops/repository.ts";
 import type { RuntimeArtifactStore } from "./runtime/artifact_store.ts";
 import { getDefaultRuntimeArtifactStore } from "./runtime/artifact_store_fs.ts";
+import type { EvidenceArtifactStore } from "./runtime/evidence_artifact_store.ts";
+import { getDefaultEvidenceArtifactStore } from "./runtime/evidence_artifact_store_fs.ts";
 import type { ManifestReviewData } from "./package_review/manifest.ts";
 
 export interface AppServices {
   env: EnvReader;
   runtimeArtifactStore: RuntimeArtifactStore;
+  evidenceArtifactStore: EvidenceArtifactStore;
   authoringAiWriter: AuthoringAiWriter;
   getRepository: () => PackageReviewRepository;
   getOpsRepository: () => OpsRepository;
@@ -59,6 +62,8 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
       createUnavailableAuthoringAiWriter(),
     runtimeArtifactStore: services.runtimeArtifactStore ??
       getDefaultRuntimeArtifactStore(),
+    evidenceArtifactStore: services.evidenceArtifactStore ??
+      getDefaultEvidenceArtifactStore(),
     getRepository,
     getOpsRepository: services.getOpsRepository ??
       (() => {

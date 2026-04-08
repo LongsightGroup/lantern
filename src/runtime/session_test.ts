@@ -49,6 +49,7 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(html, "chapter-4-asteroids");
   assertStringIncludes(html, "runtime-token-123");
   assertStringIncludes(html, "emitAttemptEvent");
+  assertStringIncludes(html, "submitEvidenceArtifact");
   assertStringIncludes(html, "submitScoreProposal");
   assertStringIncludes(html, "finalizeAttempt");
   assertStringIncludes(html, "runBrowserGrader");
@@ -62,6 +63,10 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(
     html,
     "https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events",
+  );
+  assertStringIncludes(
+    html,
+    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/evidence-artifacts",
   );
   assertStringIncludes(
     html,

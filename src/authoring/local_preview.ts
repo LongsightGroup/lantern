@@ -1,6 +1,7 @@
 import {
   BootstrapPayload,
   Capability,
+  GatewayEvidenceArtifactAcceptedResult,
   GatewayFinalizeAcceptedResult,
   GatewayScoreProposalAcceptedResult,
   ScoreProposal,
@@ -19,6 +20,7 @@ import {
 import {
   parseAttemptEvent,
   parseAttemptLocalState,
+  parseEvidenceArtifactUpload,
   parseFinalizeAttemptInput,
   parseScoreProposal,
 } from "../runtime/gateway_parsing.ts";
@@ -44,6 +46,7 @@ export interface LocalPreviewLogEntry {
     | "preview.local_state.read"
     | "preview.local_state.write"
     | "preview.attempt_event"
+    | "preview.evidence_artifact"
     | "preview.score_proposal"
     | "preview.finalize";
   detail: Record<string, unknown>;
@@ -71,6 +74,7 @@ export function createLocalPreviewHarness(input: {
   let finalized: {
     completionState: "completed" | "abandoned";
   } | null = null;
+  let evidenceArtifactCount = 0;
   const attemptEvents: AttemptEvent[] = [];
   const bootstrap = buildBootstrapPayload(input.appPackage, sessionToken);
 
@@ -181,6 +185,39 @@ export function createLocalPreviewHarness(input: {
           });
 
           return new Response(null, { status: 204 });
+        } catch (error) {
+          return runtimeMutationErrorResponse(error);
+        }
+      }
+
+      if (
+        url.pathname === runtimeBasePath + "/evidence-artifacts" &&
+        request.method === "POST"
+      ) {
+        try {
+          authorizeRequest(request, sessionToken);
+          requireCapability(input.appPackage, "submit_evidence_artifact");
+          const evidenceArtifact = parseEvidenceArtifactUpload(
+            await request.json(),
+          );
+          evidenceArtifactCount += 1;
+          const artifactId = `local-evidence-${evidenceArtifactCount}`;
+          const payload: GatewayEvidenceArtifactAcceptedResult = {
+            accepted: true,
+            artifactId,
+          };
+          logger({
+            eventType: "preview.evidence_artifact",
+            detail: {
+              artifactId,
+              kind: evidenceArtifact.kind,
+              fileName: evidenceArtifact.fileName,
+              byteSize: evidenceArtifact.body.byteLength,
+            },
+            occurredAt: new Date().toISOString(),
+          });
+
+          return Response.json(payload);
         } catch (error) {
           return runtimeMutationErrorResponse(error);
         }

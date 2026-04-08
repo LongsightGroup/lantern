@@ -11,8 +11,11 @@ import type {
 } from "../package_review/types.ts";
 import type {
   BrowserGraderResult,
+  EvidenceArtifactContentType,
+  EvidenceArtifactKind,
   GatewayBrokerDenial,
   GatewayBrokerDenialCategory,
+  GatewayEvidenceArtifactResult,
   GatewayMutationDeniedResult,
   GatewayMutationResult,
   GatewayScoreProposalResult,
@@ -31,6 +34,14 @@ export type RuntimeBrokerDeniedResult = GatewayMutationDeniedResult;
 export type RuntimeBrokerMutationResult = GatewayMutationResult;
 export type RuntimeScoreProposal = ScoreProposal;
 export type RuntimeScoreProposalResult = GatewayScoreProposalResult;
+export type RuntimeEvidenceArtifactResult = GatewayEvidenceArtifactResult;
+
+export interface ParsedEvidenceArtifactUpload {
+  kind: EvidenceArtifactKind;
+  contentType: EvidenceArtifactContentType;
+  fileName: string;
+  body: Uint8Array;
+}
 
 export interface RuntimeOutcome {
   type: "deny" | "timeout" | "integrity_failure";

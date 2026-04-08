@@ -112,6 +112,16 @@ export interface BrowserGraderResult {
   specResults: BrowserGraderSpecResult[];
 }
 
+export type EvidenceArtifactKind = "screenshot_png" | "structured_json";
+export type EvidenceArtifactContentType = "image/png" | "application/json";
+
+export interface EvidenceArtifactUpload {
+  kind: EvidenceArtifactKind;
+  contentType: EvidenceArtifactContentType;
+  fileName: string;
+  bodyBase64: string;
+}
+
 export interface GatewayScoreProposalAcceptedResult
   extends GatewayMutationAcceptedResult {
   scoreProposal: ScoreProposal;
@@ -135,12 +145,24 @@ export type GatewayFinalizeResult =
   | GatewayFinalizeAcceptedResult
   | GatewayMutationDeniedResult;
 
+export interface GatewayEvidenceArtifactAcceptedResult
+  extends GatewayMutationAcceptedResult {
+  artifactId: string;
+}
+
+export type GatewayEvidenceArtifactResult =
+  | GatewayEvidenceArtifactAcceptedResult
+  | GatewayMutationDeniedResult;
+
 export interface GatewayAppClient {
   getLaunchContext(): Promise<LaunchContext>;
   getActivityContent<T = unknown>(): Promise<T>;
   readLocalState<T = unknown>(): Promise<T | null>;
   writeLocalState<T = unknown>(value: T): Promise<GatewayMutationResult>;
   emitAttemptEvent(event: AttemptEvent): Promise<GatewayMutationResult>;
+  submitEvidenceArtifact(
+    input: EvidenceArtifactUpload,
+  ): Promise<GatewayEvidenceArtifactResult>;
   submitScoreProposal(
     input: ScoreProposal,
   ): Promise<GatewayScoreProposalResult>;

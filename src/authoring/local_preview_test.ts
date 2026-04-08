@@ -58,6 +58,7 @@ Deno.test("local preview harness injects GatewayApp and serves preview state", a
   assertStringIncludes(entrypointBody, "window.GatewayApp =");
   assertStringIncludes(entrypointBody, "window.GatewayBootstrap =");
   assertStringIncludes(entrypointBody, "runBrowserGrader");
+  assertStringIncludes(entrypointBody, "submitEvidenceArtifact");
   assertEquals(
     harness.bootstrap.launch.submission_mode,
     "anonymous_submission",
@@ -119,6 +120,63 @@ Deno.test("local preview harness injects GatewayApp and serves preview state", a
   );
 
   assertEquals(writeLocalStateResponse.status, 204);
+
+  const uploadResponse = await harness.handle(
+    new Request("http://localhost/_lantern/runtime/evidence-artifacts", {
+      method: "POST",
+      headers: {
+        authorization,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        kind: "structured_json",
+        contentType: "application/json",
+        fileName: "submission.json",
+        bodyBase64: btoa(JSON.stringify({ score: 100 })),
+      }),
+    }),
+  );
+  const invalidUploadResponse = await harness.handle(
+    new Request("http://localhost/_lantern/runtime/evidence-artifacts", {
+      method: "POST",
+      headers: {
+        authorization,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        kind: "structured_json",
+        contentType: "image/png",
+        fileName: "submission.json",
+        bodyBase64: btoa("invalid"),
+      }),
+    }),
+  );
+
+  assertEquals(uploadResponse.status, 200);
+  assertEquals(
+    (await uploadResponse.json()) as {
+      accepted: boolean;
+      artifactId: string;
+    },
+    {
+      accepted: true,
+      artifactId: "local-evidence-1",
+    },
+  );
+  assertEquals(invalidUploadResponse.status, 400);
+  const invalidUploadBody = (await invalidUploadResponse.json()) as {
+    accepted: boolean;
+    denial: {
+      code: string;
+      capability: string | null;
+    };
+  };
+  assertEquals(invalidUploadBody.accepted, false);
+  assertEquals(invalidUploadBody.denial.code, "invalid_evidence_artifact");
+  assertEquals(
+    invalidUploadBody.denial.capability,
+    "submit_evidence_artifact",
+  );
 
   const readLocalStateResponse = await harness.handle(
     new Request("http://localhost/_lantern/runtime/local-state", {

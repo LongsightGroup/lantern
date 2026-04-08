@@ -24,6 +24,7 @@ import {
   acceptAttemptEvent,
   finalizeRuntimeAttempt,
   readAttemptLocalState,
+  submitEvidenceArtifact,
   submitScoreProposal,
   writeAttemptLocalState,
 } from "./runtime/gateway.ts";
@@ -348,6 +349,67 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       return runtimeMutationErrorResponse(context, error);
     }
   });
+
+  app.post(
+    "/runtime/sessions/:sessionId/evidence-artifacts",
+    async (context) => {
+      const repository = services.getRepository();
+      const sessionId = context.req.param("sessionId");
+      let session: RuntimeSessionRecord | null = null;
+      let request = buildRequestAuditEnvelope({ context });
+
+      try {
+        requireRuntimeOriginBoundary(context, services);
+        session = await requireRuntimeSession(repository, sessionId);
+
+        authorizeRuntimeSession({
+          token: requireTrimmedString(
+            readBearerToken(context.req.header("authorization")),
+            "Runtime session token is required.",
+          ),
+          expected: session,
+        });
+
+        const payload = await context.req.json();
+        request = buildRequestAuditEnvelope({
+          context,
+          body: payload,
+        });
+        const result = await submitEvidenceArtifact({
+          repository,
+          session,
+          payload,
+          evidenceArtifactStore: services.evidenceArtifactStore,
+        });
+
+        await recordRuntimeCapabilityAllowed({
+          repository,
+          session,
+          capability: "submit_evidence_artifact",
+          route: "evidence-artifacts",
+          detail: {
+            artifactId: result.artifactId,
+          },
+        });
+
+        return context.json(result, 202);
+      } catch (error) {
+        session = await resolveRuntimeSessionForAudit(
+          repository,
+          session,
+          sessionId,
+        );
+        await recordRuntimeRouteFailure({
+          repository,
+          session,
+          error,
+          route: "evidence-artifacts",
+          request,
+        });
+        return runtimeMutationErrorResponse(context, error);
+      }
+    },
+  );
 
   app.post("/runtime/sessions/:sessionId/score-proposal", async (context) => {
     const repository = services.getRepository();

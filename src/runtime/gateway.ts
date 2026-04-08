@@ -3,8 +3,12 @@ import {
   loadReviewedRubric,
   scoreAttempt,
 } from "../grading/service.ts";
-import type { BrowserGraderResult } from "../../sdk/app-sdk.ts";
+import type {
+  BrowserGraderResult,
+  GatewayEvidenceArtifactAcceptedResult,
+} from "../../sdk/app-sdk.ts";
 import type { RuntimeSessionRecord } from "../lti/types.ts";
+import { createOpaqueToken } from "../lti/token_support.ts";
 import type { EnvReader } from "../platform/env.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
@@ -12,6 +16,7 @@ import type {
   PackageVersionRecord,
 } from "../package_review/types.ts";
 import type { RuntimeArtifactStore } from "./artifact_store.ts";
+import type { EvidenceArtifactStore } from "./evidence_artifact_store.ts";
 import {
   previewSessionHasLiveServicePath,
   requireRuntimeAttempt,
@@ -26,6 +31,7 @@ import {
 import {
   parseAttemptEvent,
   parseAttemptLocalState,
+  parseEvidenceArtifactUpload,
   parseFinalizeAttemptInput,
   parseScoreProposal,
   requireRuntimeCapability,
@@ -56,6 +62,7 @@ export {
   parseAttemptEvent,
   parseAttemptLocalState,
   parseBrowserGraderResult,
+  parseEvidenceArtifactUpload,
   parseFinalizeAttemptInput,
   parseScoreProposal,
   requireRuntimeCapability,
@@ -98,6 +105,90 @@ export async function submitScoreProposal(input: {
   return {
     accepted: true,
     scoreProposal: parseScoreProposal(input.payload),
+  };
+}
+
+export async function submitEvidenceArtifact(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+  payload: unknown;
+  evidenceArtifactStore: EvidenceArtifactStore;
+  now?: () => Date;
+  createArtifactToken?: () => string;
+}): Promise<GatewayEvidenceArtifactAcceptedResult> {
+  const now = input.now ?? (() => new Date());
+  const occurredAt = now().toISOString();
+  const createArtifactToken = input.createArtifactToken ?? createOpaqueToken;
+
+  requireRuntimeCapability(input.session, "submit_evidence_artifact");
+  const attempt = await requireRuntimeAttempt(input.repository, input.session);
+  const upload = parseEvidenceArtifactUpload(input.payload);
+  const artifactId = buildEvidenceArtifactId(createArtifactToken());
+  const storageKey = buildEvidenceArtifactStorageKey({
+    attemptId: attempt.attemptId,
+    artifactId,
+    fileName: upload.fileName,
+  });
+  const sha256 = await createEvidenceArtifactDigest(upload.body);
+  const previewSession = await resolvePreviewSession(
+    input.repository,
+    input.session,
+  );
+
+  await input.evidenceArtifactStore.writeBytes(storageKey, upload.body);
+  const artifact = await input.repository.createAttemptEvidenceArtifact({
+    artifactId,
+    attemptId: attempt.attemptId,
+    kind: upload.kind,
+    contentType: upload.contentType,
+    fileName: upload.fileName,
+    storageKey,
+    byteSize: upload.body.byteLength,
+    sha256,
+    createdAt: occurredAt,
+  });
+
+  await input.repository.recordAuditEvent({
+    eventType: "attempt.evidence_artifact.submitted",
+    actorType: "system",
+    actorId: null,
+    deploymentRecordId: input.session.deploymentRecordId,
+    packageVersionId: input.session.packageVersionId,
+    attemptId: attempt.attemptId,
+    lineItemBindingId: null,
+    status: "accepted",
+    summary:
+      "Stored an anonymous evidence artifact through the runtime gateway.",
+    detail: {
+      artifactId: artifact.artifactId,
+      kind: artifact.kind,
+      contentType: artifact.contentType,
+      fileName: artifact.fileName,
+      byteSize: artifact.byteSize,
+      sha256: artifact.sha256,
+    },
+    occurredAt,
+  });
+
+  if (previewSession !== null) {
+    await input.repository.appendPreviewEvidence({
+      previewSessionId: previewSession.sessionId,
+      eventType: "preview.evidence_artifact",
+      capability: "submit_evidence_artifact",
+      summary: "Stored an anonymous evidence artifact in the test session.",
+      detail: {
+        attemptId: attempt.attemptId,
+        artifactId: artifact.artifactId,
+        kind: artifact.kind,
+        fileName: artifact.fileName,
+      },
+      occurredAt,
+    });
+  }
+
+  return {
+    accepted: true,
+    artifactId: artifact.artifactId,
   };
 }
 
@@ -436,4 +527,54 @@ function completionStateToAttemptStatus(
   completionState: FinalizeAttemptInput["completionState"],
 ): AttemptRecord["status"] {
   return completionState === "completed" ? "completed" : "abandoned";
+}
+
+function buildEvidenceArtifactId(token: string): string {
+  const trimmed = token.trim();
+
+  if (trimmed === "") {
+    throw new Error("Evidence artifact id token is required.");
+  }
+
+  return trimmed.startsWith("artifact-") ? trimmed : `artifact-${trimmed}`;
+}
+
+function buildEvidenceArtifactStorageKey(input: {
+  attemptId: string;
+  artifactId: string;
+  fileName: string;
+}): string {
+  return `var/attempt-evidence/${input.attemptId}/${input.artifactId}-${
+    sanitizeEvidenceArtifactFileName(input.fileName)
+  }`;
+}
+
+function sanitizeEvidenceArtifactFileName(fileName: string): string {
+  const baseName = fileName.replaceAll("\\", "/").split("/").pop()?.trim() ??
+    "";
+  const sanitized = baseName
+    .replace(/[^A-Za-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (sanitized === "") {
+    throw new Error(
+      "Evidence artifact fileName must contain at least one safe file name character.",
+    );
+  }
+
+  return sanitized;
+}
+
+async function createEvidenceArtifactDigest(
+  bytes: Uint8Array,
+): Promise<string> {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", buffer);
+
+  return `sha256:${encodeHex(new Uint8Array(digest))}`;
+}
+
+function encodeHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
