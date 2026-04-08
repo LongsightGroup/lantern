@@ -20,7 +20,7 @@
     "write_local_state"
   ],
   "grading": {
-    "mode": "manual",
+    "mode": "browser",
     "max_score": 100
   },
   "browser": {

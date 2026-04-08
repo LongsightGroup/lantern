@@ -172,7 +172,8 @@ function buildBrowserAutograderManifest(): ManifestFixture {
   return {
     ...buildValidManifest(),
     grading: {
-      mode: "manual",
+      mode: "browser",
+      max_score: 100,
     },
     authoring: {
       kind: "browser_autograder",
@@ -385,7 +386,69 @@ Deno.test("validateManifest accepts browser autograder authoring artifact refere
       );
     }
 
-    assertEquals(result.reviewData.grading.mode, "manual");
+    assertEquals(result.reviewData.grading.mode, "browser");
+    assertEquals(result.reviewData.grading.maxScore, 100);
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("validateManifest rejects browser grading when max score is missing", async () => {
+  const manifest = buildBrowserAutograderManifest();
+  delete manifest.grading.max_score;
+  const root = await createPackageFixture(manifest);
+
+  try {
+    const result = await validateManifest(createFileSystemPackageSource(root));
+
+    assertEquals(result.ok, false);
+
+    if (result.ok) {
+      throw new Error("Expected browser grading without max score to fail.");
+    }
+
+    assertEquals(
+      result.issues.some((issue: { field: string }) =>
+        issue.field === "/grading/max_score"
+      ),
+      true,
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("validateManifest rejects browser grading when authoring kind is absent", async () => {
+  const manifest = buildBrowserAutograderManifest();
+
+  if (!manifest.authoring) {
+    throw new Error("Expected authoring contract to exist in browser fixture.");
+  }
+
+  const authoring = {
+    grader_spec_files: manifest.authoring.grader_spec_files,
+    evidence_example_file: manifest.authoring.evidence_example_file,
+  };
+  const root = await createPackageFixture({
+    ...manifest,
+    authoring: authoring,
+  } as ManifestFixture);
+
+  try {
+    const result = await validateManifest(createFileSystemPackageSource(root));
+
+    assertEquals(result.ok, false);
+
+    if (result.ok) {
+      throw new Error("Expected browser grading without authoring kind to fail.");
+    }
+
+    assertEquals(
+      result.issues.some((issue: { field: string }) =>
+        issue.field === "/authoring/kind"
+      ),
+      true,
+    );
   } finally {
     await Deno.remove(root, { recursive: true });
   }
