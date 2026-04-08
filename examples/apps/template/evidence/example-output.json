@@ -1,11 +1,15 @@
 {
   "attempt_id": "attempt_template_demo",
   "status": "completed",
-  "artifacts": [
-    {
-      "kind": "structured_result",
-      "path": "/grading/specs/checks.spec.js",
-      "result": "pass"
-    }
-  ]
+  "browser_grader_result": {
+    "scoreGiven": 100,
+    "scoreMaximum": 100,
+    "specResults": [
+      {
+        "source": "/grading/specs/checks.spec.js",
+        "result": "passed",
+        "failures": []
+      }
+    ]
+  }
 }

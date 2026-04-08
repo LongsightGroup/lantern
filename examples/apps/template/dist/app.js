@@ -2,7 +2,9 @@
   const gateway = globalThis.GatewayApp;
 
   if (!gateway) {
-    throw new Error("Lantern preview injects window.GatewayApp. Start this app with `deno task app:preview`.");
+    throw new Error(
+      "Lantern preview injects window.GatewayApp. Start this app with `deno task app:preview`.",
+    );
   }
 
   const root = {
@@ -38,7 +40,8 @@
   root.instructions.textContent = question.instructions;
   root.prompt.textContent = question.prompt;
   root.hint.textContent = question.hint;
-  root.launchChip.textContent = launchContext.userRole + " in " + launchContext.courseId;
+  root.launchChip.textContent = launchContext.userRole + " in " +
+    launchContext.courseId;
   root.statusChip.textContent = "Lantern runtime ready";
 
   render();
@@ -52,9 +55,10 @@
       title: typeof raw.title === "string" && raw.title.trim() !== ""
         ? raw.title.trim()
         : "Template App",
-      instructions: typeof raw.instructions === "string" && raw.instructions.trim() !== ""
-        ? raw.instructions.trim()
-        : "Add one activity prompt in content/activity.json.",
+      instructions:
+        typeof raw.instructions === "string" && raw.instructions.trim() !== ""
+          ? raw.instructions.trim()
+          : "Add one activity prompt in content/activity.json.",
       prompt: typeof raw.prompt === "string" && raw.prompt.trim() !== ""
         ? raw.prompt.trim()
         : "Replace this prompt with your lesson content.",
@@ -68,8 +72,12 @@
     const raw = value && typeof value === "object" ? value : {};
 
     return {
-      answers: typeof raw.answers === "number" && raw.answers >= 0 ? raw.answers : 0,
-      finalized: typeof raw.finalized === "string" ? raw.finalized : "Not finished",
+      answers: typeof raw.answers === "number" && raw.answers >= 0
+        ? raw.answers
+        : 0,
+      finalized: typeof raw.finalized === "string"
+        ? raw.finalized
+        : "Not finished",
     };
   }
 
@@ -96,8 +104,10 @@
       type: "complete",
       timestamp: new Date().toISOString(),
     });
+    const browserGraderResult = await gateway.runBrowserGrader();
     const result = await gateway.finalizeAttempt({
       completionState: "completed",
+      browserGraderResult,
     });
 
     if (!result.accepted) {

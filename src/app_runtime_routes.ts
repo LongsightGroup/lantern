@@ -452,11 +452,18 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           lineItemBindingId: null,
           status: "accepted",
           summary: "Finalized the durable attempt inside the runtime gateway.",
-          detail: {
-            completionState: result.attempt.completionState,
-            scoreGiven: result.score.scoreGiven,
-            scoreMaximum: result.score.scoreMaximum,
-          },
+          detail: result.browserGraderResult === null
+            ? {
+              completionState: result.attempt.completionState,
+              scoreGiven: result.score.scoreGiven,
+              scoreMaximum: result.score.scoreMaximum,
+            }
+            : {
+              completionState: result.attempt.completionState,
+              scoreGiven: result.score.scoreGiven,
+              scoreMaximum: result.score.scoreMaximum,
+              browserGraderResult: result.browserGraderResult,
+            },
           occurredAt: new Date().toISOString(),
         });
         await recordRuntimeSessionExited({

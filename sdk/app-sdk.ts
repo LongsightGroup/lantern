@@ -143,6 +143,7 @@ export interface GatewayAppClient {
   runBrowserGrader(): Promise<BrowserGraderResult>;
   finalizeAttempt(input?: {
     completionState?: "completed" | "abandoned";
+    browserGraderResult?: BrowserGraderResult;
   }): Promise<GatewayFinalizeResult>;
 }
 

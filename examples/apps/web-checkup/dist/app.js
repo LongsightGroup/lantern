@@ -2,7 +2,9 @@
   const gateway = globalThis.GatewayApp;
 
   if (!gateway) {
-    throw new Error("Lantern preview injects window.GatewayApp. Start this app with `deno task app:preview`.");
+    throw new Error(
+      "Lantern preview injects window.GatewayApp. Start this app with `deno task app:preview`.",
+    );
   }
 
   const root = {
@@ -23,7 +25,8 @@
   if (
     !root.title || !root.instructions || !root.scenario || !root.launchChip ||
     !root.statusChip || !root.htmlChecks || !root.cssChecks || !root.jsChecks ||
-    !root.reviewedCount || !root.finalizeState || !root.reviewButton || !root.completeButton
+    !root.reviewedCount || !root.finalizeState || !root.reviewButton ||
+    !root.completeButton
   ) {
     throw new Error("Web Checkup could not find its required DOM nodes.");
   }
@@ -46,7 +49,8 @@
   root.title.textContent = activity.title;
   root.instructions.textContent = activity.instructions;
   root.scenario.textContent = activity.scenario;
-  root.launchChip.textContent = launchContext.userRole + " in " + launchContext.courseId;
+  root.launchChip.textContent = launchContext.userRole + " in " +
+    launchContext.courseId;
   root.statusChip.textContent = "Checklist ready";
 
   renderChecklist(root.htmlChecks, activity.html_checks);
@@ -64,9 +68,10 @@
       title: typeof raw.title === "string" && raw.title.trim() !== ""
         ? raw.title.trim()
         : "Web Checkup",
-      instructions: typeof raw.instructions === "string" && raw.instructions.trim() !== ""
-        ? raw.instructions.trim()
-        : "Review the revised page checklist.",
+      instructions:
+        typeof raw.instructions === "string" && raw.instructions.trim() !== ""
+          ? raw.instructions.trim()
+          : "Review the revised page checklist.",
       scenario: typeof raw.scenario === "string" && raw.scenario.trim() !== ""
         ? raw.scenario.trim()
         : "Inspect the page revision before final submission.",
@@ -99,10 +104,13 @@
     const raw = value && typeof value === "object" ? value : {};
 
     return {
-      sectionsReviewed: typeof raw.sectionsReviewed === "number" && raw.sectionsReviewed >= 0
-        ? Math.min(raw.sectionsReviewed, totalSections)
-        : 0,
-      finalized: typeof raw.finalized === "string" ? raw.finalized : "Not finished",
+      sectionsReviewed:
+        typeof raw.sectionsReviewed === "number" && raw.sectionsReviewed >= 0
+          ? Math.min(raw.sectionsReviewed, totalSections)
+          : 0,
+      finalized: typeof raw.finalized === "string"
+        ? raw.finalized
+        : "Not finished",
     };
   }
 
@@ -118,7 +126,10 @@
   }
 
   async function handleReviewMark() {
-    state.sectionsReviewed = Math.min(state.sectionsReviewed + 1, totalSections);
+    state.sectionsReviewed = Math.min(
+      state.sectionsReviewed + 1,
+      totalSections,
+    );
     root.statusChip.textContent = "Saving progress...";
     await gateway.emitAttemptEvent({
       type: "progress",
@@ -140,8 +151,10 @@
       type: "complete",
       timestamp: new Date().toISOString(),
     });
+    const browserGraderResult = await gateway.runBrowserGrader();
     const result = await gateway.finalizeAttempt({
       completionState: "completed",
+      browserGraderResult,
     });
 
     if (!result.accepted) {

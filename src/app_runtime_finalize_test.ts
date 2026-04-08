@@ -19,6 +19,8 @@ import {
   getTestToolPrivateJwkEnvValue,
 } from "./test_helpers/lti.ts";
 
+const WEB_CHECKUP_SNAPSHOT_ROOT = "examples/apps/web-checkup";
+
 Deno.test("POST /runtime/sessions/:id/finalize finalizes the durable attempt and keeps grade publication inside the gateway boundary", async () => {
   const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
 
@@ -177,6 +179,158 @@ Deno.test("POST /runtime/sessions/:id/finalize finalizes the durable attempt and
             true,
           );
           assertEquals(gradePublication?.status, "published");
+        },
+      );
+    });
+  } finally {
+    restoreEnv("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+  }
+});
+
+Deno.test("POST /runtime/sessions/:id/finalize accepts browser grader results while keeping publication inside the gateway boundary", async () => {
+  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
+
+  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+
+  try {
+    await withRuntimeOriginEnv(async () => {
+      const repository = createInMemoryPackageReviewRepository({
+        packageVersions: [
+          buildPackageVersionRecord({
+            appId: "web-checkup",
+            title: "Web Checkup",
+            grading: {
+              mode: "browser",
+              rubricFile: null,
+              maxScore: 100,
+            },
+            manifestJson: {
+              app_id: "web-checkup",
+              version: "0.1.0",
+              title: "Web Checkup",
+              grading: {
+                mode: "browser",
+                max_score: 100,
+              },
+              authoring: {
+                kind: "browser_autograder",
+                grader_spec_files: [
+                  "/grading/specs/structure.spec.js",
+                  "/grading/specs/behavior.spec.js",
+                ],
+                evidence_example_file: "/evidence/example-output.json",
+              },
+            },
+            artifact: {
+              snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
+              manifestPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/manifest.json`,
+              entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
+              digest: "sha256:web-checkup-snapshot",
+            },
+          }),
+        ],
+        deployments: [
+          buildDeploymentRecord({
+            appId: "web-checkup",
+            slug: "web-checkup-pilot",
+            label: "Web Checkup Pilot",
+            binding: buildDeploymentBinding(),
+          }),
+        ],
+        attempts: [
+          buildAttemptRecord({
+            appId: "web-checkup",
+            deploymentSlug: "web-checkup-pilot",
+          }),
+        ],
+        runtimeSessions: [
+          buildRuntimeSessionRecord({
+            appId: "web-checkup",
+            deploymentSlug: "web-checkup-pilot",
+            snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
+            entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,
+            contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
+            expiresAt: "2099-03-26T02:45:00Z",
+          }),
+        ],
+      });
+      const app = createApp({ getRepository: () => repository });
+
+      await withFetchStub(
+        (input) => {
+          const url = String(input);
+
+          if (url === "https://sso.canvaslms.com/login/oauth2/token") {
+            return new Response(
+              JSON.stringify({
+                access_token: "canvas-access-token",
+                token_type: "bearer",
+              }),
+              {
+                status: 200,
+                headers: { "content-type": "application/json" },
+              },
+            );
+          }
+
+          return new Response(null, { status: 202 });
+        },
+        async () => {
+          const response = await app.request(
+            "https://runtime.lantern.example/runtime/sessions/runtime-session-123/finalize",
+            {
+              method: "POST",
+              headers: {
+                Authorization: "Bearer runtime-token-123",
+                "content-type": "application/json",
+              },
+              body: JSON.stringify({
+                completionState: "completed",
+                browserGraderResult: {
+                  scoreGiven: 100,
+                  scoreMaximum: 100,
+                  specResults: [
+                    {
+                      source: "/grading/specs/structure.spec.js",
+                      result: "passed",
+                      failures: [],
+                    },
+                    {
+                      source: "/grading/specs/behavior.spec.js",
+                      result: "passed",
+                      failures: [],
+                    },
+                  ],
+                },
+              }),
+            },
+          );
+
+          assertEquals(response.status, 202);
+          assertObjectMatch(await response.json(), {
+            accepted: true,
+            scoreGiven: 100,
+            scoreMaximum: 100,
+            gradePublished: true,
+          });
+          const attemptAuditEvents = await repository
+            .listAuditEventsByEventType(
+              "attempt.finalized",
+            );
+
+          assertEquals(attemptAuditEvents.length, 1);
+          assertObjectMatch(attemptAuditEvents[0]?.detail ?? {}, {
+            browserGraderResult: {
+              specResults: [
+                {
+                  source: "/grading/specs/structure.spec.js",
+                },
+                {
+                  source: "/grading/specs/behavior.spec.js",
+                },
+              ],
+            },
+          });
         },
       );
     });
