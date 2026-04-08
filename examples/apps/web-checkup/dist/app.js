@@ -34,6 +34,13 @@
     gateway.readLocalState(),
   ]);
   const activity = normalizeActivity(content);
+  const totalSections = [
+    activity.html_checks,
+    activity.css_checks,
+    activity.js_checks,
+  ].filter(function (checks) {
+    return checks.length > 0;
+  }).length;
   const state = normalizeState(localState);
 
   root.title.textContent = activity.title;
@@ -93,8 +100,8 @@
 
     return {
       sectionsReviewed: typeof raw.sectionsReviewed === "number" && raw.sectionsReviewed >= 0
-        ? raw.sectionsReviewed
-        : 1,
+        ? Math.min(raw.sectionsReviewed, totalSections)
+        : 0,
       finalized: typeof raw.finalized === "string" ? raw.finalized : "Not finished",
     };
   }
@@ -111,7 +118,7 @@
   }
 
   async function handleReviewMark() {
-    state.sectionsReviewed += 1;
+    state.sectionsReviewed = Math.min(state.sectionsReviewed + 1, totalSections);
     root.statusChip.textContent = "Saving progress...";
     await gateway.emitAttemptEvent({
       type: "progress",
