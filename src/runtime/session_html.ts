@@ -1,4 +1,5 @@
-import type { BootstrapPayload } from '../../sdk/app-sdk.ts';
+import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
+import { buildBrowserGraderAssetUrls } from "./browser_grader.ts";
 
 export function buildRuntimeBootstrapScript(input: {
   bootstrap: BootstrapPayload;
@@ -6,17 +7,34 @@ export function buildRuntimeBootstrapScript(input: {
   previewSessionId: string | null;
 }): string {
   const bootstrapJson = serializeForInlineScript(input.bootstrap);
-  const contentUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/content`);
-  const localStateUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/local-state`);
-  const attemptEventsUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/attempt-events`);
-  const scoreProposalUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/score-proposal`);
-  const finalizeUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/finalize`);
+  const contentUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/content`,
+  );
+  const localStateUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/local-state`,
+  );
+  const attemptEventsUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/attempt-events`,
+  );
+  const scoreProposalUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/score-proposal`,
+  );
+  const finalizeUrl = serializeForInlineScript(
+    `${input.runtimeBaseUrl}/finalize`,
+  );
+  const browserGraderUrls = buildBrowserGraderAssetUrls({
+    runtimeBaseUrl: input.runtimeBaseUrl,
+  });
+  const browserGraderJasmineUrl = serializeForInlineScript(
+    browserGraderUrls.jasmineUrl,
+  );
+  const browserGraderRunnerUrl = serializeForInlineScript(
+    browserGraderUrls.runnerUrl,
+  );
   const previewJson = serializeForInlineScript(
-    input.previewSessionId === null
-      ? null
-      : {
-          previewSessionId: input.previewSessionId,
-        },
+    input.previewSessionId === null ? null : {
+      previewSessionId: input.previewSessionId,
+    },
   );
 
   return `window.GatewayBootstrap = ${bootstrapJson};
@@ -50,6 +68,42 @@ async function readGatewayMutationResponse(response, label) {
   }
 
   return { accepted: true };
+}
+function withGatewayToken(url) {
+  const separator = url.includes('?') ? '&' : '?';
+
+  return url + separator +
+    'token=' + encodeURIComponent(window.GatewayBootstrap.session.token);
+}
+function loadGatewayScript(url) {
+  return new Promise((resolve, reject) => {
+    const element = document.createElement('script');
+    element.src = withGatewayToken(url);
+    element.async = false;
+    element.onload = () => {
+      element.remove();
+      resolve();
+    };
+    element.onerror = () => {
+      element.remove();
+      reject(new Error('Browser grader asset request failed for ' + url + '.'));
+    };
+    document.head.appendChild(element);
+  });
+}
+async function ensureBrowserGraderLoaded() {
+  if (window.__LanternBrowserGraderRunner) {
+    return window.__LanternBrowserGraderRunner;
+  }
+
+  await loadGatewayScript(${browserGraderJasmineUrl});
+  await loadGatewayScript(${browserGraderRunnerUrl});
+
+  if (!window.__LanternBrowserGraderRunner) {
+    throw new Error('Browser grader runner was not loaded.');
+  }
+
+  return window.__LanternBrowserGraderRunner;
 }
 window.GatewayApp = {
   getLaunchContext() {
@@ -124,6 +178,10 @@ window.GatewayApp = {
 
     return await readGatewayMutationResponse(response, 'Score proposal request');
   },
+  async runBrowserGrader() {
+    const runner = await ensureBrowserGraderLoaded();
+    return await runner.run();
+  },
   async finalizeAttempt(input) {
     const response = await fetch(${finalizeUrl}, {
       method: 'POST',
@@ -141,7 +199,7 @@ window.GatewayApp = {
 
 export function injectBeforeClosingTag(
   html: string,
-  tagName: 'head' | 'body',
+  tagName: "head" | "body",
   injection: string,
 ): string {
   const closingTag = `</${tagName}>`;
@@ -156,17 +214,17 @@ export function injectBeforeClosingTag(
 
 export function escapeHtmlAttribute(value: string): string {
   return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('"', '&quot;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;');
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
 }
 
 function serializeForInlineScript(value: unknown): string {
   return JSON.stringify(value)
-    .replaceAll('<', '\\u003c')
-    .replaceAll('>', '\\u003e')
-    .replaceAll('&', '\\u0026')
-    .replaceAll('\u2028', '\\u2028')
-    .replaceAll('\u2029', '\\u2029');
+    .replaceAll("<", "\\u003c")
+    .replaceAll(">", "\\u003e")
+    .replaceAll("&", "\\u0026")
+    .replaceAll("\u2028", "\\u2028")
+    .replaceAll("\u2029", "\\u2029");
 }

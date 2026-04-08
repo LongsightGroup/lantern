@@ -38,9 +38,18 @@ import {
   loadRuntimeAssetBytes,
   renderRuntimeSessionPage,
 } from "./runtime/session.ts";
+import {
+  buildBrowserGraderHarnessSource,
+  buildBrowserGraderRunnerSource,
+  readReviewedBrowserGraderConfig,
+} from "./runtime/browser_grader.ts";
 import { readEnv } from "./platform/env.ts";
 import { buildRequestAuditEnvelope } from "./request_audit.ts";
-import { requireRuntimeRequestOrigin } from "./runtime_origin.ts";
+import {
+  buildRuntimeSessionBaseUrl,
+  requireRuntimeRequestOrigin,
+} from "./runtime_origin.ts";
+import { trimLeadingSlash } from "./package_review/snapshot_path.ts";
 
 export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
   app.get("/runtime/sessions/:sessionId", async (context) => {
@@ -578,6 +587,138 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         session,
         error,
         route: "files",
+        request,
+      });
+      return context.text(errorMessage(error), statusForRuntimeError(error));
+    }
+  });
+
+  app.get("/runtime/sessions/:sessionId/browser-grader/*", async (context) => {
+    const repository = services.getRepository();
+    const sessionId = context.req.param("sessionId");
+    let session: RuntimeSessionRecord | null = null;
+    const request = buildRequestAuditEnvelope({ context });
+
+    try {
+      const runtimeOrigin = requireRuntimeOriginBoundary(context, services);
+      session = await requireRuntimeSession(repository, sessionId);
+      const url = new URL(context.req.url);
+      const token = readBearerToken(context.req.header("authorization")) ??
+        url.searchParams.get("token");
+
+      authorizeRuntimeSession({
+        token: requireTrimmedString(
+          token,
+          "Runtime session token is required.",
+        ),
+        expected: session,
+      });
+
+      const packageVersion = await repository.getPackageVersionById(
+        session.packageVersionId,
+      );
+
+      if (!packageVersion) {
+        failRuntimeOutcome({
+          type: "integrity_failure",
+          code: "package_version_missing",
+          message:
+            `Runtime session package version id ${session.packageVersionId} was not found.`,
+          status: 409,
+          detail: {
+            packageVersionId: session.packageVersionId,
+          },
+        });
+      }
+
+      const config = readReviewedBrowserGraderConfig(packageVersion);
+
+      if (config === null) {
+        return context.text(
+          "Browser grader is not configured for this reviewed package.",
+          404,
+        );
+      }
+
+      const runtimeBaseUrl = buildRuntimeSessionBaseUrl({
+        runtimeOrigin,
+        sessionId,
+      });
+      const prefix = `/runtime/sessions/${
+        encodeURIComponent(sessionId)
+      }/browser-grader/`;
+      const assetPath = url.pathname.slice(prefix.length);
+
+      if (assetPath === "jasmine.js") {
+        return new Response(buildBrowserGraderHarnessSource(), {
+          status: 200,
+          headers: buildRuntimeAssetHeaders(
+            "application/javascript; charset=UTF-8",
+          ),
+        });
+      }
+
+      if (assetPath === "runner.js") {
+        return new Response(
+          buildBrowserGraderRunnerSource({
+            runtimeBaseUrl,
+            reviewedSpecFiles: config.reviewedSpecFiles,
+            scoreMaximum: config.scoreMaximum,
+            token: session.sessionToken,
+          }),
+          {
+            status: 200,
+            headers: buildRuntimeAssetHeaders(
+              "application/javascript; charset=UTF-8",
+            ),
+          },
+        );
+      }
+
+      const reviewedMatch = assetPath.match(/^reviewed\/([0-9]+)\.js$/);
+
+      if (!reviewedMatch?.[1]) {
+        return context.text("Browser grader asset not found.", 404);
+      }
+
+      const specPath = config.reviewedSpecFiles.at(Number(reviewedMatch[1]));
+
+      if (!specPath) {
+        return context.text("Browser grader spec was not found.", 404);
+      }
+
+      const assetBytes = await loadRuntimeAssetBytes(
+        session,
+        trimLeadingSlash(specPath),
+        services.runtimeArtifactStore,
+      );
+      const assetBody = new Uint8Array(assetBytes.byteLength);
+
+      assetBody.set(assetBytes);
+
+      return new Response(
+        new Blob(
+          [assetBody],
+          { type: contentTypeForRuntimePath(trimLeadingSlash(specPath)) },
+        ),
+        {
+          status: 200,
+          headers: buildRuntimeAssetHeaders(
+            contentTypeForRuntimePath(trimLeadingSlash(specPath)),
+          ),
+        },
+      );
+    } catch (error) {
+      session = await resolveRuntimeSessionForAudit(
+        repository,
+        session,
+        sessionId,
+      );
+      await recordRuntimeRouteFailure({
+        repository,
+        session,
+        error,
+        route: "browser-grader",
         request,
       });
       return context.text(errorMessage(error), statusForRuntimeError(error));
