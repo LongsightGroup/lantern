@@ -57,8 +57,23 @@ Deno.test("local preview harness injects GatewayApp and serves preview state", a
   assertEquals(entrypointResponse.status, 200);
   assertStringIncludes(entrypointBody, "window.GatewayApp =");
   assertStringIncludes(entrypointBody, "window.GatewayBootstrap =");
+  assertStringIncludes(entrypointBody, "runBrowserGrader");
 
   const authorization = `Bearer ${harness.bootstrap.session.token}`;
+  const runnerResponse = await harness.handle(
+    new Request("http://localhost/_lantern/runtime/browser-grader/runner.js", {
+      headers: {
+        authorization,
+      },
+    }),
+  );
+
+  assertEquals(runnerResponse.status, 200);
+  assertStringIncludes(
+    runnerResponse.headers.get("content-type") ?? "",
+    "javascript",
+  );
+
   const contentResponse = await harness.handle(
     new Request("http://localhost/_lantern/runtime/content", {
       headers: {

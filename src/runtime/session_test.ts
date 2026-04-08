@@ -45,6 +45,7 @@ Deno.test('runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(html, 'emitAttemptEvent');
   assertStringIncludes(html, 'submitScoreProposal');
   assertStringIncludes(html, 'finalizeAttempt');
+  assertStringIncludes(html, 'runBrowserGrader');
   assertStringIncludes(html, 'readLocalState');
   assertStringIncludes(html, 'writeLocalState');
   assertStringIncludes(
@@ -58,6 +59,14 @@ Deno.test('runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(
     html,
     'https://runtime.lantern.example/runtime/sessions/runtime-session-123/finalize',
+  );
+  assertStringIncludes(
+    html,
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/browser-grader/jasmine.js',
+  );
+  assertStringIncludes(
+    html,
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/browser-grader/runner.js',
   );
   assertStringIncludes(
     html,
