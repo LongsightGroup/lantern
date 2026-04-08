@@ -1,0 +1,11 @@
+{
+  "attempt_id": "attempt_template_demo",
+  "status": "completed",
+  "artifacts": [
+    {
+      "kind": "structured_result",
+      "path": "/grading/specs/checks.spec.js",
+      "result": "pass"
+    }
+  ]
+}

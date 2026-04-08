@@ -9,6 +9,8 @@ It shows one blessed path:
 - one content file
 - one preview fixtures file
 - one preview tests file
+- one grader spec starter file
+- one example evidence artifact
 - one runtime seam through `window.GatewayApp`
 
 Start here:
@@ -27,6 +29,8 @@ Then edit:
 - `dist/app.js`
 - `preview/fixtures.json`
 - `preview/tests.json`
+- `grading/specs/checks.spec.js`
+- `evidence/example-output.json`
 
 Do not add:
 

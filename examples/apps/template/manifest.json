@@ -31,5 +31,10 @@
   "preview": {
     "fixtures_file": "/preview/fixtures.json",
     "tests_file": "/preview/tests.json"
+  },
+  "authoring": {
+    "kind": "browser_autograder",
+    "grader_spec_files": ["/grading/specs/checks.spec.js"],
+    "evidence_example_file": "/evidence/example-output.json"
   }
 }

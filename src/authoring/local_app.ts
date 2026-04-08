@@ -1,14 +1,20 @@
-import type { Capability } from '../../sdk/app-sdk.ts';
-import { type ManifestReviewData, validateManifest } from '../package_review/manifest.ts';
-import type { AppManifest } from '../package_review/manifest_contract.ts';
-import { createFileSystemPackageSource } from '../package_review/package_source_fs.ts';
+import type { Capability } from "../../sdk/app-sdk.ts";
+import {
+  type ManifestReviewData,
+  validateManifest,
+} from "../package_review/manifest.ts";
+import type { AppManifest } from "../package_review/manifest_contract.ts";
+import { createFileSystemPackageSource } from "../package_review/package_source_fs.ts";
 import {
   ensureLeadingSlash,
   joinSnapshotPath,
   trimLeadingSlash,
-} from '../package_review/snapshot_path.ts';
-import type { PreviewFixtureData } from '../package_review/types.ts';
-import { parsePreviewFixtureData, readCanonicalContentPath } from '../preview/fixture.ts';
+} from "../package_review/snapshot_path.ts";
+import type { PreviewFixtureData } from "../package_review/types.ts";
+import {
+  parsePreviewFixtureData,
+  readCanonicalContentPath,
+} from "../preview/fixture.ts";
 
 export interface LocalPreviewAssertion {
   selector: string;
@@ -24,6 +30,7 @@ export interface LocalPreviewTest {
 export interface LocalAppPackage {
   rootPath: string;
   manifest: AppManifest;
+  authoring: AppManifest["authoring"] | null;
   reviewData: ManifestReviewData;
   entrypointHtml: string;
   contentPath: string | null;
@@ -39,7 +46,9 @@ export interface LocalAppValidationResult {
   appPackage?: LocalAppPackage;
 }
 
-export async function validateLocalAppPackage(rootPath: string): Promise<LocalAppValidationResult> {
+export async function validateLocalAppPackage(
+  rootPath: string,
+): Promise<LocalAppValidationResult> {
   const resolvedRoot = await Deno.realPath(rootPath);
   const source = createFileSystemPackageSource(resolvedRoot);
   const manifestValidation = await validateManifest(source);
@@ -59,7 +68,7 @@ export async function validateLocalAppPackage(rootPath: string): Promise<LocalAp
 
     if (!manifest.preview) {
       issues.push(
-        'manifest.preview.fixtures_file and manifest.preview.tests_file are required for Lantern authoring.',
+        "manifest.preview.fixtures_file and manifest.preview.tests_file are required for Lantern authoring.",
       );
     }
 
@@ -67,18 +76,28 @@ export async function validateLocalAppPackage(rootPath: string): Promise<LocalAp
       joinSnapshotPath(
         resolvedRoot,
         trimLeadingSlash(manifest.entrypoint),
-        'App entrypoint must stay inside the package root.',
+        "App entrypoint must stay inside the package root.",
       ),
     );
     const fixtureData = manifest.preview
-      ? await loadPreviewFixtureDataFromFile(resolvedRoot, manifest.preview.fixtures_file)
+      ? await loadPreviewFixtureDataFromFile(
+        resolvedRoot,
+        manifest.preview.fixtures_file,
+      )
       : null;
     const previewTests = manifest.preview
-      ? await loadPreviewTestsFromFile(resolvedRoot, manifest.preview.tests_file)
+      ? await loadPreviewTestsFromFile(
+        resolvedRoot,
+        manifest.preview.tests_file,
+      )
       : null;
-    const contentPath = resolveContentPath(manifest, manifestValidation.reviewData.capabilities);
-    const content =
-      contentPath === null ? null : await loadContentJsonFromFile(resolvedRoot, contentPath);
+    const contentPath = resolveContentPath(
+      manifest,
+      manifestValidation.reviewData.capabilities,
+    );
+    const content = contentPath === null
+      ? null
+      : await loadContentJsonFromFile(resolvedRoot, contentPath);
 
     if (issues.length > 0 || fixtureData === null || previewTests === null) {
       return {
@@ -95,6 +114,7 @@ export async function validateLocalAppPackage(rootPath: string): Promise<LocalAp
       appPackage: {
         rootPath: resolvedRoot,
         manifest,
+        authoring: manifest.authoring ?? null,
         reviewData: manifestValidation.reviewData,
         entrypointHtml,
         contentPath,
@@ -106,28 +126,40 @@ export async function validateLocalAppPackage(rootPath: string): Promise<LocalAp
   } catch (error) {
     return {
       ok: false,
-      issues: [error instanceof Error ? error.message : 'Local app validation failed.'],
+      issues: [
+        error instanceof Error ? error.message : "Local app validation failed.",
+      ],
       warnings: [],
     };
   }
 }
 
-export function formatValidationIssue(input: { field: string; message: string }): string {
+export function formatValidationIssue(
+  input: { field: string; message: string },
+): string {
   return `${input.field}: ${input.message}`;
 }
 
 async function readValidatedManifest(rootPath: string): Promise<AppManifest> {
-  const manifestJson = JSON.parse(await Deno.readTextFile(`${rootPath}/manifest.json`));
+  const manifestJson = JSON.parse(
+    await Deno.readTextFile(`${rootPath}/manifest.json`),
+  );
 
-  if (!manifestJson || typeof manifestJson !== 'object' || Array.isArray(manifestJson)) {
-    throw new Error('manifest.json must be a JSON object.');
+  if (
+    !manifestJson || typeof manifestJson !== "object" ||
+    Array.isArray(manifestJson)
+  ) {
+    throw new Error("manifest.json must be a JSON object.");
   }
 
   return manifestJson as AppManifest;
 }
 
-function resolveContentPath(manifest: AppManifest, capabilities: Capability[]): string | null {
-  if (!capabilities.includes('read_activity_content')) {
+function resolveContentPath(
+  manifest: AppManifest,
+  capabilities: Capability[],
+): string | null {
+  if (!capabilities.includes("read_activity_content")) {
     return null;
   }
 
@@ -136,13 +168,16 @@ function resolveContentPath(manifest: AppManifest, capabilities: Capability[]): 
   );
 }
 
-async function loadContentJsonFromFile(rootPath: string, contentPath: string): Promise<unknown> {
+async function loadContentJsonFromFile(
+  rootPath: string,
+  contentPath: string,
+): Promise<unknown> {
   return parseJsonFile(
     await Deno.readTextFile(
       joinSnapshotPath(
         rootPath,
         trimLeadingSlash(contentPath),
-        'App content file must stay inside the package root.',
+        "App content file must stay inside the package root.",
       ),
     ),
     `App content file ${contentPath} must be valid JSON.`,
@@ -157,12 +192,15 @@ async function loadPreviewFixtureDataFromFile(
     joinSnapshotPath(
       rootPath,
       trimLeadingSlash(fixturesFile),
-      'Preview fixtures file must stay inside the package root.',
+      "Preview fixtures file must stay inside the package root.",
     ),
   );
 
   return parsePreviewFixtureData(
-    parseJsonFile(text, `Preview fixtures file ${fixturesFile} must be valid JSON.`),
+    parseJsonFile(
+      text,
+      `Preview fixtures file ${fixturesFile} must be valid JSON.`,
+    ),
   );
 }
 
@@ -174,7 +212,7 @@ async function loadPreviewTestsFromFile(
     joinSnapshotPath(
       rootPath,
       trimLeadingSlash(testsFile),
-      'Preview tests file must stay inside the package root.',
+      "Preview tests file must stay inside the package root.",
     ),
   );
 
@@ -193,15 +231,21 @@ function parseJsonFile(text: string, message: string): unknown {
 
 function parsePreviewTests(value: unknown): LocalPreviewTest[] {
   if (!Array.isArray(value)) {
-    throw new TypeError('Preview tests file must be a JSON array.');
+    throw new TypeError("Preview tests file must be a JSON array.");
   }
 
   return value.map((candidate, index) => parsePreviewTest(candidate, index));
 }
 
 function parsePreviewTest(value: unknown, index: number): LocalPreviewTest {
-  const record = requireRecord(value, `Preview test ${index + 1} must be a JSON object.`);
-  const name = requireString(record.name, `Preview test ${index + 1} name is required.`);
+  const record = requireRecord(
+    value,
+    `Preview test ${index + 1} must be a JSON object.`,
+  );
+  const name = requireString(
+    record.name,
+    `Preview test ${index + 1} name is required.`,
+  );
   const assertRecord = requireRecord(
     record.assert,
     `Preview test ${name} must define an assert object.`,
@@ -210,14 +254,19 @@ function parsePreviewTest(value: unknown, index: number): LocalPreviewTest {
     assertRecord.selector,
     `Preview test ${name} selector is required.`,
   );
-  const text = readOptionalString(assertRecord.text, `Preview test ${name} text must be a string.`);
+  const text = readOptionalString(
+    assertRecord.text,
+    `Preview test ${name} text must be a string.`,
+  );
   const contains = readOptionalString(
     assertRecord.contains,
     `Preview test ${name} contains must be a string.`,
   );
 
   if (text !== undefined && contains !== undefined) {
-    throw new Error(`Preview test ${name} must choose text or contains, not both.`);
+    throw new Error(
+      `Preview test ${name} must choose text or contains, not both.`,
+    );
   }
 
   return {
@@ -230,8 +279,11 @@ function parsePreviewTest(value: unknown, index: number): LocalPreviewTest {
   };
 }
 
-function requireRecord(value: unknown, message: string): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+function requireRecord(
+  value: unknown,
+  message: string,
+): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(message);
   }
 
@@ -239,19 +291,22 @@ function requireRecord(value: unknown, message: string): Record<string, unknown>
 }
 
 function requireString(value: unknown, message: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
+  if (typeof value !== "string" || value.trim() === "") {
     throw new Error(message);
   }
 
   return value.trim();
 }
 
-function readOptionalString(value: unknown, message: string): string | undefined {
+function readOptionalString(
+  value: unknown,
+  message: string,
+): string | undefined {
   if (value === undefined) {
     return undefined;
   }
 
-  if (typeof value !== 'string' || value.trim() === '') {
+  if (typeof value !== "string" || value.trim() === "") {
     throw new Error(message);
   }
 
