@@ -4,3 +4,4 @@ var/packages/
 .playwright-cli/
 .wrangler/
 output/worker.bundle.mjs
+.planning
