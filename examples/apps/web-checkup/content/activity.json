@@ -1,0 +1,35 @@
+{
+  "title": "Web Checkup",
+  "instructions": "Review the revised page checklist, record what still needs attention, and finalize the review when every section has been checked.",
+  "scenario": "A learner revised a simple class landing page. Use the checklist below to confirm the page structure, visual styling, and button behavior still meet course expectations.",
+  "html_checks": [
+    {
+      "id": "heading-order",
+      "label": "Use one clear page heading and keep section headings in order."
+    },
+    {
+      "id": "image-alt",
+      "label": "Add descriptive alt text for the hero image."
+    }
+  ],
+  "css_checks": [
+    {
+      "id": "spacing-scale",
+      "label": "Keep spacing consistent across the hero, features, and footer."
+    },
+    {
+      "id": "contrast",
+      "label": "Maintain readable text contrast on every card and button."
+    }
+  ],
+  "js_checks": [
+    {
+      "id": "submit-state",
+      "label": "Disable the form submit button until required fields are complete."
+    },
+    {
+      "id": "feedback-message",
+      "label": "Show a visible confirmation message after the demo form submits."
+    }
+  ]
+}

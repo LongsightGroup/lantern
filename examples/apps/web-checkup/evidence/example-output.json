@@ -1,0 +1,20 @@
+{
+  "attempt_id": "attempt_web_checkup_demo",
+  "status": "completed",
+  "artifacts": [
+    {
+      "kind": "grader_result",
+      "source": "/grading/specs/structure.spec.js",
+      "result": "pass"
+    },
+    {
+      "kind": "grader_result",
+      "source": "/grading/specs/behavior.spec.js",
+      "result": "pass"
+    },
+    {
+      "kind": "screenshot",
+      "path": "submission/final-page.png"
+    }
+  ]
+}

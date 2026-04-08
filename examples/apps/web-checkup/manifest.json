@@ -1,0 +1,43 @@
+{
+  "schema_version": "1",
+  "app_id": "web-checkup",
+  "version": "0.1.0",
+  "title": "Web Checkup",
+  "description": "A richer browser autograder example for reviewing HTML, CSS, and JavaScript revision work.",
+  "owner": {
+    "type": "user",
+    "id": "author_123"
+  },
+  "entrypoint": "/dist/index.html",
+  "roles": ["learner", "instructor"],
+  "install_scope": "assignment",
+  "capabilities": [
+    "read_launch_context",
+    "read_activity_content",
+    "submit_attempt_event",
+    "finalize_attempt",
+    "read_local_state",
+    "write_local_state"
+  ],
+  "grading": {
+    "mode": "manual",
+    "max_score": 100
+  },
+  "browser": {
+    "fullscreen": false,
+    "clipboard_write": false
+  },
+  "content_files": ["/content/activity.json"],
+  "preview": {
+    "fixtures_file": "/preview/fixtures.json",
+    "tests_file": "/preview/tests.json"
+  },
+  "authoring": {
+    "kind": "browser_autograder",
+    "grader_spec_files": [
+      "/grading/specs/structure.spec.js",
+      "/grading/specs/behavior.spec.js"
+    ],
+    "evidence_example_file": "/evidence/example-output.json"
+  }
+}

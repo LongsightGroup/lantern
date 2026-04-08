@@ -1,0 +1,34 @@
+[
+  {
+    "name": "renders title",
+    "assert": {
+      "selector": "[data-test='app-title']",
+      "text": "Web Checkup"
+    }
+  },
+  {
+    "name": "renders scenario copy",
+    "assert": {
+      "selector": "[data-test='scenario-copy']",
+      "contains": "landing page"
+    }
+  },
+  {
+    "name": "renders html checklist",
+    "assert": {
+      "selector": "[data-test='html-checks']"
+    }
+  },
+  {
+    "name": "renders javascript checklist",
+    "assert": {
+      "selector": "[data-test='js-checks']"
+    }
+  },
+  {
+    "name": "renders finish review action",
+    "assert": {
+      "selector": "[data-test='complete-button']"
+    }
+  }
+]

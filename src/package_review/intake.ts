@@ -7,8 +7,10 @@ import { buildSignedReviewedRuntimeContract } from "./runtime_contract.ts";
 import type { ReviewedRuntimeContract } from "./types.ts";
 
 export const REFERENCE_PACKAGE_SOURCE_ROOTS = {
+  "template-app": "examples/apps/template",
   "chapter-4-asteroids": "examples/apps/chapter-4-asteroids",
   "quick-study": "examples/apps/quick-study",
+  "web-checkup": "examples/apps/web-checkup",
 } as const;
 
 export type ReferencePackageId = keyof typeof REFERENCE_PACKAGE_SOURCE_ROOTS;

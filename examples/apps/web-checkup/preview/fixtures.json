@@ -1,0 +1,13 @@
+{
+  "launch": {
+    "user_role": "learner",
+    "course_id": "course_demo",
+    "assignment_id": "assignment_web_checkup",
+    "activity_id": "web-checkup"
+  },
+  "attempt_id": "attempt_web_checkup_demo",
+  "local_state": {
+    "sectionsReviewed": 2,
+    "finalized": "Not finished"
+  }
+}
