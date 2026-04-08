@@ -14,7 +14,7 @@ export async function loadPreviewFixtureData(
   artifactStore: RuntimeArtifactStore,
 ): Promise<PreviewFixtureData> {
   const manifestJson = await loadReviewedManifestJson(packageVersion, artifactStore);
-  const fixturesFile = readFixturesFilePath(manifestJson);
+  const fixturesFile = readPreviewFixturesFilePath(manifestJson);
   let sourceText: string;
 
   try {
@@ -81,7 +81,7 @@ async function loadReviewedManifestJson(
   return requireRecord(parsed, 'Reviewed manifest.json must be a JSON object.');
 }
 
-function readFixturesFilePath(manifestJson: Record<string, unknown>): string {
+export function readPreviewFixturesFilePath(manifestJson: Record<string, unknown>): string {
   const previewConfig = asRecord(manifestJson.preview);
 
   if (!previewConfig) {
@@ -100,7 +100,7 @@ function readFixturesFilePath(manifestJson: Record<string, unknown>): string {
   return fixturesFile;
 }
 
-function parsePreviewFixtureData(value: unknown): PreviewFixtureData {
+export function parsePreviewFixtureData(value: unknown): PreviewFixtureData {
   const fixture = requireRecord(value, 'Saved test launch data must be a JSON object.');
   const launch = requireRecord(fixture.launch, 'Saved test launch details are required.');
   const userRole = requireUserRole(launch.user_role, 'Saved test launch role is required.');
@@ -161,7 +161,7 @@ function resolveSnapshotRelativePath(snapshotRoot: string, filePath: string): st
   );
 }
 
-function readCanonicalContentPath(manifestJson: Record<string, unknown>): string {
+export function readCanonicalContentPath(manifestJson: Record<string, unknown>): string {
   const contentFiles = readTrimmedStringArray(manifestJson.content_files);
 
   return contentFiles[0] ?? '/content/activity.json';

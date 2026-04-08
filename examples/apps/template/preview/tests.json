@@ -1,0 +1,27 @@
+[
+  {
+    "name": "renders title",
+    "assert": {
+      "selector": "[data-test='app-title']",
+      "text": "Template App"
+    }
+  },
+  {
+    "name": "renders prompt",
+    "assert": {
+      "selector": "[data-test='question-prompt']"
+    }
+  },
+  {
+    "name": "renders answer action",
+    "assert": {
+      "selector": "[data-test='answer-button']"
+    }
+  },
+  {
+    "name": "renders complete action",
+    "assert": {
+      "selector": "[data-test='complete-button']"
+    }
+  }
+]

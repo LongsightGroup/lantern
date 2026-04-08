@@ -156,6 +156,8 @@ To run the Worker locally:
 
 ## Public Entry Points
 
+- Authoring guide: [AUTHORING.md](AUTHORING.md)
+- LLM authoring guide: [AUTHORING_FOR_LLMS.md](AUTHORING_FOR_LLMS.md)
 - App package contract: [APP_PACKAGE_SPEC.md](APP_PACKAGE_SPEC.md)
 - Manifest schema:
   [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json)
@@ -164,6 +166,8 @@ To run the Worker locally:
   [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
   and [examples/apps/quick-study/README.md](examples/apps/quick-study/README.md)
   These are governed reference apps, not a generic app gallery.
+- Copy-first template app:
+  [examples/apps/template/README.md](examples/apps/template/README.md)
 - Canonical Workers entrypoint: [src/worker.ts](src/worker.ts)
 - Local Deno app wrapper: [src/app.ts](src/app.ts)
 - Local Deno server entrypoint: [main.ts](main.ts)
@@ -193,6 +197,8 @@ Common commands:
 
 - `deno task dev`
 - `deno task start`
+- `deno task app:validate <package-root>`
+- `deno task app:preview <package-root>`
 - `deno task fmt`
 - `deno task fmt:check`
 - `deno task lint`

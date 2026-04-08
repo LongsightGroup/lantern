@@ -2,12 +2,14 @@
   "tasks": {
     "dev": "deno run --unsafely-ignore-certificate-errors --watch --allow-read --allow-write --allow-env --allow-net main.ts",
     "start": "deno run --allow-read --allow-write --allow-env --allow-net main.ts",
+    "app:validate": "deno run --allow-read tools/app_validate.ts",
+    "app:preview": "deno run --allow-read --allow-net tools/app_preview.ts",
     "build:worker": "deno bundle --platform=browser src/worker.ts -o output/worker.bundle.mjs",
     "check:worker": "deno task build:worker && deno run --allow-read tools/check_worker_bundle.ts",
     "fmt": "deno run -A npm:oxfmt@0.43.0 --write .",
     "fmt:check": "deno run -A npm:oxfmt@0.43.0 --check .",
     "lint": "deno run -A npm:oxlint@1.58.0",
-    "check": "deno check main.ts src/**/*.ts sdk/**/*.ts",
+    "check": "deno check main.ts src/**/*.ts sdk/**/*.ts tools/*.ts",
     "test": "deno test --allow-read --allow-write --allow-env --allow-net",
     "validate": "deno task fmt:check && deno task lint && deno task check && deno task check:worker && deno test --allow-read --allow-write --allow-env --allow-net"
   },
