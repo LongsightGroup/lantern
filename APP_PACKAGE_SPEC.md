@@ -54,6 +54,11 @@ app/
   preview/
     fixtures.json
     tests.json
+  grading/
+    specs/
+      *.js
+  evidence/
+    example-output.json
 ```
 
 Rules:
@@ -87,6 +92,7 @@ The manifest is the review contract.
 - `browser`
 - `content_files`
 - `preview`
+- `authoring`
 
 ### Example
 
@@ -125,6 +131,11 @@ The manifest is the review contract.
   "preview": {
     "fixtures_file": "/preview/fixtures.json",
     "tests_file": "/preview/tests.json"
+  },
+  "authoring": {
+    "kind": "browser_autograder",
+    "grader_spec_files": ["/grading/specs/checks.spec.js"],
+    "evidence_example_file": "/evidence/example-output.json"
   }
 }
 ```
@@ -210,6 +221,29 @@ Allowed fields in v1:
 
 Default is false for both.
 
+### `authoring`
+
+This is an optional artifact contract for reviewed authoring examples. It does
+not grant runtime permissions.
+
+Allowed fields in v1:
+
+- `kind`
+- `grader_spec_files`
+- `evidence_example_file`
+
+Allowed values in v1:
+
+- `kind = "browser_autograder"`
+
+Canonical browser-autograder layout:
+
+- grader specs live under `grading/specs/*.js`
+- example evidence lives at `evidence/example-output.json`
+
+These files are reviewable artifacts for teachers and future AI authoring flows.
+They do not grant LMS access, outbound HTTP, or direct grade writes.
+
 ## Bootstrap Payload
 
 At launch, the gateway gives the app a short-lived bootstrap payload.
@@ -257,7 +291,7 @@ The SDK should be tiny.
 
 ```ts
 type LaunchContext = {
-  userRole: 'learner' | 'instructor';
+  userRole: "learner" | "instructor";
   courseId: string;
   assignmentId?: string;
   activityId: string;
@@ -273,25 +307,25 @@ declare function readLocalState<T = unknown>(): Promise<T | null>;
 ```ts
 type AttemptEvent =
   | {
-      type: 'answer';
-      questionId: string;
-      answer: string | string[];
-      timestamp: string;
-    }
+    type: "answer";
+    questionId: string;
+    answer: string | string[];
+    timestamp: string;
+  }
   | {
-      type: 'progress';
-      checkpoint: string;
-      value: number;
-      timestamp: string;
-    }
+    type: "progress";
+    checkpoint: string;
+    value: number;
+    timestamp: string;
+  }
   | {
-      type: 'complete';
-      timestamp: string;
-    };
+    type: "complete";
+    timestamp: string;
+  };
 
 declare function emitAttemptEvent(event: AttemptEvent): Promise<void>;
 declare function finalizeAttempt(input?: {
-  completionState?: 'completed' | 'abandoned';
+  completionState?: "completed" | "abandoned";
 }): Promise<{ accepted: true }>;
 declare function writeLocalState<T = unknown>(value: T): Promise<void>;
 ```

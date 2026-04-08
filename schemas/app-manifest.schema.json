@@ -152,6 +152,29 @@
         }
       }
     },
+    "authoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "grader_spec_files", "evidence_example_file"],
+      "properties": {
+        "kind": {
+          "const": "browser_autograder"
+        },
+        "grader_spec_files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^/grading/.+\\.js$"
+          }
+        },
+        "evidence_example_file": {
+          "type": "string",
+          "pattern": "^/evidence/.+\\.json$"
+        }
+      }
+    },
     "icon": {
       "type": "string",
       "pattern": "^/.+"
