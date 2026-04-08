@@ -1,9 +1,10 @@
-import type { PackageVersionRecord } from '../package_review/types.ts';
-import type { PackageReviewRepository } from '../package_review/repository.ts';
-import { ensureLeadingSlash } from '../package_review/snapshot_path.ts';
-import { requireTrimmedValue } from './claim_support.ts';
-import { createOpaqueToken } from './token_support.ts';
-import type { RuntimeSessionRecord, ValidatedLaunch } from './types.ts';
+import { resolveSubmissionMode } from "../../sdk/app-sdk.ts";
+import type { PackageVersionRecord } from "../package_review/types.ts";
+import type { PackageReviewRepository } from "../package_review/repository.ts";
+import { ensureLeadingSlash } from "../package_review/snapshot_path.ts";
+import { requireTrimmedValue } from "./claim_support.ts";
+import { createOpaqueToken } from "./token_support.ts";
+import type { RuntimeSessionRecord, ValidatedLaunch } from "./types.ts";
 
 const RUNTIME_SESSION_TTL_MS = 10 * 60 * 1000;
 
@@ -20,10 +21,12 @@ export async function createRuntimeSession(input: {
   );
 
   if (!packageVersion) {
-    throw new Error(`Launch package version id ${input.launch.packageVersionId} was not found.`);
+    throw new Error(
+      `Launch package version id ${input.launch.packageVersionId} was not found.`,
+    );
   }
 
-  if (packageVersion.approvalStatus !== 'approved') {
+  if (packageVersion.approvalStatus !== "approved") {
     throw new Error(
       `Launch package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
     );
@@ -43,12 +46,12 @@ export async function createRuntimeSession(input: {
     userLogin: input.launch.userLogin,
     userRole: input.launch.userRole,
     contextId: requireTrimmedValue(
-      input.launch.contextId ?? '',
-      'Launch context.id is required for the governed runtime.',
+      input.launch.contextId ?? "",
+      "Launch context.id is required for the governed runtime.",
     ),
     resourceLinkId: input.launch.resourceLinkId,
     activityId: input.launch.activityId,
-    status: 'in_progress',
+    status: "in_progress",
     completionState: null,
     localState: null,
     startedAt: createdAt.toISOString(),
@@ -66,21 +69,30 @@ export async function createRuntimeSession(input: {
     packageVersion: packageVersion.runtimeContract.packageVersion,
     capabilities: packageVersion.runtimeContract.capabilities,
     snapshotRoot: packageVersion.artifact.snapshotRoot,
-    entrypointPath: `${packageVersion.artifact.snapshotRoot}${ensureLeadingSlash(
-      packageVersion.runtimeContract.entrypoint,
-    )}`,
-    contentPath: resolveRuntimeContentPath(packageVersion, input.launch.contentPath),
+    entrypointPath: `${packageVersion.artifact.snapshotRoot}${
+      ensureLeadingSlash(
+        packageVersion.runtimeContract.entrypoint,
+      )
+    }`,
+    contentPath: resolveRuntimeContentPath(
+      packageVersion,
+      input.launch.contentPath,
+    ),
     services: input.launch.services,
     launch: {
       userRole: input.launch.userRole,
       courseId: requireTrimmedValue(
-        input.launch.contextId ?? '',
-        'Launch context.id is required for the governed runtime.',
+        input.launch.contextId ?? "",
+        "Launch context.id is required for the governed runtime.",
       ),
       activityId: input.launch.activityId,
+      submissionMode: resolveSubmissionMode(
+        packageVersion.runtimeContract.capabilities,
+      ),
     },
     createdAt: createdAt.toISOString(),
-    expiresAt: new Date(createdAt.getTime() + RUNTIME_SESSION_TTL_MS).toISOString(),
+    expiresAt: new Date(createdAt.getTime() + RUNTIME_SESSION_TTL_MS)
+      .toISOString(),
   });
 }
 
@@ -88,5 +100,7 @@ function resolveRuntimeContentPath(
   packageVersion: PackageVersionRecord,
   contentPath: string,
 ): string {
-  return `${packageVersion.artifact.snapshotRoot}${ensureLeadingSlash(contentPath)}`;
+  return `${packageVersion.artifact.snapshotRoot}${
+    ensureLeadingSlash(contentPath)
+  }`;
 }

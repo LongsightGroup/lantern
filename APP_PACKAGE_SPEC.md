@@ -114,6 +114,7 @@ The manifest is the review contract.
     "read_launch_context",
     "read_activity_content",
     "submit_attempt_event",
+    "submit_evidence_artifact",
     "finalize_attempt",
     "read_local_state",
     "write_local_state"
@@ -193,11 +194,16 @@ Allowed values in v1:
 - `read_launch_context`
 - `read_activity_content`
 - `submit_attempt_event`
+- `submit_evidence_artifact`
 - `finalize_attempt`
 - `read_local_state`
 - `write_local_state`
 
 Nothing else is valid in v1.
+
+`submit_evidence_artifact` requires `finalize_attempt`. It lets the reviewed app
+return evidence to Lantern, but Lantern still owns storage, submission binding,
+and any later grade publication.
 
 ### `grading.mode`
 
@@ -268,7 +274,8 @@ The app does not get LMS tokens or general session power.
     "user_role": "learner",
     "course_id": "course_42",
     "assignment_id": "assignment_9",
-    "activity_id": "activity_123"
+    "activity_id": "activity_123",
+    "submission_mode": "anonymous_submission"
   },
   "app": {
     "app_id": "chapter-4-asteroids",
@@ -305,6 +312,7 @@ type LaunchContext = {
   courseId: string;
   assignmentId?: string;
   activityId: string;
+  submissionMode: "standard" | "anonymous_submission";
 };
 
 declare function getLaunchContext(): Promise<LaunchContext>;

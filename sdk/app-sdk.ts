@@ -1,9 +1,11 @@
 export type UserRole = "learner" | "instructor";
+export type SubmissionMode = "standard" | "anonymous_submission";
 
 export type Capability =
   | "read_launch_context"
   | "read_activity_content"
   | "submit_attempt_event"
+  | "submit_evidence_artifact"
   | "finalize_attempt"
   | "read_local_state"
   | "write_local_state";
@@ -13,6 +15,7 @@ export interface LaunchContext {
   courseId: string;
   assignmentId?: string;
   activityId: string;
+  submissionMode: SubmissionMode;
 }
 
 export interface AppDescriptor {
@@ -32,6 +35,7 @@ export interface BootstrapPayload {
     course_id: string;
     assignment_id?: string;
     activity_id: string;
+    submission_mode: SubmissionMode;
   };
   app: {
     app_id: string;
@@ -145,6 +149,14 @@ export interface GatewayAppClient {
     completionState?: "completed" | "abandoned";
     browserGraderResult?: BrowserGraderResult;
   }): Promise<GatewayFinalizeResult>;
+}
+
+export function resolveSubmissionMode(
+  capabilities: Capability[],
+): SubmissionMode {
+  return capabilities.includes("submit_evidence_artifact")
+    ? "anonymous_submission"
+    : "standard";
 }
 
 declare global {

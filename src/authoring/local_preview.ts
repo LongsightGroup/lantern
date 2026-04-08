@@ -1,10 +1,11 @@
-import type {
+import {
   BootstrapPayload,
   Capability,
   GatewayFinalizeAcceptedResult,
   GatewayScoreProposalAcceptedResult,
   ScoreProposal,
 } from "../../sdk/app-sdk.ts";
+import { resolveSubmissionMode } from "../../sdk/app-sdk.ts";
 import {
   buildRuntimeBootstrapScript,
   injectBeforeClosingTag,
@@ -279,6 +280,9 @@ function buildBootstrapPayload(
         ? {}
         : { assignment_id: appPackage.fixtureData.launch.assignment_id }),
       activity_id: appPackage.fixtureData.launch.activity_id,
+      submission_mode: resolveSubmissionMode(
+        appPackage.reviewData.capabilities,
+      ),
     },
     app: {
       app_id: appPackage.reviewData.appId,

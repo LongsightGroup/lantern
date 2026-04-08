@@ -16,8 +16,12 @@ It shows one blessed path:
 Its reviewed browser grading contract is explicit:
 
 - `manifest.json` uses `grading.mode = "browser"`
+- `manifest.json` grants `submit_evidence_artifact` only alongside
+  `finalize_attempt`
 - `manifest.authoring.grader_spec_files` is the reviewed spec list
 - Lantern runs those files through its Lantern-owned Jasmine harness
+- Lantern owns anonymous evidence return; the app does not submit directly to
+  the LMS
 
 Start here:
 

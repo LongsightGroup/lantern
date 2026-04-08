@@ -2,6 +2,7 @@ import type { Pool } from "@db/postgres";
 import type {
   AccessibilityReview,
   AttemptEventRecord,
+  AttemptEvidenceArtifactRecord,
   AttemptRecord,
   AuditEventRecord,
   AuthoringDraftRecord,
@@ -30,6 +31,7 @@ import type { LtiProfileId } from "../lti/profile.ts";
 import { createAuditEventRepositoryMethods } from "./repository_audit_events.ts";
 import { createAuthoringRepositoryMethods } from "./repository_authoring.ts";
 import { createAttemptFlowRepositoryMethods } from "./repository_attempt_flows.ts";
+import { createAttemptEvidenceRepositoryMethods } from "./repository_attempt_evidence.ts";
 import { createAttemptQueryRepositoryMethods } from "./repository_attempt_queries.ts";
 import { createDeepLinkingSessionRepositoryMethods } from "./repository_deep_linking_sessions.ts";
 import { createDeploymentLoginRepositoryMethods } from "./repository_deployment_login.ts";
@@ -183,6 +185,18 @@ export interface PackageReviewRepository {
   ): Promise<RuntimeSessionRecord | null>;
   createAttempt(record: Omit<AttemptRecord, "id">): Promise<AttemptRecord>;
   getAttemptById(attemptId: string): Promise<AttemptRecord | null>;
+  createAttemptEvidenceArtifact(
+    input: Omit<
+      AttemptEvidenceArtifactRecord,
+      "sequence"
+    >,
+  ): Promise<AttemptEvidenceArtifactRecord>;
+  getAttemptEvidenceArtifactById(
+    artifactId: string,
+  ): Promise<AttemptEvidenceArtifactRecord | null>;
+  listAttemptEvidenceArtifacts(
+    attemptId: string,
+  ): Promise<AttemptEvidenceArtifactRecord[]>;
   appendAttemptEvent(input: {
     attemptId: string;
     event: AttemptEventRecord["event"];
@@ -278,6 +292,7 @@ export function createPackageReviewRepository(
     ...createPreviewRepositoryMethods(pool),
     ...createRuntimeLookupRepositoryMethods(pool),
     ...createAttemptQueryRepositoryMethods(pool),
+    ...createAttemptEvidenceRepositoryMethods(pool),
     ...createAttemptFlowRepositoryMethods(pool),
     ...createLineItemRepositoryMethods(pool),
     ...createGradePublicationRepositoryMethods(pool),

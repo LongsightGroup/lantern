@@ -15,6 +15,7 @@
     "read_launch_context",
     "read_activity_content",
     "submit_attempt_event",
+    "submit_evidence_artifact",
     "finalize_attempt",
     "read_local_state",
     "write_local_state"

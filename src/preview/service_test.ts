@@ -303,6 +303,13 @@ Deno.test("preview service keeps explicit authoring origin and selected content 
       id: 16,
       approvalStatus: "approved",
       roles: ["learner", "instructor"],
+      capabilities: [
+        "read_launch_context",
+        "read_activity_content",
+        "submit_attempt_event",
+        "finalize_attempt",
+        "submit_evidence_artifact",
+      ],
       artifact: {
         snapshotRoot,
         manifestPath: `${snapshotRoot}/manifest.json`,
@@ -355,6 +362,10 @@ Deno.test("preview service keeps explicit authoring origin and selected content 
     assertEquals(
       launched.runtimeSession.launch.activityId,
       "/content/bonus.json",
+    );
+    assertEquals(
+      launched.runtimeSession.launch.submissionMode,
+      "anonymous_submission",
     );
   } finally {
     await Deno.remove(snapshotRoot, { recursive: true });

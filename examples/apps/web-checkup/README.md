@@ -13,8 +13,12 @@ It demonstrates one explicit authoring path:
 Its reviewed browser grading contract stays narrow:
 
 - `manifest.json` uses `grading.mode = "browser"`
+- `manifest.json` grants `submit_evidence_artifact` only alongside
+  `finalize_attempt`
 - reviewed browser grading reuses `authoring.grader_spec_files`
 - Lantern runs those reviewed files through its Lantern-owned Jasmine harness
+- Lantern owns anonymous evidence return instead of giving the app direct LMS
+  submission power
 
 The activity itself is calm and institutional: learners inspect a small page
 revision checklist, record progress, and finalize the review through Lantern.

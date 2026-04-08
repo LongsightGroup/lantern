@@ -1,32 +1,41 @@
-import type { PackageReviewRepository } from '../package_review/repository.ts';
-import type { InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
-import { cloneRecord, nextId } from './package_review_in_memory_shared.ts';
+import type { PackageReviewRepository } from "../package_review/repository.ts";
+import type { InMemoryRepositoryState } from "./package_review_in_memory_shared.ts";
+import { cloneRecord, nextId } from "./package_review_in_memory_shared.ts";
 
 type AttemptRepository = Pick<
   PackageReviewRepository,
-  | 'createAttempt'
-  | 'getAttemptById'
-  | 'appendAttemptEvent'
-  | 'listAttemptEvents'
-  | 'finalizeAttempt'
-  | 'writeAttemptLocalState'
-  | 'getLineItemBinding'
-  | 'saveLineItemBinding'
-  | 'getGradePublicationByAttemptId'
-  | 'createGradePublication'
-  | 'updateGradePublication'
-  | 'recordAuditEvent'
-  | 'listAuditEventsByAttemptId'
-  | 'listAuditEventsByEventType'
+  | "createAttempt"
+  | "getAttemptById"
+  | "createAttemptEvidenceArtifact"
+  | "getAttemptEvidenceArtifactById"
+  | "listAttemptEvidenceArtifacts"
+  | "appendAttemptEvent"
+  | "listAttemptEvents"
+  | "finalizeAttempt"
+  | "writeAttemptLocalState"
+  | "getLineItemBinding"
+  | "saveLineItemBinding"
+  | "getGradePublicationByAttemptId"
+  | "createGradePublication"
+  | "updateGradePublication"
+  | "recordAuditEvent"
+  | "listAuditEventsByAttemptId"
+  | "listAuditEventsByEventType"
 >;
 
-export function createInMemoryAttemptRepository(state: InMemoryRepositoryState): AttemptRepository {
+export function createInMemoryAttemptRepository(
+  state: InMemoryRepositoryState,
+): AttemptRepository {
   return {
     createAttempt(record) {
-      const existing = state.attempts.find((candidate) => candidate.attemptId === record.attemptId);
+      const existing = state.attempts.find((candidate) =>
+        candidate.attemptId === record.attemptId
+      );
 
       if (existing) {
-        throw new Error(`Attempt ${record.attemptId} already exists and cannot be replaced.`);
+        throw new Error(
+          `Attempt ${record.attemptId} already exists and cannot be replaced.`,
+        );
       }
 
       const nextRecord = cloneRecord({ ...record, id: nextId(state.attempts) });
@@ -35,8 +44,56 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
     },
 
     getAttemptById(attemptId) {
-      const record = state.attempts.find((candidate) => candidate.attemptId === attemptId);
+      const record = state.attempts.find((candidate) =>
+        candidate.attemptId === attemptId
+      );
       return Promise.resolve(record ? cloneRecord(record) : null);
+    },
+
+    createAttemptEvidenceArtifact(input) {
+      const attempt = state.attempts.find((candidate) =>
+        candidate.attemptId === input.attemptId
+      );
+
+      if (!attempt) {
+        throw new Error(`Attempt ${input.attemptId} was not found.`);
+      }
+
+      const existing = state.attemptEvidenceArtifacts.find(
+        (candidate) => candidate.artifactId === input.artifactId,
+      );
+
+      if (existing) {
+        throw new Error(
+          `Attempt evidence artifact ${input.artifactId} already exists and cannot be replaced.`,
+        );
+      }
+
+      const sequence = state.attemptEvidenceArtifacts
+        .filter((candidate) => candidate.attemptId === input.attemptId)
+        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const nextRecord = cloneRecord({
+        ...input,
+        sequence,
+      });
+      state.attemptEvidenceArtifacts.push(nextRecord);
+      return Promise.resolve(cloneRecord(nextRecord));
+    },
+
+    getAttemptEvidenceArtifactById(artifactId) {
+      const record = state.attemptEvidenceArtifacts.find(
+        (candidate) => candidate.artifactId === artifactId,
+      );
+      return Promise.resolve(record ? cloneRecord(record) : null);
+    },
+
+    listAttemptEvidenceArtifacts(attemptId) {
+      return Promise.resolve(
+        state.attemptEvidenceArtifacts
+          .filter((candidate) => candidate.attemptId === attemptId)
+          .sort((left, right) => left.sequence - right.sequence)
+          .map(cloneRecord),
+      );
     },
 
     writeAttemptLocalState(input) {
@@ -63,16 +120,17 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
     },
 
     appendAttemptEvent(input) {
-      const attempt = state.attempts.find((candidate) => candidate.attemptId === input.attemptId);
+      const attempt = state.attempts.find((candidate) =>
+        candidate.attemptId === input.attemptId
+      );
 
       if (!attempt) {
         throw new Error(`Attempt ${input.attemptId} was not found.`);
       }
 
-      const sequence =
-        state.attemptEvents
-          .filter((candidate) => candidate.attemptId === input.attemptId)
-          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence = state.attemptEvents
+        .filter((candidate) => candidate.attemptId === input.attemptId)
+        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = cloneRecord({
         id: nextId(state.attemptEvents),
         attemptId: input.attemptId,
@@ -159,7 +217,9 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
     },
 
     getGradePublicationByAttemptId(attemptId) {
-      const record = state.gradePublications.find((candidate) => candidate.attemptId === attemptId);
+      const record = state.gradePublications.find((candidate) =>
+        candidate.attemptId === attemptId
+      );
       return Promise.resolve(record ? cloneRecord(record) : null);
     },
 
@@ -186,13 +246,17 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
       );
 
       if (index < 0) {
-        throw new Error(`Grade publication for attempt ${input.attemptId} was not found.`);
+        throw new Error(
+          `Grade publication for attempt ${input.attemptId} was not found.`,
+        );
       }
 
       const existing = state.gradePublications[index];
 
       if (!existing) {
-        throw new Error(`Grade publication for attempt ${input.attemptId} was not found.`);
+        throw new Error(
+          `Grade publication for attempt ${input.attemptId} was not found.`,
+        );
       }
 
       const nextRecord = cloneRecord({
@@ -215,27 +279,29 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
       state.auditEvents.push(nextRecord);
 
       if (
-        nextRecord.eventType === 'deployment.ags_smoke_verified' &&
+        nextRecord.eventType === "deployment.ags_smoke_verified" &&
         nextRecord.deploymentRecordId !== null
       ) {
-        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
-          detail.inventory.deploymentId === nextRecord.deploymentRecordId
-            ? {
+        state.controlPlaneDeploymentDetails = state
+          .controlPlaneDeploymentDetails.map((detail) =>
+            detail.inventory.deploymentId === nextRecord.deploymentRecordId
+              ? {
                 ...detail,
                 latestAgsSmoke: {
-                  status: nextRecord.status === 'succeeded' ? 'succeeded' : 'failed',
+                  status: nextRecord.status === "succeeded"
+                    ? "succeeded"
+                    : "failed",
                   occurredAt: nextRecord.occurredAt,
                   summary: nextRecord.summary,
                   attemptId: nextRecord.attemptId,
-                  contextId:
-                    typeof nextRecord.detail.contextId === 'string'
-                      ? nextRecord.detail.contextId
-                      : null,
+                  contextId: typeof nextRecord.detail.contextId === "string"
+                    ? nextRecord.detail.contextId
+                    : null,
                   detail: cloneRecord(nextRecord.detail),
                 },
               }
-            : detail,
-        );
+              : detail
+          );
       }
 
       return Promise.resolve(cloneRecord(nextRecord));
@@ -243,13 +309,17 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
 
     listAuditEventsByAttemptId(attemptId) {
       return Promise.resolve(
-        state.auditEvents.filter((candidate) => candidate.attemptId === attemptId).map(cloneRecord),
+        state.auditEvents.filter((candidate) =>
+          candidate.attemptId === attemptId
+        ).map(cloneRecord),
       );
     },
 
     listAuditEventsByEventType(eventType) {
       return Promise.resolve(
-        state.auditEvents.filter((candidate) => candidate.eventType === eventType).map(cloneRecord),
+        state.auditEvents.filter((candidate) =>
+          candidate.eventType === eventType
+        ).map(cloneRecord),
       );
     },
   };

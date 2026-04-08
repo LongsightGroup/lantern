@@ -42,6 +42,21 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
     )
   `,
   `
+    CREATE TABLE IF NOT EXISTS attempt_evidence_artifacts (
+      artifact_id text PRIMARY KEY,
+      attempt_id text NOT NULL REFERENCES attempts (attempt_id) ON DELETE CASCADE,
+      sequence integer NOT NULL CHECK (sequence > 0),
+      kind text NOT NULL CHECK (kind IN ('screenshot_png', 'structured_json')),
+      content_type text NOT NULL,
+      file_name text NOT NULL,
+      storage_key text NOT NULL UNIQUE,
+      byte_size bigint NOT NULL CHECK (byte_size >= 0),
+      sha256 text NOT NULL,
+      created_at timestamptz NOT NULL,
+      UNIQUE (attempt_id, sequence)
+    )
+  `,
+  `
     CREATE TABLE IF NOT EXISTS line_item_bindings (
       id bigserial PRIMARY KEY,
       deployment_record_id bigint NOT NULL REFERENCES deployments (id) ON DELETE CASCADE,
@@ -194,6 +209,10 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
       ON runtime_sessions (attempt_id, created_at DESC)
   `,
   `
+    CREATE INDEX IF NOT EXISTS attempt_evidence_artifacts_attempt_sequence_idx
+      ON attempt_evidence_artifacts (attempt_id, sequence ASC)
+  `,
+  `
     CREATE INDEX IF NOT EXISTS audit_events_deployment_occurred_at_idx
       ON audit_events (deployment_record_id, occurred_at DESC)
   `,
@@ -212,4 +231,4 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
 ];
 
 export const PACKAGE_REVIEW_RESET_SQL =
-  "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, line_item_bindings, attempt_events, attempts, authoring_draft_files, authoring_drafts, preview_evidence, preview_sessions, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE";
+  "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, line_item_bindings, attempt_evidence_artifacts, attempt_events, attempts, authoring_draft_files, authoring_drafts, preview_evidence, preview_sessions, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE";

@@ -2,6 +2,7 @@ import type {
   AccessibilityReview,
   ApprovalStatus,
   AttemptEventRecord,
+  AttemptEvidenceArtifactRecord,
   AttemptRecord,
   AuditEventRecord,
   AuthoringDraftFileRecord,
@@ -271,6 +272,19 @@ export interface AttemptEventRow {
   eventType: AttemptEventRecord["eventType"];
   event: AttemptEventRecord["event"];
   receivedAt: Date | string;
+}
+
+export interface AttemptEvidenceArtifactRow {
+  artifactId: string;
+  attemptId: string;
+  sequence: number;
+  kind: AttemptEvidenceArtifactRecord["kind"];
+  contentType: string;
+  fileName: string;
+  storageKey: string;
+  byteSize: number | string;
+  sha256: string;
+  createdAt: Date | string;
 }
 
 export interface LineItemBindingRow {

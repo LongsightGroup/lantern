@@ -84,6 +84,13 @@ export function explainManifestIssues(
       continue;
     }
 
+    if (
+      error.keyword === "const" &&
+      error.instancePath.startsWith("/capabilities/")
+    ) {
+      continue;
+    }
+
     const issue = mapManifestIssue(error);
     const key = `${issue.field}:${issue.keyword}`;
 
@@ -171,6 +178,13 @@ function mapManifestIssue(error: ErrorObject): ValidationIssue {
       message:
         'Browser grading requires authoring.kind = "browser_autograder".',
     };
+  }
+
+  if (error.keyword === "contains" && error.instancePath === "/capabilities") {
+    return buildSimpleIssue(
+      error,
+      'Capability "submit_evidence_artifact" requires "finalize_attempt".',
+    );
   }
 
   if (error.keyword === "enum") {

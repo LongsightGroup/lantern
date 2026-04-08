@@ -52,6 +52,7 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(html, "submitScoreProposal");
   assertStringIncludes(html, "finalizeAttempt");
   assertStringIncludes(html, "runBrowserGrader");
+  assertStringIncludes(html, "submissionMode");
   assertStringIncludes(html, "readLocalState");
   assertStringIncludes(html, "writeLocalState");
   assertStringIncludes(
@@ -83,6 +84,7 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
     "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
   );
   assertEquals(bootstrap.session.expires_at, "2099-03-26T22:47:00Z");
+  assertEquals(bootstrap.launch.submission_mode, "standard");
   assertEquals(
     bootstrap.app.runtime_contract_signature,
     "test-reviewed-runtime-contract-signature",

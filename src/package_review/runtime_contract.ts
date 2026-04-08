@@ -1,18 +1,20 @@
-import { CompactSign, compactVerify, createLocalJWKSet } from 'jose';
-import type { Capability } from '../../sdk/app-sdk.ts';
-import { getPublicJwkSet, loadToolSigningKey } from '../lti/tool_key.ts';
-import type { EnvReader } from '../platform/env.ts';
-import type { ManifestReviewData } from './manifest.ts';
-import type { ReviewedRuntimeContract } from './types.ts';
+import { CompactSign, compactVerify, createLocalJWKSet } from "jose";
+import type { Capability } from "../../sdk/app-sdk.ts";
+import { getPublicJwkSet, loadToolSigningKey } from "../lti/tool_key.ts";
+import type { EnvReader } from "../platform/env.ts";
+import type { ManifestReviewData } from "./manifest.ts";
+import type { ReviewedRuntimeContract } from "./types.ts";
 
-const REVIEWED_RUNTIME_CONTRACT_JWS_TYPE = 'application/lantern-reviewed-runtime-contract+jws';
+const REVIEWED_RUNTIME_CONTRACT_JWS_TYPE =
+  "application/lantern-reviewed-runtime-contract+jws";
 const RUNTIME_CONTRACT_CAPABILITIES = new Set<Capability>([
-  'read_launch_context',
-  'read_activity_content',
-  'submit_attempt_event',
-  'finalize_attempt',
-  'read_local_state',
-  'write_local_state',
+  "read_launch_context",
+  "read_activity_content",
+  "submit_attempt_event",
+  "submit_evidence_artifact",
+  "finalize_attempt",
+  "read_local_state",
+  "write_local_state",
 ]);
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -23,7 +25,10 @@ export interface SignedReviewedRuntimeContract {
 }
 
 export function createReviewedRuntimeContract(input: {
-  reviewData: Pick<ManifestReviewData, 'appId' | 'version' | 'entrypoint' | 'capabilities'>;
+  reviewData: Pick<
+    ManifestReviewData,
+    "appId" | "version" | "entrypoint" | "capabilities"
+  >;
   artifactDigest: string;
 }): ReviewedRuntimeContract {
   return {
@@ -36,7 +41,10 @@ export function createReviewedRuntimeContract(input: {
 }
 
 export async function buildSignedReviewedRuntimeContract(input: {
-  reviewData: Pick<ManifestReviewData, 'appId' | 'version' | 'entrypoint' | 'capabilities'>;
+  reviewData: Pick<
+    ManifestReviewData,
+    "appId" | "version" | "entrypoint" | "capabilities"
+  >;
   artifactDigest: string;
   env: EnvReader;
 }): Promise<SignedReviewedRuntimeContract> {
@@ -54,16 +62,18 @@ export async function buildSignedReviewedRuntimeContract(input: {
   };
 }
 
-export function parseReviewedRuntimeContract(value: unknown): ReviewedRuntimeContract {
+export function parseReviewedRuntimeContract(
+  value: unknown,
+): ReviewedRuntimeContract {
   if (!isObject(value)) {
-    throw new Error('Reviewed runtime contract must be an object.');
+    throw new Error("Reviewed runtime contract must be an object.");
   }
 
   return {
-    appId: readRequiredString(value, 'appId'),
-    packageVersion: readRequiredString(value, 'packageVersion'),
-    artifactDigest: readRequiredString(value, 'artifactDigest'),
-    entrypoint: readRequiredString(value, 'entrypoint'),
+    appId: readRequiredString(value, "appId"),
+    packageVersion: readRequiredString(value, "packageVersion"),
+    artifactDigest: readRequiredString(value, "artifactDigest"),
+    entrypoint: readRequiredString(value, "entrypoint"),
     capabilities: readCapabilities(value.capabilities),
   };
 }
@@ -80,20 +90,24 @@ export async function verifyReviewedRuntimeContractSignature(input: {
     );
 
     if (verified.protectedHeader.typ !== REVIEWED_RUNTIME_CONTRACT_JWS_TYPE) {
-      throw new Error('Reviewed runtime contract used the wrong signature type.');
+      throw new Error(
+        "Reviewed runtime contract used the wrong signature type.",
+      );
     }
 
     const payload = textDecoder.decode(verified.payload);
-    const signedRuntimeContract = parseReviewedRuntimeContract(JSON.parse(payload));
+    const signedRuntimeContract = parseReviewedRuntimeContract(
+      JSON.parse(payload),
+    );
 
     if (
       serializeReviewedRuntimeContract(signedRuntimeContract) !==
-      serializeReviewedRuntimeContract(input.runtimeContract)
+        serializeReviewedRuntimeContract(input.runtimeContract)
     ) {
-      throw new Error('Reviewed runtime contract payload drifted.');
+      throw new Error("Reviewed runtime contract payload drifted.");
     }
   } catch {
-    throw new Error('Runtime contract integrity check failed.');
+    throw new Error("Runtime contract integrity check failed.");
   }
 }
 
@@ -114,7 +128,9 @@ async function signReviewedRuntimeContract(input: {
     .sign(toolKey.privateKey);
 }
 
-function serializeReviewedRuntimeContract(runtimeContract: ReviewedRuntimeContract): string {
+function serializeReviewedRuntimeContract(
+  runtimeContract: ReviewedRuntimeContract,
+): string {
   return JSON.stringify({
     appId: runtimeContract.appId,
     packageVersion: runtimeContract.packageVersion,
@@ -125,13 +141,16 @@ function serializeReviewedRuntimeContract(runtimeContract: ReviewedRuntimeContra
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function readRequiredString(value: Record<string, unknown>, key: string): string {
+function readRequiredString(
+  value: Record<string, unknown>,
+  key: string,
+): string {
   const field = value[key];
 
-  if (typeof field !== 'string' || field.length === 0) {
+  if (typeof field !== "string" || field.length === 0) {
     throw new Error(`Reviewed runtime contract is missing ${key}.`);
   }
 
@@ -140,15 +159,19 @@ function readRequiredString(value: Record<string, unknown>, key: string): string
 
 function readCapabilities(value: unknown): Capability[] {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new Error('Reviewed runtime contract capabilities must be a non-empty array.');
+    throw new Error(
+      "Reviewed runtime contract capabilities must be a non-empty array.",
+    );
   }
 
   return value.map((capability) => {
     if (
-      typeof capability !== 'string' ||
+      typeof capability !== "string" ||
       !RUNTIME_CONTRACT_CAPABILITIES.has(capability as Capability)
     ) {
-      throw new Error('Reviewed runtime contract capabilities must use supported values.');
+      throw new Error(
+        "Reviewed runtime contract capabilities must use supported values.",
+      );
     }
 
     return capability as Capability;

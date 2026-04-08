@@ -259,6 +259,7 @@ function buildUnsignedBootstrapPayload(input: {
         ? {}
         : { assignment_id: input.session.launch.assignmentId }),
       activity_id: input.session.launch.activityId,
+      submission_mode: input.session.launch.submissionMode,
     },
     app: {
       app_id: input.session.appId,

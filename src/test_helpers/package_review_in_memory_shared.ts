@@ -24,6 +24,7 @@ import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
   ApprovalStatus,
   AttemptEventRecord,
+  AttemptEvidenceArtifactRecord,
   AttemptRecord,
   AuditEventRecord,
   AuthoringDraftFileRecord,
@@ -119,6 +120,7 @@ export type InMemoryPackageReviewRepositoryOptions = {
   packageVersions?: PackageVersionRecord[];
   deployments?: DeploymentRecord[];
   attempts?: AttemptRecord[];
+  attemptEvidenceArtifacts?: AttemptEvidenceArtifactRecord[];
   attemptEvents?: AttemptEventRecord[];
   lineItemBindings?: LineItemBindingRecord[];
   gradePublications?: GradePublicationRecord[];
@@ -160,6 +162,9 @@ export function createState(
     packageVersions: cloneRecord(options.packageVersions ?? []),
     deployments: cloneRecord(options.deployments ?? []),
     attempts: cloneRecord(options.attempts ?? []),
+    attemptEvidenceArtifacts: cloneRecord(
+      options.attemptEvidenceArtifacts ?? [],
+    ),
     attemptEvents: cloneRecord(options.attemptEvents ?? []),
     lineItemBindings: cloneRecord(options.lineItemBindings ?? []),
     gradePublications: cloneRecord(options.gradePublications ?? []),

@@ -1,3 +1,4 @@
+import { resolveSubmissionMode } from "../../sdk/app-sdk.ts";
 import type { RuntimeSessionRecord } from "../lti/types.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import {
@@ -151,6 +152,9 @@ export async function launchPreviewRuntimeSession(input: {
         ? {}
         : { assignmentId: created.previewSession.launch.assignmentId }),
       activityId: created.previewSession.launch.activityId,
+      submissionMode: resolveSubmissionMode(
+        created.previewSession.capabilities,
+      ),
     },
     preview: {
       previewSessionId: created.previewSession.sessionId,

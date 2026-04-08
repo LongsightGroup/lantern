@@ -171,6 +171,10 @@ function buildValidManifest(): ManifestFixture {
 function buildBrowserAutograderManifest(): ManifestFixture {
   return {
     ...buildValidManifest(),
+    capabilities: [
+      ...buildValidManifest().capabilities,
+      "submit_evidence_artifact",
+    ],
     grading: {
       mode: "browser",
       max_score: 100,
@@ -388,6 +392,40 @@ Deno.test("validateManifest accepts browser autograder authoring artifact refere
 
     assertEquals(result.reviewData.grading.mode, "browser");
     assertEquals(result.reviewData.grading.maxScore, 100);
+    assertEquals(
+      result.reviewData.capabilities.includes("submit_evidence_artifact"),
+      true,
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
+});
+
+Deno.test("validateManifest requires finalize_attempt when anonymous evidence submission is enabled", async () => {
+  const manifest = buildBrowserAutograderManifest();
+  manifest.capabilities = manifest.capabilities.filter((capability) =>
+    capability !== "finalize_attempt"
+  );
+  const root = await createPackageFixture(manifest);
+
+  try {
+    const result = await validateManifest(createFileSystemPackageSource(root));
+
+    assertEquals(result.ok, false);
+
+    if (result.ok) {
+      throw new Error(
+        "Expected anonymous evidence submission without finalize_attempt to fail.",
+      );
+    }
+
+    assertEquals(result.issues.map((issue: { field: string }) => issue.field), [
+      "/capabilities",
+    ]);
+    assertStringIncludes(
+      result.issues[0]?.message ?? "",
+      'Capability "submit_evidence_artifact" requires "finalize_attempt".',
+    );
   } finally {
     await Deno.remove(root, { recursive: true });
   }

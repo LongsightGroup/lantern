@@ -114,6 +114,7 @@ window.GatewayApp = {
         ? { assignmentId: window.GatewayBootstrap.launch.assignment_id }
         : {}),
       activityId: window.GatewayBootstrap.launch.activity_id,
+      submissionMode: window.GatewayBootstrap.launch.submission_mode,
     });
   },
   async getActivityContent() {

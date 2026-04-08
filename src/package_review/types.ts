@@ -12,6 +12,7 @@ export type ValidationSeverity = "error";
 export type AttemptStatus = "in_progress" | "completed" | "abandoned";
 export type AttemptCompletionState = "completed" | "abandoned";
 export type AttemptLocalState = Record<string, unknown> | null;
+export type AttemptEvidenceArtifactKind = "screenshot_png" | "structured_json";
 export type GradePublicationStatus = "pending" | "published" | "failed";
 export type AuditActorType = "user" | "system" | "platform";
 export type AuditEventStatus = "accepted" | "succeeded" | "failed";
@@ -207,6 +208,19 @@ export interface AttemptEventRecord {
   eventType: AttemptEvent["type"];
   event: AttemptEvent;
   receivedAt: string;
+}
+
+export interface AttemptEvidenceArtifactRecord {
+  artifactId: string;
+  attemptId: string;
+  sequence: number;
+  kind: AttemptEvidenceArtifactKind;
+  contentType: string;
+  fileName: string;
+  storageKey: string;
+  byteSize: number;
+  sha256: string;
+  createdAt: string;
 }
 
 export interface LineItemBindingRecord {
