@@ -5,8 +5,8 @@ import type {
 } from "../lti/services.ts";
 import type { PackageReviewRepository } from "../package_review/repository.ts";
 import type {
-  AttemptRecord,
   AttemptEvidenceArtifactRecord,
+  AttemptRecord,
   GradePublicationRecord,
   LineItemBindingRecord,
 } from "../package_review/types.ts";
