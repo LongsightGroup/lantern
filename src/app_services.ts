@@ -1,5 +1,9 @@
 import type { Pool } from "@db/postgres";
 import type { JSONWebKeySet } from "jose";
+import {
+  type AuthoringAiWriter,
+  createUnavailableAuthoringAiWriter,
+} from "./authoring/ai_writer.ts";
 import { createDatabasePool } from "./db/pool.ts";
 import { getDenoEnvReader } from "./platform/deno_env.ts";
 import { type EnvReader, getDefaultEnvReader } from "./platform/env.ts";
@@ -24,6 +28,7 @@ import type { ManifestReviewData } from "./package_review/manifest.ts";
 export interface AppServices {
   env: EnvReader;
   runtimeArtifactStore: RuntimeArtifactStore;
+  authoringAiWriter: AuthoringAiWriter;
   getRepository: () => PackageReviewRepository;
   getOpsRepository: () => OpsRepository;
   loadCanvasJwks: (url: string) => Promise<JSONWebKeySet>;
@@ -50,6 +55,8 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
 
   return {
     env,
+    authoringAiWriter: services.authoringAiWriter ??
+      createUnavailableAuthoringAiWriter(),
     runtimeArtifactStore: services.runtimeArtifactStore ??
       getDefaultRuntimeArtifactStore(),
     getRepository,

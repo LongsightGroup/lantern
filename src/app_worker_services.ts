@@ -1,4 +1,5 @@
 import type { JSONWebKeySet } from "jose";
+import { createUnavailableAuthoringAiWriter } from "./authoring/ai_writer.ts";
 import type { AppServices } from "./app_services.ts";
 import {
   createHyperdriveDatabasePool,
@@ -47,6 +48,7 @@ export function resolveWorkerServices(
 
   return {
     env,
+    authoringAiWriter: createUnavailableAuthoringAiWriter(),
     runtimeArtifactStore: snapshotStore,
     getRepository: () => repositories.repository,
     getOpsRepository: () => repositories.opsRepository,
