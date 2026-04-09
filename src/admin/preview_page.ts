@@ -5,6 +5,7 @@ import type {
 } from "../package_review/types.ts";
 import { summarizeCapabilities } from "../package_review/summary.ts";
 import { type AdminNotice, escapeHtml, renderAdminLayout } from "./layout.ts";
+import { renderPackagePageNav } from "./package_navigation.ts";
 
 export interface TestLaunchFormValues {
   userRole: string;
@@ -24,7 +25,6 @@ export function renderPreviewPage(input: {
   const { packageVersion, savedDefaults, latestSession, previewEvidence } =
     input;
   const capabilitySummary = summarizeCapabilities(packageVersion.capabilities);
-  const launchSummary = latestSession?.launch ?? savedDefaults.launch;
 
   return renderAdminLayout({
     title: `${packageVersion.title} ${packageVersion.version} Test Launch`,
@@ -32,9 +32,13 @@ export function renderPreviewPage(input: {
     heading: packageVersion.title,
     intro:
       "Open this approved version as a student or instructor without signing in through the LMS.",
+    activePath: "/admin/packages",
     breadcrumbs: [
       { label: "Apps", href: "/admin/packages" },
-      { label: packageVersion.title },
+      {
+        label: packageVersion.title,
+        href: `/admin/packages/${escapeHtml(packageVersion.appId)}`,
+      },
       {
         label: packageVersion.version,
         href: `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${
@@ -46,84 +50,27 @@ export function renderPreviewPage(input: {
       { label: "Test Launch" },
     ],
     notice: input.notice ?? null,
+    pageNav: renderPackagePageNav({
+      appId: packageVersion.appId,
+      history: [packageVersion],
+      currentSection: "preview",
+      currentVersion: packageVersion,
+    }),
     body: `<section class="panel">
       <div class="panel-body stack">
-        <p class="section-label">Test launch</p>
-        <h2>Version ${escapeHtml(packageVersion.version)}</h2>
-        <p>Lantern starts with the saved test data from this app version, then opens one runtime session with the role and launch details you choose below.</p>
-        <p class="micro muted">This does not use an LMS sign-in, live grade return, or live roster access.</p>
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-body two-column">
-        <section class="stack">
-          <p class="section-label">Version</p>
-          <div class="facts">
-            <div class="fact">
-              <span class="fact-label">App</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.appId)
-    }</span>
-            </div>
-            <div class="fact">
-              <span class="fact-label">Version</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.version)
-    }</span>
-            </div>
-            <div class="fact">
-              <span class="fact-label">Saved files</span>
-              <span class="fact-value">${
-      escapeHtml(packageVersion.artifact.snapshotRoot)
-    }</span>
-            </div>
-          </div>
-        </section>
-        <section class="stack">
-          <p class="section-label">Saved defaults</p>
-          <p class="micro muted">These values come from the reviewed app package. You can change them before starting a test session.</p>
-          <div class="facts">
-            <div class="fact">
-              <span class="fact-label">Role</span>
-              <span class="fact-value">${
-      escapeHtml(
-        formatRoleLabel(savedDefaults.launch.userRole),
-      )
-    }</span>
-            </div>
-            <div class="fact">
-              <span class="fact-label">Course</span>
-              <span class="fact-value">${
-      escapeHtml(savedDefaults.launch.courseId)
-    }</span>
-            </div>
-            <div class="fact">
-              <span class="fact-label">Assignment</span>
-              <span class="fact-value">${
-      escapeHtml(
-        savedDefaults.launch.assignmentId ?? "Course-level launch",
-      )
-    }</span>
-            </div>
-            <div class="fact">
-              <span class="fact-label">Activity</span>
-              <span class="fact-value">${
-      escapeHtml(savedDefaults.launch.activityId)
-    }</span>
-            </div>
-          </div>
-        </section>
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-body stack">
-        <p class="section-label">Launch settings</p>
-        <form method="post" class="stack" action="/admin/packages/${
+        <div class="preview-launch-stack">
+          <p class="section-label">Test launch</p>
+          <h2>Version ${escapeHtml(packageVersion.version)}</h2>
+          <p>Use the saved defaults below, or change them before starting.</p>
+          <p class="micro muted">Defaults ${
+      renderLaunchSummary(savedDefaults.launch)
+    }. No LMS sign-in or live LMS writes.</p>
+          <form method="post" class="stack" action="/admin/packages/${
       escapeHtml(
         packageVersion.appId,
       )
     }/versions/${escapeHtml(packageVersion.version)}/preview">
-          <div class="two-column">
+          <div class="form-stack preview-launch-form">
             <div class="field">
               <label for="test-launch-role">Role</label>
               <select id="test-launch-role" name="userRole">
@@ -138,7 +85,6 @@ export function renderPreviewPage(input: {
         .join("")
     }
               </select>
-              <p class="field-hint">Choose the LMS role to simulate.</p>
             </div>
             <div class="field">
               <label for="test-launch-course-id">Course ID</label>
@@ -169,25 +115,23 @@ export function renderPreviewPage(input: {
               >
             </div>
           </div>
-          <p class="micro muted">Starting a test launch saves activity here and opens the app in Lantern's runtime.</p>
-          <div class="button-row">
-            <button type="submit" class="button-primary">Start test launch</button>
-            <a class="button-secondary" href="/admin/packages/${
+            <div class="button-row form-actions">
+              <button type="submit" class="button-primary">Start test launch</button>
+              <a class="button-secondary" href="/admin/packages/${
       escapeHtml(
         packageVersion.appId,
       )
     }/versions/${
       escapeHtml(packageVersion.version)
     }">Back to version details</a>
-          </div>
-        </form>
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-body stack">
-        <p class="section-label">What this test allows</p>
-        <div class="line-list">
-          ${
+            </div>
+          </form>
+          <details>
+            <summary>Show reviewed runtime capabilities</summary>
+            <div class="detail-stack">
+              <p class="micro muted">This test session can only use the reviewed runtime capabilities saved with this package version.</p>
+              <div class="line-list">
+                ${
       capabilitySummary
         .map(
           (capability) =>
@@ -198,73 +142,52 @@ export function renderPreviewPage(input: {
         )
         .join("")
     }
+              </div>
+            </div>
+          </details>
         </div>
       </div>
     </section>
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Recent test activity</p>
-        <div class="facts">
-          <div class="fact">
-            <span class="fact-label">Latest session</span>
-            <span class="fact-value">${
-      escapeHtml(latestSession?.sessionId ?? "None yet")
-    }</span>
-          </div>
-          <div class="fact">
-            <span class="fact-label">Role</span>
-            <span class="fact-value">${
-      escapeHtml(formatRoleLabel(launchSummary.userRole))
-    }</span>
-          </div>
-          <div class="fact">
-            <span class="fact-label">Course</span>
-            <span class="fact-value">${
-      escapeHtml(launchSummary.courseId)
-    }</span>
-          </div>
-          <div class="fact">
-            <span class="fact-label">Assignment</span>
-            <span class="fact-value">${
-      escapeHtml(
-        launchSummary.assignmentId ?? "Course-level launch",
-      )
-    }</span>
-          </div>
-          <div class="fact">
-            <span class="fact-label">Activity</span>
-            <span class="fact-value">${
-      escapeHtml(launchSummary.activityId)
-    }</span>
-          </div>
-        </div>
+        ${
+      latestSession === null
+        ? ""
+        : `<p>Latest session <strong>${
+          escapeHtml(latestSession.sessionId)
+        }</strong> ran ${renderLaunchSummary(latestSession.launch)}.</p>`
+    }
         ${
       previewEvidence.length === 0
         ? `<p class="muted">No test activity has been recorded yet. Start a test launch to open the app.</p>`
-        : `<ul class="stack">
+        : `<div class="line-list">
           ${
           previewEvidence
             .map(
               (record) =>
-                `<li class="stack">
-              <div class="micro muted">${escapeHtml(record.occurredAt)}</div>
-              <div><strong>${
+                `<article class="line-item">
+              <p class="line-title">${
                   escapeHtml(formatPreviewEvidenceLabel(record.eventType))
-                }</strong> ${
+                }${
                   record.capability === null
                     ? ""
-                    : `<code>${escapeHtml(record.capability)}</code>`
-                }</div>
-              <div class="micro muted"><code>${
+                    : ` <span class="inline-code">${
+                      escapeHtml(record.capability)
+                    }</span>`
+                }
+              </p>
+              <p class="micro muted">${escapeHtml(record.occurredAt)}</p>
+              <p class="micro muted"><span class="inline-code">${
                   escapeHtml(record.eventType)
-                }</code></div>
-              <div>${escapeHtml(record.summary)}</div>
+                }</span></p>
+              <p class="line-copy">${escapeHtml(record.summary)}</p>
               ${renderPreviewEvidenceDetail(packageVersion.appId, record)}
-            </li>`,
+            </article>`,
             )
             .join("")
         }
-        </ul>`
+        </div>`
     }
       </div>
     </section>`,
@@ -340,6 +263,24 @@ function formatRoleLabel(role: string): string {
     default:
       return role;
   }
+}
+
+function renderLaunchSummary(
+  launch: PreviewSessionRecord["launch"],
+): string {
+  const assignment = launch.assignmentId === null
+    ? "a course-level launch"
+    : `assignment <span class="inline-code">${
+      escapeHtml(launch.assignmentId)
+    }</span>`;
+
+  return `as ${
+    escapeHtml(formatRoleLabel(launch.userRole))
+  } in course <span class="inline-code">${
+    escapeHtml(launch.courseId)
+  }</span>, ${assignment}, with activity <span class="inline-code">${
+    escapeHtml(launch.activityId)
+  }</span>`;
 }
 
 function formatPreviewEvidenceLabel(eventType: string): string {

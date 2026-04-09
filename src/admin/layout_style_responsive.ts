@@ -4,6 +4,15 @@ export const ADMIN_LAYOUT_STYLE_RESPONSIVE = `
           grid-template-columns: 1fr;
         }
 
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .version-row-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .panel-header,
         .page-header-bar {
           flex-direction: column;
         }

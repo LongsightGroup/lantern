@@ -1,5 +1,5 @@
-import { ADMIN_LAYOUT_STYLE_DETAIL_DEPLOYMENT } from './layout_style_detail_deployment.ts';
-import { ADMIN_LAYOUT_STYLE_DETAIL_TABLES } from './layout_style_detail_tables.ts';
+import { ADMIN_LAYOUT_STYLE_DETAIL_DEPLOYMENT } from "./layout_style_detail_deployment.ts";
+import { ADMIN_LAYOUT_STYLE_DETAIL_TABLES } from "./layout_style_detail_tables.ts";
 
 export const ADMIN_LAYOUT_STYLE_DETAIL = `
       ${ADMIN_LAYOUT_STYLE_DETAIL_TABLES}
@@ -13,6 +13,31 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
       .field {
         display: grid;
         gap: 6px;
+      }
+
+      .form-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .form-stack {
+        display: grid;
+        gap: 16px;
+      }
+
+      .field-span-full {
+        grid-column: 1 / -1;
+      }
+
+      .preview-launch-stack {
+        display: grid;
+        gap: 16px;
+        max-width: 46rem;
+      }
+
+      .preview-launch-form {
+        max-width: 100%;
       }
 
       .field label {
@@ -113,6 +138,10 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         font-size: 13.5px;
       }
 
+      .form-actions {
+        align-items: flex-start;
+      }
+
       .inline-flash {
         margin: 0;
       }
@@ -185,6 +214,13 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         font-size: 16px;
         font-weight: 600;
         letter-spacing: -0.01em;
+      }
+
+      .app-inline-meta {
+        margin-left: 10px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--muted);
       }
 
       .empty-state p,

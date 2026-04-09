@@ -64,6 +64,14 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
         gap: 20px;
       }
 
+      .panel-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: flex-start;
+      }
+
       .stack {
         display: grid;
         gap: 14px;
@@ -164,6 +172,7 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
       }
 
       .button,
+      .button-primary,
       .button-secondary,
       .button-danger,
       .button-ghost,
@@ -181,6 +190,7 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
       }
 
       .button,
+      .button-primary,
       button.button-primary {
         background: var(--accent);
         color: white;
@@ -188,6 +198,7 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
       }
 
       .button:hover,
+      .button-primary:hover,
       button.button-primary:hover {
         background: var(--accent-hover);
       }
@@ -254,5 +265,16 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
         margin: 0;
         color: var(--secondary);
         font-size: 13.5px;
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+      }
+
+      .card-grid > .fact {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
       }
 `;

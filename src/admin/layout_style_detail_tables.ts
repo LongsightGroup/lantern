@@ -66,31 +66,62 @@ export const ADMIN_LAYOUT_STYLE_DETAIL_TABLES = `
       }
 
       .table-row-status {
-        box-shadow: inset 3px 0 0 transparent;
       }
 
       .table-row-status-healthy {
         background: color-mix(in srgb, var(--success-soft) 22%, var(--surface));
-        box-shadow: inset 3px 0 0 color-mix(in srgb, var(--success) 72%, white);
       }
 
       .table-row-status-attention {
         background: color-mix(in srgb, var(--warning-soft) 34%, var(--surface));
-        box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 76%, white);
       }
 
       .table-row-status-failed {
         background: color-mix(in srgb, var(--danger-soft) 30%, var(--surface));
-        box-shadow: inset 3px 0 0 color-mix(in srgb, var(--danger) 78%, white);
       }
 
       .table-row-status-unknown {
         background: color-mix(in srgb, var(--accent-soft) 24%, var(--surface));
-        box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 60%, white);
       }
 
       .table-row:last-child {
         border-bottom: none;
+      }
+
+      .version-row {
+        gap: 12px;
+      }
+
+      .version-row-current {
+        background: color-mix(in srgb, var(--success-soft) 24%, var(--surface));
+      }
+
+      .version-row-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 11.5rem;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .version-row-copy {
+        min-width: 0;
+      }
+
+      .version-row-actions {
+        display: grid;
+        gap: 8px;
+        align-content: start;
+      }
+
+      .version-row-actions > * {
+        width: 100%;
+      }
+
+      .version-summary-chip {
+        background: color-mix(in srgb, var(--success-soft) 76%, white);
+        border-color: color-mix(in srgb, var(--success) 18%, var(--line));
+        color: color-mix(in srgb, var(--success) 74%, var(--ink));
+        font-weight: 600;
       }
 
       .table-row-top {
@@ -233,7 +264,6 @@ export const ADMIN_LAYOUT_STYLE_DETAIL_TABLES = `
             color-mix(in srgb, var(--surface) 86%, var(--warning-soft))
           );
         border-color: color-mix(in srgb, var(--warning) 22%, var(--line));
-        box-shadow: inset 3px 0 0 color-mix(in srgb, var(--warning) 76%, white);
       }
 
       .callout-review h3 {

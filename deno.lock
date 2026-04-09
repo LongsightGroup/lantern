@@ -563,7 +563,8 @@
       "jsr:@std/semver@1.0.8",
       "npm:ajv@8.18.0",
       "npm:jose@6.2.2",
-      "npm:oauth4webapi@3.8.5"
+      "npm:oauth4webapi@3.8.5",
+      "npm:postgres@3.4.7"
     ]
   }
 }

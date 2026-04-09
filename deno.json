@@ -27,7 +27,8 @@
     "@std/assert": "jsr:@std/assert@^1.0.15",
     "@std/semver": "jsr:@std/semver@1.0.8",
     "jose": "npm:jose@6.2.2",
-    "oauth4webapi": "npm:oauth4webapi@3.8.5"
+    "oauth4webapi": "npm:oauth4webapi@3.8.5",
+    "postgres": "npm:postgres@3.4.7"
   },
   "compilerOptions": {
     "strict": true,

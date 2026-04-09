@@ -1,4 +1,4 @@
-import { assertStringIncludes } from "@std/assert";
+import { assertEquals, assertStringIncludes } from "@std/assert";
 import { renderPreviewPage } from "./preview_page.ts";
 import {
   buildPackageVersionRecord,
@@ -45,6 +45,7 @@ Deno.test("renderPreviewPage shows saved defaults, editable launch fields, and e
   assertStringIncludes(body, "Test Launch");
   assertStringIncludes(body, "Chapter 4 Asteroids");
   assertStringIncludes(body, "Version 0.3.0");
+  assertStringIncludes(body, "Defaults as Instructor in course");
   assertStringIncludes(body, "preview-course-42");
   assertStringIncludes(body, "preview-activity-9");
   assertStringIncludes(body, 'name="userRole"');
@@ -54,8 +55,20 @@ Deno.test("renderPreviewPage shows saved defaults, editable launch fields, and e
     body,
     'action="/admin/packages/chapter-4-asteroids/versions/0.3.0/preview"',
   );
+  assertStringIncludes(body, "preview-launch-stack");
+  assertStringIncludes(body, "preview-launch-form");
+  assertEquals(body.includes('<div class="two-column">'), false);
+  assertEquals(body.includes("Edit before launch"), false);
+  assertEquals(body.includes("Reviewed package"), false);
+  assertEquals(body.includes("Choose the LMS role to simulate."), false);
+  assertEquals(
+    body.includes(
+      "Starting a test launch records test activity here and opens the app in Lantern's runtime.",
+    ),
+    false,
+  );
   assertStringIncludes(body, "Start test launch");
-  assertStringIncludes(body, "What this test allows");
+  assertStringIncludes(body, "Show reviewed runtime capabilities");
   assertStringIncludes(body, "Recent test activity");
   assertStringIncludes(
     body,
@@ -131,6 +144,7 @@ Deno.test("renderPreviewPage shows durable test activity evidence in capability 
 
   assertStringIncludes(body, "Latest session");
   assertStringIncludes(body, "preview-session-123");
+  assertStringIncludes(body, "ran as Instructor in course");
   assertStringIncludes(body, "Started test launch");
   assertStringIncludes(body, "Stored anonymous evidence");
   assertStringIncludes(body, "Finished test attempt");
