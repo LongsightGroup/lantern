@@ -31,6 +31,26 @@ deno task app:preview /tmp/my-lantern-app
 
 Open the URL printed by the preview command.
 
+If you want a richer browser-autograder example after the template, read:
+
+- [examples/apps/web-checkup/README.md](/Users/samo/dev/lantern/examples/apps/web-checkup/README.md)
+- [examples/apps/office-hours-web-lab/README.md](/Users/samo/dev/lantern/examples/apps/office-hours-web-lab/README.md)
+
+If you also want Lantern's local admin and package review UI on your machine,
+run:
+
+```sh
+deno task local:init
+createdb lantern
+deno task local:bootstrap
+deno task local:start
+```
+
+Then open `http://localhost:8417/admin/packages`.
+
+If `createdb` is not installed, create the `lantern` database through your
+normal Postgres tooling before `deno task local:bootstrap`.
+
 ## Package Shape
 
 Lantern authoring expects this layout:

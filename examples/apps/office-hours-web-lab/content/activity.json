@@ -1,0 +1,71 @@
+{
+  "title": "Office Hours Web Lab",
+  "instructions": "Repair the office-hours sign-up page so the HTML output, visual treatment, and confirmation behavior all match the assignment brief before you finalize.",
+  "scenario": "This models a Dr. Chuck-style web assignment: learners revise a small office-hours page, Lantern grades the result in the browser, and anonymous evidence can return through Lantern's governed submission path.",
+  "targets": {
+    "heading": "Office Hours Sign-Up",
+    "image_alt": "Students reviewing notes before office hours.",
+    "theme": "harbor",
+    "spacing": "comfortable",
+    "button_label": "Reserve My Seat",
+    "success_message": "Your office hours request is ready to send."
+  },
+  "html_requirements": [
+    {
+      "id": "heading",
+      "label": "Use one clear page heading that matches the assignment title."
+    },
+    {
+      "id": "alt-text",
+      "label": "Add descriptive alt text for the hero image."
+    }
+  ],
+  "css_requirements": [
+    {
+      "id": "theme",
+      "label": "Choose the harbor theme so the call to action uses the approved palette."
+    },
+    {
+      "id": "spacing",
+      "label": "Use the comfortable spacing preset so the card breathes on mobile."
+    }
+  ],
+  "js_requirements": [
+    {
+      "id": "button-label",
+      "label": "Set the button text to the approved call to action."
+    },
+    {
+      "id": "success-message",
+      "label": "Show the approved confirmation message when the preview button is clicked."
+    }
+  ],
+  "theme_options": [
+    {
+      "id": "paper",
+      "label": "Paper"
+    },
+    {
+      "id": "harbor",
+      "label": "Harbor"
+    },
+    {
+      "id": "sage",
+      "label": "Sage"
+    }
+  ],
+  "spacing_options": [
+    {
+      "id": "compact",
+      "label": "Compact"
+    },
+    {
+      "id": "comfortable",
+      "label": "Comfortable"
+    },
+    {
+      "id": "airy",
+      "label": "Airy"
+    }
+  ]
+}

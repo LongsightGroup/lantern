@@ -5,6 +5,63 @@ Lantern runs small learning apps through one LMS integration.
 It handles LTI login and launch, Deep Linking, grade publishing, and admin tools
 so the app package itself can stay simple.
 
+## Try A Browser Autograder In 2 Minutes
+
+If you want to evaluate Lantern as a JS/TS teaching tool, start here instead of
+with the full platform install:
+
+1. Install [Deno](https://deno.com/).
+2. Run `deno task app:preview examples/apps/office-hours-web-lab`.
+3. Open the localhost URL printed by the command.
+
+This path does not need Postgres, LMS setup, or Cloudflare. It runs the same
+browser authoring seam Lantern uses for local package preview, so you can judge
+the app model first.
+
+## Run Lantern Locally
+
+When you want the full local admin and review flow, use the built-in local
+bootstrap path:
+
+```sh
+deno task local:init
+createdb lantern
+deno task local:bootstrap
+deno task local:start
+```
+
+Then open `http://localhost:8417/admin/packages`.
+
+If `createdb` is not installed on your machine, create a local Postgres
+database named `lantern` however you normally manage Postgres and then continue.
+
+What these commands do:
+
+- `local:init` writes `.env.local`, generates a local development signing key,
+  and creates Lantern's local artifact directories
+- `local:bootstrap` runs migrations and seeds the shipped reference packages,
+  including Template App, Web Checkup, and Office Hours Web Lab
+- `local:start` runs Lantern with `.env.local`
+
+If your local Postgres uses a different host, user, password, or database, edit
+`.env.local` after `local:init` before running `local:bootstrap`.
+
+## JS/TS Authoring Path
+
+Lantern app authoring is intentionally narrow:
+
+1. Copy the template app package.
+2. Edit HTML, CSS, JavaScript, and JSON content.
+3. Validate the package.
+4. Preview it through Lantern's local browser seam.
+
+Start with:
+
+- [AUTHORING.md](AUTHORING.md)
+- [AUTHORING_FOR_LLMS.md](AUTHORING_FOR_LLMS.md)
+- [examples/apps/template/README.md](examples/apps/template/README.md)
+- [examples/apps/office-hours-web-lab/README.md](examples/apps/office-hours-web-lab/README.md)
+
 ## What Lantern Is Good For
 
 - running small learner-facing apps through one LMS integration
@@ -166,6 +223,9 @@ To run the Worker locally:
   [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
   and [examples/apps/quick-study/README.md](examples/apps/quick-study/README.md)
   These are governed reference apps, not a generic app gallery.
+- Browser autograder demos:
+  [examples/apps/web-checkup/README.md](examples/apps/web-checkup/README.md)
+  and [examples/apps/office-hours-web-lab/README.md](examples/apps/office-hours-web-lab/README.md)
 - Copy-first template app:
   [examples/apps/template/README.md](examples/apps/template/README.md)
 - Canonical Workers entrypoint: [src/worker.ts](src/worker.ts)
@@ -183,7 +243,31 @@ To run the Worker locally:
 
 ## Local Development
 
-Minimum environment:
+Fast path:
+
+```sh
+deno task local:init
+createdb lantern
+deno task local:bootstrap
+deno task local:start
+```
+
+Open `http://localhost:8417/admin/packages`.
+
+If `createdb` is not installed, create the `lantern` database through your
+normal Postgres tooling before `deno task local:bootstrap`.
+
+Generated local environment:
+
+- `.env.local`: written by `deno task local:init`
+- `PORT`: defaults to `8417`
+- `APP_ORIGIN`: defaults to `http://localhost:8417`
+- `APP_RUNTIME_ORIGIN`: defaults to `http://localhost:8417` so local preview
+  and reviewed runtime stay on one origin
+- `DATABASE_URL`: defaults to `postgres://localhost:5432/lantern?sslmode=disable`
+- `LTI_TOOL_PRIVATE_JWK`: generated automatically for local development
+
+Manual minimum environment if you do not use `local:init`:
 
 - `DATABASE_URL`: Postgres connection string
 - `DATABASE_CA_CERT`: optional PEM CA certificate for managed Postgres providers
@@ -192,9 +276,17 @@ Minimum environment:
   JWKS and sign LTI assertions
 - `APP_ORIGIN`: recommended for stable local config and required anywhere
   Lantern must publish fixed public URLs without proxy headers
+- `APP_RUNTIME_ORIGIN`: required anywhere Lantern must publish runtime URLs for
+  attempts and app sessions
 
 Common commands:
 
+- `deno task local:init`
+- `deno task local:migrate`
+- `deno task local:seed`
+- `deno task local:bootstrap`
+- `deno task local:start`
+- `deno task local:dev`
 - `deno task dev`
 - `deno task start`
 - `deno task app:validate <package-root>`

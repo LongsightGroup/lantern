@@ -1,0 +1,21 @@
+{
+  "launch": {
+    "user_role": "learner",
+    "course_id": "course_demo",
+    "assignment_id": "assignment_office_hours_web_lab",
+    "activity_id": "office-hours-web-lab"
+  },
+  "attempt_id": "attempt_office_hours_web_lab_demo",
+  "local_state": {
+    "headingText": "Office Hours Draft",
+    "altText": "",
+    "theme": "paper",
+    "spacing": "compact",
+    "buttonText": "Join Office Hours",
+    "successMessage": "You're signed up.",
+    "rehearsalCount": 0,
+    "messageVisible": false,
+    "savedAt": null,
+    "finalized": "Not finished"
+  }
+}

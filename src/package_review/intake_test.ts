@@ -1,91 +1,64 @@
-import { assert, assertEquals, assertRejects } from "@std/assert";
-import { getTestToolPrivateJwkEnvValue } from "../test_helpers/lti.ts";
+import { assert, assertEquals, assertRejects } from '@std/assert';
+import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
 import {
   getReferencePackageSourceRoot,
   importDemoPackage,
   importReferencePackage,
   listReferencePackageIds,
-} from "./intake.ts";
-import { createFileSystemPackageSource } from "./package_source_fs.ts";
-import { verifyReviewedRuntimeContractSignature } from "./runtime_contract.ts";
-import { getDefaultPackageSnapshotStore } from "./snapshot_store_fs.ts";
+} from './intake.ts';
+import { createFileSystemPackageSource } from './package_source_fs.ts';
+import { verifyReviewedRuntimeContractSignature } from './runtime_contract.ts';
+import { getDefaultPackageSnapshotStore } from './snapshot_store_fs.ts';
 
 const snapshotStore = getDefaultPackageSnapshotStore();
 const TEST_RUNTIME_CONTRACT_ENV = {
   get(name: string): string | undefined {
-    return name === "LTI_TOOL_PRIVATE_JWK"
-      ? getTestToolPrivateJwkEnvValue()
-      : undefined;
+    return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
   },
 };
 
 async function withToolSigningEnv(run: () => Promise<void>): Promise<void> {
-  const previousToolKey = Deno.env.get("LTI_TOOL_PRIVATE_JWK");
-  Deno.env.set("LTI_TOOL_PRIVATE_JWK", getTestToolPrivateJwkEnvValue());
+  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
   try {
     await run();
   } finally {
     if (previousToolKey === undefined) {
-      Deno.env.delete("LTI_TOOL_PRIVATE_JWK");
+      Deno.env.delete('LTI_TOOL_PRIVATE_JWK');
     } else {
-      Deno.env.set("LTI_TOOL_PRIVATE_JWK", previousToolKey);
+      Deno.env.set('LTI_TOOL_PRIVATE_JWK', previousToolKey);
     }
   }
 }
 
-Deno.test("importDemoPackage snapshots the demo package into Lantern-managed storage", async () => {
+Deno.test('importDemoPackage snapshots the demo package into Lantern-managed storage', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: "lantern-storage-" });
+    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
 
     try {
       const result = await importDemoPackage({
         storageRoot,
-        source: createFileSystemPackageSource(
-          "examples/apps/chapter-4-asteroids",
-        ),
+        source: createFileSystemPackageSource('examples/apps/chapter-4-asteroids'),
         snapshotStore,
         env: TEST_RUNTIME_CONTRACT_ENV,
       });
 
-      assertEquals(result.reviewData.appId, "chapter-4-asteroids");
-      assertEquals(result.reviewData.version, "0.1.0");
-      assert(
-        result.artifact.snapshotRoot.startsWith(
-          `${storageRoot}/chapter-4-asteroids/0.1.0`,
-        ),
-      );
-      assertEquals(
-        result.artifact.manifestPath,
-        `${result.artifact.snapshotRoot}/manifest.json`,
-      );
+      assertEquals(result.reviewData.appId, 'chapter-4-asteroids');
+      assertEquals(result.reviewData.version, '0.1.0');
+      assert(result.artifact.snapshotRoot.startsWith(`${storageRoot}/chapter-4-asteroids/0.1.0`));
+      assertEquals(result.artifact.manifestPath, `${result.artifact.snapshotRoot}/manifest.json`);
       assertEquals(
         result.artifact.entrypointPath,
         `${result.artifact.snapshotRoot}/dist/index.html`,
       );
-      assert(
-        !result.artifact.snapshotRoot.startsWith(
-          "examples/apps/chapter-4-asteroids",
-        ),
-      );
-      assert(result.artifact.digest.startsWith("sha256:"));
+      assert(!result.artifact.snapshotRoot.startsWith('examples/apps/chapter-4-asteroids'));
+      assert(result.artifact.digest.startsWith('sha256:'));
       assertEquals(result.runtimeContract.appId, result.reviewData.appId);
-      assertEquals(
-        result.runtimeContract.packageVersion,
-        result.reviewData.version,
-      );
-      assertEquals(
-        result.runtimeContract.artifactDigest,
-        result.artifact.digest,
-      );
-      assertEquals(
-        result.runtimeContract.entrypoint,
-        result.reviewData.entrypoint,
-      );
-      assertEquals(
-        result.runtimeContract.capabilities,
-        result.reviewData.capabilities,
-      );
+      assertEquals(result.runtimeContract.packageVersion, result.reviewData.version);
+      assertEquals(result.runtimeContract.artifactDigest, result.artifact.digest);
+      assertEquals(result.runtimeContract.entrypoint, result.reviewData.entrypoint);
+      assertEquals(result.runtimeContract.capabilities, result.reviewData.capabilities);
 
       await verifyReviewedRuntimeContractSignature({
         runtimeContract: result.runtimeContract,
@@ -94,17 +67,13 @@ Deno.test("importDemoPackage snapshots the demo package into Lantern-managed sto
       });
 
       const sourceManifest = await Deno.readTextFile(
-        "examples/apps/chapter-4-asteroids/manifest.json",
+        'examples/apps/chapter-4-asteroids/manifest.json',
       );
-      const snapshotManifest = await Deno.readTextFile(
-        result.artifact.manifestPath,
-      );
+      const snapshotManifest = await Deno.readTextFile(result.artifact.manifestPath);
       const sourceEntrypoint = await Deno.readTextFile(
-        "examples/apps/chapter-4-asteroids/dist/index.html",
+        'examples/apps/chapter-4-asteroids/dist/index.html',
       );
-      const snapshotEntrypoint = await Deno.readTextFile(
-        result.artifact.entrypointPath,
-      );
+      const snapshotEntrypoint = await Deno.readTextFile(result.artifact.entrypointPath);
 
       assertEquals(snapshotManifest, sourceManifest);
       assertEquals(snapshotEntrypoint, sourceEntrypoint);
@@ -114,16 +83,14 @@ Deno.test("importDemoPackage snapshots the demo package into Lantern-managed sto
   });
 });
 
-Deno.test("importDemoPackage refuses to overwrite an existing immutable snapshot", async () => {
+Deno.test('importDemoPackage refuses to overwrite an existing immutable snapshot', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: "lantern-storage-" });
+    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
 
     try {
       await importDemoPackage({
         storageRoot,
-        source: createFileSystemPackageSource(
-          "examples/apps/chapter-4-asteroids",
-        ),
+        source: createFileSystemPackageSource('examples/apps/chapter-4-asteroids'),
         snapshotStore,
         env: TEST_RUNTIME_CONTRACT_ENV,
       });
@@ -132,14 +99,12 @@ Deno.test("importDemoPackage refuses to overwrite an existing immutable snapshot
         () =>
           importDemoPackage({
             storageRoot,
-            source: createFileSystemPackageSource(
-              "examples/apps/chapter-4-asteroids",
-            ),
+            source: createFileSystemPackageSource('examples/apps/chapter-4-asteroids'),
             snapshotStore,
             env: TEST_RUNTIME_CONTRACT_ENV,
           }),
         Error,
-        "Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.",
+        'Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.',
       );
     } finally {
       await Deno.remove(storageRoot, { recursive: true });
@@ -147,18 +112,16 @@ Deno.test("importDemoPackage refuses to overwrite an existing immutable snapshot
   });
 });
 
-Deno.test("importReferencePackage snapshots each curated reference app into Lantern-managed storage", async () => {
+Deno.test('importReferencePackage snapshots each curated reference app into Lantern-managed storage', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: "lantern-storage-" });
+    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
 
     try {
       for (const appId of listReferencePackageIds()) {
         const result = await importReferencePackage({
           appId,
           storageRoot,
-          source: createFileSystemPackageSource(
-            getReferencePackageSourceRoot(appId),
-          ),
+          source: createFileSystemPackageSource(getReferencePackageSourceRoot(appId)),
           snapshotStore,
           env: TEST_RUNTIME_CONTRACT_ENV,
         });
@@ -172,10 +135,7 @@ Deno.test("importReferencePackage snapshots each curated reference app into Lant
         );
         assert(!result.artifact.snapshotRoot.startsWith(sourceRoot));
         assertEquals(result.runtimeContract.appId, appId);
-        assertEquals(
-          result.runtimeContract.packageVersion,
-          result.reviewData.version,
-        );
+        assertEquals(result.runtimeContract.packageVersion, result.reviewData.version);
 
         await verifyReviewedRuntimeContractSignature({
           runtimeContract: result.runtimeContract,
@@ -183,12 +143,8 @@ Deno.test("importReferencePackage snapshots each curated reference app into Lant
           env: TEST_RUNTIME_CONTRACT_ENV,
         });
 
-        const sourceManifest = await Deno.readTextFile(
-          `${sourceRoot}/manifest.json`,
-        );
-        const snapshotManifest = await Deno.readTextFile(
-          result.artifact.manifestPath,
-        );
+        const sourceManifest = await Deno.readTextFile(`${sourceRoot}/manifest.json`);
+        const snapshotManifest = await Deno.readTextFile(result.artifact.manifestPath);
 
         assertEquals(snapshotManifest, sourceManifest);
       }
@@ -198,27 +154,26 @@ Deno.test("importReferencePackage snapshots each curated reference app into Lant
   });
 });
 
-Deno.test("curated authoring examples stay explicitly registered in the reference package registry", () => {
+Deno.test('curated authoring examples stay explicitly registered in the reference package registry', () => {
   const ids = listReferencePackageIds();
 
-  assertEquals(ids.includes("template-app"), true);
+  assertEquals(ids.includes('template-app'), true);
+  assertEquals(getReferencePackageSourceRoot('template-app'), 'examples/apps/template');
+  assertEquals(ids.includes('web-checkup'), true);
+  assertEquals(getReferencePackageSourceRoot('web-checkup'), 'examples/apps/web-checkup');
+  assertEquals(ids.includes('office-hours-web-lab'), true);
   assertEquals(
-    getReferencePackageSourceRoot("template-app"),
-    "examples/apps/template",
-  );
-  assertEquals(ids.includes("web-checkup"), true);
-  assertEquals(
-    getReferencePackageSourceRoot("web-checkup"),
-    "examples/apps/web-checkup",
+    getReferencePackageSourceRoot('office-hours-web-lab'),
+    'examples/apps/office-hours-web-lab',
   );
 });
 
-Deno.test("importReferencePackage snapshots web-checkup through the explicit curated registry", async () => {
+Deno.test('importReferencePackage snapshots web-checkup through the explicit curated registry', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: "lantern-storage-" });
+    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
 
     try {
-      const appId = "web-checkup";
+      const appId = 'web-checkup';
       const sourceRoot = getReferencePackageSourceRoot(appId);
       const result = await importReferencePackage({
         appId,
@@ -243,12 +198,8 @@ Deno.test("importReferencePackage snapshots web-checkup through the explicit cur
         env: TEST_RUNTIME_CONTRACT_ENV,
       });
 
-      const sourceManifest = await Deno.readTextFile(
-        `${sourceRoot}/manifest.json`,
-      );
-      const snapshotManifest = await Deno.readTextFile(
-        result.artifact.manifestPath,
-      );
+      const sourceManifest = await Deno.readTextFile(`${sourceRoot}/manifest.json`);
+      const snapshotManifest = await Deno.readTextFile(result.artifact.manifestPath);
 
       assertEquals(snapshotManifest, sourceManifest);
     } finally {

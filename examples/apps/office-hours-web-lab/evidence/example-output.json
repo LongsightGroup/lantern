@@ -1,0 +1,37 @@
+{
+  "submissionMode": "anonymous_submission",
+  "completionState": "completed",
+  "submittedWork": {
+    "headingText": "Office Hours Sign-Up",
+    "altText": "Students reviewing notes before office hours.",
+    "theme": "harbor",
+    "spacing": "comfortable",
+    "buttonText": "Reserve My Seat",
+    "successMessage": "Your office hours request is ready to send.",
+    "rehearsalCount": 1,
+    "messageVisible": true,
+    "savedAt": "2026-04-08T22:58:00.000Z",
+    "finalized": "completed"
+  },
+  "browserGraderResult": {
+    "scoreGiven": 100,
+    "scoreMaximum": 100,
+    "specResults": [
+      {
+        "source": "/grading/specs/structure.spec.js",
+        "result": "passed",
+        "failures": []
+      },
+      {
+        "source": "/grading/specs/styling.spec.js",
+        "result": "passed",
+        "failures": []
+      },
+      {
+        "source": "/grading/specs/behavior.spec.js",
+        "result": "passed",
+        "failures": []
+      }
+    ]
+  }
+}

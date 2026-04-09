@@ -1,6 +1,9 @@
 private/
 .DS_Store
+.env.local
 var/packages/
+var/attempt-evidence/
+var/authoring-drafts/
 .playwright-cli/
 .wrangler/
 output/worker.bundle.mjs
