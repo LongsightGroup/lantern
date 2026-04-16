@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -22,7 +22,7 @@
 
       body {
         margin: 0;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: Georgia, 'Times New Roman', serif;
         background:
           radial-gradient(circle at top right, #e9e0d1, transparent 30%),
           linear-gradient(180deg, #f8f5ee 0%, var(--bg) 100%);
@@ -156,16 +156,13 @@
         </div>
 
         <div class="meta">
-          <span class="chip" id="launch-chip" data-test="launch-chip"
-          >Loading launch...</span>
-          <span class="chip" id="status-chip" data-test="status-chip"
-          >Waiting for runtime...</span>
+          <span class="chip" id="launch-chip" data-test="launch-chip">Loading launch...</span>
+          <span class="chip" id="status-chip" data-test="status-chip">Waiting for runtime...</span>
         </div>
 
         <section class="question">
           <span class="label">Prompt</span>
-          <strong id="prompt" data-test="question-prompt"
-          >Loading prompt...</strong>
+          <strong id="prompt" data-test="question-prompt">Loading prompt...</strong>
         </section>
 
         <div class="button-row">
@@ -190,19 +187,11 @@
         <section class="ledger">
           <article class="fact">
             <span class="fact-label">Progress Events</span>
-            <strong
-              class="fact-value"
-              id="progress-count"
-              data-test="progress-count"
-            >0</strong>
+            <strong class="fact-value" id="progress-count" data-test="progress-count">0</strong>
           </article>
           <article class="fact">
             <span class="fact-label">Last Finalize</span>
-            <strong
-              class="fact-value"
-              id="finalize-state"
-              data-test="finalize-state"
-            >
+            <strong class="fact-value" id="finalize-state" data-test="finalize-state">
               Not finished
             </strong>
           </article>
@@ -210,6 +199,6 @@
       </section>
     </main>
 
-    <script src="./app.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>

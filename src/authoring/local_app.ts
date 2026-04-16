@@ -1,24 +1,12 @@
-import type { Capability } from "../../sdk/app-sdk.ts";
-import {
-  type ManifestReviewData,
-  validateManifest,
-} from "../package_review/manifest.ts";
-import type { AppManifest } from "../package_review/manifest_contract.ts";
-import { readManifestJsonFromSource } from "../package_review/manifest_files.ts";
-import type { PackageSource } from "../package_review/package_source.ts";
-import { createFileSystemPackageSource } from "../package_review/package_source_fs.ts";
-import {
-  ensureLeadingSlash,
-  trimLeadingSlash,
-} from "../package_review/snapshot_path.ts";
-import type {
-  PreviewFixtureData,
-  ValidationIssue,
-} from "../package_review/types.ts";
-import {
-  parsePreviewFixtureData,
-  readCanonicalContentPath,
-} from "../preview/fixture.ts";
+import type { Capability } from '../../sdk/app-sdk.ts';
+import { type ManifestReviewData, validateManifest } from '../package_review/manifest.ts';
+import type { AppManifest } from '../package_review/manifest_contract.ts';
+import { readManifestJsonFromSource } from '../package_review/manifest_files.ts';
+import type { PackageSource } from '../package_review/package_source.ts';
+import { createFileSystemPackageSource } from '../package_review/package_source_fs.ts';
+import { ensureLeadingSlash, trimLeadingSlash } from '../package_review/snapshot_path.ts';
+import type { PreviewFixtureData, ValidationIssue } from '../package_review/types.ts';
+import { parsePreviewFixtureData, readCanonicalContentPath } from '../preview/fixture.ts';
 
 export interface LocalPreviewAssertion {
   selector: string;
@@ -33,7 +21,7 @@ export interface LocalPreviewTest {
 
 export interface LocalAppValidationDiagnostic {
   code: string;
-  severity: "error";
+  severity: 'error';
   message: string;
   fix: string;
   field?: string;
@@ -48,7 +36,7 @@ export interface LocalAppDiagnosticGroup {
 
 export interface ValidatedLocalAppSourcePackage {
   manifest: AppManifest;
-  authoring: AppManifest["authoring"] | null;
+  authoring: AppManifest['authoring'] | null;
   reviewData: ManifestReviewData;
   entrypointHtml: string;
   contentPath: string | null;
@@ -63,29 +51,29 @@ export interface LocalAppPackage extends ValidatedLocalAppSourcePackage {
 
 export type LocalAppPreflightResult =
   | {
-    ok: true;
-    diagnostics: [];
-    issues: [];
-    warnings: string[];
-    validatedPackage: ValidatedLocalAppSourcePackage;
-  }
+      ok: true;
+      diagnostics: [];
+      issues: [];
+      warnings: string[];
+      validatedPackage: ValidatedLocalAppSourcePackage;
+    }
   | {
-    ok: false;
-    diagnostics: LocalAppValidationDiagnostic[];
-    issues: string[];
-    warnings: string[];
-    validatedPackage?: undefined;
-  };
+      ok: false;
+      diagnostics: LocalAppValidationDiagnostic[];
+      issues: string[];
+      warnings: string[];
+      validatedPackage?: undefined;
+    };
 
 export type LocalAppValidationResult =
   | (LocalAppPreflightResult & {
-    ok: true;
-    appPackage: LocalAppPackage;
-  })
+      ok: true;
+      appPackage: LocalAppPackage;
+    })
   | (LocalAppPreflightResult & {
-    ok: false;
-    appPackage?: undefined;
-  });
+      ok: false;
+      appPackage?: undefined;
+    });
 
 class LocalAppDiagnosticError extends Error {
   readonly diagnostic: LocalAppValidationDiagnostic;
@@ -102,9 +90,7 @@ export async function preflightLocalAppPackageSource(
   const manifestValidation = await validateManifest(source);
 
   if (!manifestValidation.ok) {
-    return buildPreflightFailure(
-      manifestValidation.issues.map(mapValidationIssueToDiagnostic),
-    );
+    return buildPreflightFailure(manifestValidation.issues.map(mapValidationIssueToDiagnostic));
   }
 
   const manifest = await readValidatedManifest(source);
@@ -112,11 +98,11 @@ export async function preflightLocalAppPackageSource(
   if (manifest === null) {
     return buildPreflightFailure([
       {
-        code: "invalid_manifest",
-        severity: "error",
-        file: "/manifest.json",
-        message: "Lantern could not read manifest.json after validation.",
-        fix: "Fix manifest.json so it is valid JSON and retry validation.",
+        code: 'invalid_manifest',
+        severity: 'error',
+        file: '/manifest.json',
+        message: 'Lantern could not read manifest.json after validation.',
+        fix: 'Fix manifest.json so it is valid JSON and retry validation.',
       },
     ]);
   }
@@ -125,13 +111,11 @@ export async function preflightLocalAppPackageSource(
 
   if (!manifest.preview) {
     diagnostics.push({
-      code: "missing_preview",
-      severity: "error",
-      field: "/preview",
-      message:
-        "Lantern authoring requires preview.fixtures_file and preview.tests_file.",
-      fix:
-        "Add preview.fixtures_file and preview.tests_file to manifest.json and point them at reviewed files under /preview.",
+      code: 'missing_preview',
+      severity: 'error',
+      field: '/preview',
+      message: 'Lantern authoring requires preview.fixtures_file and preview.tests_file.',
+      fix: 'Add preview.fixtures_file and preview.tests_file to manifest.json and point them at reviewed files under /preview.',
     });
   }
 
@@ -140,41 +124,32 @@ export async function preflightLocalAppPackageSource(
   const entrypointHtml = await captureDiagnostic(
     () =>
       loadTextFileFromSource(source, manifest.entrypoint, {
-        code: "entrypoint_unreadable",
-        severity: "error",
-        field: "/entrypoint",
+        code: 'entrypoint_unreadable',
+        severity: 'error',
+        field: '/entrypoint',
         file: manifest.entrypoint,
-        message:
-          `Entrypoint HTML ${manifest.entrypoint} could not be read from the package.`,
-        fix:
-          `Add ${manifest.entrypoint} to the reviewed package and keep /entrypoint pointed at that HTML file.`,
+        message: `Entrypoint HTML ${manifest.entrypoint} could not be read from the package.`,
+        fix: `Add ${manifest.entrypoint} to the reviewed package and keep /entrypoint pointed at that HTML file.`,
       }),
     diagnostics,
   );
   const fixtureData = previewConfig
     ? await captureDiagnostic(
-      () =>
-        loadPreviewFixtureDataFromSource(
-          source,
-          previewConfig.fixtures_file,
-        ),
-      diagnostics,
-    )
+        () => loadPreviewFixtureDataFromSource(source, previewConfig.fixtures_file),
+        diagnostics,
+      )
     : null;
   const previewTests = previewConfig
     ? await captureDiagnostic(
-      () => loadPreviewTestsFromSource(source, previewConfig.tests_file),
-      diagnostics,
-    )
+        () => loadPreviewTestsFromSource(source, previewConfig.tests_file),
+        diagnostics,
+      )
     : null;
-  const contentPath = resolveContentPath(
-    manifest,
-    manifestValidation.reviewData.capabilities,
-  );
-  const content = contentPath === null ? null : await captureDiagnostic(
-    () => loadContentJsonFromSource(source, contentPath),
-    diagnostics,
-  );
+  const contentPath = resolveContentPath(manifest, manifestValidation.reviewData.capabilities);
+  const content =
+    contentPath === null
+      ? null
+      : await captureDiagnostic(() => loadContentJsonFromSource(source, contentPath), diagnostics);
 
   if (
     diagnostics.length > 0 ||
@@ -204,9 +179,7 @@ export async function preflightLocalAppPackageSource(
   };
 }
 
-export async function validateLocalAppPackage(
-  rootPath: string,
-): Promise<LocalAppValidationResult> {
+export async function validateLocalAppPackage(rootPath: string): Promise<LocalAppValidationResult> {
   try {
     const resolvedRoot = await Deno.realPath(rootPath);
     const source = createFileSystemPackageSource(resolvedRoot);
@@ -226,37 +199,33 @@ export async function validateLocalAppPackage(
   } catch (error) {
     return buildValidationFailure([
       {
-        code: "local_validation_failed",
-        severity: "error",
-        message: error instanceof Error
-          ? error.message
-          : "Local app validation failed.",
-        fix: "Resolve the package-path problem and rerun Lantern validation.",
+        code: 'local_validation_failed',
+        severity: 'error',
+        message: error instanceof Error ? error.message : 'Local app validation failed.',
+        fix: 'Resolve the package-path problem and rerun Lantern validation.',
       },
     ]);
   }
 }
 
-export function formatLocalAppDiagnostic(
-  diagnostic: LocalAppValidationDiagnostic,
-): string {
-  return `${
-    describeLocalAppDiagnosticLabel(diagnostic)
-  }: ${diagnostic.message} Fix: ${diagnostic.fix}`;
+export function formatLocalAppDiagnostic(diagnostic: LocalAppValidationDiagnostic): string {
+  return `${describeLocalAppDiagnosticLabel(
+    diagnostic,
+  )}: ${diagnostic.message} Fix: ${diagnostic.fix}`;
 }
 
 export function describeLocalAppDiagnosticLabel(
-  diagnostic: Pick<LocalAppValidationDiagnostic, "field" | "file">,
+  diagnostic: Pick<LocalAppValidationDiagnostic, 'field' | 'file'>,
 ): string {
-  if (typeof diagnostic.file === "string") {
+  if (typeof diagnostic.file === 'string') {
     return `File ${diagnostic.file}`;
   }
 
-  if (typeof diagnostic.field === "string") {
+  if (typeof diagnostic.field === 'string') {
     return `Manifest ${diagnostic.field}`;
   }
 
-  return "Package";
+  return 'Package';
 }
 
 export function groupLocalAppDiagnostics(
@@ -268,8 +237,8 @@ export function groupLocalAppDiagnostics(
     const key = diagnostic.file
       ? `file:${diagnostic.file}`
       : diagnostic.field
-      ? `field:${diagnostic.field}`
-      : "package";
+        ? `field:${diagnostic.field}`
+        : 'package';
     const label = describeLocalAppDiagnosticLabel(diagnostic);
     const existing = groups.get(key);
 
@@ -285,28 +254,21 @@ export function groupLocalAppDiagnostics(
     });
   }
 
-  return [...groups.values()].sort((left, right) =>
-    left.label.localeCompare(right.label)
-  );
+  return [...groups.values()].sort((left, right) => left.label.localeCompare(right.label));
 }
 
-async function readValidatedManifest(
-  source: PackageSource,
-): Promise<AppManifest | null> {
+async function readValidatedManifest(source: PackageSource): Promise<AppManifest | null> {
   const manifestJson = await readManifestJsonFromSource(source);
 
-  if ("issues" in manifestJson) {
+  if ('issues' in manifestJson) {
     return null;
   }
 
   return manifestJson.value as AppManifest;
 }
 
-function resolveContentPath(
-  manifest: AppManifest,
-  capabilities: Capability[],
-): string | null {
-  if (!capabilities.includes("read_activity_content")) {
+function resolveContentPath(manifest: AppManifest, capabilities: Capability[]): string | null {
+  if (!capabilities.includes('read_activity_content')) {
     return null;
   }
 
@@ -320,25 +282,20 @@ async function loadContentJsonFromSource(
   contentPath: string,
 ): Promise<unknown> {
   const text = await loadTextFileFromSource(source, contentPath, {
-    code: "content_file_missing",
-    severity: "error",
+    code: 'content_file_missing',
+    severity: 'error',
     file: contentPath,
-    message:
-      `App content file ${contentPath} could not be read from the package.`,
-    fix:
-      `Add ${contentPath} to the reviewed package or update content_files to point at an existing JSON file.`,
+    message: `App content file ${contentPath} could not be read from the package.`,
+    fix: `Add ${contentPath} to the reviewed package or update content_files to point at an existing JSON file.`,
   });
 
-  return parseJsonText(
-    text,
-    {
-      code: "content_invalid_json",
-      severity: "error",
-      file: contentPath,
-      message: `App content file ${contentPath} must be valid JSON.`,
-      fix: `Replace ${contentPath} with valid JSON content.`,
-    },
-  );
+  return parseJsonText(text, {
+    code: 'content_invalid_json',
+    severity: 'error',
+    file: contentPath,
+    message: `App content file ${contentPath} must be valid JSON.`,
+    fix: `Replace ${contentPath} with valid JSON content.`,
+  });
 }
 
 async function loadPreviewFixtureDataFromSource(
@@ -346,40 +303,35 @@ async function loadPreviewFixtureDataFromSource(
   fixturesFile: string,
 ): Promise<PreviewFixtureData> {
   const text = await loadTextFileFromSource(source, fixturesFile, {
-    code: "preview_fixtures_missing",
-    severity: "error",
-    field: "/preview/fixtures_file",
+    code: 'preview_fixtures_missing',
+    severity: 'error',
+    field: '/preview/fixtures_file',
     file: fixturesFile,
-    message:
-      `Preview fixtures file ${fixturesFile} could not be read from the package.`,
-    fix:
-      `Add ${fixturesFile} to the reviewed package or update preview.fixtures_file to point at an existing JSON file.`,
+    message: `Preview fixtures file ${fixturesFile} could not be read from the package.`,
+    fix: `Add ${fixturesFile} to the reviewed package or update preview.fixtures_file to point at an existing JSON file.`,
   });
-  const parsed = parseJsonText(
-    text,
-    {
-      code: "preview_fixtures_invalid_json",
-      severity: "error",
-      field: "/preview/fixtures_file",
-      file: fixturesFile,
-      message: `Preview fixtures file ${fixturesFile} must be valid JSON.`,
-      fix: `Replace ${fixturesFile} with valid JSON.`,
-    },
-  );
+  const parsed = parseJsonText(text, {
+    code: 'preview_fixtures_invalid_json',
+    severity: 'error',
+    field: '/preview/fixtures_file',
+    file: fixturesFile,
+    message: `Preview fixtures file ${fixturesFile} must be valid JSON.`,
+    fix: `Replace ${fixturesFile} with valid JSON.`,
+  });
 
   try {
     return parsePreviewFixtureData(parsed);
   } catch (error) {
     throw new LocalAppDiagnosticError({
-      code: "preview_fixtures_invalid_shape",
-      severity: "error",
-      field: "/preview/fixtures_file",
+      code: 'preview_fixtures_invalid_shape',
+      severity: 'error',
+      field: '/preview/fixtures_file',
       file: fixturesFile,
-      message: error instanceof Error
-        ? error.message
-        : `Preview fixtures file ${fixturesFile} is not valid for Lantern authoring.`,
-      fix:
-        `Add launch.user_role, launch.course_id, launch.activity_id, attempt_id, and local_state to ${fixturesFile}.`,
+      message:
+        error instanceof Error
+          ? error.message
+          : `Preview fixtures file ${fixturesFile} is not valid for Lantern authoring.`,
+      fix: `Add launch.user_role, launch.course_id, launch.activity_id, attempt_id, and local_state to ${fixturesFile}.`,
     });
   }
 }
@@ -389,26 +341,21 @@ async function loadPreviewTestsFromSource(
   testsFile: string,
 ): Promise<LocalPreviewTest[]> {
   const text = await loadTextFileFromSource(source, testsFile, {
-    code: "preview_tests_missing",
-    severity: "error",
-    field: "/preview/tests_file",
+    code: 'preview_tests_missing',
+    severity: 'error',
+    field: '/preview/tests_file',
     file: testsFile,
-    message:
-      `Preview tests file ${testsFile} could not be read from the package.`,
-    fix:
-      `Add ${testsFile} to the reviewed package or update preview.tests_file to point at an existing JSON file.`,
+    message: `Preview tests file ${testsFile} could not be read from the package.`,
+    fix: `Add ${testsFile} to the reviewed package or update preview.tests_file to point at an existing JSON file.`,
   });
-  const parsed = parseJsonText(
-    text,
-    {
-      code: "preview_tests_invalid_json",
-      severity: "error",
-      field: "/preview/tests_file",
-      file: testsFile,
-      message: `Preview tests file ${testsFile} must be valid JSON.`,
-      fix: `Replace ${testsFile} with valid JSON.`,
-    },
-  );
+  const parsed = parseJsonText(text, {
+    code: 'preview_tests_invalid_json',
+    severity: 'error',
+    field: '/preview/tests_file',
+    file: testsFile,
+    message: `Preview tests file ${testsFile} must be valid JSON.`,
+    fix: `Replace ${testsFile} with valid JSON.`,
+  });
 
   return parsePreviewTests(parsed, testsFile);
 }
@@ -435,10 +382,7 @@ async function loadTextFileFromSource(
   }
 }
 
-function parseJsonText<T>(
-  text: string,
-  diagnostic: LocalAppValidationDiagnostic,
-): T {
+function parseJsonText<T>(text: string, diagnostic: LocalAppValidationDiagnostic): T {
   try {
     return JSON.parse(text) as T;
   } catch {
@@ -446,29 +390,25 @@ function parseJsonText<T>(
   }
 }
 
-function parsePreviewTests(
-  value: unknown,
-  testsFile: string,
-): LocalPreviewTest[] {
+function parsePreviewTests(value: unknown, testsFile: string): LocalPreviewTest[] {
   if (!Array.isArray(value)) {
     throw new LocalAppDiagnosticError({
-      code: "preview_tests_not_array",
-      severity: "error",
-      field: "/preview/tests_file",
+      code: 'preview_tests_not_array',
+      severity: 'error',
+      field: '/preview/tests_file',
       file: testsFile,
-      message: "Preview tests file must be a JSON array.",
-      fix:
-        `Replace ${testsFile} with a JSON array of named preview assertions.`,
+      message: 'Preview tests file must be a JSON array.',
+      fix: `Replace ${testsFile} with a JSON array of named preview assertions.`,
     });
   }
 
   if (value.length === 0) {
     throw new LocalAppDiagnosticError({
-      code: "preview_tests_empty",
-      severity: "error",
-      field: "/preview/tests_file",
+      code: 'preview_tests_empty',
+      severity: 'error',
+      field: '/preview/tests_file',
       file: testsFile,
-      message: "Preview tests file must contain at least one named assertion.",
+      message: 'Preview tests file must contain at least one named assertion.',
       fix: `Add at least one named preview test to ${testsFile}.`,
     });
   }
@@ -480,13 +420,12 @@ function parsePreviewTests(
 
     if (seenNames.has(parsed.name)) {
       throw new LocalAppDiagnosticError({
-        code: "preview_test_duplicate_name",
-        severity: "error",
-        field: "/preview/tests_file",
+        code: 'preview_test_duplicate_name',
+        severity: 'error',
+        field: '/preview/tests_file',
         file: testsFile,
         message: `Preview test "${parsed.name}" appears more than once.`,
-        fix:
-          `Rename duplicate preview tests in ${testsFile} so each test name is unique.`,
+        fix: `Rename duplicate preview tests in ${testsFile} so each test name is unique.`,
       });
     }
 
@@ -496,82 +435,78 @@ function parsePreviewTests(
   });
 }
 
-function parsePreviewTest(
-  value: unknown,
-  index: number,
-  testsFile: string,
-): LocalPreviewTest {
+function parsePreviewTest(value: unknown, index: number, testsFile: string): LocalPreviewTest {
   const record = requireRecord(
     value,
     createFileDiagnostic(
-      "preview_test_invalid_record",
+      'preview_test_invalid_record',
       testsFile,
       `Preview test ${index + 1} must be a JSON object.`,
-      `Replace item ${
-        index + 1
-      } in ${testsFile} with a JSON object containing name and assert.`,
-      "/preview/tests_file",
+      `Replace item ${index + 1} in ${testsFile} with a JSON object containing name and assert.`,
+      '/preview/tests_file',
     ),
   );
   const name = requireString(
     record.name,
     createFileDiagnostic(
-      "preview_test_missing_name",
+      'preview_test_missing_name',
       testsFile,
       `Preview test ${index + 1} name is required.`,
       `Add a non-empty name to item ${index + 1} in ${testsFile}.`,
-      "/preview/tests_file",
+      '/preview/tests_file',
     ),
   );
   const assertRecord = requireRecord(
     record.assert,
     createFileDiagnostic(
-      "preview_test_missing_assert",
+      'preview_test_missing_assert',
       testsFile,
       `Preview test ${name} must define an assert object.`,
       `Add an assert object with selector text to preview test "${name}" in ${testsFile}.`,
-      "/preview/tests_file",
+      '/preview/tests_file',
     ),
   );
   const selector = requireString(
     assertRecord.selector,
     createFileDiagnostic(
-      "preview_test_missing_selector",
+      'preview_test_missing_selector',
       testsFile,
       `Preview test ${name} selector is required.`,
       `Add assert.selector to preview test "${name}" in ${testsFile}.`,
-      "/preview/tests_file",
+      '/preview/tests_file',
     ),
   );
   const text = readOptionalString(
     assertRecord.text,
     createFileDiagnostic(
-      "preview_test_invalid_text",
+      'preview_test_invalid_text',
       testsFile,
       `Preview test ${name} text must be a string.`,
       `Set assert.text in preview test "${name}" to a non-empty string or remove it.`,
-      "/preview/tests_file",
+      '/preview/tests_file',
     ),
   );
   const contains = readOptionalString(
     assertRecord.contains,
     createFileDiagnostic(
-      "preview_test_invalid_contains",
+      'preview_test_invalid_contains',
       testsFile,
       `Preview test ${name} contains must be a string.`,
       `Set assert.contains in preview test "${name}" to a non-empty string or remove it.`,
-      "/preview/tests_file",
+      '/preview/tests_file',
     ),
   );
 
   if (text !== undefined && contains !== undefined) {
-    throw new LocalAppDiagnosticError(createFileDiagnostic(
-      "preview_test_ambiguous_text_match",
-      testsFile,
-      `Preview test ${name} must choose text or contains, not both.`,
-      `Keep only one of assert.text or assert.contains in preview test "${name}" inside ${testsFile}.`,
-      "/preview/tests_file",
-    ));
+    throw new LocalAppDiagnosticError(
+      createFileDiagnostic(
+        'preview_test_ambiguous_text_match',
+        testsFile,
+        `Preview test ${name} must choose text or contains, not both.`,
+        `Keep only one of assert.text or assert.contains in preview test "${name}" inside ${testsFile}.`,
+        '/preview/tests_file',
+      ),
+    );
   }
 
   return {
@@ -622,12 +557,11 @@ function buildValidationFailure(
   };
 }
 
-function mapValidationIssueToDiagnostic(
-  issue: ValidationIssue,
-): LocalAppValidationDiagnostic {
-  const missingPath = issue.keyword === "missing_file"
-    ? issue.message.match(/Referenced file ([^ ]+) is missing/)?.[1]
-    : undefined;
+function mapValidationIssueToDiagnostic(issue: ValidationIssue): LocalAppValidationDiagnostic {
+  const missingPath =
+    issue.keyword === 'missing_file'
+      ? issue.message.match(/Referenced file ([^ ]+) is missing/)?.[1]
+      : undefined;
 
   return {
     code: issue.keyword,
@@ -640,30 +574,28 @@ function mapValidationIssueToDiagnostic(
 }
 
 function fixValidationIssue(issue: ValidationIssue): string {
-  if (issue.keyword === "missing_file") {
-    const missingPath = issue.message.match(
-      /Referenced file ([^ ]+) is missing/,
-    )?.[1];
+  if (issue.keyword === 'missing_file') {
+    const missingPath = issue.message.match(/Referenced file ([^ ]+) is missing/)?.[1];
 
     return missingPath
       ? `Add ${missingPath} to the reviewed package or update ${issue.field} to point at an existing file.`
       : `Add the missing reviewed file or update ${issue.field} to point at an existing file.`;
   }
 
-  if (issue.keyword === "required") {
+  if (issue.keyword === 'required') {
     return `Add ${issue.field} to manifest.json with a value that satisfies Lantern's reviewed package contract.`;
   }
 
-  if (issue.keyword === "additionalProperties") {
-    return "Remove the unsupported field from manifest.json.";
+  if (issue.keyword === 'additionalProperties') {
+    return 'Remove the unsupported field from manifest.json.';
   }
 
-  if (issue.keyword === "invalid_json") {
-    return "Fix manifest.json so it contains valid JSON.";
+  if (issue.keyword === 'invalid_json') {
+    return 'Fix manifest.json so it contains valid JSON.';
   }
 
-  if (issue.field === "/entrypoint") {
-    return "Update /entrypoint in manifest.json so it points at a reviewed HTML file under /dist.";
+  if (issue.field === '/entrypoint') {
+    return 'Update /entrypoint in manifest.json so it points at a reviewed HTML file under /dist.';
   }
 
   return `Update manifest.json so ${issue.field} satisfies Lantern's reviewed package contract.`;
@@ -678,7 +610,7 @@ function createFileDiagnostic(
 ): LocalAppValidationDiagnostic {
   return {
     code,
-    severity: "error",
+    severity: 'error',
     file,
     ...(field === undefined ? {} : { field }),
     message,
@@ -690,18 +622,15 @@ function requireRecord(
   value: unknown,
   diagnostic: LocalAppValidationDiagnostic,
 ): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new LocalAppDiagnosticError(diagnostic);
   }
 
   return value as Record<string, unknown>;
 }
 
-function requireString(
-  value: unknown,
-  diagnostic: LocalAppValidationDiagnostic,
-): string {
-  if (typeof value !== "string" || value.trim() === "") {
+function requireString(value: unknown, diagnostic: LocalAppValidationDiagnostic): string {
+  if (typeof value !== 'string' || value.trim() === '') {
     throw new LocalAppDiagnosticError(diagnostic);
   }
 
@@ -716,7 +645,7 @@ function readOptionalString(
     return undefined;
   }
 
-  if (typeof value !== "string" || value.trim() === "") {
+  if (typeof value !== 'string' || value.trim() === '') {
     throw new LocalAppDiagnosticError(diagnostic);
   }
 

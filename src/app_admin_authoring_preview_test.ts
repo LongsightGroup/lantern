@@ -70,7 +70,7 @@ Deno.test('POST /authoring/preview launches a draft snapshot through the governe
       assertStringIncludes(materializedSpec, 'checks alt text coverage');
       assertEquals(draft?.lastPreviewedAt !== null, true);
     } finally {
-      await Deno.remove('var/authoring-drafts', { recursive: true }).catch(() => undefined);
+      await Deno.remove('var/authoring-drafts', { recursive: true }).catch(() => {});
     }
   });
 });

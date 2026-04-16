@@ -2,7 +2,7 @@ import {
   listScaffoldStarters,
   scaffoldLocalAppPackage,
   type ScaffoldStarterId,
-} from "../src/authoring/scaffold.ts";
+} from '../src/authoring/scaffold.ts';
 
 try {
   const args = readArgs(Deno.args);
@@ -16,7 +16,9 @@ try {
   }
 
   if (
-    args.outputRoot === null || args.starter === null || args.appId === null ||
+    args.outputRoot === null ||
+    args.starter === null ||
+    args.appId === null ||
     args.title === null
   ) {
     throw new Error(buildUsageMessage());
@@ -37,9 +39,7 @@ try {
   console.log(`- Next: deno task app:test-preview ${args.outputRoot}`);
   console.log(`- Next: deno task app:preview ${args.outputRoot}`);
 } catch (error) {
-  console.error(
-    error instanceof Error ? error.message : "Lantern app scaffolding failed.",
-  );
+  console.error(error instanceof Error ? error.message : 'Lantern app scaffolding failed.');
   Deno.exit(1);
 }
 
@@ -63,32 +63,32 @@ function readArgs(args: string[]): AppNewArgs {
   };
 
   for (const arg of args) {
-    if (arg === "--list-starters") {
+    if (arg === '--list-starters') {
       parsed.listStarters = true;
       continue;
     }
 
-    if (arg.startsWith("--starter=")) {
-      parsed.starter = arg.slice("--starter=".length) as ScaffoldStarterId;
+    if (arg.startsWith('--starter=')) {
+      parsed.starter = arg.slice('--starter='.length) as ScaffoldStarterId;
       continue;
     }
 
-    if (arg.startsWith("--app-id=")) {
-      parsed.appId = arg.slice("--app-id=".length);
+    if (arg.startsWith('--app-id=')) {
+      parsed.appId = arg.slice('--app-id='.length);
       continue;
     }
 
-    if (arg.startsWith("--title=")) {
-      parsed.title = arg.slice("--title=".length);
+    if (arg.startsWith('--title=')) {
+      parsed.title = arg.slice('--title='.length);
       continue;
     }
 
-    if (arg.startsWith("--owner-id=")) {
-      parsed.ownerId = arg.slice("--owner-id=".length);
+    if (arg.startsWith('--owner-id=')) {
+      parsed.ownerId = arg.slice('--owner-id='.length);
       continue;
     }
 
-    if (arg.startsWith("--")) {
+    if (arg.startsWith('--')) {
       throw new Error(`Unsupported argument: ${arg}\n\n${buildUsageMessage()}`);
     }
 
@@ -97,16 +97,14 @@ function readArgs(args: string[]): AppNewArgs {
       continue;
     }
 
-    throw new Error(
-      `Unexpected positional argument: ${arg}\n\n${buildUsageMessage()}`,
-    );
+    throw new Error(`Unexpected positional argument: ${arg}\n\n${buildUsageMessage()}`);
   }
 
   return parsed;
 }
 
 function printStarterList(): void {
-  console.log("Available starters:");
+  console.log('Available starters:');
 
   for (const starter of listScaffoldStarters()) {
     console.log(`- ${starter.id}: ${starter.description}`);
@@ -114,19 +112,17 @@ function printStarterList(): void {
 }
 
 function buildUsageMessage(): string {
-  const starterLines = listScaffoldStarters().map((starter) =>
-    `- ${starter.id}: ${starter.description}`
+  const starterLines = listScaffoldStarters().map(
+    (starter) => `- ${starter.id}: ${starter.description}`,
   );
-  const starterSection = starterLines.length > 0
-    ? ["Available starters:", ...starterLines]
-    : [];
+  const starterSection = starterLines.length > 0 ? ['Available starters:', ...starterLines] : [];
 
   return [
-    "Usage: deno task app:new <output-root> --starter=<id> --app-id=<app-id> --title=<title> [--owner-id=<owner-id>]",
-    "",
+    'Usage: deno task app:new <output-root> --starter=<id> --app-id=<app-id> --title=<title> [--owner-id=<owner-id>]',
+    '',
     ...starterSection,
-    "",
-    "Optional:",
-    "- --list-starters",
-  ].join("\n");
+    '',
+    'Optional:',
+    '- --list-starters',
+  ].join('\n');
 }

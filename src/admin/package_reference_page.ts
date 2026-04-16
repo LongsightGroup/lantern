@@ -1,5 +1,5 @@
-import { type AdminNotice, renderAdminLayout } from "./layout.ts";
-import { renderReferencePackageCatalog } from "./package_reference_support.ts";
+import { type AdminNotice, renderAdminLayout } from './layout.ts';
+import { renderReferencePackageCatalog } from './package_reference_support.ts';
 
 export function renderReferencePackagePage(
   input: {
@@ -7,15 +7,18 @@ export function renderReferencePackagePage(
   } = {},
 ): string {
   return renderAdminLayout({
-    title: "Lantern Reference Apps",
-    eyebrow: "Reference apps",
-    heading: "Reference apps",
+    title: 'Lantern Reference Apps',
+    eyebrow: 'Reference apps',
+    heading: 'Reference apps',
     intro:
-      "Import one shipped app when you want a clean sample after the main package import path.",
-    activePath: "/admin/packages",
-    breadcrumbs: [{ label: "Apps", href: "/admin/packages" }, {
-      label: "Reference apps",
-    }],
+      'Import one shipped app when you want a clean sample after the main package import path.',
+    activePath: '/admin/packages',
+    breadcrumbs: [
+      { label: 'Apps', href: '/admin/packages' },
+      {
+        label: 'Reference apps',
+      },
+    ],
     notice: input.notice ?? null,
     body: `<section class="panel">
       <div class="panel-body panel-header">
@@ -32,7 +35,7 @@ export function renderReferencePackagePage(
     </section>
     <section class="panel">
       <div class="panel-body card-grid">
-        ${renderReferencePackageCatalog("button-primary")}
+        ${renderReferencePackageCatalog('button-primary')}
       </div>
     </section>`,
   });

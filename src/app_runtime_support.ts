@@ -3,23 +3,20 @@ import type {
   Capability,
   ScoreProposal,
   SubmissionMode,
-} from "../sdk/app-sdk.ts";
-import type { RuntimeSessionRecord } from "./lti/types.ts";
-import type { PackageVersionRecord } from "./package_review/types.ts";
-import type { PackageReviewRepository } from "./package_review/repository.ts";
-import type { AuditEventStatus } from "./package_review/types.ts";
-import type { RequestAuditEnvelope } from "./request_audit.ts";
+} from '../sdk/app-sdk.ts';
+import type { RuntimeSessionRecord } from './lti/types.ts';
+import type { PackageVersionRecord } from './package_review/types.ts';
+import type { PackageReviewRepository } from './package_review/repository.ts';
+import type { AuditEventStatus } from './package_review/types.ts';
+import type { RequestAuditEnvelope } from './request_audit.ts';
 import {
   buildRuntimeDetailRecord,
   failRuntimeOutcome,
   isRuntimeBrokerDenialError,
   isRuntimeOutcomeError,
-} from "./runtime/gateway_errors.ts";
-import type { RuntimeDeliveryDescriptor } from "./runtime/delivery.ts";
-import {
-  RUNTIME_BOUNDARY,
-  RUNTIME_SANDBOX_MODEL,
-} from "./runtime/gateway_types.ts";
+} from './runtime/gateway_errors.ts';
+import type { RuntimeDeliveryDescriptor } from './runtime/delivery.ts';
+import { RUNTIME_BOUNDARY, RUNTIME_SANDBOX_MODEL } from './runtime/gateway_types.ts';
 
 export async function requireRuntimeSession(
   repository: PackageReviewRepository,
@@ -29,8 +26,8 @@ export async function requireRuntimeSession(
 
   if (!session) {
     failRuntimeOutcome({
-      type: "deny",
-      code: "session_missing",
+      type: 'deny',
+      code: 'session_missing',
       message: `Runtime session ${sessionId} was not found.`,
       status: 404,
       detail: {
@@ -66,10 +63,9 @@ export async function recordRuntimeSessionStarted(input: {
   await recordRuntimeAuditEvent({
     repository: input.repository,
     session: input.session,
-    eventType: "runtime.session.started",
-    status: "accepted",
-    summary:
-      "Started the reviewed runtime session inside Lantern's contained browser boundary.",
+    eventType: 'runtime.session.started',
+    status: 'accepted',
+    summary: "Started the reviewed runtime session inside Lantern's contained browser boundary.",
     occurredAt: input.occurredAt,
     detail: {
       route: input.route,
@@ -95,8 +91,8 @@ export async function recordRuntimeCapabilityAllowed(input: {
   await recordRuntimeAuditEvent({
     repository: input.repository,
     session: input.session,
-    eventType: "runtime.capability.allowed",
-    status: "accepted",
+    eventType: 'runtime.capability.allowed',
+    status: 'accepted',
     summary: `Allowed reviewed app capability ${input.capability}.`,
     occurredAt: input.occurredAt,
     detail: {
@@ -117,10 +113,9 @@ export async function recordRuntimeScoreProposalAccepted(input: {
   await recordRuntimeAuditEvent({
     repository: input.repository,
     session: input.session,
-    eventType: "runtime.score_proposal.accepted",
-    status: "accepted",
-    summary:
-      "Accepted an app score proposal without granting direct grade-write power.",
+    eventType: 'runtime.score_proposal.accepted',
+    status: 'accepted',
+    summary: 'Accepted an app score proposal without granting direct grade-write power.',
     occurredAt: input.occurredAt,
     detail: {
       route: input.route,
@@ -135,7 +130,7 @@ export async function recordRuntimeSessionExited(input: {
   session: RuntimeSessionRecord;
   reviewedPackage: RuntimeAuditReviewedPackage | null;
   delivery: RuntimeDeliveryDescriptor;
-  completionState: "completed" | "abandoned" | null;
+  completionState: 'completed' | 'abandoned' | null;
   scoreGiven: number;
   scoreMaximum: number;
   gradePublished: boolean;
@@ -153,8 +148,8 @@ export async function recordRuntimeSessionExited(input: {
   await recordRuntimeAuditEvent({
     repository: input.repository,
     session: input.session,
-    eventType: "runtime.session.exited",
-    status: "accepted",
+    eventType: 'runtime.session.exited',
+    status: 'accepted',
     summary: "Exited the reviewed runtime through Lantern's finalize boundary.",
     occurredAt: input.occurredAt,
     detail: {
@@ -196,13 +191,13 @@ export async function recordRuntimeRouteFailure(input: {
     await recordRuntimeAuditEvent({
       repository: input.repository,
       session: input.session,
-      eventType: input.error.capability === null
-        ? "runtime.session.denied"
-        : "runtime.capability.denied",
-      status: "failed",
-      summary: input.error.capability === null
-        ? "Denied reviewed runtime session access."
-        : `Denied reviewed app capability ${input.error.capability}.`,
+      eventType:
+        input.error.capability === null ? 'runtime.session.denied' : 'runtime.capability.denied',
+      status: 'failed',
+      summary:
+        input.error.capability === null
+          ? 'Denied reviewed runtime session access.'
+          : `Denied reviewed app capability ${input.error.capability}.`,
       occurredAt: input.occurredAt,
       detail: {
         route: input.route,
@@ -221,22 +216,24 @@ export async function recordRuntimeRouteFailure(input: {
   }
 
   if (isRuntimeOutcomeError(input.error)) {
-    const eventType = input.error.type === "timeout"
-      ? "runtime.session.timeout"
-      : input.error.type === "integrity_failure"
-      ? "runtime.session.integrity_failed"
-      : "runtime.session.denied";
-    const summary = input.error.type === "timeout"
-      ? "Runtime session expired before the reviewed app could continue."
-      : input.error.type === "integrity_failure"
-      ? "Reviewed runtime integrity checks blocked this session."
-      : "Denied reviewed runtime session access.";
+    const eventType =
+      input.error.type === 'timeout'
+        ? 'runtime.session.timeout'
+        : input.error.type === 'integrity_failure'
+          ? 'runtime.session.integrity_failed'
+          : 'runtime.session.denied';
+    const summary =
+      input.error.type === 'timeout'
+        ? 'Runtime session expired before the reviewed app could continue.'
+        : input.error.type === 'integrity_failure'
+          ? 'Reviewed runtime integrity checks blocked this session.'
+          : 'Denied reviewed runtime session access.';
 
     await recordRuntimeAuditEvent({
       repository: input.repository,
       session: input.session,
       eventType,
-      status: "failed",
+      status: 'failed',
       summary,
       occurredAt: input.occurredAt,
       detail: {
@@ -265,7 +262,7 @@ async function recordRuntimeAuditEvent(input: {
 }): Promise<void> {
   await input.repository.recordAuditEvent({
     eventType: input.eventType,
-    actorType: "system",
+    actorType: 'system',
     actorId: null,
     deploymentRecordId: input.session.deploymentRecordId,
     packageVersionId: input.session.packageVersionId,
@@ -285,7 +282,7 @@ async function recordRuntimeAuditEvent(input: {
 
 type RuntimeAuditReviewedPackage = Pick<
   PackageVersionRecord,
-  "id" | "version" | "artifact" | "runtimeContractSignature"
+  'id' | 'version' | 'artifact' | 'runtimeContractSignature'
 >;
 
 function buildRuntimeAuditIdentityDetail(input: {
@@ -294,13 +291,10 @@ function buildRuntimeAuditIdentityDetail(input: {
   delivery: RuntimeDeliveryDescriptor;
 }): Record<string, string | number | boolean | null | undefined> {
   return {
-    packageVersionId: input.reviewedPackage?.id ??
-      input.session.packageVersionId,
-    packageVersion: input.reviewedPackage?.version ??
-      input.session.packageVersion,
+    packageVersionId: input.reviewedPackage?.id ?? input.session.packageVersionId,
+    packageVersion: input.reviewedPackage?.version ?? input.session.packageVersion,
     artifactDigest: input.reviewedPackage?.artifact.digest ?? undefined,
-    runtimeContractSignature: input.reviewedPackage?.runtimeContractSignature ??
-      undefined,
+    runtimeContractSignature: input.reviewedPackage?.runtimeContractSignature ?? undefined,
     deliverySubstrate: input.delivery.substrate,
     deliveryWorkerId: input.delivery.workerId,
   };

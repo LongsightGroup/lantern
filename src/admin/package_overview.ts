@@ -184,11 +184,11 @@ function renderOverviewVersionRow(input: {
           version.appId,
         )}/versions/${escapeHtml(version.version)}">Open version</a>
         ${
-          version.approvalStatus !== 'approved'
-            ? ''
-            : `<a class="button-ghost" href="/admin/packages/${escapeHtml(
+          version.approvalStatus === 'approved'
+            ? `<a class="button-ghost" href="/admin/packages/${escapeHtml(
                 version.appId,
               )}/versions/${escapeHtml(version.version)}/preview">Test launch</a>`
+            : ''
         }
         ${
           version.approvalStatus !== 'approved' || !supportsAuthoringDrafts(version)

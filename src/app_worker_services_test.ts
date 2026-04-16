@@ -1,19 +1,19 @@
-import { assertEquals, assertRejects } from "@std/assert";
-import { resolveWorkerServices } from "./app_worker_services.ts";
-import { createObjectEnvReader } from "./platform/env.ts";
-import { createMemoryPackageSource } from "./package_review/package_source.ts";
-import { verifyReviewedRuntimeContractSignature } from "./package_review/runtime_contract.ts";
-import type { RuntimeArtifactBucket } from "./runtime/artifact_store.ts";
-import { getTestToolPrivateJwkEnvValue } from "./test_helpers/lti.ts";
+import { assertEquals, assertRejects } from '@std/assert';
+import { resolveWorkerServices } from './app_worker_services.ts';
+import { createObjectEnvReader } from './platform/env.ts';
+import { createMemoryPackageSource } from './package_review/package_source.ts';
+import { verifyReviewedRuntimeContractSignature } from './package_review/runtime_contract.ts';
+import type { RuntimeArtifactBucket } from './runtime/artifact_store.ts';
+import { getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
 import {
   buildPackageVersionRecord,
   buildRuntimeSessionRecord,
-} from "./test_helpers/package_review.ts";
+} from './test_helpers/package_review.ts';
 
-const DEMO_BUCKET_SOURCE_ROOT = "reference-packages/chapter-4-asteroids/source";
-const DEMO_SNAPSHOT_ROOT = "var/packages/chapter-4-asteroids/0.1.0";
+const DEMO_BUCKET_SOURCE_ROOT = 'reference-packages/chapter-4-asteroids/source';
+const DEMO_SNAPSHOT_ROOT = 'var/packages/chapter-4-asteroids/0.1.0';
 const DEMO_REFERENCE_SOURCE_FILES = {
-  "manifest.json": `{
+  'manifest.json': `{
   "schema_version": "1",
   "app_id": "chapter-4-asteroids",
   "version": "0.1.0",
@@ -50,17 +50,16 @@ const DEMO_REFERENCE_SOURCE_FILES = {
   }
 }
 `,
-  "dist/index.html":
+  'dist/index.html':
     '<!doctype html><html><head><title>Chapter 4 Asteroids</title><script src="app.js"></script></head><body>Asteroids</body></html>\n',
-  "dist/app.js": "console.log('chapter-4-asteroids');\n",
-  "content/activity.json":
-    '{"title":"Chapter 4 Asteroids","questions":[{"id":"q1"}]}\n',
-  "preview/fixtures.json": "{}\n",
-  "preview/tests.json": "[]\n",
-  "scoring/rubric.json": '{"max_score":100}\n',
+  'dist/app.js': "console.log('chapter-4-asteroids');\n",
+  'content/activity.json': '{"title":"Chapter 4 Asteroids","questions":[{"id":"q1"}]}\n',
+  'preview/fixtures.json': '{}\n',
+  'preview/tests.json': '[]\n',
+  'scoring/rubric.json': '{"max_score":100}\n',
 } as const;
 const QUICK_STUDY_SOURCE_FILES = {
-  "manifest.json": `{
+  'manifest.json': `{
   "schema_version": "1",
   "app_id": "quick-study",
   "version": "0.1.0",
@@ -96,51 +95,36 @@ const QUICK_STUDY_SOURCE_FILES = {
   }
 }
 `,
-  "dist/index.html":
+  'dist/index.html':
     '<!doctype html><html><head><title>Quick Study</title><script src="app.js"></script></head><body>Quick Study</body></html>\n',
-  "dist/app.js": "console.log('quick-study');\n",
-  "content/activity.json":
-    '{"title":"Quick Study","questions":[{"id":"card-1"}]}\n',
-  "preview/fixtures.json": "{}\n",
-  "preview/tests.json": "[]\n",
+  'dist/app.js': "console.log('quick-study');\n",
+  'content/activity.json': '{"title":"Quick Study","questions":[{"id":"card-1"}]}\n',
+  'preview/fixtures.json': '{}\n',
+  'preview/tests.json': '[]\n',
 } as const;
 
-Deno.test("worker services import and reload the demo package from PACKAGE_ARTIFACTS", async () => {
-  const bucket = createSeededArtifactBucket(
-    DEMO_BUCKET_SOURCE_ROOT,
-    DEMO_REFERENCE_SOURCE_FILES,
-  );
+Deno.test('worker services import and reload the demo package from PACKAGE_ARTIFACTS', async () => {
+  const bucket = createSeededArtifactBucket(DEMO_BUCKET_SOURCE_ROOT, DEMO_REFERENCE_SOURCE_FILES);
   const env = createObjectEnvReader({
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const services = resolveWorkerServices({ PACKAGE_ARTIFACTS: bucket }, env);
 
-  assertEquals(
-    await services.loadReferencePackageSnapshot("chapter-4-asteroids"),
-    null,
-  );
+  assertEquals(await services.loadReferencePackageSnapshot('chapter-4-asteroids'), null);
 
-  const reviewData = await services.readReferencePackageReviewData(
-    "chapter-4-asteroids",
-  );
+  const reviewData = await services.readReferencePackageReviewData('chapter-4-asteroids');
 
-  assertEquals(reviewData.appId, "chapter-4-asteroids");
-  assertEquals(reviewData.version, "0.1.0");
+  assertEquals(reviewData.appId, 'chapter-4-asteroids');
+  assertEquals(reviewData.version, '0.1.0');
 
-  const imported = await services.importReferencePackage("chapter-4-asteroids");
+  const imported = await services.importReferencePackage('chapter-4-asteroids');
 
   assertEquals(imported.artifact.snapshotRoot, DEMO_SNAPSHOT_ROOT);
-  assertEquals(
-    imported.artifact.manifestPath,
-    `${DEMO_SNAPSHOT_ROOT}/manifest.json`,
-  );
-  assertEquals(
-    imported.artifact.entrypointPath,
-    `${DEMO_SNAPSHOT_ROOT}/dist/index.html`,
-  );
+  assertEquals(imported.artifact.manifestPath, `${DEMO_SNAPSHOT_ROOT}/manifest.json`);
+  assertEquals(imported.artifact.entrypointPath, `${DEMO_SNAPSHOT_ROOT}/dist/index.html`);
   assertEquals(
     await readBucketText(bucket, `${DEMO_SNAPSHOT_ROOT}/manifest.json`),
-    DEMO_REFERENCE_SOURCE_FILES["manifest.json"],
+    DEMO_REFERENCE_SOURCE_FILES['manifest.json'],
   );
 
   await verifyReviewedRuntimeContractSignature({
@@ -149,12 +133,10 @@ Deno.test("worker services import and reload the demo package from PACKAGE_ARTIF
     env,
   });
 
-  const loaded = await services.loadReferencePackageSnapshot(
-    "chapter-4-asteroids",
-  );
+  const loaded = await services.loadReferencePackageSnapshot('chapter-4-asteroids');
 
   if (loaded === null) {
-    throw new Error("Expected stored demo package snapshot after import.");
+    throw new Error('Expected stored demo package snapshot after import.');
   }
 
   assertEquals(loaded.reviewData.appId, imported.reviewData.appId);
@@ -168,13 +150,13 @@ Deno.test("worker services import and reload the demo package from PACKAGE_ARTIF
   });
 
   await assertRejects(
-    () => services.importReferencePackage("chapter-4-asteroids"),
+    () => services.importReferencePackage('chapter-4-asteroids'),
     Error,
-    "Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.",
+    'Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.',
   );
 });
 
-Deno.test("worker services import and reload arbitrary reviewed package sources", async () => {
+Deno.test('worker services import and reload arbitrary reviewed package sources', async () => {
   const bucket = createInMemoryArtifactBucket({});
   const env = createObjectEnvReader({
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
@@ -191,18 +173,12 @@ Deno.test("worker services import and reload arbitrary reviewed package sources"
 
   const imported = await services.importPackageFromSource(source);
 
-  assertEquals(imported.reviewData.appId, "quick-study");
-  assertEquals(imported.reviewData.version, "0.1.0");
+  assertEquals(imported.reviewData.appId, 'quick-study');
+  assertEquals(imported.reviewData.version, '0.1.0');
+  assertEquals(imported.artifact.snapshotRoot, 'var/packages/quick-study/0.1.0');
   assertEquals(
-    imported.artifact.snapshotRoot,
-    "var/packages/quick-study/0.1.0",
-  );
-  assertEquals(
-    await readBucketText(
-      bucket,
-      "var/packages/quick-study/0.1.0/manifest.json",
-    ),
-    QUICK_STUDY_SOURCE_FILES["manifest.json"],
+    await readBucketText(bucket, 'var/packages/quick-study/0.1.0/manifest.json'),
+    QUICK_STUDY_SOURCE_FILES['manifest.json'],
   );
 
   await verifyReviewedRuntimeContractSignature({
@@ -214,7 +190,7 @@ Deno.test("worker services import and reload arbitrary reviewed package sources"
   const loaded = await services.loadPackageSnapshotFromSource(source);
 
   if (loaded === null) {
-    throw new Error("Expected stored reviewed package snapshot after import.");
+    throw new Error('Expected stored reviewed package snapshot after import.');
   }
 
   assertEquals(loaded.reviewData.appId, imported.reviewData.appId);
@@ -224,20 +200,20 @@ Deno.test("worker services import and reload arbitrary reviewed package sources"
   await assertRejects(
     () => services.importPackageFromSource(source),
     Error,
-    "Package version quick-study@0.1.0 already exists and cannot be replaced.",
+    'Package version quick-study@0.1.0 already exists and cannot be replaced.',
   );
 });
 
-Deno.test("worker services expose Dynamic Worker runtime delivery only when LOADER is bound", async () => {
+Deno.test('worker services expose Dynamic Worker runtime delivery only when LOADER is bound', async () => {
   const env = createObjectEnvReader({
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const session = buildRuntimeSessionRecord({
-    snapshotRoot: "var/packages/chapter-4-asteroids/0.1.0",
-    entrypointPath: "var/packages/chapter-4-asteroids/0.1.0/dist/index.html",
+    snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
+    entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
   });
   const reviewedPackage = buildPackageVersionRecord({
-    approvalStatus: "approved",
+    approvalStatus: 'approved',
   });
 
   const missingLoaderServices = resolveWorkerServices(
@@ -250,10 +226,10 @@ Deno.test("worker services expose Dynamic Worker runtime delivery only when LOAD
       missingLoaderServices.runtimeDelivery.loadReviewedAsset({
         session,
         reviewedPackage,
-        relativePath: "dist/index.html",
+        relativePath: 'dist/index.html',
       }),
     Error,
-    "Cloudflare Workers reviewed runtime delivery requires a Worker Loader binding named LOADER.",
+    'Cloudflare Workers reviewed runtime delivery requires a Worker Loader binding named LOADER.',
   );
 
   const loaderServices = resolveWorkerServices(
@@ -264,18 +240,18 @@ Deno.test("worker services expose Dynamic Worker runtime delivery only when LOAD
     env,
   );
 
-  assertEquals(loaderServices.runtimeDelivery.substrate, "dynamic_worker");
+  assertEquals(loaderServices.runtimeDelivery.substrate, 'dynamic_worker');
   assertEquals(
     new TextDecoder().decode(
       (
         await loaderServices.runtimeDelivery.loadReviewedAsset({
           session,
           reviewedPackage,
-          relativePath: "dist/index.html",
+          relativePath: 'dist/index.html',
         })
       ).bytes,
     ),
-    "loader-bytes",
+    'loader-bytes',
   );
 });
 
@@ -330,10 +306,7 @@ function createInMemoryArtifactBucket(
   };
 }
 
-async function readBucketText(
-  bucket: RuntimeArtifactBucket,
-  key: string,
-): Promise<string> {
+async function readBucketText(bucket: RuntimeArtifactBucket, key: string): Promise<string> {
   const object = await bucket.get(key);
 
   if (object === null) {
@@ -343,10 +316,8 @@ async function readBucketText(
   return new TextDecoder().decode(await object.arrayBuffer());
 }
 
-function toUint8Array(
-  value: string | Uint8Array | ArrayBuffer | ArrayBufferView,
-): Uint8Array {
-  if (typeof value === "string") {
+function toUint8Array(value: string | Uint8Array | ArrayBuffer | ArrayBufferView): Uint8Array {
+  if (typeof value === 'string') {
     return new TextEncoder().encode(value);
   }
 
@@ -371,9 +342,9 @@ function createStubDynamicWorkerLoader() {
           return {
             fetch() {
               return Promise.resolve(
-                new Response("loader-bytes", {
+                new Response('loader-bytes', {
                   headers: {
-                    "content-type": "text/plain; charset=UTF-8",
+                    'content-type': 'text/plain; charset=UTF-8',
                   },
                 }),
               );

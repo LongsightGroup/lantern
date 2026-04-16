@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from '@std/assert';
+import { assert, assertEquals, assertRejects } from '@std/assert';
 import { acceptAttemptEvent, finalizeRuntimeAttempt } from './gateway.ts';
 import { RuntimeBrokerDenialError } from './gateway_errors.ts';
 import { buildRuntimeSessionRecord } from '../test_helpers/lti.ts';
@@ -432,20 +432,21 @@ Deno.test('preview gateway records browser grader evidence instead of fake scori
       const evidence = await repository.listPreviewEvidence('preview-session-browser-grading');
 
       assertEquals(evidence.length, 1);
-      assertEquals(evidence[0]?.eventType, 'preview.finalize');
-      assertEquals(evidence[0]?.detail.evidenceArtifactCount, 1);
+      const previewEvent = evidence[0];
+      assert(previewEvent);
+      assertEquals(previewEvent.eventType, 'preview.finalize');
+      assertEquals(previewEvent.detail.evidenceArtifactCount, 1);
+      const browserGraderResult = previewEvent.detail.browserGraderResult as {
+        specResults: Array<{ source: string }>;
+      };
+      const evidenceArtifacts = previewEvent.detail.evidenceArtifacts as Array<{
+        artifactId: string;
+      }>;
       assertEquals(
-        (
-          evidence[0]?.detail.browserGraderResult as {
-            specResults: Array<{ source: string }>;
-          }
-        ).specResults.map((entry) => entry.source),
+        browserGraderResult.specResults.map((entry) => entry.source),
         ['/grading/specs/structure.spec.js', '/grading/specs/behavior.spec.js'],
       );
-      assertEquals(
-        (evidence[0]?.detail.evidenceArtifacts as Array<{ artifactId: string }>)[0]?.artifactId,
-        'artifact-001',
-      );
+      assertEquals(evidenceArtifacts[0]?.artifactId, 'artifact-001');
     },
   );
 });

@@ -1,60 +1,51 @@
-import type { JSONWebKeySet } from "jose";
-import type { AuthoringReferenceExample } from "./authoring/ai_writer.ts";
-import { createUnavailableAuthoringAiWriter } from "./authoring/ai_writer.ts";
-import type { AppServices } from "./app_services.ts";
-import {
-  createHyperdriveDatabasePool,
-  type HyperdriveBinding,
-} from "./db/pool.ts";
-import { createOpsRepository, type OpsRepository } from "./ops/repository.ts";
-import type { EnvReader } from "./platform/env.ts";
+import type { JSONWebKeySet } from 'jose';
+import type { AuthoringReferenceExample } from './authoring/ai_writer.ts';
+import { createUnavailableAuthoringAiWriter } from './authoring/ai_writer.ts';
+import type { AppServices } from './app_services.ts';
+import { createHyperdriveDatabasePool, type HyperdriveBinding } from './db/pool.ts';
+import { createOpsRepository, type OpsRepository } from './ops/repository.ts';
+import type { EnvReader } from './platform/env.ts';
 import {
   importPackage,
   isReferencePackageId,
   loadPackageSnapshot,
   readReferencePackageReviewData,
-} from "./package_review/intake.ts";
-import {
-  createBucketPackageSource,
-  type PackageSource,
-} from "./package_review/package_source.ts";
+} from './package_review/intake.ts';
+import { createBucketPackageSource, type PackageSource } from './package_review/package_source.ts';
 import {
   createPackageReviewRepository,
   type PackageReviewRepository,
-} from "./package_review/repository.ts";
+} from './package_review/repository.ts';
 import {
   createR2PackageSnapshotStore,
   type PackageSnapshotStore,
-} from "./package_review/snapshot_store.ts";
-import { type RuntimeArtifactBucket } from "./runtime/artifact_store.ts";
+} from './package_review/snapshot_store.ts';
+import { type RuntimeArtifactBucket } from './runtime/artifact_store.ts';
 import {
   createDynamicWorkerRuntimeDelivery,
   type DynamicWorkerLoader,
-} from "./runtime/dynamic_worker_delivery.ts";
-import { createUnsupportedRuntimeDelivery } from "./runtime/delivery.ts";
+} from './runtime/dynamic_worker_delivery.ts';
+import { createUnsupportedRuntimeDelivery } from './runtime/delivery.ts';
 import {
   assertEvidenceArtifactStorageKey,
   type EvidenceArtifactStore,
-} from "./runtime/evidence_artifact_store.ts";
-import type {
-  AuthoringDraftRecord,
-  PackageVersionRecord,
-} from "./package_review/types.ts";
+} from './runtime/evidence_artifact_store.ts';
+import type { AuthoringDraftRecord, PackageVersionRecord } from './package_review/types.ts';
 
 const WORKER_REPOSITORY_MESSAGE =
-  "Cloudflare Workers persistence requires a Hyperdrive binding named HYPERDRIVE. Bind Hyperdrive before using repository-backed Lantern routes on Workers.";
+  'Cloudflare Workers persistence requires a Hyperdrive binding named HYPERDRIVE. Bind Hyperdrive before using repository-backed Lantern routes on Workers.';
 const WORKER_RUNTIME_ARTIFACT_MESSAGE =
-  "Cloudflare Workers runtime artifact access requires an R2 binding named PACKAGE_ARTIFACTS. Bind the reviewed package snapshot bucket before serving runtime HTML, content, or files from Workers.";
+  'Cloudflare Workers runtime artifact access requires an R2 binding named PACKAGE_ARTIFACTS. Bind the reviewed package snapshot bucket before serving runtime HTML, content, or files from Workers.';
 const WORKER_EVIDENCE_ARTIFACT_MESSAGE =
-  "Cloudflare Workers evidence artifact storage requires an R2 binding named PACKAGE_ARTIFACTS with write access. Bind the reviewed package artifact bucket before accepting anonymous evidence uploads on Workers.";
+  'Cloudflare Workers evidence artifact storage requires an R2 binding named PACKAGE_ARTIFACTS with write access. Bind the reviewed package artifact bucket before accepting anonymous evidence uploads on Workers.';
 const WORKER_REFERENCE_PACKAGE_MESSAGE =
-  "Curated reference packages must be stored in PACKAGE_ARTIFACTS under reference-packages/<app-id>/source before Workers can import or inspect them.";
+  'Curated reference packages must be stored in PACKAGE_ARTIFACTS under reference-packages/<app-id>/source before Workers can import or inspect them.';
 const WORKER_RUNTIME_DELIVERY_MESSAGE =
-  "Cloudflare Workers reviewed runtime delivery requires a Worker Loader binding named LOADER. Bind the Dynamic Worker loader before serving immutable reviewed runtime bytes from Workers.";
+  'Cloudflare Workers reviewed runtime delivery requires a Worker Loader binding named LOADER. Bind the Dynamic Worker loader before serving immutable reviewed runtime bytes from Workers.';
 const WORKER_AUTHORING_REFERENCE_MESSAGE =
-  "Cloudflare Workers do not load local authoring reference examples. Use the local Deno authoring flow for AI example scaffolding.";
+  'Cloudflare Workers do not load local authoring reference examples. Use the local Deno authoring flow for AI example scaffolding.';
 const WORKER_AUTHORING_DRAFT_PREVIEW_MESSAGE =
-  "Cloudflare Workers do not materialize draft preview snapshots from the local filesystem. Use the local Deno authoring preview flow instead.";
+  'Cloudflare Workers do not materialize draft preview snapshots from the local filesystem. Use the local Deno authoring preview flow instead.';
 
 export interface WorkerBindings extends Record<string, unknown> {
   HYPERDRIVE?: HyperdriveBinding;
@@ -62,10 +53,7 @@ export interface WorkerBindings extends Record<string, unknown> {
   LOADER?: DynamicWorkerLoader;
 }
 
-export function resolveWorkerServices(
-  bindings: WorkerBindings,
-  env: EnvReader,
-): AppServices {
+export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader): AppServices {
   const repositories = resolveWorkerRepositories(bindings);
   const snapshotStore = resolveWorkerSnapshotStore(bindings);
   const importPackageFromSource = (source: PackageSource, options = {}) =>
@@ -90,28 +78,18 @@ export function resolveWorkerServices(
     runtimeDelivery: resolveWorkerRuntimeDelivery(bindings, snapshotStore),
     evidenceArtifactStore: resolveWorkerEvidenceArtifactStore(bindings),
     loadAuthoringReferenceExamples: createUnsupportedAuthoringReferenceLoader(),
-    materializeDraftPreviewPackageVersion:
-      createUnsupportedDraftPreviewMaterializer(),
+    materializeDraftPreviewPackageVersion: createUnsupportedDraftPreviewMaterializer(),
     getRepository: () => repositories.repository,
     getOpsRepository: () => repositories.opsRepository,
     loadCanvasJwks: defaultLoadCanvasJwks,
     importPackageFromSource,
     loadPackageSnapshotFromSource,
     readReferencePackageReviewData: (appId) =>
-      readReferencePackageReviewData(
-        appId,
-        resolveWorkerReferencePackageSource(bindings, appId),
-      ),
+      readReferencePackageReviewData(appId, resolveWorkerReferencePackageSource(bindings, appId)),
     importReferencePackage: (appId, options = {}) =>
-      importPackageFromSource(
-        resolveWorkerReferencePackageSource(bindings, appId),
-        options,
-      ),
+      importPackageFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
     loadReferencePackageSnapshot: (appId, options = {}) =>
-      loadPackageSnapshotFromSource(
-        resolveWorkerReferencePackageSource(bindings, appId),
-        options,
-      ),
+      loadPackageSnapshotFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
   };
 }
 
@@ -139,12 +117,8 @@ function resolveWorkerRepositories(bindings: WorkerBindings): {
 
   if (!isHyperdriveBinding(binding)) {
     return {
-      repository: createUnsupportedWorkerProxy<PackageReviewRepository>(
-        WORKER_REPOSITORY_MESSAGE,
-      ),
-      opsRepository: createUnsupportedWorkerProxy<OpsRepository>(
-        WORKER_REPOSITORY_MESSAGE,
-      ),
+      repository: createUnsupportedWorkerProxy<PackageReviewRepository>(WORKER_REPOSITORY_MESSAGE),
+      opsRepository: createUnsupportedWorkerProxy<OpsRepository>(WORKER_REPOSITORY_MESSAGE),
     };
   }
 
@@ -156,9 +130,7 @@ function resolveWorkerRepositories(bindings: WorkerBindings): {
   };
 }
 
-function resolveWorkerSnapshotStore(
-  bindings: WorkerBindings,
-): PackageSnapshotStore {
+function resolveWorkerSnapshotStore(bindings: WorkerBindings): PackageSnapshotStore {
   const bucket = bindings.PACKAGE_ARTIFACTS;
 
   if (isRuntimeArtifactBucket(bucket)) {
@@ -168,18 +140,14 @@ function resolveWorkerSnapshotStore(
   return createUnsupportedSnapshotStore(WORKER_RUNTIME_ARTIFACT_MESSAGE);
 }
 
-function resolveWorkerEvidenceArtifactStore(
-  bindings: WorkerBindings,
-): EvidenceArtifactStore {
+function resolveWorkerEvidenceArtifactStore(bindings: WorkerBindings): EvidenceArtifactStore {
   const bucket = bindings.PACKAGE_ARTIFACTS;
 
-  if (isRuntimeArtifactBucket(bucket) && typeof bucket.put === "function") {
+  if (isRuntimeArtifactBucket(bucket) && typeof bucket.put === 'function') {
     return createR2EvidenceArtifactStore(bucket);
   }
 
-  return createUnsupportedEvidenceArtifactStore(
-    WORKER_EVIDENCE_ARTIFACT_MESSAGE,
-  );
+  return createUnsupportedEvidenceArtifactStore(WORKER_EVIDENCE_ARTIFACT_MESSAGE);
 }
 
 function resolveWorkerReferencePackageSource(
@@ -187,18 +155,13 @@ function resolveWorkerReferencePackageSource(
   appId: string,
 ): PackageSource {
   if (!isReferencePackageId(appId)) {
-    throw new Error(
-      `Lantern does not ship a curated reference package for ${appId}.`,
-    );
+    throw new Error(`Lantern does not ship a curated reference package for ${appId}.`);
   }
 
   const bucket = bindings.PACKAGE_ARTIFACTS;
 
-  if (isRuntimeArtifactBucket(bucket) && typeof bucket.list === "function") {
-    return createBucketPackageSource(
-      bucket,
-      `reference-packages/${appId}/source`,
-    );
+  if (isRuntimeArtifactBucket(bucket) && typeof bucket.list === 'function') {
+    return createBucketPackageSource(bucket, `reference-packages/${appId}/source`);
   }
 
   return createUnsupportedPackageSource(WORKER_REFERENCE_PACKAGE_MESSAGE);
@@ -226,7 +189,7 @@ function createUnsupportedWorkerProxy<T>(message: string): T {
     {
       get(_target, property) {
         if (property === Symbol.toStringTag) {
-          return "UnsupportedWorkerService";
+          return 'UnsupportedWorkerService';
         }
 
         return () => {
@@ -271,15 +234,13 @@ function createUnsupportedPackageSource(message: string): PackageSource {
   };
 }
 
-function createR2EvidenceArtifactStore(
-  bucket: RuntimeArtifactBucket,
-): EvidenceArtifactStore {
+function createR2EvidenceArtifactStore(bucket: RuntimeArtifactBucket): EvidenceArtifactStore {
   return {
     async writeBytes(storageKey, bytes) {
       const safeStorageKey = assertEvidenceArtifactStorageKey(storageKey);
 
-      if (typeof bucket.put !== "function") {
-        throw new Error(WORKER_EVIDENCE_ARTIFACT_MESSAGE);
+      if (typeof bucket.put !== 'function') {
+        throw new TypeError(WORKER_EVIDENCE_ARTIFACT_MESSAGE);
       }
 
       await bucket.put(safeStorageKey, bytes);
@@ -297,9 +258,7 @@ function createR2EvidenceArtifactStore(
   };
 }
 
-function createUnsupportedEvidenceArtifactStore(
-  message: string,
-): EvidenceArtifactStore {
+function createUnsupportedEvidenceArtifactStore(message: string): EvidenceArtifactStore {
   return {
     writeBytes(): Promise<void> {
       throw new Error(message);
@@ -312,9 +271,9 @@ function createUnsupportedEvidenceArtifactStore(
 
 function isDynamicWorkerLoader(value: unknown): value is DynamicWorkerLoader {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    typeof (value as Partial<DynamicWorkerLoader>).get === "function"
+    typeof (value as Partial<DynamicWorkerLoader>).get === 'function'
   );
 }
 
@@ -328,20 +287,18 @@ async function defaultLoadCanvasJwks(url: string): Promise<JSONWebKeySet> {
   return await response.json();
 }
 
-function isRuntimeArtifactBucket(
-  value: unknown,
-): value is RuntimeArtifactBucket {
+function isRuntimeArtifactBucket(value: unknown): value is RuntimeArtifactBucket {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    typeof (value as Partial<RuntimeArtifactBucket>).get === "function"
+    typeof (value as Partial<RuntimeArtifactBucket>).get === 'function'
   );
 }
 
 function isHyperdriveBinding(value: unknown): value is HyperdriveBinding {
   return (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    typeof (value as Partial<HyperdriveBinding>).connectionString === "string"
+    typeof (value as Partial<HyperdriveBinding>).connectionString === 'string'
   );
 }

@@ -1,8 +1,8 @@
 import {
   groupLocalAppDiagnostics,
   type LocalAppValidationDiagnostic,
-} from "../authoring/local_app.ts";
-import { type AdminNotice, escapeHtml, renderAdminLayout } from "./layout.ts";
+} from '../authoring/local_app.ts';
+import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 
 const PACKAGE_LAYOUT = `manifest.json
 dist/index.html
@@ -17,19 +17,19 @@ export function renderPackageImportPage(
   } = {},
 ): string {
   return renderAdminLayout({
-    title: "Lantern Package Import",
-    eyebrow: "Apps",
-    heading: "Import package",
-    intro:
-      "Import one reviewed Lantern package directory into governed inventory.",
-    activePath: "/admin/packages",
-    breadcrumbs: [{ label: "Apps", href: "/admin/packages" }, {
-      label: "Import package",
-    }],
+    title: 'Lantern Package Import',
+    eyebrow: 'Apps',
+    heading: 'Import package',
+    intro: 'Import one reviewed Lantern package directory into governed inventory.',
+    activePath: '/admin/packages',
+    breadcrumbs: [
+      { label: 'Apps', href: '/admin/packages' },
+      {
+        label: 'Import package',
+      },
+    ],
     notice: input.notice ?? null,
-    body: `${
-      renderPreflightDiagnostics(input.diagnostics ?? null)
-    }<section class="panel">
+    body: `${renderPreflightDiagnostics(input.diagnostics ?? null)}<section class="panel">
       <div class="panel-body panel-header">
         <div class="stack">
           <p class="section-label">Reviewed package</p>
@@ -48,9 +48,9 @@ export function renderPackageImportPage(
           <div class="stack">
             <p class="section-label">Upload</p>
             <h2>Send the exact reviewed artifact.</h2>
-            <p>Use the package directory itself, not a zip file or a rewritten export. Lantern expects the package root to contain <span class="inline-code">${
-      escapeHtml("manifest.json")
-    }</span>.</p>
+            <p>Use the package directory itself, not a zip file or a rewritten export. Lantern expects the package root to contain <span class="inline-code">${escapeHtml(
+              'manifest.json',
+            )}</span>.</p>
           </div>
           <form method="post" action="/admin/packages/import" enctype="multipart/form-data" class="form-stack">
             <div class="field">
@@ -83,9 +83,9 @@ export function renderPackageImportPage(
               </div>
               <div class="step-card">
                 <strong>2. Immutable snapshot</strong>
-                <p class="deployment-form-note">Lantern stores the reviewed snapshot under <span class="inline-code">${
-      escapeHtml("var/packages/<app-id>/<version>/...")
-    }</span>.</p>
+                <p class="deployment-form-note">Lantern stores the reviewed snapshot under <span class="inline-code">${escapeHtml(
+                  'var/packages/<app-id>/<version>/...',
+                )}</span>.</p>
               </div>
               <div class="step-card">
                 <strong>3. Admin inventory</strong>
@@ -99,11 +99,9 @@ export function renderPackageImportPage(
   });
 }
 
-function renderPreflightDiagnostics(
-  diagnostics: LocalAppValidationDiagnostic[] | null,
-): string {
+function renderPreflightDiagnostics(diagnostics: LocalAppValidationDiagnostic[] | null): string {
   if (!diagnostics || diagnostics.length === 0) {
-    return "";
+    return '';
   }
 
   return `<section class="panel">
@@ -114,26 +112,26 @@ function renderPreflightDiagnostics(
         <p>Lantern blocked this upload before it wrote a reviewed snapshot. Resolve each reviewed package finding below, then re-upload the exact package directory.</p>
       </div>
       <div class="stack">
-        ${
-    groupLocalAppDiagnostics(diagnostics).map((group) =>
-      `<section class="callout">
+        ${groupLocalAppDiagnostics(diagnostics)
+          .map(
+            (group) =>
+              `<section class="callout">
           <h3>${escapeHtml(group.label)}</h3>
           <ul>
-            ${
-        group.diagnostics.map((diagnostic) =>
-          `<li>
+            ${group.diagnostics
+              .map(
+                (diagnostic) =>
+                  `<li>
               <strong>${escapeHtml(diagnostic.message)}</strong>
               <br>
-              <span class="deployment-form-note">Fix: ${
-            escapeHtml(diagnostic.fix)
-          }</span>
-            </li>`
-        ).join("")
-      }
+              <span class="deployment-form-note">Fix: ${escapeHtml(diagnostic.fix)}</span>
+            </li>`,
+              )
+              .join('')}
           </ul>
-        </section>`
-    ).join("")
-  }
+        </section>`,
+          )
+          .join('')}
       </div>
     </div>
   </section>`;

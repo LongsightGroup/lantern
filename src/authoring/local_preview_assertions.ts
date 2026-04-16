@@ -1,33 +1,33 @@
-import { Browser, type BrowserWindow } from "@happy-dom";
+import { Browser, type BrowserWindow } from '@happy-dom';
 import {
   type LocalAppPackage,
   type LocalAppValidationDiagnostic,
   type LocalAppValidationResult,
   type LocalPreviewTest,
   validateLocalAppPackage,
-} from "./local_app.ts";
-import { createLocalPreviewHarness } from "./local_preview.ts";
+} from './local_app.ts';
+import { createLocalPreviewHarness } from './local_preview.ts';
 
 const DEFAULT_SETTLE_TIMEOUT_MS = 1_000;
 const DEFAULT_IDLE_POLL_MS = 20;
 const DEFAULT_IDLE_STREAK = 3;
 
 export type LocalPreviewAssertionFailureCode =
-  | "selector_not_found"
-  | "text_mismatch"
-  | "contains_mismatch";
+  | 'selector_not_found'
+  | 'text_mismatch'
+  | 'contains_mismatch';
 
 export type LocalPreviewAssertionExpectation =
-  | { kind: "exists" }
-  | { kind: "text"; value: string }
-  | { kind: "contains"; value: string };
+  | { kind: 'exists' }
+  | { kind: 'text'; value: string }
+  | { kind: 'contains'; value: string };
 
 export interface LocalPreviewAssertionResult {
   name: string;
   selector: string;
   expectation: LocalPreviewAssertionExpectation;
   passed: boolean;
-  code: "passed" | LocalPreviewAssertionFailureCode;
+  code: 'passed' | LocalPreviewAssertionFailureCode;
   message: string;
   actualText?: string;
 }
@@ -42,7 +42,7 @@ export interface SuccessfulLocalPreviewAssertionRun {
 
 export interface FailedLocalPreviewAssertionValidationRun {
   ok: false;
-  kind: "validation_failed";
+  kind: 'validation_failed';
   packageRoot: string;
   diagnostics: LocalAppValidationDiagnostic[];
   issues: string[];
@@ -51,7 +51,7 @@ export interface FailedLocalPreviewAssertionValidationRun {
 
 export interface FailedLocalPreviewAssertionRuntimeRun {
   ok: false;
-  kind: "runtime_failed";
+  kind: 'runtime_failed';
   packageRoot: string;
   message: string;
   details: string[];
@@ -79,10 +79,7 @@ export async function runLocalPreviewAssertions(
     return buildValidationFailure(packageRoot, validation);
   }
 
-  const result = await runLocalPreviewAssertionsForPackage(
-    validation.appPackage,
-    input,
-  );
+  const result = await runLocalPreviewAssertionsForPackage(validation.appPackage, input);
 
   return {
     packageRoot,
@@ -96,16 +93,13 @@ export async function runLocalPreviewAssertionsForPackage(
     settleTimeoutMs?: number;
   } = {},
 ): Promise<
-  | Omit<SuccessfulLocalPreviewAssertionRun, "packageRoot">
-  | Omit<FailedLocalPreviewAssertionRuntimeRun, "packageRoot">
+  | Omit<SuccessfulLocalPreviewAssertionRun, 'packageRoot'>
+  | Omit<FailedLocalPreviewAssertionRuntimeRun, 'packageRoot'>
 > {
   const runtime = await loadPreviewRuntime(appPackage, input);
 
   try {
-    const results = evaluatePreviewAssertions(
-      runtime.window.document,
-      appPackage.previewTests,
-    );
+    const results = evaluatePreviewAssertions(runtime.window.document, appPackage.previewTests);
     const failedCount = results.filter((result) => !result.passed).length;
 
     return {
@@ -117,10 +111,8 @@ export async function runLocalPreviewAssertionsForPackage(
   } catch (error) {
     return {
       ok: false,
-      kind: "runtime_failed",
-      message: error instanceof Error
-        ? error.message
-        : "Lantern preview assertion runtime failed.",
+      kind: 'runtime_failed',
+      message: error instanceof Error ? error.message : 'Lantern preview assertion runtime failed.',
       details: [],
     };
   } finally {
@@ -134,7 +126,7 @@ function buildValidationFailure(
 ): FailedLocalPreviewAssertionValidationRun {
   return {
     ok: false,
-    kind: "validation_failed",
+    kind: 'validation_failed',
     packageRoot,
     diagnostics: validation.diagnostics,
     issues: validation.issues,
@@ -153,7 +145,7 @@ async function loadPreviewRuntime(
   });
   const server = Deno.serve(
     {
-      hostname: "127.0.0.1",
+      hostname: '127.0.0.1',
       port: 0,
       onListen() {},
     },
@@ -172,9 +164,7 @@ async function loadPreviewRuntime(
     const frame = page.frames[0];
 
     if (!frame) {
-      throw new Error(
-        "Lantern preview assertion runner could not load the preview frame.",
-      );
+      throw new Error('Lantern preview assertion runner could not load the preview frame.');
     }
 
     const runtimeErrors: string[] = [];
@@ -192,7 +182,7 @@ async function loadPreviewRuntime(
     });
 
     if (runtimeErrors.length > 0) {
-      throw new Error(runtimeErrors.join(" | "));
+      throw new Error(runtimeErrors.join(' | '));
     }
 
     return {
@@ -209,39 +199,30 @@ async function loadPreviewRuntime(
   }
 }
 
-function attachRuntimeErrorCapture(
-  window: BrowserWindow,
-  runtimeErrors: string[],
-): void {
-  window.addEventListener("error", (event) => {
+function attachRuntimeErrorCapture(window: BrowserWindow, runtimeErrors: string[]): void {
+  window.addEventListener('error', (event) => {
     const errorEvent = event as unknown as {
       error?: unknown;
       message?: string;
     };
 
     runtimeErrors.push(
-      formatUnknownError(
-        errorEvent.error ?? errorEvent.message ?? "Unknown runtime error.",
-      ),
+      formatUnknownError(errorEvent.error ?? errorEvent.message ?? 'Unknown runtime error.'),
     );
   });
-  window.addEventListener("unhandledrejection", (event) => {
+  window.addEventListener('unhandledrejection', (event) => {
     const rejectionEvent = event as unknown as {
       reason?: unknown;
       preventDefault(): void;
     };
 
-    runtimeErrors.push(
-      formatUnknownError(
-        rejectionEvent.reason ?? "Unknown rejected promise.",
-      ),
-    );
+    runtimeErrors.push(formatUnknownError(rejectionEvent.reason ?? 'Unknown rejected promise.'));
     rejectionEvent.preventDefault();
   });
 }
 
 function trackWindowFetch(window: BrowserWindow): () => number {
-  type WindowFetch = BrowserWindow["fetch"];
+  type WindowFetch = BrowserWindow['fetch'];
 
   const originalFetch = window.fetch.bind(window) as WindowFetch;
   let pendingFetches = 0;
@@ -264,10 +245,10 @@ async function executeExternalPreviewScripts(
   window: BrowserWindow,
   entrypointUrl: string,
 ): Promise<void> {
-  const scripts = [...window.document.querySelectorAll("script[src]")];
+  const scripts = [...window.document.querySelectorAll('script[src]')];
 
   for (const script of scripts) {
-    const type = script.getAttribute("type")?.trim() ?? "";
+    const type = script.getAttribute('type')?.trim() ?? '';
 
     if (!isSupportedPreviewScriptType(type)) {
       throw new Error(
@@ -275,7 +256,7 @@ async function executeExternalPreviewScripts(
       );
     }
 
-    const scriptSource = script.getAttribute("src");
+    const scriptSource = script.getAttribute('src');
 
     if (!scriptSource) {
       continue;
@@ -297,8 +278,7 @@ async function executeExternalPreviewScripts(
 }
 
 function isSupportedPreviewScriptType(type: string): boolean {
-  return type === "" || type === "text/javascript" ||
-    type === "application/javascript";
+  return type === '' || type === 'text/javascript' || type === 'application/javascript';
 }
 
 async function waitForPreviewIdle(input: {
@@ -320,21 +300,21 @@ async function waitForPreviewIdle(input: {
       await sleep(DEFAULT_IDLE_POLL_MS);
 
       if (input.runtimeErrors.length > 0) {
-        throw new Error(input.runtimeErrors.join(" | "));
+        throw new Error(input.runtimeErrors.join(' | '));
       }
 
       return;
     }
 
     if (input.runtimeErrors.length > 0 && input.pendingFetches() === 0) {
-      throw new Error(input.runtimeErrors.join(" | "));
+      throw new Error(input.runtimeErrors.join(' | '));
     }
 
     await sleep(DEFAULT_IDLE_POLL_MS);
   }
 
   if (input.runtimeErrors.length > 0) {
-    throw new Error(input.runtimeErrors.join(" | "));
+    throw new Error(input.runtimeErrors.join(' | '));
   }
 
   throw new Error(
@@ -343,14 +323,14 @@ async function waitForPreviewIdle(input: {
 }
 
 function evaluatePreviewAssertions(
-  document: BrowserWindow["document"],
+  document: BrowserWindow['document'],
   tests: readonly LocalPreviewTest[],
 ): LocalPreviewAssertionResult[] {
   return tests.map((test) => evaluatePreviewAssertion(document, test));
 }
 
 function evaluatePreviewAssertion(
-  document: BrowserWindow["document"],
+  document: BrowserWindow['document'],
   test: LocalPreviewTest,
 ): LocalPreviewAssertionResult {
   const selector = test.assert.selector;
@@ -363,12 +343,12 @@ function evaluatePreviewAssertion(
       selector,
       expectation,
       passed: false,
-      code: "selector_not_found",
+      code: 'selector_not_found',
       message: `Selector ${selector} was not found in the preview DOM.`,
     };
   }
 
-  const actualText = normalizeAssertionText(element.textContent ?? "");
+  const actualText = normalizeAssertionText(element.textContent ?? '');
 
   if (test.assert.text !== undefined) {
     const expectedText = normalizeAssertionText(test.assert.text);
@@ -379,9 +359,8 @@ function evaluatePreviewAssertion(
         selector,
         expectation,
         passed: false,
-        code: "text_mismatch",
-        message:
-          `Expected exact text "${expectedText}" for ${selector} but found "${actualText}".`,
+        code: 'text_mismatch',
+        message: `Expected exact text "${expectedText}" for ${selector} but found "${actualText}".`,
         actualText,
       };
     }
@@ -396,9 +375,8 @@ function evaluatePreviewAssertion(
         selector,
         expectation,
         passed: false,
-        code: "contains_mismatch",
-        message:
-          `Expected ${selector} to contain "${expectedContains}" but found "${actualText}".`,
+        code: 'contains_mismatch',
+        message: `Expected ${selector} to contain "${expectedContains}" but found "${actualText}".`,
         actualText,
       };
     }
@@ -409,36 +387,34 @@ function evaluatePreviewAssertion(
     selector,
     expectation,
     passed: true,
-    code: "passed",
+    code: 'passed',
     message: `Selector ${selector} satisfied the preview assertion.`,
-    ...(actualText === "" ? {} : { actualText }),
+    ...(actualText === '' ? {} : { actualText }),
   };
 }
 
-function describeExpectation(
-  test: LocalPreviewTest,
-): LocalPreviewAssertionExpectation {
+function describeExpectation(test: LocalPreviewTest): LocalPreviewAssertionExpectation {
   if (test.assert.text !== undefined) {
     return {
-      kind: "text",
+      kind: 'text',
       value: normalizeAssertionText(test.assert.text),
     };
   }
 
   if (test.assert.contains !== undefined) {
     return {
-      kind: "contains",
+      kind: 'contains',
       value: normalizeAssertionText(test.assert.contains),
     };
   }
 
   return {
-    kind: "exists",
+    kind: 'exists',
   };
 }
 
 function normalizeAssertionText(value: string): string {
-  return value.replaceAll(/\s+/g, " ").trim();
+  return value.replaceAll(/\s+/g, ' ').trim();
 }
 
 function formatUnknownError(value: unknown): string {
@@ -446,13 +422,15 @@ function formatUnknownError(value: unknown): string {
     return value.message;
   }
 
-  if (typeof value === "string") {
+  if (typeof value === 'string') {
     return value;
   }
 
-  return "Unknown runtime error.";
+  return 'Unknown runtime error.';
 }
 
 function sleep(durationMs: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, durationMs));
+  return new Promise((resolve) => {
+    setTimeout(resolve, durationMs);
+  });
 }

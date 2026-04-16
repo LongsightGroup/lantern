@@ -1,44 +1,38 @@
-import { assertEquals, assertRejects, assertStringIncludes } from "@std/assert";
-import { compactVerify, createLocalJWKSet } from "jose";
-import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
-import { getPublicJwkSet } from "../lti/tool_key.ts";
-import {
-  createR2RuntimeArtifactStore,
-  type RuntimeArtifactBucket,
-} from "./artifact_store.ts";
-import { createDirectRuntimeDelivery } from "./delivery.ts";
+import { assertEquals, assertRejects, assertStringIncludes } from '@std/assert';
+import { compactVerify, createLocalJWKSet } from 'jose';
+import type { BootstrapPayload } from '../../sdk/app-sdk.ts';
+import { getPublicJwkSet } from '../lti/tool_key.ts';
+import { createR2RuntimeArtifactStore, type RuntimeArtifactBucket } from './artifact_store.ts';
+import { createDirectRuntimeDelivery } from './delivery.ts';
 import {
   authorizeRuntimeSession,
   loadRuntimeActivityContent,
   renderRuntimeSessionPage,
-} from "./session.ts";
-import {
-  buildRuntimeSessionRecord,
-  getTestToolPrivateJwkEnvValue,
-} from "../test_helpers/lti.ts";
-import { buildPackageVersionRecord } from "../test_helpers/package_review.ts";
+} from './session.ts';
+import { buildRuntimeSessionRecord, getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
+import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 
-const EXAMPLE_SNAPSHOT_ROOT = "examples/apps/chapter-4-asteroids";
-const WORKER_SNAPSHOT_ROOT = "var/packages/chapter-4-asteroids/1.0.0";
+const EXAMPLE_SNAPSHOT_ROOT = 'examples/apps/chapter-4-asteroids';
+const WORKER_SNAPSHOT_ROOT = 'var/packages/chapter-4-asteroids/1.0.0';
 const exampleArtifactStore = createR2RuntimeArtifactStore(
   createTestRuntimeArtifactBucket({
     [`${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`]:
-      "<!doctype html><html><head><title>Chapter 4 Asteroids</title></head><body>Chapter 4 Asteroids</body></html>",
+      '<!doctype html><html><head><title>Chapter 4 Asteroids</title></head><body>Chapter 4 Asteroids</body></html>',
     [`${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`]:
       '{"title":"Chapter 4 Asteroids","questions":[{"id":"q1"}]}',
   }),
 );
 const TEST_SIGNING_ENV = {
   get(name: string): string | undefined {
-    return name === "LTI_TOOL_PRIVATE_JWK"
+    return name === 'LTI_TOOL_PRIVATE_JWK'
       ? getTestToolPrivateJwkEnvValue()
-      : name === "APP_RUNTIME_ORIGIN"
-      ? "https://runtime.lantern.example"
-      : undefined;
+      : name === 'APP_RUNTIME_ORIGIN'
+        ? 'https://runtime.lantern.example'
+        : undefined;
   },
 };
 
-Deno.test("runtime session route serves the pinned reviewed entrypoint with an injected signed bootstrap payload", async () => {
+Deno.test('runtime session route serves the pinned reviewed entrypoint with an injected signed bootstrap payload', async () => {
   const html = await renderRuntimeSessionPage(
     buildRuntimeSessionRecord({
       snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -56,64 +50,61 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
   );
   const bootstrap = extractBootstrapFromHtml(html);
 
-  assertStringIncludes(html, "GatewayBootstrap");
-  assertStringIncludes(html, "chapter-4-asteroids");
-  assertStringIncludes(html, "runtime-token-123");
-  assertStringIncludes(html, "emitAttemptEvent");
-  assertStringIncludes(html, "submitEvidenceArtifact");
-  assertStringIncludes(html, "submitScoreProposal");
-  assertStringIncludes(html, "finalizeAttempt");
-  assertStringIncludes(html, "runBrowserGrader");
-  assertStringIncludes(html, "submissionMode");
-  assertStringIncludes(html, "readLocalState");
-  assertStringIncludes(html, "writeLocalState");
+  assertStringIncludes(html, 'GatewayBootstrap');
+  assertStringIncludes(html, 'chapter-4-asteroids');
+  assertStringIncludes(html, 'runtime-token-123');
+  assertStringIncludes(html, 'emitAttemptEvent');
+  assertStringIncludes(html, 'submitEvidenceArtifact');
+  assertStringIncludes(html, 'submitScoreProposal');
+  assertStringIncludes(html, 'finalizeAttempt');
+  assertStringIncludes(html, 'runBrowserGrader');
+  assertStringIncludes(html, 'submissionMode');
+  assertStringIncludes(html, 'readLocalState');
+  assertStringIncludes(html, 'writeLocalState');
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/',
   );
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/attempt-events',
   );
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/evidence-artifacts",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/evidence-artifacts',
   );
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/finalize",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/finalize',
   );
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/browser-grader/jasmine.js",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/browser-grader/jasmine.js',
   );
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/browser-grader/runner.js",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/browser-grader/runner.js',
   );
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/content",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/content',
   );
   assertStringIncludes(
     html,
-    "https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state",
+    'https://runtime.lantern.example/runtime/sessions/runtime-session-123/local-state',
   );
-  assertEquals(bootstrap.session.expires_at, "2099-03-26T22:47:00Z");
-  assertEquals(bootstrap.launch.submission_mode, "standard");
+  assertEquals(bootstrap.session.expires_at, '2099-03-26T22:47:00Z');
+  assertEquals(bootstrap.launch.submission_mode, 'standard');
   assertEquals(
     bootstrap.app.runtime_contract_signature,
-    "test-reviewed-runtime-contract-signature",
+    'test-reviewed-runtime-contract-signature',
   );
-  assertEquals(
-    html.includes("https://canvas.example/api/lti/courses/42/line_items"),
-    false,
-  );
-  assertEquals(html.includes("names_and_roles"), false);
+  assertEquals(html.includes('https://canvas.example/api/lti/courses/42/line_items'), false);
+  assertEquals(html.includes('names_and_roles'), false);
   await assertBootstrapSignature(bootstrap);
 });
 
-Deno.test("runtime content route serves reviewed activity content through the Lantern bridge", async () => {
+Deno.test('runtime content route serves reviewed activity content through the Lantern bridge', async () => {
   const content = (await loadRuntimeActivityContent(
     buildRuntimeSessionRecord({
       snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -123,15 +114,15 @@ Deno.test("runtime content route serves reviewed activity content through the La
     exampleArtifactStore,
   )) as { title: string; questions: Array<{ id: string }> };
 
-  assertEquals(content.title, "Chapter 4 Asteroids");
-  assertEquals(content.questions[0]?.id, "q1");
+  assertEquals(content.title, 'Chapter 4 Asteroids');
+  assertEquals(content.questions[0]?.id, 'q1');
 });
 
-Deno.test("runtime session helpers can load reviewed artifacts from an R2-backed store", async () => {
+Deno.test('runtime session helpers can load reviewed artifacts from an R2-backed store', async () => {
   const artifactStore = createR2RuntimeArtifactStore(
     createTestRuntimeArtifactBucket({
       [`${WORKER_SNAPSHOT_ROOT}/dist/index.html`]:
-        "<html><head></head><body>Worker Artifact</body></html>",
+        '<html><head></head><body>Worker Artifact</body></html>',
       [`${WORKER_SNAPSHOT_ROOT}/content/activity.json`]:
         '{"title":"Worker Artifact","questions":[{"id":"worker-q1"}]}',
     }),
@@ -147,67 +138,62 @@ Deno.test("runtime session helpers can load reviewed artifacts from an R2-backed
     reviewedPackage: buildReviewedPackageVersion({
       snapshotRoot: WORKER_SNAPSHOT_ROOT,
       entrypointPath: `${WORKER_SNAPSHOT_ROOT}/dist/index.html`,
-      digest: "sha256:chapter-4-asteroids-1.0.0",
+      digest: 'sha256:chapter-4-asteroids-1.0.0',
     }),
   });
-  const content =
-    (await loadRuntimeActivityContent(session, artifactStore)) as {
-      title: string;
-      questions: Array<{ id: string }>;
-    };
+  const content = (await loadRuntimeActivityContent(session, artifactStore)) as {
+    title: string;
+    questions: Array<{ id: string }>;
+  };
 
-  assertStringIncludes(html, "Worker Artifact");
-  assertStringIncludes(html, "GatewayBootstrap");
-  assertEquals(content.title, "Worker Artifact");
-  assertEquals(content.questions[0]?.id, "worker-q1");
+  assertStringIncludes(html, 'Worker Artifact');
+  assertStringIncludes(html, 'GatewayBootstrap');
+  assertEquals(content.title, 'Worker Artifact');
+  assertEquals(content.questions[0]?.id, 'worker-q1');
 });
 
-Deno.test("missing or expired runtime session tokens are blocked before artifact bytes are served", async () => {
+Deno.test('missing or expired runtime session tokens are blocked before artifact bytes are served', async () => {
   await assertRejects(
     () =>
       Promise.resolve().then(() =>
         authorizeRuntimeSession({
-          token: "expired-session-token",
+          token: 'expired-session-token',
           expected: buildRuntimeSessionRecord({
-            expiresAt: "2026-03-23T22:40:00Z",
+            expiresAt: '2026-03-23T22:40:00Z',
           }),
-          now: () => new Date("2026-03-23T22:45:00Z"),
-        })
+          now: () => new Date('2026-03-23T22:45:00Z'),
+        }),
       ),
     Error,
-    "Runtime session token did not match the requested session.",
+    'Runtime session token did not match the requested session.',
   );
   await assertRejects(
     () =>
       Promise.resolve().then(() =>
         authorizeRuntimeSession({
-          token: "runtime-token-123",
+          token: 'runtime-token-123',
           expected: buildRuntimeSessionRecord({
-            expiresAt: "2026-03-23T22:40:00Z",
+            expiresAt: '2026-03-23T22:40:00Z',
           }),
-          now: () => new Date("2026-03-23T22:45:00Z"),
-        })
+          now: () => new Date('2026-03-23T22:45:00Z'),
+        }),
       ),
     Error,
-    "Runtime session has expired.",
+    'Runtime session has expired.',
   );
 });
 
 function extractBootstrapFromHtml(html: string): BootstrapPayload {
-  const match = html.match(
-    /window\.GatewayBootstrap = (.+?);\nwindow\.GatewayPreview =/s,
-  );
+  const match = html.match(/window\.GatewayBootstrap = (.+?);\nwindow\.GatewayPreview =/s);
 
   if (!match?.[1]) {
-    throw new Error("Expected GatewayBootstrap in runtime HTML.");
+    throw new Error('Expected GatewayBootstrap in runtime HTML.');
   }
 
   return JSON.parse(match[1]) as BootstrapPayload;
 }
 
-async function assertBootstrapSignature(
-  bootstrap: BootstrapPayload,
-): Promise<void> {
+async function assertBootstrapSignature(bootstrap: BootstrapPayload): Promise<void> {
   const verified = await compactVerify(
     bootstrap.signature,
     createLocalJWKSet(await getPublicJwkSet(TEST_SIGNING_ENV)),
@@ -230,13 +216,9 @@ async function assertBootstrapSignature(
   });
 }
 
-function createTestRuntimeArtifactBucket(
-  files: Record<string, string>,
-): RuntimeArtifactBucket {
+function createTestRuntimeArtifactBucket(files: Record<string, string>): RuntimeArtifactBucket {
   const encodedFiles = new Map(
-    Object.entries(files).map((
-      [path, contents],
-    ) => [path, new TextEncoder().encode(contents)]),
+    Object.entries(files).map(([path, contents]) => [path, new TextEncoder().encode(contents)]),
   );
 
   return {
@@ -262,12 +244,12 @@ function buildReviewedPackageVersion(input: {
   digest?: string;
 }) {
   return buildPackageVersionRecord({
-    approvalStatus: "approved",
+    approvalStatus: 'approved',
     artifact: {
       snapshotRoot: input.snapshotRoot,
       manifestPath: `${input.snapshotRoot}/manifest.json`,
       entrypointPath: input.entrypointPath,
-      digest: input.digest ?? "sha256:chapter-4-asteroids-0.1.0",
+      digest: input.digest ?? 'sha256:chapter-4-asteroids-0.1.0',
     },
   });
 }

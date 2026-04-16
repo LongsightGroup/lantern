@@ -1,8 +1,5 @@
-import {
-  requireRelativeSnapshotPath,
-  trimLeadingSlash,
-} from "./snapshot_path.ts";
-import type { RuntimeArtifactBucket } from "../runtime/artifact_store.ts";
+import { requireRelativeSnapshotPath, trimLeadingSlash } from './snapshot_path.ts';
+import type { RuntimeArtifactBucket } from '../runtime/artifact_store.ts';
 
 export interface PackageSource {
   readBytes(relativePath: string): Promise<Uint8Array | null>;
@@ -16,8 +13,7 @@ export interface MemoryPackageSourceFile {
   bytes: Uint8Array | ArrayBuffer | ArrayBufferView | string;
 }
 
-const PACKAGE_SOURCE_OUTSIDE_MESSAGE =
-  "Package source file must stay inside the reviewed package.";
+const PACKAGE_SOURCE_OUTSIDE_MESSAGE = 'Package source file must stay inside the reviewed package.';
 
 export function createBucketPackageSource(
   bucket: RuntimeArtifactBucket,
@@ -39,13 +35,12 @@ export function createBucketPackageSource(
       return bytes === null ? null : new TextDecoder().decode(bytes);
     },
     async fileExists(relativePath) {
-      return (await bucket.get(joinBucketKey(rootPrefix, relativePath))) !==
-        null;
+      return (await bucket.get(joinBucketKey(rootPrefix, relativePath))) !== null;
     },
     async listFiles() {
-      if (typeof bucket.list !== "function") {
+      if (typeof bucket.list !== 'function') {
         throw new TypeError(
-          "Artifact bucket list() support is required for package source access.",
+          'Artifact bucket list() support is required for package source access.',
         );
       }
 
@@ -56,7 +51,7 @@ export function createBucketPackageSource(
 
       while (true) {
         const page = await bucket.list({
-          prefix: normalizedRoot === "" ? "" : `${normalizedRoot}/`,
+          prefix: normalizedRoot === '' ? '' : `${normalizedRoot}/`,
           ...(cursor === undefined ? {} : { cursor }),
         });
 
@@ -72,11 +67,7 @@ export function createBucketPackageSource(
           break;
         }
 
-        cursor = resolveContinuationCursor(
-          page.cursor,
-          normalizedRoot,
-          seenCursors,
-        );
+        cursor = resolveContinuationCursor(page.cursor, normalizedRoot, seenCursors);
       }
 
       files.sort();
@@ -86,18 +77,14 @@ export function createBucketPackageSource(
   };
 }
 
-export function createMemoryPackageSource(
-  files: MemoryPackageSourceFile[],
-): PackageSource {
+export function createMemoryPackageSource(files: MemoryPackageSourceFile[]): PackageSource {
   const storedFiles = new Map<string, Uint8Array>();
 
   for (const file of sortMemoryPackageFiles(files)) {
     const relativePath = normalizePackageSourcePath(file.relativePath);
 
     if (storedFiles.has(relativePath)) {
-      throw new Error(
-        `Package source file ${relativePath} was provided more than once.`,
-      );
+      throw new Error(`Package source file ${relativePath} was provided more than once.`);
     }
 
     storedFiles.set(relativePath, toUint8Array(file.bytes));
@@ -115,9 +102,7 @@ export function createMemoryPackageSource(
       return bytes === null ? null : new TextDecoder().decode(bytes);
     },
     fileExists(relativePath) {
-      return Promise.resolve(
-        storedFiles.has(normalizePackageSourcePath(relativePath)),
-      );
+      return Promise.resolve(storedFiles.has(normalizePackageSourcePath(relativePath)));
     },
     listFiles() {
       return Promise.resolve([...storedFiles.keys()]);
@@ -126,13 +111,11 @@ export function createMemoryPackageSource(
 }
 
 function joinBucketKey(rootPrefix: string, relativePath: string): string {
-  return trimLeadingSlash(
-    `${normalizePrefix(rootPrefix)}/${trimLeadingSlash(relativePath)}`,
-  );
+  return trimLeadingSlash(`${normalizePrefix(rootPrefix)}/${trimLeadingSlash(relativePath)}`);
 }
 
 function normalizePrefix(rootPrefix: string): string {
-  return rootPrefix.replace(/\/+$/, "");
+  return rootPrefix.replace(/\/+$/, '');
 }
 
 function resolveContinuationCursor(
@@ -140,16 +123,14 @@ function resolveContinuationCursor(
   prefix: string,
   seenCursors: Set<string>,
 ): string {
-  if (cursor === undefined || cursor === "") {
+  if (cursor === undefined || cursor === '') {
     throw new Error(
       `Artifact bucket list() returned truncated results without a continuation cursor for ${prefix}.`,
     );
   }
 
   if (seenCursors.has(cursor)) {
-    throw new Error(
-      `Artifact bucket list() repeated cursor ${cursor} for ${prefix}.`,
-    );
+    throw new Error(`Artifact bucket list() repeated cursor ${cursor} for ${prefix}.`);
   }
 
   seenCursors.add(cursor);
@@ -164,9 +145,7 @@ function normalizePackageSourcePath(relativePath: string): string {
   );
 }
 
-function sortMemoryPackageFiles(
-  files: MemoryPackageSourceFile[],
-): MemoryPackageSourceFile[] {
+function sortMemoryPackageFiles(files: MemoryPackageSourceFile[]): MemoryPackageSourceFile[] {
   return [...files].sort((left, right) => {
     const leftPath = normalizePackageSourcePath(left.relativePath);
     const rightPath = normalizePackageSourcePath(right.relativePath);
@@ -175,10 +154,8 @@ function sortMemoryPackageFiles(
   });
 }
 
-function toUint8Array(
-  value: string | Uint8Array | ArrayBuffer | ArrayBufferView,
-): Uint8Array {
-  if (typeof value === "string") {
+function toUint8Array(value: string | Uint8Array | ArrayBuffer | ArrayBufferView): Uint8Array {
+  if (typeof value === 'string') {
     return new TextEncoder().encode(value);
   }
 

@@ -5,50 +5,44 @@ import {
   GatewayFinalizeAcceptedResult,
   GatewayScoreProposalAcceptedResult,
   ScoreProposal,
-} from "../../sdk/app-sdk.ts";
-import { resolveSubmissionMode } from "../../sdk/app-sdk.ts";
-import {
-  buildRuntimeBootstrapScript,
-  injectBeforeClosingTag,
-} from "../runtime/session_html.ts";
+} from '../../sdk/app-sdk.ts';
+import { resolveSubmissionMode } from '../../sdk/app-sdk.ts';
+import { buildRuntimeBootstrapScript, injectBeforeClosingTag } from '../runtime/session_html.ts';
 import {
   denyRuntimeBroker,
   errorMessage,
   isRuntimeBrokerDenialError,
   toRuntimeBrokerResult,
-} from "../runtime/gateway_errors.ts";
+} from '../runtime/gateway_errors.ts';
 import {
   parseAttemptEvent,
   parseAttemptLocalState,
   parseEvidenceArtifactUpload,
   parseFinalizeAttemptInput,
   parseScoreProposal,
-} from "../runtime/gateway_parsing.ts";
+} from '../runtime/gateway_parsing.ts';
 import {
   buildBrowserGraderHarnessSource,
   buildBrowserGraderRunnerSource,
   readLocalBrowserGraderConfig,
-} from "../runtime/browser_grader.ts";
-import {
-  joinSnapshotPath,
-  trimLeadingSlash,
-} from "../package_review/snapshot_path.ts";
-import type { AttemptLocalState } from "../package_review/types.ts";
-import type { AttemptEvent } from "../../sdk/app-sdk.ts";
-import type { LocalAppPackage } from "./local_app.ts";
+} from '../runtime/browser_grader.ts';
+import { joinSnapshotPath, trimLeadingSlash } from '../package_review/snapshot_path.ts';
+import type { AttemptLocalState } from '../package_review/types.ts';
+import type { AttemptEvent } from '../../sdk/app-sdk.ts';
+import type { LocalAppPackage } from './local_app.ts';
 
-const DEFAULT_RUNTIME_BASE_PATH = "/_lantern/runtime";
-const DEFAULT_PREVIEW_SESSION_ID = "local-authoring-preview";
+const DEFAULT_RUNTIME_BASE_PATH = '/_lantern/runtime';
+const DEFAULT_PREVIEW_SESSION_ID = 'local-authoring-preview';
 
 export interface LocalPreviewLogEntry {
   eventType:
-    | "preview.content_read"
-    | "preview.local_state.read"
-    | "preview.local_state.write"
-    | "preview.attempt_event"
-    | "preview.evidence_artifact"
-    | "preview.score_proposal"
-    | "preview.finalize";
+    | 'preview.content_read'
+    | 'preview.local_state.read'
+    | 'preview.local_state.write'
+    | 'preview.attempt_event'
+    | 'preview.evidence_artifact'
+    | 'preview.score_proposal'
+    | 'preview.finalize';
   detail: Record<string, unknown>;
   occurredAt: string;
 }
@@ -66,13 +60,13 @@ export function createLocalPreviewHarness(input: {
   logger?: (entry: LocalPreviewLogEntry) => void;
 }): LocalPreviewHarness {
   const runtimeBasePath = input.runtimeBasePath ?? DEFAULT_RUNTIME_BASE_PATH;
-  const sessionToken = crypto.randomUUID().replaceAll("-", "");
+  const sessionToken = crypto.randomUUID().replaceAll('-', '');
   const previewSessionId = DEFAULT_PREVIEW_SESSION_ID;
   const logger = input.logger ?? (() => {});
   let localState: AttemptLocalState = input.appPackage.fixtureData.local_state;
   let latestScoreProposal: ScoreProposal | null = null;
   let finalized: {
-    completionState: "completed" | "abandoned";
+    completionState: 'completed' | 'abandoned';
   } | null = null;
   let evidenceArtifactCount = 0;
   const attemptEvents: AttemptEvent[] = [];
@@ -85,19 +79,19 @@ export function createLocalPreviewHarness(input: {
     async handle(request) {
       const url = new URL(request.url);
 
-      if (url.pathname === "/" || url.pathname === "") {
+      if (url.pathname === '/' || url.pathname === '') {
         return Response.redirect(
           new URL(input.appPackage.manifest.entrypoint, url).toString(),
           302,
         );
       }
 
-      if (url.pathname === runtimeBasePath + "/content") {
+      if (url.pathname === runtimeBasePath + '/content') {
         try {
           authorizeRequest(request, sessionToken);
-          requireCapability(input.appPackage, "read_activity_content");
+          requireCapability(input.appPackage, 'read_activity_content');
           logger({
-            eventType: "preview.content_read",
+            eventType: 'preview.content_read',
             detail: {
               contentPath: input.appPackage.contentPath,
             },
@@ -110,7 +104,7 @@ export function createLocalPreviewHarness(input: {
         }
       }
 
-      if (url.pathname.startsWith(runtimeBasePath + "/browser-grader/")) {
+      if (url.pathname.startsWith(runtimeBasePath + '/browser-grader/')) {
         try {
           authorizeBrowserGraderRequest(request, sessionToken);
 
@@ -125,15 +119,12 @@ export function createLocalPreviewHarness(input: {
         }
       }
 
-      if (
-        url.pathname === runtimeBasePath + "/local-state" &&
-        request.method === "GET"
-      ) {
+      if (url.pathname === runtimeBasePath + '/local-state' && request.method === 'GET') {
         try {
           authorizeRequest(request, sessionToken);
-          requireCapability(input.appPackage, "read_local_state");
+          requireCapability(input.appPackage, 'read_local_state');
           logger({
-            eventType: "preview.local_state.read",
+            eventType: 'preview.local_state.read',
             detail: {},
             occurredAt: new Date().toISOString(),
           });
@@ -144,16 +135,13 @@ export function createLocalPreviewHarness(input: {
         }
       }
 
-      if (
-        url.pathname === runtimeBasePath + "/local-state" &&
-        request.method === "PUT"
-      ) {
+      if (url.pathname === runtimeBasePath + '/local-state' && request.method === 'PUT') {
         try {
           authorizeRequest(request, sessionToken);
-          requireCapability(input.appPackage, "write_local_state");
+          requireCapability(input.appPackage, 'write_local_state');
           localState = parseAttemptLocalState(await request.json());
           logger({
-            eventType: "preview.local_state.write",
+            eventType: 'preview.local_state.write',
             detail: {
               localState,
             },
@@ -166,17 +154,14 @@ export function createLocalPreviewHarness(input: {
         }
       }
 
-      if (
-        url.pathname === runtimeBasePath + "/attempt-events" &&
-        request.method === "POST"
-      ) {
+      if (url.pathname === runtimeBasePath + '/attempt-events' && request.method === 'POST') {
         try {
           authorizeRequest(request, sessionToken);
-          requireCapability(input.appPackage, "submit_attempt_event");
+          requireCapability(input.appPackage, 'submit_attempt_event');
           const event = parseAttemptEvent(await request.json());
           attemptEvents.push(event);
           logger({
-            eventType: "preview.attempt_event",
+            eventType: 'preview.attempt_event',
             detail: {
               event,
               count: attemptEvents.length,
@@ -190,16 +175,11 @@ export function createLocalPreviewHarness(input: {
         }
       }
 
-      if (
-        url.pathname === runtimeBasePath + "/evidence-artifacts" &&
-        request.method === "POST"
-      ) {
+      if (url.pathname === runtimeBasePath + '/evidence-artifacts' && request.method === 'POST') {
         try {
           authorizeRequest(request, sessionToken);
-          requireCapability(input.appPackage, "submit_evidence_artifact");
-          const evidenceArtifact = parseEvidenceArtifactUpload(
-            await request.json(),
-          );
+          requireCapability(input.appPackage, 'submit_evidence_artifact');
+          const evidenceArtifact = parseEvidenceArtifactUpload(await request.json());
           evidenceArtifactCount += 1;
           const artifactId = `local-evidence-${evidenceArtifactCount}`;
           const payload: GatewayEvidenceArtifactAcceptedResult = {
@@ -207,7 +187,7 @@ export function createLocalPreviewHarness(input: {
             artifactId,
           };
           logger({
-            eventType: "preview.evidence_artifact",
+            eventType: 'preview.evidence_artifact',
             detail: {
               artifactId,
               kind: evidenceArtifact.kind,
@@ -223,20 +203,17 @@ export function createLocalPreviewHarness(input: {
         }
       }
 
-      if (
-        url.pathname === runtimeBasePath + "/score-proposal" &&
-        request.method === "POST"
-      ) {
+      if (url.pathname === runtimeBasePath + '/score-proposal' && request.method === 'POST') {
         try {
           authorizeRequest(request, sessionToken);
-          requireCapability(input.appPackage, "finalize_attempt");
+          requireCapability(input.appPackage, 'finalize_attempt');
           latestScoreProposal = parseScoreProposal(await request.json());
           const payload: GatewayScoreProposalAcceptedResult = {
             accepted: true,
             scoreProposal: latestScoreProposal,
           };
           logger({
-            eventType: "preview.score_proposal",
+            eventType: 'preview.score_proposal',
             detail: {
               accepted: payload.accepted,
               scoreProposal: payload.scoreProposal,
@@ -250,15 +227,13 @@ export function createLocalPreviewHarness(input: {
         }
       }
 
-      if (
-        url.pathname === runtimeBasePath + "/finalize" &&
-        request.method === "POST"
-      ) {
+      if (url.pathname === runtimeBasePath + '/finalize' && request.method === 'POST') {
         try {
           authorizeRequest(request, sessionToken);
-          requireCapability(input.appPackage, "finalize_attempt");
+          requireCapability(input.appPackage, 'finalize_attempt');
           const finalizeInput = parseFinalizeAttemptInput(await request.json());
-          const scoreMaximum = latestScoreProposal?.scoreMaximum ??
+          const scoreMaximum =
+            latestScoreProposal?.scoreMaximum ??
             input.appPackage.reviewData.grading.maxScore ??
             100;
           const scoreGiven = latestScoreProposal?.scoreGiven ?? 0;
@@ -275,7 +250,7 @@ export function createLocalPreviewHarness(input: {
             completionState: finalizeInput.completionState,
           };
           logger({
-            eventType: "preview.finalize",
+            eventType: 'preview.finalize',
             detail: {
               accepted: payload.accepted,
               attemptId: payload.attemptId,
@@ -317,54 +292,47 @@ function buildBootstrapPayload(
         ? {}
         : { assignment_id: appPackage.fixtureData.launch.assignment_id }),
       activity_id: appPackage.fixtureData.launch.activity_id,
-      submission_mode: resolveSubmissionMode(
-        appPackage.reviewData.capabilities,
-      ),
+      submission_mode: resolveSubmissionMode(appPackage.reviewData.capabilities),
     },
     app: {
       app_id: appPackage.reviewData.appId,
       version: appPackage.reviewData.version,
       capabilities: appPackage.reviewData.capabilities,
-      runtime_contract_signature: "local-preview-runtime-contract",
+      runtime_contract_signature: 'local-preview-runtime-contract',
     },
     session: {
       attempt_id: appPackage.fixtureData.attempt_id,
       token: sessionToken,
       expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
     },
-    signature: "local-preview-bootstrap-signature",
+    signature: 'local-preview-bootstrap-signature',
   };
 }
 
 function authorizeRequest(request: Request, expectedToken: string): void {
-  const authorization = request.headers.get("authorization");
+  const authorization = request.headers.get('authorization');
 
-  if (!authorization || !authorization.startsWith("Bearer ")) {
-    throw new Error("Runtime session token is required.");
+  if (!authorization || !authorization.startsWith('Bearer ')) {
+    throw new Error('Runtime session token is required.');
   }
 
-  const token = authorization.slice("Bearer ".length).trim();
+  const token = authorization.slice('Bearer '.length).trim();
 
-  if (token === "") {
-    throw new Error("Runtime session token is required.");
+  if (token === '') {
+    throw new Error('Runtime session token is required.');
   }
 
   if (token !== expectedToken) {
-    throw new Error("Runtime session token did not match the preview session.");
+    throw new Error('Runtime session token did not match the preview session.');
   }
 }
 
-function authorizeBrowserGraderRequest(
-  request: Request,
-  expectedToken: string,
-): void {
-  const token = new URL(request.url).searchParams.get("token")?.trim() ?? "";
+function authorizeBrowserGraderRequest(request: Request, expectedToken: string): void {
+  const token = new URL(request.url).searchParams.get('token')?.trim() ?? '';
 
-  if (token !== "") {
+  if (token !== '') {
     if (token !== expectedToken) {
-      throw new Error(
-        "Runtime session token did not match the preview session.",
-      );
+      throw new Error('Runtime session token did not match the preview session.');
     }
 
     return;
@@ -373,17 +341,14 @@ function authorizeBrowserGraderRequest(
   authorizeRequest(request, expectedToken);
 }
 
-function requireCapability(
-  appPackage: LocalAppPackage,
-  capability: Capability,
-): void {
+function requireCapability(appPackage: LocalAppPackage, capability: Capability): void {
   if (appPackage.reviewData.capabilities.includes(capability)) {
     return;
   }
 
   denyRuntimeBroker({
-    category: "policyDenied",
-    code: "capability_not_granted",
+    category: 'policyDenied',
+    code: 'capability_not_granted',
     message: `Preview session does not allow ${capability}.`,
     capability,
     detail: {
@@ -405,7 +370,7 @@ async function serveStaticFile(input: {
   const absolutePath = joinSnapshotPath(
     input.appPackage.rootPath,
     packagePath,
-    "Requested preview file is outside the app package root.",
+    'Requested preview file is outside the app package root.',
   );
 
   try {
@@ -421,7 +386,7 @@ async function serveStaticFile(input: {
       return new Response(injectedHtml, {
         status: 200,
         headers: {
-          "content-type": "text/html; charset=utf-8",
+          'content-type': 'text/html; charset=utf-8',
         },
       });
     }
@@ -431,12 +396,12 @@ async function serveStaticFile(input: {
     return new Response(bytes, {
       status: 200,
       headers: {
-        "content-type": contentTypeForPath(url.pathname),
+        'content-type': contentTypeForPath(url.pathname),
       },
     });
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      return new Response("Preview file not found.", { status: 404 });
+      return new Response('Preview file not found.', { status: 404 });
     }
 
     return new Response(errorMessage(error), { status: 500 });
@@ -456,31 +421,28 @@ async function serveLocalBrowserGraderAsset(input: {
   });
 
   if (config === null) {
-    return new Response(
-      "Browser grader is not configured for this preview package.",
-      {
-        status: 404,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-        },
+    return new Response('Browser grader is not configured for this preview package.', {
+      status: 404,
+      headers: {
+        'content-type': 'text/plain; charset=utf-8',
       },
-    );
+    });
   }
 
   const url = new URL(input.request.url);
   const prefix = `${input.runtimeBasePath}/browser-grader/`;
   const assetPath = url.pathname.slice(prefix.length);
 
-  if (assetPath === "jasmine.js") {
+  if (assetPath === 'jasmine.js') {
     return new Response(buildBrowserGraderHarnessSource(), {
       status: 200,
       headers: {
-        "content-type": "application/javascript; charset=utf-8",
+        'content-type': 'application/javascript; charset=utf-8',
       },
     });
   }
 
-  if (assetPath === "runner.js") {
+  if (assetPath === 'runner.js') {
     return new Response(
       buildBrowserGraderRunnerSource({
         reviewedSpecFiles: config.reviewedSpecFiles,
@@ -489,7 +451,7 @@ async function serveLocalBrowserGraderAsset(input: {
       {
         status: 200,
         headers: {
-          "content-type": "application/javascript; charset=utf-8",
+          'content-type': 'application/javascript; charset=utf-8',
         },
       },
     );
@@ -498,10 +460,10 @@ async function serveLocalBrowserGraderAsset(input: {
   const reviewedMatch = assetPath.match(/^reviewed\/([0-9]+)\.js$/);
 
   if (!reviewedMatch?.[1]) {
-    return new Response("Browser grader asset not found.", {
+    return new Response('Browser grader asset not found.', {
       status: 404,
       headers: {
-        "content-type": "text/plain; charset=utf-8",
+        'content-type': 'text/plain; charset=utf-8',
       },
     });
   }
@@ -509,10 +471,10 @@ async function serveLocalBrowserGraderAsset(input: {
   const specPath = config.reviewedSpecFiles.at(Number(reviewedMatch[1]));
 
   if (!specPath) {
-    return new Response("Browser grader spec was not found.", {
+    return new Response('Browser grader spec was not found.', {
       status: 404,
       headers: {
-        "content-type": "text/plain; charset=utf-8",
+        'content-type': 'text/plain; charset=utf-8',
       },
     });
   }
@@ -520,14 +482,14 @@ async function serveLocalBrowserGraderAsset(input: {
   const absolutePath = joinSnapshotPath(
     input.appPackage.rootPath,
     trimLeadingSlash(specPath),
-    "Browser grader spec file must stay inside the package root.",
+    'Browser grader spec file must stay inside the package root.',
   );
   const source = await Deno.readTextFile(absolutePath);
 
   return new Response(source, {
     status: 200,
     headers: {
-      "content-type": "application/javascript; charset=utf-8",
+      'content-type': 'application/javascript; charset=utf-8',
     },
   });
 }
@@ -545,7 +507,7 @@ function injectPreviewRuntimeBridge(input: {
   });
   const scriptTag = `<script>${scriptBody}</script>`;
 
-  return injectBeforeClosingTag(input.html, "body", scriptTag);
+  return injectBeforeClosingTag(input.html, 'body', scriptTag);
 }
 
 function runtimeReadErrorResponse(error: unknown): Response {
@@ -553,7 +515,7 @@ function runtimeReadErrorResponse(error: unknown): Response {
     return new Response(error.message, {
       status: error.status,
       headers: {
-        "content-type": "text/plain; charset=utf-8",
+        'content-type': 'text/plain; charset=utf-8',
       },
     });
   }
@@ -561,7 +523,7 @@ function runtimeReadErrorResponse(error: unknown): Response {
   return new Response(errorMessage(error), {
     status: 500,
     headers: {
-      "content-type": "text/plain; charset=utf-8",
+      'content-type': 'text/plain; charset=utf-8',
     },
   });
 }
@@ -571,50 +533,50 @@ function runtimeMutationErrorResponse(error: unknown): Response {
 
   if (result !== null) {
     return Response.json(result, {
-      status: result.denial.category === "policyDenied" ? 409 : 400,
+      status: result.denial.category === 'policyDenied' ? 409 : 400,
     });
   }
 
   return new Response(errorMessage(error), {
     status: 500,
     headers: {
-      "content-type": "text/plain; charset=utf-8",
+      'content-type': 'text/plain; charset=utf-8',
     },
   });
 }
 
 function contentTypeForPath(pathname: string): string {
-  if (pathname.endsWith(".html")) {
-    return "text/html; charset=utf-8";
+  if (pathname.endsWith('.html')) {
+    return 'text/html; charset=utf-8';
   }
 
-  if (pathname.endsWith(".js")) {
-    return "text/javascript; charset=utf-8";
+  if (pathname.endsWith('.js')) {
+    return 'text/javascript; charset=utf-8';
   }
 
-  if (pathname.endsWith(".css")) {
-    return "text/css; charset=utf-8";
+  if (pathname.endsWith('.css')) {
+    return 'text/css; charset=utf-8';
   }
 
-  if (pathname.endsWith(".json")) {
-    return "application/json; charset=utf-8";
+  if (pathname.endsWith('.json')) {
+    return 'application/json; charset=utf-8';
   }
 
-  if (pathname.endsWith(".svg")) {
-    return "image/svg+xml";
+  if (pathname.endsWith('.svg')) {
+    return 'image/svg+xml';
   }
 
-  if (pathname.endsWith(".png")) {
-    return "image/png";
+  if (pathname.endsWith('.png')) {
+    return 'image/png';
   }
 
-  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) {
-    return "image/jpeg";
+  if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) {
+    return 'image/jpeg';
   }
 
-  if (pathname.endsWith(".webp")) {
-    return "image/webp";
+  if (pathname.endsWith('.webp')) {
+    return 'image/webp';
   }
 
-  return "application/octet-stream";
+  return 'application/octet-stream';
 }

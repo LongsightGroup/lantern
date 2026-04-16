@@ -2,7 +2,7 @@ import {
   groupLocalAppDiagnostics,
   type LocalAppValidationResult,
   validateLocalAppPackage,
-} from "../src/authoring/local_app.ts";
+} from '../src/authoring/local_app.ts';
 
 export interface AppValidateArgs {
   packageRoot: string;
@@ -16,18 +16,16 @@ export async function runAppValidate(args: string[]): Promise<number> {
 
     if (parsed.json) {
       console.log(serializeValidationResult(result));
-    } else if (!result.ok) {
-      console.error("Lantern app validation failed.");
-      console.error(renderValidationFailure(result));
-    } else {
+    } else if (result.ok) {
       console.log(renderValidationSuccess(result));
+    } else {
+      console.error('Lantern app validation failed.');
+      console.error(renderValidationFailure(result));
     }
 
     return result.ok ? 0 : 1;
   } catch (error) {
-    console.error(
-      error instanceof Error ? error.message : "Lantern app validation failed.",
-    );
+    console.error(error instanceof Error ? error.message : 'Lantern app validation failed.');
 
     return 1;
   }
@@ -38,7 +36,7 @@ export function readArgs(args: string[]): AppValidateArgs {
   let json = false;
 
   for (const arg of args) {
-    if (arg === "--json") {
+    if (arg === '--json') {
       json = true;
       continue;
     }
@@ -52,7 +50,7 @@ export function readArgs(args: string[]): AppValidateArgs {
   }
 
   if (packageRoot === null) {
-    throw new Error("Usage: deno task app:validate <package-root> [--json]");
+    throw new Error('Usage: deno task app:validate <package-root> [--json]');
   }
 
   return {
@@ -65,11 +63,11 @@ export function renderValidationSuccess(
   result: Extract<LocalAppValidationResult, { ok: true }>,
 ): string {
   const lines = [
-    "Lantern app validation passed.",
+    'Lantern app validation passed.',
     `- App ID: ${result.appPackage.reviewData.appId}`,
     `- Version: ${result.appPackage.reviewData.version}`,
     `- Entrypoint: ${result.appPackage.manifest.entrypoint}`,
-    `- Capabilities: ${result.appPackage.reviewData.capabilities.join(", ")}`,
+    `- Capabilities: ${result.appPackage.reviewData.capabilities.join(', ')}`,
     `- Preview tests: ${String(result.appPackage.previewTests.length)}`,
   ];
 
@@ -77,7 +75,7 @@ export function renderValidationSuccess(
     lines.push(`- Warning: ${warning}`);
   }
 
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
 export function renderValidationFailure(
@@ -86,23 +84,23 @@ export function renderValidationFailure(
   const groups = groupLocalAppDiagnostics(result.diagnostics);
 
   if (groups.length === 0) {
-    return "- Package\n  - Lantern app validation failed without a diagnostic record.";
+    return '- Package\n  - Lantern app validation failed without a diagnostic record.';
   }
 
-  return groups.map((group) =>
-    [
-      `- ${group.label}`,
-      ...group.diagnostics.flatMap((diagnostic) => [
-        `  - ${diagnostic.message}`,
-        `    Fix: ${diagnostic.fix}`,
-      ]),
-    ].join("\n")
-  ).join("\n");
+  return groups
+    .map((group) =>
+      [
+        `- ${group.label}`,
+        ...group.diagnostics.flatMap((diagnostic) => [
+          `  - ${diagnostic.message}`,
+          `    Fix: ${diagnostic.fix}`,
+        ]),
+      ].join('\n'),
+    )
+    .join('\n');
 }
 
-export function serializeValidationResult(
-  result: LocalAppValidationResult,
-): string {
+export function serializeValidationResult(result: LocalAppValidationResult): string {
   if (!result.ok) {
     return JSON.stringify(
       {

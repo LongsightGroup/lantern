@@ -486,7 +486,7 @@ async function hydrateAuthoringDraft(
 
 function readStringArray(value: unknown, field: string): string[] {
   if (!Array.isArray(value)) {
-    throw new Error(`${field} must be a string array.`);
+    throw new TypeError(`${field} must be a string array.`);
   }
 
   return value.map((item) => requireString(item, `${field} entries must be strings.`));

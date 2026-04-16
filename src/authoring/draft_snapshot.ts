@@ -49,7 +49,7 @@ function formatSnapshotTimestamp(createdAt: string): string {
   const timestamp = new Date(createdAt);
 
   if (Number.isNaN(timestamp.getTime())) {
-    throw new Error(`Draft snapshot time ${createdAt} is not a valid timestamp.`);
+    throw new TypeError(`Draft snapshot time ${createdAt} is not a valid timestamp.`);
   }
 
   return timestamp.toISOString().replaceAll(/[-:.]/g, '');

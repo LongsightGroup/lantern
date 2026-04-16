@@ -1,5 +1,5 @@
-import type { AppManifest } from "../package_review/manifest_contract.ts";
-import type { PackageVersionRecord } from "../package_review/types.ts";
+import type { AppManifest } from '../package_review/manifest_contract.ts';
+import type { PackageVersionRecord } from '../package_review/types.ts';
 
 export interface BrowserGraderAssetUrls {
   jasmineUrl: string;
@@ -214,12 +214,10 @@ export function buildBrowserGraderRunnerSource(input: {
   }));
 
   return `(() => {
-  const browserGraderConfig = ${
-    JSON.stringify({
-      reviewedSpecFiles: specEntries,
-      scoreMaximum: input.scoreMaximum,
-    })
-  };
+  const browserGraderConfig = ${JSON.stringify({
+    reviewedSpecFiles: specEntries,
+    scoreMaximum: input.scoreMaximum,
+  })};
 
   window.__LanternBrowserGraderRunner = {
     async run() {
@@ -267,24 +265,22 @@ export function buildBrowserGraderRunnerSource(input: {
 export function readLocalBrowserGraderConfig(input: {
   gradingMode: string;
   gradingMaxScore: number | null;
-  authoring: AppManifest["authoring"] | null;
+  authoring: AppManifest['authoring'] | null;
 }): ReviewedBrowserGraderConfig | null {
-  if (input.gradingMode !== "browser") {
+  if (input.gradingMode !== 'browser') {
     return null;
   }
 
   if (input.gradingMaxScore === null) {
-    throw new Error("Browser grading requires a reviewed max score.");
+    throw new Error('Browser grading requires a reviewed max score.');
   }
 
-  if (!input.authoring || input.authoring.kind !== "browser_autograder") {
-    throw new Error(
-      'Browser grading requires authoring.kind = "browser_autograder".',
-    );
+  if (!input.authoring || input.authoring.kind !== 'browser_autograder') {
+    throw new Error('Browser grading requires authoring.kind = "browser_autograder".');
   }
 
   if (input.authoring.grader_spec_files.length === 0) {
-    throw new Error("Browser grading requires reviewed grader spec files.");
+    throw new Error('Browser grading requires reviewed grader spec files.');
   }
 
   return {
@@ -294,7 +290,7 @@ export function readLocalBrowserGraderConfig(input: {
 }
 
 export function readReviewedBrowserGraderConfig(
-  packageVersion: Pick<PackageVersionRecord, "grading" | "manifestJson">,
+  packageVersion: Pick<PackageVersionRecord, 'grading' | 'manifestJson'>,
 ): ReviewedBrowserGraderConfig | null {
   return readLocalBrowserGraderConfig({
     gradingMode: packageVersion.grading.mode,
@@ -305,28 +301,26 @@ export function readReviewedBrowserGraderConfig(
 
 function readAuthoringFromManifestJson(
   manifestJson: Record<string, unknown>,
-): AppManifest["authoring"] | null {
+): AppManifest['authoring'] | null {
   const authoring = manifestJson.authoring;
 
-  if (!authoring || typeof authoring !== "object" || Array.isArray(authoring)) {
+  if (!authoring || typeof authoring !== 'object' || Array.isArray(authoring)) {
     return null;
   }
 
   const authoringRecord = authoring as Record<string, unknown>;
-  const kind = typeof authoringRecord.kind === "string"
-    ? authoringRecord.kind
-    : null;
+  const kind = typeof authoringRecord.kind === 'string' ? authoringRecord.kind : null;
   const graderSpecFiles = Array.isArray(authoringRecord.grader_spec_files)
     ? authoringRecord.grader_spec_files.filter(
-      (value: unknown): value is string => typeof value === "string",
-    )
+        (value: unknown): value is string => typeof value === 'string',
+      )
     : [];
   const evidenceExampleFile =
-    typeof authoringRecord.evidence_example_file === "string"
+    typeof authoringRecord.evidence_example_file === 'string'
       ? authoringRecord.evidence_example_file
-      : "";
+      : '';
 
-  if (kind !== "browser_autograder" || evidenceExampleFile === "") {
+  if (kind !== 'browser_autograder' || evidenceExampleFile === '') {
     return null;
   }
 

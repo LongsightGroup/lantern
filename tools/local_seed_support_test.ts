@@ -1,6 +1,11 @@
 import { assert, assertEquals } from '@std/assert';
 import { createObjectEnvReader } from '../src/platform/env.ts';
-import { listReferencePackageIds } from '../src/package_review/intake.ts';
+import {
+  getReferencePackageSourceRoot,
+  listReferencePackageIds,
+  readReferencePackageReviewData,
+} from '../src/package_review/intake.ts';
+import { createFileSystemPackageSource } from '../src/package_review/package_source_fs.ts';
 import { getDefaultPackageSnapshotStore } from '../src/package_review/snapshot_store_fs.ts';
 import { getTestToolPrivateJwkEnvValue } from '../src/test_helpers/lti.ts';
 import { createInMemoryPackageReviewRepository } from '../src/test_helpers/package_review.ts';
@@ -27,7 +32,14 @@ Deno.test("seedReferencePackages imports and approves Lantern's shipped referenc
     assertEquals(summary.approvedCount, listReferencePackageIds().length);
 
     for (const appId of listReferencePackageIds()) {
-      const packageVersion = await repository.getPackageVersionByAppVersion(appId, '0.1.0');
+      const reviewData = await readReferencePackageReviewData(
+        appId,
+        createFileSystemPackageSource(getReferencePackageSourceRoot(appId)),
+      );
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        appId,
+        reviewData.version,
+      );
 
       assertEquals(packageVersion?.approvalStatus, 'approved');
       assert(packageVersion?.accessibilityReview !== null);

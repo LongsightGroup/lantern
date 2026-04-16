@@ -1,5 +1,5 @@
-import type { Pool } from "@db/postgres";
-import type { DeploymentBinding, RuntimeSessionRecord } from "../lti/types.ts";
+import type { Pool } from '@db/postgres';
+import type { DeploymentBinding, RuntimeSessionRecord } from '../lti/types.ts';
 import type {
   AttemptEvidenceArtifactRecord,
   AttemptRecord,
@@ -8,10 +8,10 @@ import type {
   GradePublicationRecord,
   LineItemBindingRecord,
   PackageVersionRecord,
-} from "../package_review/types.ts";
-import { buildDeploymentRecord } from "../test_helpers/package_review.ts";
+} from '../package_review/types.ts';
+import { buildDeploymentRecord } from '../test_helpers/package_review.ts';
 
-type TestClient = Awaited<ReturnType<Pool["connect"]>>;
+type TestClient = Awaited<ReturnType<Pool['connect']>>;
 
 export type BrokerVerificationRunFixture = {
   certificationState: string | null;
@@ -26,17 +26,13 @@ export type BrokerVerificationRunFixture = {
 };
 
 export async function createOpsRepositoryForTest(pool: Pool) {
-  const { createOpsRepository } = await import("./repository.ts");
+  const { createOpsRepository } = await import('./repository.ts');
   return createOpsRepository(pool);
 }
 
-export async function insertAuditEvent(
-  client: TestClient,
-  event: AuditEventRecord,
-): Promise<void> {
+export async function insertAuditEvent(client: TestClient, event: AuditEventRecord): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO audit_events (id, event_type, actor_type, actor_id, deployment_record_id, package_version_id, attempt_id, line_item_binding_id, status, summary, detail, occurred_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)",
+    text: 'INSERT INTO audit_events (id, event_type, actor_type, actor_id, deployment_record_id, package_version_id, attempt_id, line_item_binding_id, status, summary, detail, occurred_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)',
     args: [
       event.id,
       event.eventType,
@@ -59,8 +55,7 @@ export async function insertPackageVersion(
   record: PackageVersionRecord,
 ): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO package_versions (id, app_id, version, title, description, owner_type, owner_id, entrypoint, roles, install_scope, capabilities, grading_mode, grading_rubric_file, grading_max_score, approval_status, review_notes, accessibility_review, reviewed_at, validation_issues, manifest_json, artifact_root, artifact_digest, runtime_contract, runtime_contract_signature, imported_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18, $19::jsonb, $20::jsonb, $21, $22, $23::jsonb, $24, $25)",
+    text: 'INSERT INTO package_versions (id, app_id, version, title, description, owner_type, owner_id, entrypoint, roles, install_scope, capabilities, grading_mode, grading_rubric_file, grading_max_score, approval_status, review_notes, accessibility_review, reviewed_at, validation_issues, manifest_json, artifact_root, artifact_digest, runtime_contract, runtime_contract_signature, imported_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17::jsonb, $18, $19::jsonb, $20::jsonb, $21, $22, $23::jsonb, $24, $25)',
     args: [
       record.id,
       record.appId,
@@ -78,9 +73,7 @@ export async function insertPackageVersion(
       record.grading.maxScore,
       record.approvalStatus,
       record.reviewNotes,
-      record.accessibilityReview === null
-        ? null
-        : JSON.stringify(record.accessibilityReview),
+      record.accessibilityReview === null ? null : JSON.stringify(record.accessibilityReview),
       record.reviewedAt,
       JSON.stringify(record.validationIssues),
       JSON.stringify(record.manifestJson),
@@ -98,9 +91,7 @@ export async function insertDeployment(
   appId: string,
   enabledPackageVersionId: number,
   binding: DeploymentBinding,
-  overrides: Partial<
-    Pick<DeploymentRecord, "id" | "slug" | "label" | "updatedAt">
-  > = {},
+  overrides: Partial<Pick<DeploymentRecord, 'id' | 'slug' | 'label' | 'updatedAt'>> = {},
 ): Promise<void> {
   const record = buildDeploymentRecord({
     id: overrides.id ?? 1,
@@ -109,14 +100,11 @@ export async function insertDeployment(
     binding,
     ...(overrides.slug === undefined ? {} : { slug: overrides.slug }),
     ...(overrides.label === undefined ? {} : { label: overrides.label }),
-    ...(overrides.updatedAt === undefined
-      ? {}
-      : { updatedAt: overrides.updatedAt }),
+    ...(overrides.updatedAt === undefined ? {} : { updatedAt: overrides.updatedAt }),
   });
 
   await client.queryArray({
-    text:
-      "INSERT INTO deployments (id, slug, label, app_id, enabled_package_version_id, lms_type, canvas_environment, issuer, client_id, deployment_id, authorization_endpoint, access_token_url, jwks_url, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+    text: 'INSERT INTO deployments (id, slug, label, app_id, enabled_package_version_id, lms_type, canvas_environment, issuer, client_id, deployment_id, authorization_endpoint, access_token_url, jwks_url, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
     args: [
       record.id,
       record.slug,
@@ -124,25 +112,21 @@ export async function insertDeployment(
       record.appId,
       record.enabledPackageVersionId,
       binding.lms,
-      binding.lms === "canvas" ? binding.canvasEnvironment : null,
+      binding.lms === 'canvas' ? binding.canvasEnvironment : null,
       binding.issuer,
       binding.clientId,
       binding.deploymentId,
-      binding.lms === "canvas" ? null : binding.authorizationEndpoint,
-      binding.lms === "canvas" ? null : binding.accessTokenUrl,
-      binding.lms === "canvas" ? null : binding.jwksUrl,
+      binding.lms === 'canvas' ? null : binding.authorizationEndpoint,
+      binding.lms === 'canvas' ? null : binding.accessTokenUrl,
+      binding.lms === 'canvas' ? null : binding.jwksUrl,
       record.updatedAt,
     ],
   });
 }
 
-export async function insertAttempt(
-  client: TestClient,
-  record: AttemptRecord,
-): Promise<void> {
+export async function insertAttempt(client: TestClient, record: AttemptRecord): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO attempts (id, attempt_id, deployment_record_id, deployment_slug, app_id, package_version_id, package_version, user_id, user_display_name, user_email, user_login, user_role, context_id, resource_link_id, activity_id, status, completion_state, started_at, finalized_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
+    text: 'INSERT INTO attempts (id, attempt_id, deployment_record_id, deployment_slug, app_id, package_version_id, package_version, user_id, user_display_name, user_email, user_login, user_role, context_id, resource_link_id, activity_id, status, completion_state, started_at, finalized_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)',
     args: [
       record.id,
       record.attemptId,
@@ -172,8 +156,7 @@ export async function insertRuntimeSession(
   record: RuntimeSessionRecord,
 ): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO runtime_sessions (session_id, session_token, attempt_id, deployment_record_id, deployment_slug, app_id, package_version_id, package_version, capabilities, snapshot_root, entrypoint_path, content_path, ags_scope, ags_lineitems_url, ags_lineitem_url, nrps_context_memberships_url, nrps_service_versions, launch_user_role, launch_course_id, launch_assignment_id, launch_activity_id, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)",
+    text: 'INSERT INTO runtime_sessions (session_id, session_token, attempt_id, deployment_record_id, deployment_slug, app_id, package_version_id, package_version, capabilities, snapshot_root, entrypoint_path, content_path, ags_scope, ags_lineitems_url, ags_lineitem_url, nrps_context_memberships_url, nrps_service_versions, launch_user_role, launch_course_id, launch_assignment_id, launch_activity_id, created_at, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)',
     args: [
       record.sessionId,
       record.sessionToken,
@@ -207,8 +190,7 @@ export async function insertLineItemBinding(
   record: LineItemBindingRecord,
 ): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO line_item_bindings (id, deployment_record_id, package_version_id, context_id, resource_link_id, activity_id, line_items_url, line_item_url, resource_id, tag, label, score_maximum, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+    text: 'INSERT INTO line_item_bindings (id, deployment_record_id, package_version_id, context_id, resource_link_id, activity_id, line_items_url, line_item_url, resource_id, tag, label, score_maximum, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)',
     args: [
       record.id,
       record.deploymentRecordId,
@@ -233,8 +215,7 @@ export async function insertGradePublication(
   record: GradePublicationRecord,
 ): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO grade_publications (id, attempt_id, line_item_binding_id, line_item_url, platform_user_id, score_given, score_maximum, activity_progress, grading_progress, status, created_at, updated_at, published_at, error_code, error_detail) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)",
+    text: 'INSERT INTO grade_publications (id, attempt_id, line_item_binding_id, line_item_url, platform_user_id, score_given, score_maximum, activity_progress, grading_progress, status, created_at, updated_at, published_at, error_code, error_detail) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)',
     args: [
       record.id,
       record.attemptId,
@@ -260,8 +241,7 @@ export async function insertAttemptEvidenceArtifact(
   record: AttemptEvidenceArtifactRecord,
 ): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO attempt_evidence_artifacts (artifact_id, attempt_id, sequence, kind, content_type, file_name, storage_key, byte_size, sha256, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
+    text: 'INSERT INTO attempt_evidence_artifacts (artifact_id, attempt_id, sequence, kind, content_type, file_name, storage_key, byte_size, sha256, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
     args: [
       record.artifactId,
       record.attemptId,
@@ -282,8 +262,7 @@ export async function insertBrokerVerificationRun(
   record: BrokerVerificationRunFixture,
 ): Promise<void> {
   await client.queryArray({
-    text:
-      "INSERT INTO broker_verification_runs (deployment_record_id, scope, workflow_key, source, status, summary, detail_url, certification_state, checked_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    text: 'INSERT INTO broker_verification_runs (deployment_record_id, scope, workflow_key, source, status, summary, detail_url, certification_state, checked_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
     args: [
       record.deploymentRecordId,
       record.scope,

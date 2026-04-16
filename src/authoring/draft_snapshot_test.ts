@@ -91,7 +91,7 @@ Deno.test('materializeDraftPreviewPackageVersion overlays saved draft files into
     assertEquals(packageVersion.artifact.snapshotRoot, sourceRoot);
   } finally {
     await Deno.remove(sourceRoot, { recursive: true });
-    await Deno.remove('var/authoring-drafts', { recursive: true }).catch(() => undefined);
+    await Deno.remove('var/authoring-drafts', { recursive: true }).catch(() => {});
   }
 });
 

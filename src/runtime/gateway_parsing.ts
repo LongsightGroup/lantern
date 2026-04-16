@@ -317,7 +317,7 @@ function parseOptionalBrowserGraderResult(value: unknown): BrowserGraderResult |
 
 function requireSpecResults(value: unknown): BrowserGraderSpecResult[] {
   if (!Array.isArray(value)) {
-    throw new Error('Browser grader result specResults must be an array.');
+    throw new TypeError('Browser grader result specResults must be an array.');
   }
 
   return value.map((candidate, index) => parseSpecResult(candidate, index));
@@ -355,7 +355,7 @@ function decodeBase64(value: string): Uint8Array {
     const bytes = new Uint8Array(decoded.length);
 
     for (let index = 0; index < decoded.length; index += 1) {
-      bytes[index] = decoded.charCodeAt(index);
+      bytes[index] = decoded.codePointAt(index) ?? 0;
     }
 
     return bytes;
@@ -388,7 +388,7 @@ function parseSpecResult(value: unknown, index: number): BrowserGraderSpecResult
 
 function requireFailureMessages(value: unknown, index: number): string[] {
   if (!Array.isArray(value)) {
-    throw new Error(`Browser grader spec result ${index + 1} failures must be an array.`);
+    throw new TypeError(`Browser grader spec result ${index + 1} failures must be an array.`);
   }
 
   return value.map((candidate, failureIndex) =>

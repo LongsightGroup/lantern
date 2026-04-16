@@ -1,26 +1,23 @@
-import type { PackageSnapshotStore } from "../package_review/snapshot_store.ts";
-import {
-  requireRelativeSnapshotPath,
-  trimLeadingSlash,
-} from "../package_review/snapshot_path.ts";
+import type { PackageSnapshotStore } from '../package_review/snapshot_store.ts';
+import { requireRelativeSnapshotPath, trimLeadingSlash } from '../package_review/snapshot_path.ts';
 import {
   buildBrowserGraderHarnessSource,
   buildBrowserGraderRunnerSource,
   readReviewedBrowserGraderConfig,
-} from "./browser_grader.ts";
+} from './browser_grader.ts';
 import {
   contentTypeForRuntimePath,
   type ReviewedRuntimeDeliveryContext,
   type RuntimeBinaryAsset,
   type RuntimeDelivery,
   type RuntimeDeliveryDescriptor,
-} from "./delivery.ts";
-import { errorMessage, failRuntimeOutcome } from "./gateway_errors.ts";
+} from './delivery.ts';
+import { errorMessage, failRuntimeOutcome } from './gateway_errors.ts';
 
-const DYNAMIC_WORKER_COMPATIBILITY_DATE = "2026-04-06";
-const REVIEWED_RUNTIME_ENVELOPE_VERSION = "v1";
-const INTERNAL_BROWSER_GRADER_PREFIX = "/_lantern_internal/browser-grader";
-const INTERNAL_RUNTIME_ORIGIN = "https://reviewed-runtime.internal";
+const DYNAMIC_WORKER_COMPATIBILITY_DATE = '2026-04-06';
+const REVIEWED_RUNTIME_ENVELOPE_VERSION = 'v1';
+const INTERNAL_BROWSER_GRADER_PREFIX = '/_lantern_internal/browser-grader';
+const INTERNAL_RUNTIME_ORIGIN = 'https://reviewed-runtime.internal';
 
 const textEncoder = new TextEncoder();
 
@@ -56,17 +53,15 @@ export function createDynamicWorkerRuntimeDelivery(input: {
   snapshotStore: PackageSnapshotStore;
   envelopeVersion?: string;
 }): RuntimeDelivery {
-  const envelopeVersion = input.envelopeVersion ??
-    REVIEWED_RUNTIME_ENVELOPE_VERSION;
+  const envelopeVersion = input.envelopeVersion ?? REVIEWED_RUNTIME_ENVELOPE_VERSION;
 
   return {
-    substrate: "dynamic_worker",
+    substrate: 'dynamic_worker',
     describeDelivery(delivery): RuntimeDeliveryDescriptor {
       return {
-        substrate: "dynamic_worker",
+        substrate: 'dynamic_worker',
         workerId: buildReviewedRuntimeWorkerId({
-          runtimeContractSignature: delivery.reviewedPackage
-            .runtimeContractSignature,
+          runtimeContractSignature: delivery.reviewedPackage.runtimeContractSignature,
           envelopeVersion,
         }),
       };
@@ -74,7 +69,7 @@ export function createDynamicWorkerRuntimeDelivery(input: {
     async loadReviewedAsset(delivery) {
       const relativePath = requireRelativeSnapshotPath(
         delivery.relativePath,
-        "Runtime file path must stay inside the reviewed snapshot.",
+        'Runtime file path must stay inside the reviewed snapshot.',
       );
       const response = await dispatchReviewedRuntimeWorkerRequest({
         ...delivery,
@@ -90,7 +85,7 @@ export function createDynamicWorkerRuntimeDelivery(input: {
       });
 
       if (asset === null) {
-        throw new Error("Reviewed runtime asset was unexpectedly missing.");
+        throw new Error('Reviewed runtime asset was unexpectedly missing.');
       }
 
       return asset;
@@ -138,9 +133,9 @@ export async function buildReviewedRuntimeWorkerCode(
 
   return {
     compatibilityDate: DYNAMIC_WORKER_COMPATIBILITY_DATE,
-    mainModule: "index.js",
+    mainModule: 'index.js',
     modules: {
-      "index.js": buildReviewedRuntimeWorkerSource(assets),
+      'index.js': buildReviewedRuntimeWorkerSource(assets),
     },
     globalOutbound: null,
   };
@@ -152,19 +147,14 @@ export async function buildReviewedRuntimeAssetMap(
   },
 ): Promise<Record<string, ImmutableRuntimeAsset>> {
   const assets: Record<string, ImmutableRuntimeAsset> = {};
-  const snapshotFiles = await input.snapshotStore.listFiles(
-    input.session.snapshotRoot,
-  );
+  const snapshotFiles = await input.snapshotStore.listFiles(input.session.snapshotRoot);
 
   for (const relativePath of snapshotFiles) {
     const normalizedPath = requireRelativeSnapshotPath(
       relativePath,
-      "Reviewed runtime asset path must stay inside the reviewed snapshot.",
+      'Reviewed runtime asset path must stay inside the reviewed snapshot.',
     );
-    const bytes = await input.snapshotStore.readBytes(
-      input.session.snapshotRoot,
-      normalizedPath,
-    );
+    const bytes = await input.snapshotStore.readBytes(input.session.snapshotRoot, normalizedPath);
 
     assets[buildReviewedAssetWorkerPath(normalizedPath)] = {
       contentType: contentTypeForRuntimePath(normalizedPath),
@@ -172,19 +162,15 @@ export async function buildReviewedRuntimeAssetMap(
     };
   }
 
-  const browserGraderConfig = readReviewedBrowserGraderConfig(
-    input.reviewedPackage,
-  );
+  const browserGraderConfig = readReviewedBrowserGraderConfig(input.reviewedPackage);
 
   if (browserGraderConfig !== null) {
-    assets[buildBrowserGraderWorkerPath("jasmine.js")] = {
-      contentType: "application/javascript; charset=UTF-8",
-      bodyBase64: encodeBase64(
-        textEncoder.encode(buildBrowserGraderHarnessSource()),
-      ),
+    assets[buildBrowserGraderWorkerPath('jasmine.js')] = {
+      contentType: 'application/javascript; charset=UTF-8',
+      bodyBase64: encodeBase64(textEncoder.encode(buildBrowserGraderHarnessSource())),
     };
-    assets[buildBrowserGraderWorkerPath("runner.js")] = {
-      contentType: "application/javascript; charset=UTF-8",
+    assets[buildBrowserGraderWorkerPath('runner.js')] = {
+      contentType: 'application/javascript; charset=UTF-8',
       bodyBase64: encodeBase64(
         textEncoder.encode(
           buildBrowserGraderRunnerSource({
@@ -195,17 +181,12 @@ export async function buildReviewedRuntimeAssetMap(
       ),
     };
 
-    for (
-      const [index, specPath] of browserGraderConfig.reviewedSpecFiles.entries()
-    ) {
+    for (const [index, specPath] of browserGraderConfig.reviewedSpecFiles.entries()) {
       const normalizedPath = requireRelativeSnapshotPath(
         trimLeadingSlash(specPath),
-        "Browser grader spec path must stay inside the reviewed snapshot.",
+        'Browser grader spec path must stay inside the reviewed snapshot.',
       );
-      const bytes = await input.snapshotStore.readBytes(
-        input.session.snapshotRoot,
-        normalizedPath,
-      );
+      const bytes = await input.snapshotStore.readBytes(input.session.snapshotRoot, normalizedPath);
 
       assets[buildBrowserGraderWorkerPath(`reviewed/${index}.js`)] = {
         contentType: contentTypeForRuntimePath(normalizedPath),
@@ -228,8 +209,7 @@ async function dispatchReviewedRuntimeWorkerRequest(
   try {
     const worker = input.loader.get(
       buildReviewedRuntimeWorkerId({
-        runtimeContractSignature:
-          input.reviewedPackage.runtimeContractSignature,
+        runtimeContractSignature: input.reviewedPackage.runtimeContractSignature,
         envelopeVersion: input.envelopeVersion,
       }),
       () =>
@@ -241,18 +221,18 @@ async function dispatchReviewedRuntimeWorkerRequest(
         }),
     );
 
-    return await worker.getEntrypoint().fetch(
-      new Request(`${INTERNAL_RUNTIME_ORIGIN}${input.path}`),
-    );
+    return await worker
+      .getEntrypoint()
+      .fetch(new Request(`${INTERNAL_RUNTIME_ORIGIN}${input.path}`));
   } catch (error) {
     failRuntimeOutcome({
-      type: "integrity_failure",
-      code: "runtime_delivery_failed",
+      type: 'integrity_failure',
+      code: 'runtime_delivery_failed',
       message: errorMessage(error),
       status: 409,
       detail: {
         relativePath: input.path,
-        deliverySubstrate: "dynamic_worker",
+        deliverySubstrate: 'dynamic_worker',
       },
     });
   }
@@ -273,8 +253,8 @@ async function readRuntimeWorkerAssetResponse(input: {
 
   return {
     bytes: new Uint8Array(await input.response.arrayBuffer()),
-    contentType: input.response.headers.get("content-type") ??
-      contentTypeForRuntimePath(input.relativePath),
+    contentType:
+      input.response.headers.get('content-type') ?? contentTypeForRuntimePath(input.relativePath),
   };
 }
 
@@ -283,27 +263,21 @@ async function failReviewedRuntimeWorkerResponse(
   relativePath: string,
 ): Promise<never> {
   const message = await response.text();
-  const code = response.status === 404
-    ? "runtime_file_missing"
-    : "runtime_delivery_failed";
+  const code = response.status === 404 ? 'runtime_file_missing' : 'runtime_delivery_failed';
 
   failRuntimeOutcome({
-    type: "integrity_failure",
+    type: 'integrity_failure',
     code,
-    message: message === ""
-      ? "Dynamic Worker runtime delivery failed."
-      : message,
+    message: message === '' ? 'Dynamic Worker runtime delivery failed.' : message,
     status: 409,
     detail: {
       relativePath,
-      deliverySubstrate: "dynamic_worker",
+      deliverySubstrate: 'dynamic_worker',
     },
   });
 }
 
-function buildReviewedRuntimeWorkerSource(
-  assets: Record<string, ImmutableRuntimeAsset>,
-): string {
+function buildReviewedRuntimeWorkerSource(assets: Record<string, ImmutableRuntimeAsset>): string {
   return `const assets = ${JSON.stringify(assets)};
 
 export default {
@@ -338,7 +312,7 @@ function decodeBase64(value) {
 function buildReviewedAssetWorkerPath(relativePath: string): string {
   const normalizedPath = requireRelativeSnapshotPath(
     relativePath,
-    "Reviewed runtime asset path must stay inside the reviewed snapshot.",
+    'Reviewed runtime asset path must stay inside the reviewed snapshot.',
   );
 
   return `/${normalizedPath}`;
@@ -347,17 +321,17 @@ function buildReviewedAssetWorkerPath(relativePath: string): string {
 function buildBrowserGraderWorkerPath(assetPath: string): string {
   const normalizedPath = requireRelativeSnapshotPath(
     trimLeadingSlash(assetPath),
-    "Browser grader asset path must stay inside the reviewed snapshot.",
+    'Browser grader asset path must stay inside the reviewed snapshot.',
   );
 
   return `${INTERNAL_BROWSER_GRADER_PREFIX}/${normalizedPath}`;
 }
 
 function encodeBase64(bytes: Uint8Array): string {
-  let binary = "";
+  let binary = '';
 
   for (let index = 0; index < bytes.length; index += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+    binary += String.fromCodePoint(...bytes.subarray(index, index + 0x8000));
   }
 
   return btoa(binary);
