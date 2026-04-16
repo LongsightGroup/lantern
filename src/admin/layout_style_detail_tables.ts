@@ -89,11 +89,11 @@ export const ADMIN_LAYOUT_STYLE_DETAIL_TABLES = `
       }
 
       .version-row {
-        gap: 12px;
+        gap: 14px;
       }
 
       .version-row-current {
-        background: color-mix(in srgb, var(--success-soft) 24%, var(--surface));
+        background: color-mix(in srgb, var(--accent-soft) 72%, var(--surface));
       }
 
       .version-row-layout {
@@ -105,6 +105,11 @@ export const ADMIN_LAYOUT_STYLE_DETAIL_TABLES = `
 
       .version-row-copy {
         min-width: 0;
+        gap: 8px;
+      }
+
+      .version-row-state {
+        gap: 8px;
       }
 
       .version-row-actions {
@@ -118,9 +123,23 @@ export const ADMIN_LAYOUT_STYLE_DETAIL_TABLES = `
       }
 
       .version-summary-chip {
-        background: color-mix(in srgb, var(--success-soft) 76%, white);
-        border-color: color-mix(in srgb, var(--success) 18%, var(--line));
-        color: color-mix(in srgb, var(--success) 74%, var(--ink));
+        background: color-mix(in srgb, var(--accent-soft) 84%, white);
+        border-color: color-mix(in srgb, var(--accent) 22%, var(--line));
+        color: color-mix(in srgb, var(--accent) 82%, var(--ink));
+        font-weight: 700;
+      }
+
+      .version-summary-chip-muted {
+        background: color-mix(in srgb, var(--bg) 72%, white);
+        border-color: var(--line);
+        color: var(--secondary);
+        font-weight: 600;
+      }
+
+      .version-rollout-chip {
+        background: color-mix(in srgb, var(--bg) 70%, white);
+        border-color: color-mix(in srgb, var(--secondary) 10%, var(--line));
+        color: var(--secondary);
         font-weight: 600;
       }
 

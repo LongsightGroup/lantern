@@ -11,6 +11,7 @@ import {
 } from '../package_review/summary.ts';
 import type { PackageVersionRecord } from '../package_review/types.ts';
 import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import { renderPackagePageNav } from './package_navigation.ts';
 import { renderDecisionSection, renderHistoryRow } from './package_detail_sections.ts';
 
 export function renderPackageDetailPage(input: {
@@ -29,14 +30,23 @@ export function renderPackageDetailPage(input: {
     title: `${packageVersion.title} ${packageVersion.version}`,
     eyebrow: 'Version details',
     heading: packageVersion.title,
-    intro: 'Review this version before you make it live.',
+    intro: `Review version ${packageVersion.version} before you make it live.`,
     activePath: '/admin/packages',
     breadcrumbs: [
       { label: 'Apps', href: '/admin/packages' },
-      { label: packageVersion.title },
+      {
+        label: packageVersion.title,
+        href: `/admin/packages/${packageVersion.appId}`,
+      },
       { label: packageVersion.version },
     ],
     notice: input.notice ?? null,
+    pageNav: renderPackagePageNav({
+      appId: packageVersion.appId,
+      history: input.history,
+      currentSection: 'version',
+      currentVersion: packageVersion,
+    }),
     body: `<section class="panel">
       <div class="panel-body two-column">
         <div class="stack">
@@ -148,11 +158,11 @@ export function renderPackageDetailPage(input: {
       </div>
     </section>
     <section class="panel">
-      <div class="panel-body grid">
+      <div class="panel-body stack">
         <div class="stack">
-          <p class="section-label">More details</p>
+          <p class="section-label">Saved details</p>
           <details>
-            <summary>Show access notes and saved file details</summary>
+            <summary>Show access notes, saved files, and manifest JSON</summary>
             <div class="line-list">
               ${capabilitySummary
                 .map(
@@ -178,6 +188,7 @@ export function renderPackageDetailPage(input: {
                 )} with checksum ${escapeHtml(packageVersion.artifact.digest)}.</p>
               </article>
             </div>
+            <pre>${escapeHtml(JSON.stringify(packageVersion.manifestJson, null, 2))}</pre>
           </details>
         </div>
         ${
@@ -201,20 +212,11 @@ export function renderPackageDetailPage(input: {
     </section>
     ${renderDecisionSection(packageVersion)}
     <section class="panel">
-      <div class="panel-body two-column">
-        <section class="stack">
-          <p class="section-label">Other versions</p>
-          <div class="table-list">
-            ${input.history.map((version) => renderHistoryRow(packageVersion, version)).join('')}
-          </div>
-        </section>
-        <section class="stack">
-          <p class="section-label">Technical details</p>
-          <details>
-            <summary>Show manifest JSON</summary>
-            <pre>${escapeHtml(JSON.stringify(packageVersion.manifestJson, null, 2))}</pre>
-          </details>
-        </section>
+      <div class="panel-body stack">
+        <p class="section-label">Other versions</p>
+        <div class="table-list">
+          ${input.history.map((version) => renderHistoryRow(packageVersion, version)).join('')}
+        </div>
       </div>
     </section>`,
   });

@@ -60,6 +60,12 @@ Deno.test("renderPreviewPage shows saved defaults, editable launch fields, and e
   assertEquals(body.includes('<div class="two-column">'), false);
   assertEquals(body.includes("Edit before launch"), false);
   assertEquals(body.includes("Reviewed package"), false);
+  assertEquals(
+    body.includes(
+      "Use the saved defaults below, or change them before starting.",
+    ),
+    false,
+  );
   assertEquals(body.includes("Choose the LMS role to simulate."), false);
   assertEquals(
     body.includes(
@@ -160,4 +166,58 @@ Deno.test("renderPreviewPage shows durable test activity evidence in capability 
     body,
     "Finished the test attempt with simulated scoring and no LMS writes.",
   );
+});
+
+Deno.test("renderPreviewPage renders screenshot evidence as supplemental on the existing activity timeline", () => {
+  const packageVersion = buildPackageVersionRecord({
+    id: 11,
+    appId: "chapter-4-asteroids",
+    version: "0.3.0",
+    title: "Chapter 4 Asteroids",
+    approvalStatus: "approved",
+    reviewedAt: "2026-03-25T00:00:00Z",
+  });
+  const previewSession = buildPreviewSessionRecord({
+    sessionId: "preview-session-456",
+    packageVersionId: packageVersion.id,
+    appId: packageVersion.appId,
+    packageVersion: packageVersion.version,
+    packageTitle: packageVersion.title,
+  });
+  const body = renderPreviewPage({
+    packageVersion,
+    savedDefaults: previewSession,
+    latestSession: previewSession,
+    formValues: {
+      userRole: previewSession.launch.userRole,
+      courseId: previewSession.launch.courseId,
+      assignmentId: previewSession.launch.assignmentId ?? "",
+      activityId: previewSession.launch.activityId,
+    },
+    previewEvidence: [
+      buildPreviewEvidenceRecord({
+        previewSessionId: previewSession.sessionId,
+        eventType: "preview.evidence_artifact",
+        capability: "submit_evidence_artifact",
+        summary: "Stored an anonymous evidence artifact in the test session.",
+        detail: {
+          artifactId: "artifact-002",
+          kind: "screenshot_png",
+          contentType: "image/png",
+          fileName: "submission.png",
+          byteSize: 2048,
+          sha256: "sha256:artifact-002",
+        },
+      }),
+    ],
+  });
+
+  assertStringIncludes(body, "Supplemental screenshot evidence");
+  assertStringIncludes(body, "not exhaustive proof of learner behavior");
+  assertStringIncludes(body, "<img");
+  assertStringIncludes(
+    body,
+    "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-002",
+  );
+  assertStringIncludes(body, "submission.png");
 });

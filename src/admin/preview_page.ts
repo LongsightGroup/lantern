@@ -61,9 +61,10 @@ export function renderPreviewPage(input: {
         <div class="preview-launch-stack">
           <p class="section-label">Test launch</p>
           <h2>Version ${escapeHtml(packageVersion.version)}</h2>
-          <p>Use the saved defaults below, or change them before starting.</p>
           <p class="micro muted">Defaults ${
-      renderLaunchSummary(savedDefaults.launch)
+      renderLaunchSummary(
+        savedDefaults.launch,
+      )
     }. No LMS sign-in or live LMS writes.</p>
           <form method="post" class="stack" action="/admin/packages/${
       escapeHtml(
@@ -152,11 +153,11 @@ export function renderPreviewPage(input: {
       <div class="panel-body stack">
         <p class="section-label">Recent test activity</p>
         ${
-      latestSession === null
-        ? ""
-        : `<p>Latest session <strong>${
-          escapeHtml(latestSession.sessionId)
-        }</strong> ran ${renderLaunchSummary(latestSession.launch)}.</p>`
+      latestSession === null ? "" : `<p>Latest session <strong>${
+        escapeHtml(
+          latestSession.sessionId,
+        )
+      }</strong> ran ${renderLaunchSummary(latestSession.launch)}.</p>`
     }
         ${
       previewEvidence.length === 0
@@ -179,7 +180,9 @@ export function renderPreviewPage(input: {
               </p>
               <p class="micro muted">${escapeHtml(record.occurredAt)}</p>
               <p class="micro muted"><span class="inline-code">${
-                  escapeHtml(record.eventType)
+                  escapeHtml(
+                    record.eventType,
+                  )
                 }</span></p>
               <p class="line-copy">${escapeHtml(record.summary)}</p>
               ${renderPreviewEvidenceDetail(packageVersion.appId, record)}
@@ -215,6 +218,18 @@ function renderPreviewEvidenceDetail(
 
   const fileName = readPreviewEvidenceFileName(record.detail) ??
     "Evidence artifact";
+  const isScreenshot = isPreviewScreenshotEvidence(record.detail);
+
+  if (isScreenshot) {
+    return `<p class="micro muted">Supplemental screenshot evidence. Helpful for review, not exhaustive proof of learner behavior.</p>
+    <div class="micro muted">
+      <a href="${escapeHtml(artifactUrl)}">${escapeHtml(fileName)}</a>
+    </div>
+    <img src="${escapeHtml(artifactUrl)}" alt="${
+      escapeHtml(`Supplemental screenshot evidence ${fileName}`)
+    }" loading="lazy" style="max-width: 100%; height: auto;">
+    <div class="micro muted">${escapeHtml(detailText)}</div>`;
+  }
 
   return `<div class="micro muted">
       <a href="${escapeHtml(artifactUrl)}">${escapeHtml(fileName)}</a>
@@ -245,6 +260,11 @@ function readPreviewEvidenceFileName(
   return readPreviewEvidenceString(detail, "fileName");
 }
 
+function isPreviewScreenshotEvidence(detail: Record<string, unknown>): boolean {
+  return readPreviewEvidenceString(detail, "kind") === "screenshot_png" ||
+    readPreviewEvidenceString(detail, "contentType") === "image/png";
+}
+
 function readPreviewEvidenceString(
   detail: Record<string, unknown>,
   key: string,
@@ -265,9 +285,7 @@ function formatRoleLabel(role: string): string {
   }
 }
 
-function renderLaunchSummary(
-  launch: PreviewSessionRecord["launch"],
-): string {
+function renderLaunchSummary(launch: PreviewSessionRecord["launch"]): string {
   const assignment = launch.assignmentId === null
     ? "a course-level launch"
     : `assignment <span class="inline-code">${
@@ -275,11 +293,17 @@ function renderLaunchSummary(
     }</span>`;
 
   return `as ${
-    escapeHtml(formatRoleLabel(launch.userRole))
+    escapeHtml(
+      formatRoleLabel(launch.userRole),
+    )
   } in course <span class="inline-code">${
-    escapeHtml(launch.courseId)
+    escapeHtml(
+      launch.courseId,
+    )
   }</span>, ${assignment}, with activity <span class="inline-code">${
-    escapeHtml(launch.activityId)
+    escapeHtml(
+      launch.activityId,
+    )
   }</span>`;
 }
 

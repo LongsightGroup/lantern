@@ -3,15 +3,18 @@ import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
 import { loadToolSigningKey } from "../lti/tool_key.ts";
 import type { RuntimeSessionRecord } from "../lti/types.ts";
 import type { EnvReader } from "../platform/env.ts";
-import {
-  requireRelativeSnapshotPath,
-  toRelativeSnapshotPath,
-} from "../package_review/snapshot_path.ts";
+import { toRelativeSnapshotPath } from "../package_review/snapshot_path.ts";
 import {
   buildRuntimeSessionBaseUrl,
   requireConfiguredRuntimeOrigin,
 } from "../runtime_origin.ts";
 import type { RuntimeArtifactStore } from "./artifact_store.ts";
+import {
+  classifyRuntimeArtifactFailureCode,
+  type ReviewedRuntimeDeliveryContext,
+  type RuntimeDelivery,
+  runtimeEntrypointRelativePath,
+} from "./delivery.ts";
 import {
   buildRuntimeBootstrapScript,
   escapeHtmlAttribute,
@@ -70,14 +73,20 @@ export function authorizeRuntimeSession(input: {
 export async function renderRuntimeSessionPage(
   session: RuntimeSessionRecord,
   input: {
-    runtimeContractSignature: string;
     runtimeOrigin?: string;
     env: EnvReader;
-    artifactStore: RuntimeArtifactStore;
+    runtimeDelivery: RuntimeDelivery;
+    reviewedPackage: ReviewedRuntimeDeliveryContext["reviewedPackage"];
   },
 ): Promise<string> {
   const entrypointHtml = new TextDecoder().decode(
-    await loadRuntimeEntrypointBytes(session, input.artifactStore),
+    (
+      await input.runtimeDelivery.loadReviewedAsset({
+        session,
+        reviewedPackage: input.reviewedPackage,
+        relativePath: runtimeEntrypointRelativePath(session),
+      })
+    ).bytes,
   );
   const runtimeOrigin = input.runtimeOrigin ??
     requireConfiguredRuntimeOrigin(input.env.get("APP_RUNTIME_ORIGIN"));
@@ -93,7 +102,7 @@ export async function renderRuntimeSessionPage(
   }/${entrypointDirectory}`;
   const bootstrap = await buildRuntimeBootstrap({
     session,
-    runtimeContractSignature: input.runtimeContractSignature,
+    runtimeContractSignature: input.reviewedPackage.runtimeContractSignature,
     env: input.env,
   });
   const headInjection = `<base href="${escapeHtmlAttribute(assetBaseUrl)}">`;
@@ -142,68 +151,6 @@ export async function loadRuntimeActivityContent(
   }
 }
 
-export async function loadRuntimeAssetBytes(
-  session: RuntimeSessionRecord,
-  relativePath: string,
-  artifactStore: RuntimeArtifactStore,
-): Promise<Uint8Array> {
-  return await readRuntimeBytes(
-    session,
-    requireRelativeSnapshotPath(
-      relativePath,
-      "Runtime file path must stay inside the reviewed snapshot.",
-    ),
-    artifactStore,
-  );
-}
-
-export function contentTypeForRuntimePath(path: string): string {
-  if (path.endsWith(".html")) {
-    return "text/html; charset=UTF-8";
-  }
-
-  if (path.endsWith(".js")) {
-    return "application/javascript; charset=UTF-8";
-  }
-
-  if (path.endsWith(".css")) {
-    return "text/css; charset=UTF-8";
-  }
-
-  if (path.endsWith(".json")) {
-    return "application/json";
-  }
-
-  if (path.endsWith(".svg")) {
-    return "image/svg+xml";
-  }
-
-  if (path.endsWith(".png")) {
-    return "image/png";
-  }
-
-  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
-    return "image/jpeg";
-  }
-
-  return "application/octet-stream";
-}
-
-async function loadRuntimeEntrypointBytes(
-  session: RuntimeSessionRecord,
-  artifactStore: RuntimeArtifactStore,
-): Promise<Uint8Array> {
-  return await readRuntimeBytes(
-    session,
-    toRelativeSnapshotPath(
-      session.snapshotRoot,
-      session.entrypointPath,
-      "Runtime file is outside the reviewed snapshot.",
-    ),
-    artifactStore,
-  );
-}
-
 async function readRuntimeBytes(
   session: RuntimeSessionRecord,
   relativePath: string,
@@ -218,7 +165,7 @@ async function readRuntimeBytes(
 
     failRuntimeOutcome({
       type: "integrity_failure",
-      code: "runtime_file_invalid",
+      code: classifyRuntimeArtifactFailureCode(error),
       message: errorMessage(error),
       status: 409,
       detail: {

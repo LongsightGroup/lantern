@@ -1,0 +1,13 @@
+{
+  "launch": {
+    "user_role": "learner",
+    "course_id": "course_demo",
+    "assignment_id": "assignment_demo",
+    "activity_id": "simple-activity-starter"
+  },
+  "attempt_id": "attempt_simple_activity_demo",
+  "local_state": {
+    "progressCount": 1,
+    "finalized": "Not finished"
+  }
+}

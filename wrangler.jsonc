@@ -16,6 +16,11 @@
   "placement": {
     "mode": "smart",
   },
+  "worker_loaders": [
+    {
+      "binding": "LOADER",
+    },
+  ],
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",

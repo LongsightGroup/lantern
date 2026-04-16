@@ -9,7 +9,7 @@ import {
   renderSidebar,
 } from './layout_support.ts';
 
-export type { AdminBreadcrumb, AdminNotice, NavItem } from './layout_support.ts';
+export type { AdminBreadcrumb, AdminNotice, NavChildItem, NavItem } from './layout_support.ts';
 export { escapeHtml, formatDateTime } from './layout_support.ts';
 
 export function renderAdminLayout(input: {
@@ -18,6 +18,7 @@ export function renderAdminLayout(input: {
   heading: string;
   intro: string;
   body: string;
+  pageNav?: string;
   breadcrumbs?: AdminBreadcrumb[];
   notice?: AdminNotice | null;
   activePath?: string;
@@ -46,6 +47,7 @@ export function renderAdminLayout(input: {
           eyebrow: input.eyebrow,
           heading: input.heading,
           intro: input.intro,
+          pageNav: input.pageNav ?? null,
         })}
         <main class="page-body">
           <div class="content">

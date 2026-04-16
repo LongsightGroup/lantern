@@ -201,9 +201,12 @@ Allowed values in v1:
 
 Nothing else is valid in v1.
 
-`submit_evidence_artifact` requires `finalize_attempt`. It lets the reviewed app
-return evidence to Lantern, but Lantern still owns storage, submission binding,
-and any later grade publication.
+`submit_evidence_artifact` requires `finalize_attempt`. It maps to
+`window.GatewayApp.submitEvidenceArtifact()` and keeps one governed evidence
+path. The reviewed app can return structured JSON evidence and, when the review
+contract allows it, optional supplemental screenshot artifacts. Lantern still
+owns storage, submission binding, finalize, grading, audit, and any later grade
+publication.
 
 ### `grading.mode`
 
@@ -251,6 +254,12 @@ Canonical browser-autograder layout:
 
 These files are reviewable artifacts for teachers and future AI authoring flows.
 They do not grant LMS access, outbound HTTP, or direct grade writes.
+
+`authoring.evidence_example_file` should point to a structured JSON example.
+That JSON file is the canonical evidence baseline for authors and AI. Optional
+supplemental screenshot evidence still uses the same governed
+`submitEvidenceArtifact()` path and does not replace structured output as the
+primary review contract.
 
 When `grading.mode = "browser"`:
 

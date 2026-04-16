@@ -18,7 +18,7 @@ Deno.test('renderPackageDetailPage shows status, exact version, owner, and acces
   assertStringIncludes(body, 'What this app can access');
   assertStringIncludes(body, 'Finish attempt');
   assertStringIncludes(body, 'Automatic scoring');
-  assertStringIncludes(body, 'Show manifest JSON');
+  assertStringIncludes(body, 'Show access notes, saved files, and manifest JSON');
   assertStringIncludes(body, 'capability-chip-basic');
   assertStringIncludes(body, 'capability-chip-flagged');
 });

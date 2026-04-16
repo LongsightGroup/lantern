@@ -1,5 +1,8 @@
 import type { Pool, PoolClient } from "@db/postgres";
 import { createPackageReviewRepository } from "../package_review/repository.ts";
+import { mapAttemptEvidenceArtifactRow } from "../package_review/repository_mappers_attempts.ts";
+import type { AttemptEvidenceArtifactRow } from "../package_review/repository_row_types.ts";
+import type { AttemptEvidenceArtifactRecord } from "../package_review/types.ts";
 import type {
   BrokerVerificationStatus,
   CertificationWorkflowStatus,
@@ -135,9 +138,16 @@ export function createOpsRepository(pool: Pool): OpsRepository {
           deploymentRecordId,
           retryableGradePublication?.attemptId ?? null,
         );
+        const latestRuntimeAttemptId = latestRuntimeOutcome?.attemptId ??
+          latestRuntimeSession?.attemptId ?? null;
         const latestAnonymousEvidence = deriveLatestAnonymousEvidence(
           inventory.appId,
-          latestRuntimeOutcome,
+          latestRuntimeAttemptId === null
+            ? []
+            : await listAttemptEvidenceArtifactsForClient(
+              client,
+              latestRuntimeAttemptId,
+            ),
         );
 
         return {
@@ -393,46 +403,49 @@ async function getRetryableGradePublicationLookupForClient(
   return row ? mapRetryLookupRow(row) : null;
 }
 
-function deriveLatestAnonymousEvidence(
-  appId: string,
-  latestRuntimeOutcome: ControlPlaneRuntimeEvidenceSnapshot | null,
-): ControlPlaneAnonymousEvidenceArtifact[] {
-  const evidenceArtifacts = latestRuntimeOutcome?.detail.evidenceArtifacts;
-
-  if (!Array.isArray(evidenceArtifacts)) {
-    return [];
-  }
-
-  return evidenceArtifacts.flatMap((artifact) => {
-    if (!artifact || typeof artifact !== "object" || Array.isArray(artifact)) {
-      return [];
-    }
-
-    const record = artifact as Record<string, unknown>;
-    const artifactId = readDetailString(record, "artifactId");
-    const kind = readDetailString(record, "kind");
-    const fileName = readDetailString(record, "fileName");
-
-    if (artifactId === null || kind === null || fileName === null) {
-      return [];
-    }
-
-    return [{
-      artifactId,
-      kind,
-      fileName,
-      artifactUrl: `/admin/packages/${appId}/deployment/evidence/${artifactId}`,
-    }];
+async function listAttemptEvidenceArtifactsForClient(
+  client: PoolClient,
+  attemptId: string,
+): Promise<AttemptEvidenceArtifactRecord[]> {
+  const result = await client.queryObject<AttemptEvidenceArtifactRow>({
+    text: `
+      SELECT
+        artifact_id,
+        attempt_id,
+        sequence,
+        kind,
+        content_type,
+        file_name,
+        storage_key,
+        byte_size,
+        sha256,
+        created_at
+      FROM attempt_evidence_artifacts
+      WHERE attempt_id = $1
+      ORDER BY sequence ASC
+    `,
+    args: [attemptId],
+    camelCase: true,
   });
+
+  return result.rows.map(mapAttemptEvidenceArtifactRow);
 }
 
-function readDetailString(
-  detail: Record<string, unknown>,
-  key: string,
-): string | null {
-  const value = detail[key];
-
-  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+function deriveLatestAnonymousEvidence(
+  appId: string,
+  evidenceArtifacts: AttemptEvidenceArtifactRecord[],
+): ControlPlaneAnonymousEvidenceArtifact[] {
+  return evidenceArtifacts.map((artifact) => ({
+    artifactId: artifact.artifactId,
+    kind: artifact.kind,
+    fileName: artifact.fileName,
+    contentType: artifact.contentType,
+    byteSize: artifact.byteSize,
+    sha256: artifact.sha256,
+    createdAt: artifact.createdAt,
+    artifactUrl:
+      `/admin/packages/${appId}/deployment/evidence/${artifact.artifactId}`,
+  }));
 }
 
 async function withClient<T>(

@@ -1,27 +1,21 @@
-import { resolveSubmissionMode } from "../../sdk/app-sdk.ts";
-import type { RuntimeSessionRecord } from "../lti/types.ts";
-import type { PackageReviewRepository } from "../package_review/repository.ts";
+import { resolveSubmissionMode } from '../../sdk/app-sdk.ts';
+import type { RuntimeSessionRecord } from '../lti/types.ts';
+import type { PackageReviewRepository } from '../package_review/repository.ts';
 import {
   assertPathInsideSnapshot,
   ensureLeadingSlash,
   joinSnapshotPath,
   trimLeadingSlash,
-} from "../package_review/snapshot_path.ts";
-import type {
-  PackageVersionRecord,
-  PreviewSessionRecord,
-} from "../package_review/types.ts";
-import type { RuntimeArtifactStore } from "../runtime/artifact_store.ts";
-import {
-  loadPreviewFixtureData,
-  resolvePreviewContentPath,
-} from "./fixture.ts";
+} from '../package_review/snapshot_path.ts';
+import type { PackageVersionRecord, PreviewSessionRecord } from '../package_review/types.ts';
+import type { RuntimeArtifactStore } from '../runtime/artifact_store.ts';
+import { loadPreviewFixtureData, resolvePreviewContentPath } from './fixture.ts';
 
 export interface PreviewFakeScoringDefaults {
   scoreGiven: number;
   scoreMaximum: number;
-  activityProgress: "Completed";
-  gradingProgress: "FullyGraded";
+  activityProgress: 'Completed';
+  gradingProgress: 'FullyGraded';
 }
 
 export interface CreatedPreviewSession {
@@ -30,7 +24,7 @@ export interface CreatedPreviewSession {
 }
 
 export interface PreviewLaunchOverrides {
-  userRole?: PreviewSessionRecord["launch"]["userRole"];
+  userRole?: PreviewSessionRecord['launch']['userRole'];
   courseId?: string;
   assignmentId?: string | null;
   activityId?: string;
@@ -42,7 +36,7 @@ export async function createPreviewSession(input: {
   packageVersion: PackageVersionRecord;
   artifactStore: RuntimeArtifactStore;
   launch?: PreviewLaunchOverrides | null;
-  previewOrigin?: PreviewSessionRecord["origin"];
+  previewOrigin?: PreviewSessionRecord['origin'];
   deepLinkingSessionId?: string | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
@@ -56,8 +50,8 @@ export async function createPreviewSession(input: {
     fakeScoring: {
       scoreGiven: 0,
       scoreMaximum: previewSession.fakeScoreMaximum,
-      activityProgress: "Completed",
-      gradingProgress: "FullyGraded",
+      activityProgress: 'Completed',
+      gradingProgress: 'FullyGraded',
     },
   };
 }
@@ -69,7 +63,7 @@ export async function launchPreviewRuntimeSession(input: {
   packageVersion: PackageVersionRecord;
   artifactStore: RuntimeArtifactStore;
   launch?: PreviewLaunchOverrides | null;
-  previewOrigin?: PreviewSessionRecord["origin"];
+  previewOrigin?: PreviewSessionRecord['origin'];
   deepLinkingSessionId?: string | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
@@ -85,9 +79,7 @@ export async function launchPreviewRuntimeSession(input: {
     packageVersion: input.packageVersion,
     artifactStore: input.artifactStore,
     launch: input.launch ?? null,
-    ...(input.previewOrigin === undefined
-      ? {}
-      : { previewOrigin: input.previewOrigin }),
+    ...(input.previewOrigin === undefined ? {} : { previewOrigin: input.previewOrigin }),
     ...(input.deepLinkingSessionId === undefined
       ? {}
       : { deepLinkingSessionId: input.deepLinkingSessionId }),
@@ -99,7 +91,7 @@ export async function launchPreviewRuntimeSession(input: {
     label: buildPreviewDeploymentLabel(created.previewSession.packageTitle),
     appId: created.previewSession.appId,
     packageVersionId: created.previewSession.packageVersionId,
-    lmsType: "preview",
+    lmsType: 'preview',
   });
   const runtimeAttemptId = buildPreviewRuntimeAttemptId(created.previewSession);
 
@@ -118,7 +110,7 @@ export async function launchPreviewRuntimeSession(input: {
     contextId: created.previewSession.launch.courseId,
     resourceLinkId: `preview-resource-${created.previewSession.sessionId}`,
     activityId: created.previewSession.launch.activityId,
-    status: "in_progress",
+    status: 'in_progress',
     completionState: null,
     localState: null,
     startedAt: createdAt.toISOString(),
@@ -152,27 +144,21 @@ export async function launchPreviewRuntimeSession(input: {
         ? {}
         : { assignmentId: created.previewSession.launch.assignmentId }),
       activityId: created.previewSession.launch.activityId,
-      submissionMode: resolveSubmissionMode(
-        created.previewSession.capabilities,
-      ),
+      submissionMode: resolveSubmissionMode(created.previewSession.capabilities),
     },
     preview: {
       previewSessionId: created.previewSession.sessionId,
     },
     createdAt: createdAt.toISOString(),
-    expiresAt: new Date(createdAt.getTime() + PREVIEW_RUNTIME_SESSION_TTL_MS)
-      .toISOString(),
+    expiresAt: new Date(createdAt.getTime() + PREVIEW_RUNTIME_SESSION_TTL_MS).toISOString(),
   });
 
   await input.repository.appendPreviewEvidence({
     previewSessionId: created.previewSession.sessionId,
-    eventType: "preview.launch",
+    eventType: 'preview.launch',
     capability: null,
     summary: buildPreviewLaunchSummary(created.previewSession),
-    detail: buildPreviewLaunchDetail(
-      created.previewSession,
-      runtimeSession.sessionId,
-    ),
+    detail: buildPreviewLaunchDetail(created.previewSession, runtimeSession.sessionId),
     occurredAt: createdAt.toISOString(),
   });
 
@@ -182,9 +168,7 @@ export async function launchPreviewRuntimeSession(input: {
   };
 }
 
-function buildPreviewRuntimeAttemptId(
-  previewSession: PreviewSessionRecord,
-): string {
+function buildPreviewRuntimeAttemptId(previewSession: PreviewSessionRecord): string {
   return `${previewSession.fakeAttemptId}:${previewSession.sessionId}`;
 }
 
@@ -200,7 +184,7 @@ export async function preparePreviewSession(input: {
   packageVersion: PackageVersionRecord;
   artifactStore: RuntimeArtifactStore;
   launch?: PreviewLaunchOverrides | null;
-  previewOrigin?: PreviewSessionRecord["origin"];
+  previewOrigin?: PreviewSessionRecord['origin'];
   deepLinkingSessionId?: string | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
@@ -209,17 +193,14 @@ export async function preparePreviewSession(input: {
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const packageVersion = input.packageVersion;
 
-  if (packageVersion.approvalStatus !== "approved") {
+  if (packageVersion.approvalStatus !== 'approved') {
     throw new Error(
       `Test launch requires an approved package version. Found ${packageVersion.appId}@${packageVersion.version} in ${packageVersion.approvalStatus} state.`,
     );
   }
 
-  const fixtureData = await loadPreviewFixtureData(
-    packageVersion,
-    input.artifactStore,
-  );
-  const origin = input.previewOrigin ?? "adminTestLaunch";
+  const fixtureData = await loadPreviewFixtureData(packageVersion, input.artifactStore);
+  const origin = input.previewOrigin ?? 'adminTestLaunch';
   const contentPath = await resolvePreparedPreviewContentPath(
     packageVersion,
     input.artifactStore,
@@ -228,11 +209,7 @@ export async function preparePreviewSession(input: {
   const createdAt = now().toISOString();
   const sessionId = `preview-session-${createOpaqueToken()}`;
   const launchUserId = `preview-user-${createOpaqueToken()}`;
-  const launch = resolvePreviewLaunch(
-    packageVersion,
-    fixtureData,
-    input.launch,
-  );
+  const launch = resolvePreviewLaunch(packageVersion, fixtureData, input.launch);
 
   return {
     sessionId,
@@ -261,27 +238,25 @@ export async function preparePreviewSession(input: {
 }
 
 function defaultOpaqueToken(): string {
-  return crypto.randomUUID().replaceAll("-", "");
+  return crypto.randomUUID().replaceAll('-', '');
 }
 
 function resolvePreviewLaunch(
   packageVersion: PackageVersionRecord,
-  fixtureData: PreviewSessionRecord["fixtureData"],
+  fixtureData: PreviewSessionRecord['fixtureData'],
   overrides: PreviewLaunchOverrides | null | undefined,
-): Omit<PreviewSessionRecord["launch"], "userId"> {
+): Omit<PreviewSessionRecord['launch'], 'userId'> {
   const userRole = overrides?.userRole ?? fixtureData.launch.user_role;
 
   if (!packageVersion.roles.includes(userRole)) {
-    throw new Error(
-      `Test launch role ${userRole} is not allowed for this app version.`,
-    );
+    throw new Error(`Test launch role ${userRole} is not allowed for this app version.`);
   }
 
   return {
     userRole,
     courseId: requireTestLaunchValue(
       overrides?.courseId ?? fixtureData.launch.course_id,
-      "Test launch course ID is required.",
+      'Test launch course ID is required.',
     ),
     assignmentId: normalizeOptionalTestLaunchValue(
       overrides?.assignmentId === undefined
@@ -290,7 +265,7 @@ function resolvePreviewLaunch(
     ),
     activityId: requireTestLaunchValue(
       overrides?.activityId ?? fixtureData.launch.activity_id,
-      "Test launch activity ID is required.",
+      'Test launch activity ID is required.',
     ),
   };
 }
@@ -298,7 +273,7 @@ function resolvePreviewLaunch(
 function requireTestLaunchValue(value: string, message: string): string {
   const trimmed = value.trim();
 
-  if (trimmed === "") {
+  if (trimmed === '') {
     throw new Error(message);
   }
 
@@ -311,7 +286,7 @@ function normalizeOptionalTestLaunchValue(value: string | null): string | null {
   }
 
   const trimmed = value.trim();
-  return trimmed === "" ? null : trimmed;
+  return trimmed === '' ? null : trimmed;
 }
 
 async function resolvePreparedPreviewContentPath(
@@ -325,19 +300,15 @@ async function resolvePreparedPreviewContentPath(
 
   const trimmed = overrideContentPath.trim();
 
-  if (trimmed === "") {
-    throw new Error("Preview content path is required.");
+  if (trimmed === '') {
+    throw new Error('Preview content path is required.');
   }
 
   return ensureLeadingSlash(trimmed);
 }
 
-function resolvePreviewRuntimeContentPath(
-  snapshotRoot: string,
-  contentPath: string,
-): string {
-  const outsideMessage =
-    "Preview content path must stay inside the reviewed app files.";
+function resolvePreviewRuntimeContentPath(snapshotRoot: string, contentPath: string): string {
+  const outsideMessage = 'Preview content path must stay inside the reviewed app files.';
   const absolutePath = joinSnapshotPath(
     snapshotRoot,
     trimLeadingSlash(contentPath),
@@ -349,11 +320,9 @@ function resolvePreviewRuntimeContentPath(
   return absolutePath;
 }
 
-function buildPreviewLaunchSummary(
-  previewSession: PreviewSessionRecord,
-): string {
-  return previewSession.origin === "deepLinkingAuthoring" ||
-      previewSession.origin === "adminAuthoringDraft"
+function buildPreviewLaunchSummary(previewSession: PreviewSessionRecord): string {
+  return previewSession.origin === 'deepLinkingAuthoring' ||
+    previewSession.origin === 'adminAuthoringDraft'
     ? "Started an authoring preview in Lantern's runtime."
     : "Started a test launch in Lantern's runtime.";
 }
@@ -367,12 +336,13 @@ function buildPreviewLaunchDetail(
     origin: previewSession.origin,
     contentPath: previewSession.contentPath,
     deepLinkingSessionId: previewSession.deepLinkingSessionId,
-    route: previewSession.origin === "deepLinkingAuthoring"
-      ? previewSession.deepLinkingSessionId === null
-        ? null
-        : `/lti/deep-linking/sessions/${previewSession.deepLinkingSessionId}/preview`
-      : previewSession.origin === "adminAuthoringDraft"
-      ? `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/authoring`
-      : `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/preview`,
+    route:
+      previewSession.origin === 'deepLinkingAuthoring'
+        ? previewSession.deepLinkingSessionId === null
+          ? null
+          : `/lti/deep-linking/sessions/${previewSession.deepLinkingSessionId}/preview`
+        : previewSession.origin === 'adminAuthoringDraft'
+          ? `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/authoring`
+          : `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/preview`,
   };
 }

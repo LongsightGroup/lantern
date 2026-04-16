@@ -49,6 +49,7 @@ Deno.test('POST /admin/verification rejects internal verification rows that incl
     body,
     'Internal verification runs cannot carry an official certification state.',
   );
+  assertStringIncludes(body, 'Record one verification result');
 });
 
 Deno.test('POST /admin/verification rejects internal verification rows without an explicit deployment', async () => {
@@ -93,4 +94,5 @@ Deno.test('POST /admin/verification rejects internal verification rows without a
     body,
     'Internal verification runs require an explicit deployment record id.',
   );
+  assertStringIncludes(body, 'Record one verification result');
 });

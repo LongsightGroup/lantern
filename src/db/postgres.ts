@@ -2,7 +2,7 @@ import postgres, {
   type Options as PostgresOptions,
   type ParameterOrJSON,
   PostgresError as PostgresJsError,
-} from "postgres";
+} from 'postgres';
 
 export interface ClientOptions {
   hostname?: string;
@@ -34,9 +34,9 @@ export interface QueryObjectOptions {
 export type QueryArrayInput =
   | string
   | {
-    text: string;
-    args?: readonly unknown[];
-  };
+      text: string;
+      args?: readonly unknown[];
+    };
 
 export interface QueryObjectResult<Row> {
   rows: Row[];
@@ -51,38 +51,25 @@ export interface TransactionClient {
   commit(): Promise<void>;
   rollback(): Promise<void>;
   queryObject<Row>(query: QueryObjectOptions): Promise<QueryObjectResult<Row>>;
-  queryArray(
-    query: QueryArrayInput,
-    args?: readonly unknown[],
-  ): Promise<QueryArrayResult>;
+  queryArray(query: QueryArrayInput, args?: readonly unknown[]): Promise<QueryArrayResult>;
 }
 
 type TransactionOptions = {
-  isolation_level?:
-    | "serializable"
-    | "repeatable_read"
-    | "read_committed"
-    | "read_uncommitted";
+  isolation_level?: 'serializable' | 'repeatable_read' | 'read_committed' | 'read_uncommitted';
 };
 
 export interface PoolClient {
   queryObject<Row>(query: QueryObjectOptions): Promise<QueryObjectResult<Row>>;
-  queryArray(
-    query: QueryArrayInput,
-    args?: readonly unknown[],
-  ): Promise<QueryArrayResult>;
-  createTransaction(
-    name: string,
-    options?: TransactionOptions,
-  ): TransactionClient;
+  queryArray(query: QueryArrayInput, args?: readonly unknown[]): Promise<QueryArrayResult>;
+  createTransaction(name: string, options?: TransactionOptions): TransactionClient;
   release(): void;
 }
 
 type SqlOptions = PostgresOptions<Record<string, never>>;
 type SqlParameter = ParameterOrJSON<never>;
 type SqlConnection = ReturnType<typeof postgres>;
-type ReservedConnection = Awaited<ReturnType<SqlConnection["reserve"]>>;
-type SqlSsl = NonNullable<SqlOptions["ssl"]>;
+type ReservedConnection = Awaited<ReturnType<SqlConnection['reserve']>>;
+type SqlSsl = NonNullable<SqlOptions['ssl']>;
 type ConnectionLease = {
   reserved: ReservedConnection;
   sql: SqlConnection;
@@ -105,12 +92,7 @@ export class Pool {
   readonly #waiters: PoolWaiter[] = [];
   #ending = false;
 
-  constructor(
-    config: string | ClientOptions,
-    size = 3,
-    _lazy = true,
-    options: PoolOptions = {},
-  ) {
+  constructor(config: string | ClientOptions, size = 3, _lazy = true, options: PoolOptions = {}) {
     this.#config = config;
     this.#size = size;
     this.#hyperdrive = options.hyperdrive === true;
@@ -118,7 +100,7 @@ export class Pool {
 
   async connect(): Promise<PoolClient> {
     if (this.#ending) {
-      throw new Error("Postgres pool is closed.");
+      throw new Error('Postgres pool is closed.');
     }
 
     const idleConnection = this.#idleConnections.shift();
@@ -148,7 +130,7 @@ export class Pool {
     this.#ending = true;
 
     while (this.#waiters.length > 0) {
-      this.#waiters.shift()?.reject(new Error("Postgres pool is closed."));
+      this.#waiters.shift()?.reject(new Error('Postgres pool is closed.'));
     }
 
     await Promise.all(
@@ -207,8 +189,7 @@ function createPoolClient(pool: Pool, connection: ConnectionLease): PoolClient {
       };
     },
     async queryArray(query: QueryArrayInput, args?: readonly unknown[]) {
-      const result = await resolveQuery(connection.reserved, query, args)
-        .values();
+      const result = await resolveQuery(connection.reserved, query, args).values();
 
       return {
         rows: [...result] as unknown[][],
@@ -238,21 +219,18 @@ function createTransactionClient(
 
       await client.unsafe(
         isolationLevel === undefined
-          ? "BEGIN"
+          ? 'BEGIN'
           : `BEGIN ISOLATION LEVEL ${normalizeIsolationLevel(isolationLevel)}`,
       );
     },
     async commit() {
-      await client.unsafe("COMMIT");
+      await client.unsafe('COMMIT');
     },
     async rollback() {
-      await client.unsafe("ROLLBACK");
+      await client.unsafe('ROLLBACK');
     },
     async queryObject<Row>(query: QueryObjectOptions) {
-      const result = await client.unsafe(
-        query.text,
-        normalizeArgs(query.text, query.args),
-      );
+      const result = await client.unsafe(query.text, normalizeArgs(query.text, query.args));
 
       return {
         rows: normalizeObjectRows<Row>(
@@ -271,11 +249,8 @@ function createTransactionClient(
   };
 }
 
-function createSqlConnection(
-  config: string | ClientOptions,
-  hyperdrive = false,
-): SqlConnection {
-  return typeof config === "string"
+function createSqlConnection(config: string | ClientOptions, hyperdrive = false): SqlConnection {
+  return typeof config === 'string'
     ? postgres(config, buildSqlOptions(hyperdrive))
     : postgres(buildConfiguredSqlOptions(config, hyperdrive));
 }
@@ -292,10 +267,7 @@ function buildSqlOptions(hyperdrive: boolean): SqlOptions {
   };
 }
 
-function buildConfiguredSqlOptions(
-  config: ClientOptions,
-  hyperdrive: boolean,
-): SqlOptions {
+function buildConfiguredSqlOptions(config: ClientOptions, hyperdrive: boolean): SqlOptions {
   const options: SqlOptions = buildSqlOptions(hyperdrive);
 
   if (config.hostname !== undefined) {
@@ -343,7 +315,7 @@ function buildConfiguredSqlOptions(
   return options;
 }
 
-function buildSslConfig(tls: NonNullable<ClientOptions["tls"]>): SqlSsl {
+function buildSslConfig(tls: NonNullable<ClientOptions['tls']>): SqlSsl {
   if (tls.enabled === false) {
     return false;
   }
@@ -353,7 +325,7 @@ function buildSslConfig(tls: NonNullable<ClientOptions["tls"]>): SqlSsl {
   };
 
   if (tls.caCertificates !== undefined && tls.caCertificates.length > 0) {
-    ssl.ca = tls.caCertificates.join("\n");
+    ssl.ca = tls.caCertificates.join('\n');
   }
 
   return ssl;
@@ -364,17 +336,14 @@ function resolveQuery(
   query: QueryArrayInput,
   args?: readonly unknown[],
 ) {
-  if (typeof query === "string") {
+  if (typeof query === 'string') {
     return client.unsafe(query, normalizeArgs(query, args));
   }
 
   return client.unsafe(query.text, normalizeArgs(query.text, query.args));
 }
 
-function normalizeArgs(
-  queryText: string,
-  args: readonly unknown[] | undefined,
-): SqlParameter[] {
+function normalizeArgs(queryText: string, args: readonly unknown[] | undefined): SqlParameter[] {
   if (args === undefined) {
     return [];
   }
@@ -382,12 +351,12 @@ function normalizeArgs(
   const jsonParameters = collectJsonParameterIndexes(queryText);
 
   return args.map((value, index) =>
-    normalizeArg(value, jsonParameters.has(index + 1) ? "json" : "default")
+    normalizeArg(value, jsonParameters.has(index + 1) ? 'json' : 'default'),
   ) as SqlParameter[];
 }
 
-function normalizeArg(value: unknown, mode: "default" | "json"): SqlParameter {
-  if (mode === "json") {
+function normalizeArg(value: unknown, mode: 'default' | 'json'): SqlParameter {
+  if (mode === 'json') {
     return normalizeJsonArg(value);
   }
 
@@ -395,7 +364,7 @@ function normalizeArg(value: unknown, mode: "default" | "json"): SqlParameter {
 }
 
 function normalizeJsonArg(value: unknown): SqlParameter {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return value as SqlParameter;
   }
 
@@ -423,10 +392,7 @@ function normalizeObjectRows<Row>(
   return rows.map((row) => normalizeRow(row, camelCase)) as Row[];
 }
 
-function normalizeRow(
-  row: Record<string, unknown>,
-  camelCase: boolean,
-): Record<string, unknown> {
+function normalizeRow(row: Record<string, unknown>, camelCase: boolean): Record<string, unknown> {
   if (!camelCase) {
     return row;
   }
@@ -441,14 +407,9 @@ function normalizeRow(
 }
 
 function toCamelCase(value: string): string {
-  return value.replaceAll(
-    /_([a-z])/g,
-    (_match, letter: string) => letter.toUpperCase(),
-  );
+  return value.replaceAll(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
 }
 
-function normalizeIsolationLevel(
-  value: TransactionOptions["isolation_level"],
-): string {
-  return value?.replaceAll("_", " ").toUpperCase() ?? "READ COMMITTED";
+function normalizeIsolationLevel(value: TransactionOptions['isolation_level']): string {
+  return value?.replaceAll('_', ' ').toUpperCase() ?? 'READ COMMITTED';
 }

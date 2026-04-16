@@ -58,6 +58,7 @@ export function buildSmokeFixture(lms: 'moodle' | 'sakai'): SmokeFixture {
         courseId: `${lms}-course-42`,
         assignmentId: `${lms}-assignment-9`,
         activityId: 'activity-123',
+        submissionMode: 'standard',
       },
     }),
     appTitle,
@@ -108,6 +109,7 @@ export function buildSmokeRouteFixture(lms: 'moodle' | 'sakai'): SmokeRouteFixtu
         courseId: `${lms}-course-42`,
         assignmentId: `${lms}-assignment-9`,
         activityId: 'activity-123',
+        submissionMode: 'standard',
       },
     }),
   };

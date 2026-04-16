@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { createApp } from "./app.ts";
+import { createObjectEnvReader } from "./platform/env.ts";
 import {
   buildAccessibilityReview,
   buildBrokerVerificationStatus,
@@ -11,8 +12,8 @@ import {
 } from "./test_helpers/package_review.ts";
 import { buildCanvasDeploymentBinding } from "./test_helpers/lti.ts";
 
-Deno.test("GET /admin/packages renders the shipped reference apps when no versions exist", async () => {
-  const response = await createApp({
+Deno.test("GET /admin/packages renders the generic package import action when no versions exist", async () => {
+  const response = await createAdminApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request("http://localhost/admin/packages");
 
@@ -20,7 +21,9 @@ Deno.test("GET /admin/packages renders the shipped reference apps when no versio
   const body = await response.text();
 
   assertStringIncludes(body, "No apps yet.");
+  assertStringIncludes(body, "Import package");
   assertStringIncludes(body, "Open reference apps");
+  assertStringIncludes(body, 'href="/admin/packages/import"');
   assertStringIncludes(body, "Apps");
 });
 
@@ -44,7 +47,7 @@ Deno.test("GET /admin/packages renders the app library when package data exists"
     ],
     brokerVerifications: [buildBrokerVerificationStatus()],
   });
-  const response = await createApp({
+  const response = await createAdminApp({
     getRepository: () => repository,
   }).request("http://localhost/admin/packages");
 
@@ -56,6 +59,8 @@ Deno.test("GET /admin/packages renders the app library when package data exists"
   assertStringIncludes(body, "Open app");
   assertStringIncludes(body, 'href="/admin/packages/chapter-4-asteroids"');
   assertStringIncludes(body, "App settings");
+  assertStringIncludes(body, "Import package");
+  assertStringIncludes(body, 'href="/admin/packages/import"');
   assertStringIncludes(body, "Import reference app");
   assertStringIncludes(body, "Signed in");
   assertStringIncludes(body, 'href="/admin/deployments"');
@@ -66,8 +71,22 @@ Deno.test("GET /admin/packages renders the app library when package data exists"
   assertEquals(body.includes("Save check result"), false);
 });
 
+Deno.test("GET /admin/packages/import renders the generic package import page", async () => {
+  const response = await createAdminApp({
+    getRepository: () => createInMemoryPackageReviewRepository(),
+  }).request("http://localhost/admin/packages/import");
+
+  assertEquals(response.status, 200);
+  const body = await response.text();
+
+  assertStringIncludes(body, "Import package");
+  assertStringIncludes(body, "Choose one package directory.");
+  assertStringIncludes(body, 'name="packageFiles"');
+  assertStringIncludes(body, "Open reference apps");
+});
+
 Deno.test("GET /admin/packages/reference renders the reference app catalog on its own page", async () => {
-  const response = await createApp({
+  const response = await createAdminApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request("http://localhost/admin/packages/reference");
 
@@ -76,8 +95,9 @@ Deno.test("GET /admin/packages/reference renders the reference app catalog on it
 
   assertStringIncludes(body, "Reference apps");
   assertStringIncludes(body, "Import Chapter 4 Asteroids");
-  assertStringIncludes(body, "Import Office Hours Web Lab");
+  assertStringIncludes(body, "Import TypeScript Ladder Game");
   assertStringIncludes(body, "Import Quick Study");
+  assertStringIncludes(body, "Import package");
   assertStringIncludes(body, "Back to apps");
 });
 
@@ -108,7 +128,7 @@ Deno.test("GET /admin/packages/:appId renders the app overview with versions and
     ],
   });
 
-  const response = await createApp({
+  const response = await createAdminApp({
     getRepository: () => repository,
   }).request("http://localhost/admin/packages/chapter-4-asteroids");
 
@@ -122,15 +142,15 @@ Deno.test("GET /admin/packages/:appId renders the app overview with versions and
   assertStringIncludes(body, "Reviewed versions");
   assertStringIncludes(
     body,
-    "Latest approved stays the current reviewed baseline. LMS setup decides which approved version is live.",
+    "Each version shows whether it is the current reviewed baseline and whether it is live in LMS now.",
   );
   assertStringIncludes(body, "LMS setup");
   assertStringIncludes(body, "Open latest version");
   assertStringIncludes(body, "Manage settings");
   assertStringIncludes(body, "Test launch");
-  assertStringIncludes(body, "Latest upload");
-  assertStringIncludes(body, "Latest approved");
-  assertStringIncludes(body, "Live in 1 LMS setup");
+  assertStringIncludes(body, "Newest upload");
+  assertStringIncludes(body, "Current reviewed baseline");
+  assertStringIncludes(body, "Live now in 1 LMS setup");
   assertStringIncludes(body, "version-row-actions");
   assertStringIncludes(body, "App ID chapter-4-asteroids");
   assertEquals(
@@ -143,8 +163,10 @@ Deno.test("GET /admin/packages/:appId renders the app overview with versions and
 
 Deno.test("POST /admin/packages/import-reference imports the selected reference app and redirects to the app overview page", async () => {
   const repository = createInMemoryPackageReviewRepository();
-  const app = createApp({
+  const chapter4 = buildImportedPackageVersion({ version: "0.1.0" });
+  const app = createAdminApp({
     getRepository: () => repository,
+    readReferencePackageReviewData: () => Promise.resolve(chapter4.reviewData),
     loadReferencePackageSnapshot: () => Promise.resolve(null),
     importReferencePackage: () =>
       Promise.resolve(buildImportedPackageVersion({ version: "0.1.0" })),
@@ -175,12 +197,108 @@ Deno.test("POST /admin/packages/import-reference imports the selected reference 
   assertEquals(saved?.approvalStatus, "pending");
 });
 
+Deno.test("POST /admin/packages/import imports the uploaded reviewed package and redirects to the app overview page", async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const imported = buildImportedPackageVersion({
+    appId: "uploaded-quiz",
+    title: "Uploaded Quiz",
+    version: "0.1.0",
+  });
+  const app = createAdminApp({
+    getRepository: () => repository,
+    loadPackageSnapshotFromSource: () => Promise.resolve(null),
+    importPackageFromSource: () => Promise.resolve(imported),
+  });
+
+  const response = await app.request("http://localhost/admin/packages/import", {
+    method: "POST",
+    headers: { Origin: "http://localhost" },
+    body: buildPackageImportFormData(),
+  });
+
+  assertEquals(response.status, 303);
+  assertEquals(
+    response.headers.get("location"),
+    "/admin/packages/uploaded-quiz",
+  );
+
+  const saved = await repository.getPackageVersionByAppVersion(
+    "uploaded-quiz",
+    "0.1.0",
+  );
+  assertEquals(saved?.approvalStatus, "pending");
+});
+
+Deno.test("POST /admin/packages/import reopens the existing app overview when the exact version is already present", async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        appId: "uploaded-quiz",
+        version: "0.1.0",
+      }),
+    ],
+  });
+  const app = createAdminApp({
+    getRepository: () => repository,
+    loadPackageSnapshotFromSource: () =>
+      Promise.reject(new Error("load should not run")),
+    importPackageFromSource: () =>
+      Promise.reject(new Error("import should not run")),
+  });
+
+  const response = await app.request("http://localhost/admin/packages/import", {
+    method: "POST",
+    headers: { Origin: "http://localhost" },
+    body: buildPackageImportFormData(),
+  });
+
+  assertEquals(response.status, 303);
+  assertEquals(
+    response.headers.get("location"),
+    "/admin/packages/uploaded-quiz",
+  );
+});
+
+Deno.test("POST /admin/packages/import rejects an invalid uploaded package with an explicit notice", async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const app = createAdminApp({
+    getRepository: () => repository,
+    loadPackageSnapshotFromSource: () =>
+      Promise.reject(new Error("load should not run")),
+    importPackageFromSource: () =>
+      Promise.reject(new Error("import should not run")),
+  });
+
+  const response = await app.request("http://localhost/admin/packages/import", {
+    method: "POST",
+    headers: { Origin: "http://localhost" },
+    body: buildPackageImportFormData({ includeManifest: false }),
+  });
+
+  assertEquals(response.status, 409);
+  const body = await response.text();
+
+  assertStringIncludes(body, "Package import blocked");
+  assertStringIncludes(body, "Fix these items before import.");
+  assertStringIncludes(body, "File /manifest.json");
+  assertStringIncludes(
+    body,
+    "Referenced file /manifest.json is missing from the package.",
+  );
+  assertStringIncludes(
+    body,
+    "Add /manifest.json to the reviewed package or update /manifest.json to point at an existing file.",
+  );
+});
+
 Deno.test("POST /admin/packages/import-reference reopens the existing reference app overview when the exact version is already present", async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildPackageVersionRecord()],
   });
-  const app = createApp({
+  const chapter4 = buildImportedPackageVersion({ version: "0.1.0" });
+  const app = createAdminApp({
     getRepository: () => repository,
+    readReferencePackageReviewData: () => Promise.resolve(chapter4.reviewData),
     importReferencePackage: () =>
       Promise.reject(new Error("import should not run")),
   });
@@ -206,8 +324,10 @@ Deno.test("POST /admin/packages/import-reference reopens the existing reference 
 
 Deno.test("POST /admin/packages/import-reference restores the selected reference app from the stored snapshot when the database row is missing", async () => {
   const repository = createInMemoryPackageReviewRepository();
-  const app = createApp({
+  const chapter4 = buildImportedPackageVersion({ version: "0.1.0" });
+  const app = createAdminApp({
     getRepository: () => repository,
+    readReferencePackageReviewData: () => Promise.resolve(chapter4.reviewData),
     loadReferencePackageSnapshot: () =>
       Promise.resolve(buildImportedPackageVersion({ version: "0.1.0" })),
     importReferencePackage: () =>
@@ -246,7 +366,7 @@ Deno.test("POST /admin/packages/import-reference imports quick-study when reques
     title: "Quick Study",
     version: "0.1.0",
   });
-  const app = createApp({
+  const app = createAdminApp({
     getRepository: () => repository,
     readReferencePackageReviewData: () =>
       Promise.resolve(quickStudy.reviewData),
@@ -280,7 +400,7 @@ Deno.test("POST /admin/packages/:id/approve records notes and keeps status visib
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildPackageVersionRecord({ id: 7 })],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAdminApp({ getRepository: () => repository });
   const formData = new FormData();
 
   formData.set("reviewNotes", "Ready for the pilot deployment.");
@@ -357,7 +477,7 @@ Deno.test("POST /admin/packages/:id/reject refuses to reverse a frozen decision"
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAdminApp({ getRepository: () => repository });
 
   const response = await app.request(
     "http://localhost/admin/packages/9/reject",
@@ -401,7 +521,7 @@ Deno.test("POST /admin/packages/:appId/deployment/pin stores the exact approved 
       }),
     ],
   });
-  const app = createApp({ getRepository: () => seededRepository });
+  const app = createAdminApp({ getRepository: () => seededRepository });
   const formData = new FormData();
 
   formData.set("lms", "canvas");
@@ -433,3 +553,126 @@ Deno.test("POST /admin/packages/:appId/deployment/pin stores the exact approved 
   assertEquals(auditEvents.length, 1);
   assertEquals(auditEvents[0]?.deploymentRecordId, 3);
 });
+
+function createAdminApp(services: Parameters<typeof createApp>[0] = {}) {
+  return createApp({
+    env: createObjectEnvReader({
+      APP_ORIGIN: "http://localhost",
+      LANTERN_OPERATOR_NAME: "Signed in",
+    }),
+    ...services,
+  });
+}
+
+function buildPackageImportFormData(
+  input: {
+    appId?: string;
+    packageRoot?: string;
+    includeManifest?: boolean;
+  } = {},
+): FormData {
+  const appId = input.appId ?? "uploaded-quiz";
+  const packageRoot = input.packageRoot ?? appId;
+  const formData = new FormData();
+
+  if (input.includeManifest !== false) {
+    formData.append(
+      "packageFiles",
+      new File([buildUploadedManifest(appId)], `${packageRoot}/manifest.json`, {
+        type: "application/json",
+      }),
+    );
+  }
+
+  formData.append(
+    "packageFiles",
+    new File(
+      ['<!doctype html><html lang="en"><body><main>Uploaded Quiz</main></body></html>'],
+      `${packageRoot}/dist/index.html`,
+      { type: "text/html" },
+    ),
+  );
+  formData.append(
+    "packageFiles",
+    new File(['{"cards":[]}\n'], `${packageRoot}/content/activity.json`, {
+      type: "application/json",
+    }),
+  );
+  formData.append(
+    "packageFiles",
+    new File(
+      [
+        JSON.stringify({
+          launch: {
+            user_role: "learner",
+            course_id: "course_123",
+            assignment_id: "assignment_456",
+            activity_id: "activity_1",
+          },
+          attempt_id: "attempt_123",
+          local_state: null,
+        }),
+      ],
+      `${packageRoot}/preview/fixtures.json`,
+      {
+        type: "application/json",
+      },
+    ),
+  );
+  formData.append(
+    "packageFiles",
+    new File(
+      [
+        JSON.stringify([
+          {
+            name: "renders main content",
+            assert: {
+              selector: "main",
+              contains: "Uploaded Quiz",
+            },
+          },
+        ]),
+      ],
+      `${packageRoot}/preview/tests.json`,
+      {
+        type: "application/json",
+      },
+    ),
+  );
+
+  return formData;
+}
+
+function buildUploadedManifest(appId: string): string {
+  return JSON.stringify({
+    schema_version: "1",
+    app_id: appId,
+    version: "0.1.0",
+    title: "Uploaded Quiz",
+    description: "A reviewed package uploaded through admin inventory.",
+    owner: {
+      type: "user",
+      id: "instructor_123",
+    },
+    entrypoint: "/dist/index.html",
+    roles: ["learner", "instructor"],
+    install_scope: "course",
+    capabilities: [
+      "read_launch_context",
+      "read_activity_content",
+      "submit_attempt_event",
+      "finalize_attempt",
+      "read_local_state",
+      "write_local_state",
+    ],
+    grading: {
+      mode: "completion",
+      max_score: 100,
+    },
+    content_files: ["/content/activity.json"],
+    preview: {
+      fixtures_file: "/preview/fixtures.json",
+      tests_file: "/preview/tests.json",
+    },
+  });
+}

@@ -1,14 +1,28 @@
 # Web Checkup
 
-This is a richer Lantern authoring example for HTML, CSS, and JavaScript
-revision work.
+This is Lantern's richer browser-autograder reference package for HTML, CSS,
+and JavaScript revision work.
 
-It demonstrates one explicit authoring path:
+Use it when the starter package is too small and you want one concrete example
+that already includes:
 
-- the same `authoring` manifest object as `template-app`
-- preview fixtures and preview tests for local authoring
-- reviewed browser grading specs for structure and behavior review
-- one example evidence artifact returned by the reviewed app flow
+- `preview/tests.json`
+- multiple reviewed grader spec files under `grading/specs/`
+- `evidence/example-output.json`
+- the same reviewed import path as any other Lantern package
+
+Check it through the shipped local loop:
+
+```sh
+deno task app:validate examples/apps/web-checkup
+deno task app:test-preview examples/apps/web-checkup
+deno task app:preview examples/apps/web-checkup
+```
+
+For the full browser-autograder process, read:
+
+- [BROWSER_AUTOGRADER_COOKBOOK.md](../../../BROWSER_AUTOGRADER_COOKBOOK.md)
+- [AUTHORING.md](../../../AUTHORING.md)
 
 Its reviewed browser grading contract stays narrow:
 

@@ -205,25 +205,12 @@ export function buildBrowserGraderHarnessSource(): string {
 }
 
 export function buildBrowserGraderRunnerSource(input: {
-  runtimeBaseUrl: string;
   reviewedSpecFiles: string[];
   scoreMaximum: number;
-  token?: string;
 }): string {
   const specEntries = input.reviewedSpecFiles.map((source, index) => ({
     source,
-    url: buildReviewedBrowserGraderSpecUrl(
-      input.token
-        ? {
-          runtimeBaseUrl: input.runtimeBaseUrl,
-          index,
-          token: input.token,
-        }
-        : {
-          runtimeBaseUrl: input.runtimeBaseUrl,
-          index,
-        },
-    ),
+    index,
   }));
 
   return `(() => {
@@ -248,7 +235,7 @@ export function buildBrowserGraderRunnerSource(input: {
         harness.beginSpecRegistration(spec.source);
 
         try {
-          await harness.loadScript(spec.url);
+          await harness.loadScript(buildReviewedBrowserGraderSpecUrl(spec.index));
         } finally {
           harness.finishSpecRegistration();
         }
@@ -259,6 +246,21 @@ export function buildBrowserGraderRunnerSource(input: {
       });
     },
   };
+
+  function buildReviewedBrowserGraderSpecUrl(index) {
+    const currentScript = document.currentScript;
+
+    if (!(currentScript instanceof HTMLScriptElement) || currentScript.src === '') {
+      throw new Error('Browser grader runner must load from a script URL.');
+    }
+
+    const runnerUrl = new URL(currentScript.src, window.location.href);
+    const reviewedUrl = new URL('./reviewed/' + index + '.js', runnerUrl);
+
+    reviewedUrl.search = runnerUrl.search;
+
+    return reviewedUrl.toString();
+  }
 })();`;
 }
 
@@ -299,21 +301,6 @@ export function readReviewedBrowserGraderConfig(
     gradingMaxScore: packageVersion.grading.maxScore,
     authoring: readAuthoringFromManifestJson(packageVersion.manifestJson),
   });
-}
-
-function buildReviewedBrowserGraderSpecUrl(input: {
-  runtimeBaseUrl: string;
-  index: number;
-  token?: string;
-}): string {
-  const baseUrl =
-    `${input.runtimeBaseUrl}/browser-grader/reviewed/${input.index}.js`;
-
-  if (!input.token) {
-    return baseUrl;
-  }
-
-  return `${baseUrl}?token=${encodeURIComponent(input.token)}`;
 }
 
 function readAuthoringFromManifestJson(

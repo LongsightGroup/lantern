@@ -47,3 +47,7 @@ export function getCanvasConfigUrlNoticeSafe(appOrigin?: string): {
 export function packageDetailPath(appId: string, version: string): string {
   return `/admin/packages/${appId}/versions/${version}`;
 }
+
+export function packageOverviewPath(appId: string): string {
+  return `/admin/packages/${appId}`;
+}

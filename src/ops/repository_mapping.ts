@@ -1,4 +1,4 @@
-import { deriveDeploymentHealth, formatDiagnosticItem } from './service.ts';
+import { deriveDeploymentHealth, formatDiagnosticItem } from "./service.ts";
 import type {
   BrokerVerificationStatus,
   CertificationWorkflowStatus,
@@ -9,7 +9,7 @@ import type {
   DeploymentGradePublicationSnapshot,
   DeploymentRecentLaunch,
   LatestOfficialCertificationEvidence,
-} from './types.ts';
+} from "./types.ts";
 import type {
   CertificationWorkflowStatusRow,
   DiagnosticRow,
@@ -19,7 +19,7 @@ import type {
   LatestOfficialCertificationEvidenceRow,
   OfficialBrokerVerificationRow,
   RecentLaunchRow,
-} from './repository_types.ts';
+} from "./repository_types.ts";
 import {
   mapAuditActivityStatus,
   mapDeploymentBinding,
@@ -30,10 +30,12 @@ import {
   readBoundaryDenialCategoryDetail,
   readLtiProfileIdDetail,
   readLtiProfileSourceDetail,
+  readNumberDetail,
   readRuntimeBoundaryDetail,
+  readRuntimeDeliverySubstrateDetail,
   readRuntimeSandboxModelDetail,
   readStringDetail,
-} from './repository_mapping_support.ts';
+} from "./repository_mapping_support.ts";
 
 export {
   assertBrokerVerificationRunInput,
@@ -41,11 +43,12 @@ export {
   normalizeNumeric,
   normalizeOptionalTimestamp,
   normalizeTimestamp,
-} from './repository_mapping_support.ts';
+} from "./repository_mapping_support.ts";
 
 export function mapInventoryRow(
   row: InventoryQueryRow,
-  brokerVerification: BrokerVerificationStatus | null = mapInventoryBrokerVerification(row),
+  brokerVerification: BrokerVerificationStatus | null =
+    mapInventoryBrokerVerification(row),
 ): ControlPlaneDeploymentInventoryRow {
   const binding = mapDeploymentBinding({
     lmsType: row.bindingLmsType,
@@ -100,8 +103,8 @@ export function mapInventoryRow(
       lastNrpsReadStatus: row.lastNrpsReadStatus,
       lastNrpsReadAt: normalizeOptionalTimestamp(row.lastNrpsReadAt),
       brokerVerificationStatus: brokerVerification?.internal?.status ?? null,
-      brokerCheckedAt:
-        brokerVerification?.internal?.checkedAt ?? brokerVerification?.official.checkedAt ?? null,
+      brokerCheckedAt: brokerVerification?.internal?.checkedAt ??
+        brokerVerification?.official.checkedAt ?? null,
     }),
     brokerVerification,
   };
@@ -120,12 +123,14 @@ export function mapActivitySnapshotRow(row: {
     occurredAt: normalizeTimestamp(row.occurredAt),
     summary: row.summary,
     attemptId: row.attemptId,
-    contextId: readStringDetail(row.detail, 'contextId'),
+    contextId: readStringDetail(row.detail, "contextId"),
     detail: row.detail,
   };
 }
 
-export function mapRecentLaunchRows(rows: RecentLaunchRow[]): DeploymentRecentLaunch[] {
+export function mapRecentLaunchRows(
+  rows: RecentLaunchRow[],
+): DeploymentRecentLaunch[] {
   return rows.map((row) => ({
     occurredAt: normalizeTimestamp(row.occurredAt),
     summary: row.summary,
@@ -134,8 +139,8 @@ export function mapRecentLaunchRows(rows: RecentLaunchRow[]): DeploymentRecentLa
     userDisplayName: row.userDisplayName,
     userEmail: row.userEmail,
     userLogin: row.userLogin,
-    contextId: readStringDetail(row.detail, 'contextId'),
-    resourceLinkId: readStringDetail(row.detail, 'resourceLinkId'),
+    contextId: readStringDetail(row.detail, "contextId"),
+    resourceLinkId: readStringDetail(row.detail, "resourceLinkId"),
     ltiProfileId: readLtiProfileIdDetail(row.detail),
     ltiProfileSource: readLtiProfileSourceDetail(row.detail),
   }));
@@ -174,7 +179,7 @@ export function mapDiagnosticRows(
         status: row.status,
         deploymentRecordId: row.deploymentRecordId,
         attemptId: row.attemptId,
-        code: readStringDetail(row.detail, 'code'),
+        code: readStringDetail(row.detail, "code"),
         boundaryDenialCategory: readBoundaryDenialCategoryDetail(row.detail),
         summary: row.summary,
         operatorSummary: row.summary,
@@ -185,7 +190,7 @@ export function mapDiagnosticRows(
       {
         retryableAttemptId,
       },
-    ),
+    )
   );
 }
 
@@ -203,15 +208,57 @@ export function mapRuntimeEvidenceSnapshotRow(row: {
     occurredAt: normalizeTimestamp(row.occurredAt),
     summary: row.summary,
     attemptId: row.attemptId,
-    sessionId: readStringDetail(row.detail, 'sessionId'),
+    sessionId: readStringDetail(row.detail, "sessionId"),
+    packageVersionId: readNumberDetail(row.detail, "packageVersionId"),
+    packageVersion: readStringDetail(row.detail, "packageVersion"),
+    artifactDigest: readStringDetail(row.detail, "artifactDigest"),
+    runtimeContractSignature: readStringDetail(
+      row.detail,
+      "runtimeContractSignature",
+    ),
     sandboxModel: readRuntimeSandboxModelDetail(row.detail),
     boundary: readRuntimeBoundaryDetail(row.detail),
-    route: readStringDetail(row.detail, 'route'),
-    capability: readStringDetail(row.detail, 'capability'),
-    code: readStringDetail(row.detail, 'code'),
+    deliverySubstrate: readRuntimeDeliverySubstrateDetail(row.detail),
+    deliveryWorkerId: readStringDetail(row.detail, "deliveryWorkerId"),
+    deliveryState: mapRuntimeDeliveryState(row.eventType, row.detail),
+    route: readStringDetail(row.detail, "route"),
+    capability: readStringDetail(row.detail, "capability"),
+    code: readStringDetail(row.detail, "code"),
     boundaryDenialCategory: readBoundaryDenialCategoryDetail(row.detail),
     detail: row.detail,
   };
+}
+
+function mapRuntimeDeliveryState(
+  eventType: string,
+  detail: Record<string, unknown>,
+): ControlPlaneRuntimeEvidenceSnapshot["deliveryState"] {
+  const code = readStringDetail(detail, "code");
+
+  switch (eventType) {
+    case "runtime.session.started":
+      return "started";
+    case "runtime.session.exited":
+      return "exited";
+    case "runtime.session.timeout":
+      return "timedOut";
+    case "runtime.session.denied":
+      return "denied";
+    case "runtime.capability.denied":
+      return "capabilityDenied";
+    case "runtime.session.integrity_failed":
+      if (code === "runtime_delivery_failed") {
+        return "deliveryFailed";
+      }
+
+      if (code === "runtime_file_missing") {
+        return "assetMissing";
+      }
+
+      return "integrityFailed";
+    default:
+      return null;
+  }
 }
 
 export function mapBrokerVerificationStatusRows(
@@ -226,28 +273,24 @@ export function mapBrokerVerificationStatusRows(
 
   return {
     supportedPath,
-    internal:
-      internalRow === null
-        ? null
-        : {
-            source: internalRow.source,
-            status: internalRow.status,
-            checkedAt: normalizeTimestamp(internalRow.checkedAt),
-            summary: internalRow.summary,
-            evidenceUrl: internalRow.detailUrl,
-          },
-    official:
-      officialRow === null
-        ? {
-            state: 'notCertified',
-            checkedAt: null,
-            directoryUrl: null,
-          }
-        : {
-            state: officialRow.certificationState ?? 'notCertified',
-            checkedAt: normalizeTimestamp(officialRow.checkedAt),
-            directoryUrl: officialRow.detailUrl,
-          },
+    internal: internalRow === null ? null : {
+      source: internalRow.source,
+      status: internalRow.status,
+      checkedAt: normalizeTimestamp(internalRow.checkedAt),
+      summary: internalRow.summary,
+      evidenceUrl: internalRow.detailUrl,
+    },
+    official: officialRow === null
+      ? {
+        state: "notCertified",
+        checkedAt: null,
+        directoryUrl: null,
+      }
+      : {
+        state: officialRow.certificationState ?? "notCertified",
+        checkedAt: normalizeTimestamp(officialRow.checkedAt),
+        directoryUrl: officialRow.detailUrl,
+      },
   };
 }
 
@@ -256,21 +299,20 @@ export function mapCertificationWorkflowStatusRow(
 ): CertificationWorkflowStatus {
   return {
     workflowKey: row.workflowKey,
-    latestInternal:
-      row.deploymentRecordId === null ||
-      row.deploymentLabel === null ||
-      row.status === null ||
-      row.summary === null ||
-      row.checkedAt === null
-        ? null
-        : {
-            deploymentRecordId: normalizeNumeric(row.deploymentRecordId),
-            deploymentLabel: row.deploymentLabel,
-            status: row.status,
-            checkedAt: normalizeTimestamp(row.checkedAt),
-            summary: row.summary,
-            evidenceUrl: row.detailUrl,
-          },
+    latestInternal: row.deploymentRecordId === null ||
+        row.deploymentLabel === null ||
+        row.status === null ||
+        row.summary === null ||
+        row.checkedAt === null
+      ? null
+      : {
+        deploymentRecordId: normalizeNumeric(row.deploymentRecordId),
+        deploymentLabel: row.deploymentLabel,
+        status: row.status,
+        checkedAt: normalizeTimestamp(row.checkedAt),
+        summary: row.summary,
+        evidenceUrl: row.detailUrl,
+      },
   };
 }
 
@@ -283,14 +325,16 @@ export function mapLatestOfficialCertificationEvidenceRow(
 
   return {
     workflowKey: row.workflowKey,
-    state: row.certificationState ?? 'notCertified',
+    state: row.certificationState ?? "notCertified",
     checkedAt: normalizeTimestamp(row.checkedAt),
     summary: row.summary,
     directoryUrl: row.detailUrl,
   };
 }
 
-function mapInventoryInstallEvidence(row: InventoryQueryRow): DeploymentActivitySnapshot | null {
+function mapInventoryInstallEvidence(
+  row: InventoryQueryRow,
+): DeploymentActivitySnapshot | null {
   if (
     row.installEvidenceStatus === null ||
     row.installEvidenceSummary === null ||
@@ -301,7 +345,7 @@ function mapInventoryInstallEvidence(row: InventoryQueryRow): DeploymentActivity
   }
 
   return mapActivitySnapshotRow({
-    eventType: 'deployment.binding_saved',
+    eventType: "deployment.binding_saved",
     status: row.installEvidenceStatus,
     summary: row.installEvidenceSummary,
     attemptId: null,
@@ -310,7 +354,9 @@ function mapInventoryInstallEvidence(row: InventoryQueryRow): DeploymentActivity
   });
 }
 
-function mapInventoryBrokerVerification(row: InventoryQueryRow): BrokerVerificationStatus | null {
+function mapInventoryBrokerVerification(
+  row: InventoryQueryRow,
+): BrokerVerificationStatus | null {
   return mapBrokerVerificationStatusRows(
     row.internalBrokerVerificationScope === null ||
       row.internalBrokerVerificationSource === null ||
@@ -319,23 +365,23 @@ function mapInventoryBrokerVerification(row: InventoryQueryRow): BrokerVerificat
       row.internalBrokerVerificationCheckedAt === null
       ? null
       : {
-          scope: row.internalBrokerVerificationScope,
-          source: row.internalBrokerVerificationSource,
-          status: row.internalBrokerVerificationStatus,
-          summary: row.internalBrokerVerificationSummary,
-          detailUrl: row.internalBrokerVerificationDetailUrl,
-          checkedAt: row.internalBrokerVerificationCheckedAt,
-        },
+        scope: row.internalBrokerVerificationScope,
+        source: row.internalBrokerVerificationSource,
+        status: row.internalBrokerVerificationStatus,
+        summary: row.internalBrokerVerificationSummary,
+        detailUrl: row.internalBrokerVerificationDetailUrl,
+        checkedAt: row.internalBrokerVerificationCheckedAt,
+      },
     row.officialBrokerVerificationScope === null ||
       row.officialBrokerVerificationStatus === null ||
       row.officialBrokerVerificationCheckedAt === null
       ? null
       : {
-          scope: row.officialBrokerVerificationScope,
-          status: row.officialBrokerVerificationStatus,
-          certificationState: row.officialBrokerVerificationCertificationState,
-          detailUrl: row.officialBrokerVerificationDetailUrl,
-          checkedAt: row.officialBrokerVerificationCheckedAt,
-        },
+        scope: row.officialBrokerVerificationScope,
+        status: row.officialBrokerVerificationStatus,
+        certificationState: row.officialBrokerVerificationCertificationState,
+        detailUrl: row.officialBrokerVerificationDetailUrl,
+        checkedAt: row.officialBrokerVerificationCheckedAt,
+      },
   );
 }

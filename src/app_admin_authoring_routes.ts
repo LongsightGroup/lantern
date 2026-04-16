@@ -13,7 +13,6 @@ import {
 import { statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
 import type { AuthoringDraftFileInput } from "./authoring/ai_writer.ts";
-import { loadAuthoringReferenceExamples } from "./authoring/example_context.ts";
 import { buildDraftDiff } from "./authoring/draft_diff.ts";
 import { normalizeAuthoringDraftPath } from "./package_review/repository_authoring.ts";
 import { trimLeadingSlash } from "./package_review/snapshot_path.ts";
@@ -107,7 +106,7 @@ export function registerAdminAuthoringRoutes(
           packageVersion: state.packageVersion.version,
           prompt,
           currentFiles: state.currentFiles,
-          referenceExamples: await loadAuthoringReferenceExamples(),
+          referenceExamples: await services.loadAuthoringReferenceExamples(),
         });
         const generatedFiles = normalizeGeneratedFiles(
           generated.files,

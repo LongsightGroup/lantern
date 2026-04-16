@@ -1,0 +1,52 @@
+{
+  "schema_version": "1",
+  "app_id": "typescript-ladder-game",
+  "version": "0.2.2",
+  "title": "TypeScript Ladder Game",
+  "description": "A browser autograder demo with ten reviewed TypeScript correction exercises that unlock one at a time.",
+  "owner": {
+    "type": "user",
+    "id": "author_123"
+  },
+  "entrypoint": "/dist/index.html",
+  "roles": ["learner", "instructor"],
+  "install_scope": "assignment",
+  "capabilities": [
+    "read_launch_context",
+    "read_activity_content",
+    "submit_attempt_event",
+    "submit_evidence_artifact",
+    "finalize_attempt",
+    "read_local_state",
+    "write_local_state"
+  ],
+  "grading": {
+    "mode": "browser",
+    "max_score": 100
+  },
+  "browser": {
+    "fullscreen": false,
+    "clipboard_write": false
+  },
+  "content_files": ["/content/activity.json"],
+  "preview": {
+    "fixtures_file": "/preview/fixtures.json",
+    "tests_file": "/preview/tests.json"
+  },
+  "authoring": {
+    "kind": "browser_autograder",
+    "grader_spec_files": [
+      "/grading/specs/step-01.spec.js",
+      "/grading/specs/step-02.spec.js",
+      "/grading/specs/step-03.spec.js",
+      "/grading/specs/step-04.spec.js",
+      "/grading/specs/step-05.spec.js",
+      "/grading/specs/step-06.spec.js",
+      "/grading/specs/step-07.spec.js",
+      "/grading/specs/step-08.spec.js",
+      "/grading/specs/step-09.spec.js",
+      "/grading/specs/step-10.spec.js"
+    ],
+    "evidence_example_file": "/evidence/example-output.json"
+  }
+}

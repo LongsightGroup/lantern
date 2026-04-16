@@ -1,4 +1,4 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -152,21 +152,34 @@
         </div>
 
         <div class="meta">
-          <span class="chip" id="launch-chip" data-test="launch-chip">Loading launch...</span>
-          <span class="chip" id="status-chip" data-test="status-chip">Waiting for runtime...</span>
+          <span class="chip" id="launch-chip" data-test="launch-chip"
+          >Loading launch...</span>
+          <span class="chip" id="status-chip" data-test="status-chip"
+          >Waiting for runtime...</span>
         </div>
 
         <section class="question stack">
           <p class="fact-label">Prompt</p>
-          <strong id="prompt" data-test="question-prompt">Loading content...</strong>
+          <strong id="prompt" data-test="question-prompt"
+          >Loading content...</strong>
           <p id="hint" data-test="hint-copy"></p>
         </section>
 
         <div class="button-row">
-          <button type="button" class="button-primary" id="answer-button" data-test="answer-button">
+          <button
+            type="button"
+            class="button-primary"
+            id="answer-button"
+            data-test="answer-button"
+          >
             Mark Answered
           </button>
-          <button type="button" class="button-secondary" id="complete-button" data-test="complete-button">
+          <button
+            type="button"
+            class="button-secondary"
+            id="complete-button"
+            data-test="complete-button"
+          >
             Finish Attempt
           </button>
         </div>
@@ -174,16 +187,24 @@
         <section class="ledger">
           <article class="fact">
             <span class="fact-label">Answers Sent</span>
-            <strong class="fact-value" id="answer-count" data-test="answer-count">0</strong>
+            <strong
+              class="fact-value"
+              id="answer-count"
+              data-test="answer-count"
+            >0</strong>
           </article>
           <article class="fact">
             <span class="fact-label">Last Finalize</span>
-            <strong class="fact-value" id="finalize-state" data-test="finalize-state">Not finished</strong>
+            <strong
+              class="fact-value"
+              id="finalize-state"
+              data-test="finalize-state"
+            >Not finished</strong>
           </article>
         </section>
       </section>
     </main>
 
-    <script src="/dist/app.js"></script>
+    <script src="./app.js"></script>
   </body>
 </html>

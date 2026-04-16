@@ -11,7 +11,7 @@ If you want to evaluate Lantern as a JS/TS teaching tool, start here instead of
 with the full platform install:
 
 1. Install [Deno](https://deno.com/).
-2. Run `deno task app:preview examples/apps/office-hours-web-lab`.
+2. Run `deno task app:preview examples/apps/typescript-ladder-game`.
 3. Open the localhost URL printed by the command.
 
 This path does not need Postgres, LMS setup, or Cloudflare. It runs the same
@@ -32,15 +32,19 @@ deno task local:start
 
 Then open `http://localhost:8417/admin/packages`.
 
-If `createdb` is not installed on your machine, create a local Postgres
-database named `lantern` however you normally manage Postgres and then continue.
+For arbitrary reviewed packages, use
+`http://localhost:8417/admin/packages/import`. Reference apps remain available
+at `http://localhost:8417/admin/packages/reference`.
+
+If `createdb` is not installed on your machine, create a local Postgres database
+named `lantern` however you normally manage Postgres and then continue.
 
 What these commands do:
 
 - `local:init` writes `.env.local`, generates a local development signing key,
   and creates Lantern's local artifact directories
 - `local:bootstrap` runs migrations and seeds the shipped reference packages,
-  including Template App, Web Checkup, and Office Hours Web Lab
+  including Template App, Web Checkup, and TypeScript Ladder Game
 - `local:start` runs Lantern with `.env.local`
 
 If your local Postgres uses a different host, user, password, or database, edit
@@ -50,17 +54,33 @@ If your local Postgres uses a different host, user, password, or database, edit
 
 Lantern app authoring is intentionally narrow:
 
-1. Copy the template app package.
+1. Scaffold one reviewed package from a curated starter.
 2. Edit HTML, CSS, JavaScript, and JSON content.
 3. Validate the package.
-4. Preview it through Lantern's local browser seam.
+4. Execute preview assertions through Lantern's local browser seam.
+5. Open a live preview URL only when that helps.
+6. Import the same package into Lantern for review and inventory.
 
 Start with:
 
 - [AUTHORING.md](AUTHORING.md)
 - [AUTHORING_FOR_LLMS.md](AUTHORING_FOR_LLMS.md)
+- [BROWSER_AUTOGRADER_COOKBOOK.md](BROWSER_AUTOGRADER_COOKBOOK.md)
 - [examples/apps/template/README.md](examples/apps/template/README.md)
-- [examples/apps/office-hours-web-lab/README.md](examples/apps/office-hours-web-lab/README.md)
+- [examples/apps/web-checkup/README.md](examples/apps/web-checkup/README.md)
+- [examples/apps/typescript-ladder-game/README.md](examples/apps/typescript-ladder-game/README.md)
+
+Common path:
+
+```sh
+deno task app:new /tmp/my-lantern-app --starter=simple-activity --app-id=my-app --title="My App"
+deno task app:validate /tmp/my-lantern-app
+deno task app:test-preview /tmp/my-lantern-app
+deno task app:preview /tmp/my-lantern-app
+```
+
+Use `--starter=browser-autograder` when the reviewed package needs
+`grading/specs/*.js` plus `evidence/example-output.json`.
 
 ## What Lantern Is Good For
 
@@ -161,16 +181,29 @@ Wrangler config at [wrangler.jsonc](wrangler.jsonc).
 
 Current Workers boundaries:
 
-- reviewed runtime HTML, JSON content, and static assets load from an R2 bucket
-  binding named `PACKAGE_ARTIFACTS`
+- Lantern still owns the top-level reviewed runtime session document, signed
+  bootstrap injection, JSON content bridge, local-state/event/evidence/score
+  mutations, and audit boundary
+- on Workers, immutable reviewed entrypoint HTML, reviewed static assets, and
+  reviewed browser-grader files launch through a reviewed-identity-keyed Dynamic
+  Worker envelope created from a Worker Loader binding named `LOADER`
+- that Dynamic Worker envelope is browser-first and read-only: it serves only
+  reviewed immutable bytes, receives no Hyperdrive, LMS, or generic outbound
+  capability, and sets `globalOutbound: null`
 - reviewed package snapshots are also written to and reloaded from that same
   `PACKAGE_ARTIFACTS` bucket on Workers
+- arbitrary reviewed package imports and curated reference app imports follow
+  the same governed snapshot flow and land under
+  `var/packages/<app-id>/<version>/...`
 - repository-backed routes use Postgres through a Hyperdrive binding named
   `HYPERDRIVE`
 - curated reference package imports on Workers read source files from
   `PACKAGE_ARTIFACTS` under `reference-packages/<app-id>/source`
 - the Wrangler starter enables `nodejs_compat` and Smart Placement because
   Lantern makes multiple database queries per request
+- both Wrangler configs now include `worker_loaders` for the `LOADER` binding
+  used to cache Dynamic Workers by reviewed runtime identity instead of by
+  session id
 
 The R2 bucket should contain two key layouts:
 
@@ -180,10 +213,15 @@ The R2 bucket should contain two key layouts:
   `reference-packages/<app-id>/source/...`, for example
   `reference-packages/chapter-4-asteroids/source/manifest.json`
 
-The Worker app path no longer depends on local disk for demo package import or
-reviewed runtime delivery. The remaining deployment work is operational:
-provision the curated reference package source files into `PACKAGE_ARTIFACTS` as
-part of your Cloudflare bootstrap or release flow.
+At import time Lantern persists the immutable snapshot, derives the reviewed
+artifact digest from stored files, and signs the reviewed runtime contract that
+runtime launch later verifies. On Workers, Lantern uses that reviewed identity
+to key the Dynamic Worker envelope, so the same approved package bytes can be
+reused across sessions without turning reviewed packages into arbitrary
+server-side apps. The Worker app path no longer depends on local disk for demo
+package import or reviewed runtime delivery. The remaining deployment work is
+operational: provision the curated reference package source files into
+`PACKAGE_ARTIFACTS` as part of your Cloudflare bootstrap or release flow.
 
 For local Worker development, Wrangler now builds a single generated Worker
 artifact through `deno task build:worker` before `dev` or `deploy`. The repo
@@ -195,6 +233,8 @@ To run the Worker locally:
 
 - set Worker vars such as `APP_ORIGIN` and `LTI_TOOL_PRIVATE_JWK` with
   `--var ...` flags or `.dev.vars`
+- keep the `LOADER` Worker Loader binding present; Lantern uses it for the
+  governed Dynamic Worker envelope around immutable reviewed runtime delivery
 - prefer exporting `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`
   with your real local Postgres connection string before `wrangler dev --local`;
   Wrangler uses that to override the sample
@@ -211,10 +251,19 @@ To run the Worker locally:
   remote R2 bucket before calling `/admin/packages/import-reference`
 - then run `npx wrangler dev --local`
 
+The reviewed runtime contract remains the same across local Deno preview and the
+Cloudflare-native Worker path. The browser still sees one Lantern-owned session
+document plus the same `GatewayBootstrap` and `GatewayApp` bridge. What changes
+on Workers is only the immutable delivery substrate for reviewed browser-first
+package bytes. This is a governed reviewed-runtime envelope, not a generic
+code-hosting path for arbitrary uploaded server logic.
+
 ## Public Entry Points
 
 - Authoring guide: [AUTHORING.md](AUTHORING.md)
 - LLM authoring guide: [AUTHORING_FOR_LLMS.md](AUTHORING_FOR_LLMS.md)
+- Browser autograder cookbook:
+  [BROWSER_AUTOGRADER_COOKBOOK.md](BROWSER_AUTOGRADER_COOKBOOK.md)
 - App package contract: [APP_PACKAGE_SPEC.md](APP_PACKAGE_SPEC.md)
 - Manifest schema:
   [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json)
@@ -224,9 +273,9 @@ To run the Worker locally:
   and [examples/apps/quick-study/README.md](examples/apps/quick-study/README.md)
   These are governed reference apps, not a generic app gallery.
 - Browser autograder demos:
-  [examples/apps/web-checkup/README.md](examples/apps/web-checkup/README.md)
-  and [examples/apps/office-hours-web-lab/README.md](examples/apps/office-hours-web-lab/README.md)
-- Copy-first template app:
+  [examples/apps/web-checkup/README.md](examples/apps/web-checkup/README.md) and
+  [examples/apps/typescript-ladder-game/README.md](examples/apps/typescript-ladder-game/README.md)
+- Browser-autograder starter reference:
   [examples/apps/template/README.md](examples/apps/template/README.md)
 - Canonical Workers entrypoint: [src/worker.ts](src/worker.ts)
 - Local Deno app wrapper: [src/app.ts](src/app.ts)
@@ -262,9 +311,10 @@ Generated local environment:
 - `.env.local`: written by `deno task local:init`
 - `PORT`: defaults to `8417`
 - `APP_ORIGIN`: defaults to `http://localhost:8417`
-- `APP_RUNTIME_ORIGIN`: defaults to `http://localhost:8417` so local preview
-  and reviewed runtime stay on one origin
-- `DATABASE_URL`: defaults to `postgres://localhost:5432/lantern?sslmode=disable`
+- `APP_RUNTIME_ORIGIN`: defaults to `http://localhost:8417` so local preview and
+  reviewed runtime stay on one origin
+- `DATABASE_URL`: defaults to
+  `postgres://localhost:5432/lantern?sslmode=disable`
 - `LTI_TOOL_PRIVATE_JWK`: generated automatically for local development
 
 Manual minimum environment if you do not use `local:init`:
@@ -289,7 +339,10 @@ Common commands:
 - `deno task local:dev`
 - `deno task dev`
 - `deno task start`
+- `deno task app:new --list-starters`
+- `deno task app:new <output-root> --starter=<id> --app-id=<app-id> --title="<title>"`
 - `deno task app:validate <package-root>`
+- `deno task app:test-preview <package-root>`
 - `deno task app:preview <package-root>`
 - `deno task fmt`
 - `deno task fmt:check`

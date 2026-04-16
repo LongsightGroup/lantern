@@ -376,43 +376,45 @@ Deno.test("deployment page shows reviewed runtime boundary facts without exposin
     ],
     controlPlaneDetail: {
       ...buildControlPlaneDeploymentDetailSnapshot(),
-      latestRuntimeSession: {
+      latestRuntimeSession: buildControlPlaneRuntimeEvidenceSnapshot({
         eventType: "runtime.session.started",
-        status: "succeeded",
         occurredAt: "2026-03-24T12:36:00Z",
         summary:
           "Started the reviewed runtime session inside Lantern's contained browser boundary.",
         attemptId: "attempt-123",
         sessionId: "runtime-session-123",
-        sandboxModel: "contained_browser_runtime",
-        boundary: "app_runtime_origin",
+        packageVersion: "0.1.0",
+        artifactDigest: "sha256:chapter-4-asteroids-0.1.0",
+        runtimeContractSignature: "test-reviewed-runtime-contract-signature",
+        deliverySubstrate: "dynamic_worker",
+        deliveryWorkerId:
+          "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
+        deliveryState: "started",
         route: "session",
-        capability: null,
-        code: null,
-        boundaryDenialCategory: null,
         detail: {},
-      },
-      latestRuntimeOutcome: {
+      }),
+      latestRuntimeOutcome: buildControlPlaneRuntimeEvidenceSnapshot({
         eventType: "runtime.session.exited",
-        status: "succeeded",
         occurredAt: "2026-03-24T12:37:00Z",
         summary:
           "Exited the reviewed runtime through Lantern's finalize boundary.",
         attemptId: "attempt-123",
         sessionId: "runtime-session-123",
-        sandboxModel: "contained_browser_runtime",
-        boundary: "app_runtime_origin",
+        packageVersion: "0.1.0",
+        artifactDigest: "sha256:chapter-4-asteroids-0.1.0",
+        runtimeContractSignature: "test-reviewed-runtime-contract-signature",
+        deliverySubstrate: "dynamic_worker",
+        deliveryWorkerId:
+          "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
+        deliveryState: "exited",
         route: "finalize",
-        capability: null,
-        code: null,
-        boundaryDenialCategory: null,
         detail: {
           completionState: "completed",
           scoreGiven: 8,
           scoreMaximum: 10,
           gradePublished: false,
         },
-      },
+      }),
     } as ReturnType<typeof buildControlPlaneDeploymentDetailSnapshot>,
     canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
     supportedCanvasEnvironments: [
@@ -427,8 +429,23 @@ Deno.test("deployment page shows reviewed runtime boundary facts without exposin
   assertStringIncludes(html, "Reviewed runtime");
   assertStringIncludes(html, "Runtime session");
   assertStringIncludes(html, "runtime-session-123");
+  assertStringIncludes(html, "Attempt binding");
+  assertStringIncludes(html, "Reviewed package");
+  assertStringIncludes(html, "Package 0.1.0");
+  assertStringIncludes(html, "Artifact digest");
+  assertStringIncludes(html, "sha256:chapter-4-asteroids-0.1.0");
+  assertStringIncludes(html, "Runtime contract");
+  assertStringIncludes(html, "test-reviewed-runtime-contract-signature");
   assertStringIncludes(html, "Contained browser runtime");
   assertStringIncludes(html, "App runtime origin");
+  assertStringIncludes(html, "Delivery substrate");
+  assertStringIncludes(html, "Dynamic Worker");
+  assertStringIncludes(html, "Delivery state");
+  assertStringIncludes(html, "Delivery worker");
+  assertStringIncludes(
+    html,
+    "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
+  );
   assertStringIncludes(html, "Latest outcome");
   assertStringIncludes(
     html,
@@ -483,6 +500,16 @@ Deno.test("deployment page renders anonymous submission evidence links beside th
           artifactUrl:
             "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001",
         }),
+        buildControlPlaneAnonymousEvidenceArtifact({
+          artifactId: "artifact-002",
+          kind: "screenshot_png",
+          fileName: "submission.png",
+          contentType: "image/png",
+          byteSize: 2048,
+          sha256: "sha256:artifact-002",
+          artifactUrl:
+            "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-002",
+        }),
       ],
     }),
     canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
@@ -501,9 +528,68 @@ Deno.test("deployment page renders anonymous submission evidence links beside th
     "Latest browser-grader outcome: 100 / 100 across 1 reviewed specs.",
   );
   assertStringIncludes(html, "submission.json");
+  assertStringIncludes(html, "submission.png");
+  assertStringIncludes(html, "Content type application/json");
+  assertStringIncludes(html, "Size 128 bytes");
+  assertStringIncludes(html, "SHA-256 sha256:artifact-001");
+  assertStringIncludes(html, "Recorded Mar 24, 2026");
+  assertStringIncludes(html, "Supplemental screenshot evidence");
+  assertStringIncludes(html, "not exhaustive proof of learner behavior");
+  assertStringIncludes(html, "<img");
+  assertStringIncludes(html, "Content type image/png");
   assertStringIncludes(
     html,
     "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001",
   );
+  assertStringIncludes(
+    html,
+    "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-002",
+  );
   assertStringIncludes(html, "Open stored artifact");
+});
+
+Deno.test("deployment page renders explicit reviewed-runtime troubleshooting for Dynamic Worker delivery failures", () => {
+  const html = renderDeploymentDetailPage({
+    appId: "chapter-4-asteroids",
+    appTitle: "Chapter 4 Asteroids",
+    history: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: "approved",
+        reviewedAt: "2026-03-23T18:05:00Z",
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        enabledPackageVersionId: 1,
+        enabledPackageVersion: "0.1.0",
+        binding: buildDeploymentBinding(),
+      }),
+    ],
+    controlPlaneDetail: buildControlPlaneDeploymentDetailSnapshot({
+      latestRuntimeOutcome: buildControlPlaneRuntimeEvidenceSnapshot({
+        eventType: "runtime.session.integrity_failed",
+        summary: "Reviewed runtime integrity checks blocked this session.",
+        deliverySubstrate: "dynamic_worker",
+        deliveryState: "deliveryFailed",
+        code: "runtime_delivery_failed",
+        route: "session",
+      }),
+    }),
+    canvasConfigUrl: "http://localhost:8417/lti/canvas/config.json",
+    supportedCanvasEnvironments: [
+      {
+        id: "production",
+        label: "Production Canvas",
+        issuer: resolveCanvasIssuer("production"),
+      },
+    ],
+  });
+
+  assertStringIncludes(html, "Delivery failed");
+  assertStringIncludes(
+    html,
+    "Dynamic Worker delivery failed before Lantern could serve the immutable reviewed runtime bytes for the latest session.",
+  );
+  assertStringIncludes(html, "Code runtime_delivery_failed");
 });

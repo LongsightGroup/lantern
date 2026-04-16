@@ -1,4 +1,4 @@
-import type { Context } from "@hono/hono";
+import type { Context } from '@hono/hono';
 
 const MAX_HEADER_VALUE_LENGTH = 160;
 const MAX_KEY_COUNT = 12;
@@ -30,17 +30,17 @@ export function buildRequestAuditEnvelope(input: {
   return {
     method: input.context.req.method.toUpperCase(),
     path: url.pathname,
-    host: readBoundedHeader(input.context, "host"),
+    host: readBoundedHeader(input.context, 'host'),
     queryKeys: collectSearchParamKeys(url.searchParams),
     formKeys: collectFormKeys(input.formData),
     bodyKeys: collectBodyKeys(input.body),
-    contentType: readBoundedHeader(input.context, "content-type"),
+    contentType: readBoundedHeader(input.context, 'content-type'),
     contentLength: readContentLength(input.context),
-    userAgent: readBoundedHeader(input.context, "user-agent"),
+    userAgent: readBoundedHeader(input.context, 'user-agent'),
     clientIpMasked: readMaskedClientIp(input.context),
-    forwardedHost: readBoundedHeader(input.context, "x-forwarded-host"),
-    forwardedProto: readBoundedHeader(input.context, "x-forwarded-proto"),
-    cfRay: readBoundedHeader(input.context, "cf-ray"),
+    forwardedHost: readBoundedHeader(input.context, 'x-forwarded-host'),
+    forwardedProto: readBoundedHeader(input.context, 'x-forwarded-proto'),
+    cfRay: readBoundedHeader(input.context, 'cf-ray'),
   };
 }
 
@@ -53,7 +53,7 @@ function readBoundedHeader(context: Context, name: string): string | null {
 
   const trimmed = value.trim();
 
-  if (trimmed === "") {
+  if (trimmed === '') {
     return null;
   }
 
@@ -61,7 +61,7 @@ function readBoundedHeader(context: Context, name: string): string | null {
 }
 
 function readContentLength(context: Context): number | null {
-  const value = context.req.header("content-length");
+  const value = context.req.header('content-length');
 
   if (value === undefined) {
     return null;
@@ -102,7 +102,7 @@ function collectLimitedKeys(keys: Iterable<string>): string[] {
   for (const key of keys) {
     const trimmed = key.trim();
 
-    if (trimmed === "") {
+    if (trimmed === '') {
       continue;
     }
 
@@ -117,17 +117,13 @@ function collectLimitedKeys(keys: Iterable<string>): string[] {
 }
 
 function readMaskedClientIp(context: Context): string | null {
-  const forwardedFor = context.req.header("x-forwarded-for");
-  const firstForwardedIp = forwardedFor === undefined
-    ? null
-    : (forwardedFor.split(",")[0]?.trim() ?? null);
-  const candidate = context.req.header("cf-connecting-ip") ??
-    context.req.header("x-real-ip") ??
-    firstForwardedIp;
+  const forwardedFor = context.req.header('x-forwarded-for');
+  const firstForwardedIp =
+    forwardedFor === undefined ? null : (forwardedFor.split(',')[0]?.trim() ?? null);
+  const candidate =
+    context.req.header('cf-connecting-ip') ?? context.req.header('x-real-ip') ?? firstForwardedIp;
 
-  if (
-    candidate === null || candidate === undefined || candidate.trim() === ""
-  ) {
+  if (candidate === null || candidate === undefined || candidate.trim() === '') {
     return null;
   }
 
@@ -140,19 +136,19 @@ function readMaskedClientIp(context: Context): string | null {
     return `${first}.${second}.${third}.x`;
   }
 
-  if (trimmed.includes(":")) {
-    const segments = trimmed.split(":").filter((segment) => segment.length > 0);
+  if (trimmed.includes(':')) {
+    const segments = trimmed.split(':').filter((segment) => segment.length > 0);
 
     if (segments.length === 0) {
-      return "masked";
+      return 'masked';
     }
 
-    return `${segments.slice(0, 4).join(":")}:*`;
+    return `${segments.slice(0, 4).join(':')}:*`;
   }
 
-  return "masked";
+  return 'masked';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

@@ -1,14 +1,14 @@
-export type UserRole = "learner" | "instructor";
-export type SubmissionMode = "standard" | "anonymous_submission";
+export type UserRole = 'learner' | 'instructor';
+export type SubmissionMode = 'standard' | 'anonymous_submission';
 
 export type Capability =
-  | "read_launch_context"
-  | "read_activity_content"
-  | "submit_attempt_event"
-  | "submit_evidence_artifact"
-  | "finalize_attempt"
-  | "read_local_state"
-  | "write_local_state";
+  | 'read_launch_context'
+  | 'read_activity_content'
+  | 'submit_attempt_event'
+  | 'submit_evidence_artifact'
+  | 'finalize_attempt'
+  | 'read_local_state'
+  | 'write_local_state';
 
 export interface LaunchContext {
   userRole: UserRole;
@@ -53,23 +53,23 @@ export interface BootstrapPayload {
 
 export type AttemptEvent =
   | {
-    type: "answer";
-    questionId: string;
-    answer: string | string[];
-    timestamp: string;
-  }
+      type: 'answer';
+      questionId: string;
+      answer: string | string[];
+      timestamp: string;
+    }
   | {
-    type: "progress";
-    checkpoint: string;
-    value: number;
-    timestamp: string;
-  }
+      type: 'progress';
+      checkpoint: string;
+      value: number;
+      timestamp: string;
+    }
   | {
-    type: "complete";
-    timestamp: string;
-  };
+      type: 'complete';
+      timestamp: string;
+    };
 
-export type GatewayBrokerDenialCategory = "specInvalid" | "policyDenied";
+export type GatewayBrokerDenialCategory = 'specInvalid' | 'policyDenied';
 export type GatewayBrokerDetailValue = string | number | boolean | null;
 
 export interface GatewayBrokerDenial {
@@ -89,16 +89,14 @@ export interface GatewayMutationDeniedResult {
   denial: GatewayBrokerDenial;
 }
 
-export type GatewayMutationResult =
-  | GatewayMutationAcceptedResult
-  | GatewayMutationDeniedResult;
+export type GatewayMutationResult = GatewayMutationAcceptedResult | GatewayMutationDeniedResult;
 
 export interface ScoreProposal {
   scoreGiven: number;
   scoreMaximum: number;
 }
 
-export type BrowserGraderSpecStatus = "passed" | "failed";
+export type BrowserGraderSpecStatus = 'passed' | 'failed';
 
 export interface BrowserGraderSpecResult {
   source: string;
@@ -112,8 +110,8 @@ export interface BrowserGraderResult {
   specResults: BrowserGraderSpecResult[];
 }
 
-export type EvidenceArtifactKind = "screenshot_png" | "structured_json";
-export type EvidenceArtifactContentType = "image/png" | "application/json";
+export type EvidenceArtifactKind = 'screenshot_png' | 'structured_json';
+export type EvidenceArtifactContentType = 'image/png' | 'application/json';
 
 export interface EvidenceArtifactUpload {
   kind: EvidenceArtifactKind;
@@ -122,8 +120,7 @@ export interface EvidenceArtifactUpload {
   bodyBase64: string;
 }
 
-export interface GatewayScoreProposalAcceptedResult
-  extends GatewayMutationAcceptedResult {
+export interface GatewayScoreProposalAcceptedResult extends GatewayMutationAcceptedResult {
   scoreProposal: ScoreProposal;
 }
 
@@ -131,22 +128,18 @@ export type GatewayScoreProposalResult =
   | GatewayScoreProposalAcceptedResult
   | GatewayMutationDeniedResult;
 
-export interface GatewayFinalizeAcceptedResult
-  extends GatewayMutationAcceptedResult {
+export interface GatewayFinalizeAcceptedResult extends GatewayMutationAcceptedResult {
   attemptId: string;
   alreadyFinalized: boolean;
-  completionState: "completed" | "abandoned" | null;
+  completionState: 'completed' | 'abandoned' | null;
   scoreGiven: number;
   scoreMaximum: number;
   gradePublished: boolean;
 }
 
-export type GatewayFinalizeResult =
-  | GatewayFinalizeAcceptedResult
-  | GatewayMutationDeniedResult;
+export type GatewayFinalizeResult = GatewayFinalizeAcceptedResult | GatewayMutationDeniedResult;
 
-export interface GatewayEvidenceArtifactAcceptedResult
-  extends GatewayMutationAcceptedResult {
+export interface GatewayEvidenceArtifactAcceptedResult extends GatewayMutationAcceptedResult {
   artifactId: string;
 }
 
@@ -160,25 +153,17 @@ export interface GatewayAppClient {
   readLocalState<T = unknown>(): Promise<T | null>;
   writeLocalState<T = unknown>(value: T): Promise<GatewayMutationResult>;
   emitAttemptEvent(event: AttemptEvent): Promise<GatewayMutationResult>;
-  submitEvidenceArtifact(
-    input: EvidenceArtifactUpload,
-  ): Promise<GatewayEvidenceArtifactResult>;
-  submitScoreProposal(
-    input: ScoreProposal,
-  ): Promise<GatewayScoreProposalResult>;
+  submitEvidenceArtifact(input: EvidenceArtifactUpload): Promise<GatewayEvidenceArtifactResult>;
+  submitScoreProposal(input: ScoreProposal): Promise<GatewayScoreProposalResult>;
   runBrowserGrader(): Promise<BrowserGraderResult>;
   finalizeAttempt(input?: {
-    completionState?: "completed" | "abandoned";
+    completionState?: 'completed' | 'abandoned';
     browserGraderResult?: BrowserGraderResult;
   }): Promise<GatewayFinalizeResult>;
 }
 
-export function resolveSubmissionMode(
-  capabilities: Capability[],
-): SubmissionMode {
-  return capabilities.includes("submit_evidence_artifact")
-    ? "anonymous_submission"
-    : "standard";
+export function resolveSubmissionMode(capabilities: Capability[]): SubmissionMode {
+  return capabilities.includes('submit_evidence_artifact') ? 'anonymous_submission' : 'standard';
 }
 
 declare global {

@@ -7,6 +7,7 @@ import {
   renderDeploymentsPage as renderDeploymentsView,
   renderVerificationPage as renderVerificationView,
 } from './admin/control_plane.ts';
+import type { VerificationPageSection } from './admin/verification_navigation.ts';
 import { createErrorNotice } from './app_notice_support.ts';
 import {
   parseBrokerVerificationRunForm,
@@ -31,14 +32,74 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
   });
 
   app.get('/admin/verification', async (context) => {
+    const section: VerificationPageSection = 'checklist';
+
     try {
-      return await renderVerificationResponse(context, services);
+      return await renderVerificationResponse(context, services, { section });
     } catch (error) {
       return context.html(
         renderVerificationView({
           deployments: [],
           latestBrokerVerification: null,
           ltiProfileSettings: null,
+          section,
+          notice: createErrorNotice('Verification unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.get('/admin/verification/official', async (context) => {
+    const section: VerificationPageSection = 'official';
+
+    try {
+      return await renderVerificationResponse(context, services, { section });
+    } catch (error) {
+      return context.html(
+        renderVerificationView({
+          deployments: [],
+          latestBrokerVerification: null,
+          ltiProfileSettings: null,
+          section,
+          notice: createErrorNotice('Verification unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.get('/admin/verification/new', async (context) => {
+    const section: VerificationPageSection = 'new';
+
+    try {
+      return await renderVerificationResponse(context, services, { section });
+    } catch (error) {
+      return context.html(
+        renderVerificationView({
+          deployments: [],
+          latestBrokerVerification: null,
+          ltiProfileSettings: null,
+          section,
+          notice: createErrorNotice('Verification unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.get('/admin/verification/lti-profile', async (context) => {
+    const section: VerificationPageSection = 'profile';
+
+    try {
+      return await renderVerificationResponse(context, services, { section });
+    } catch (error) {
+      return context.html(
+        renderVerificationView({
+          deployments: [],
+          latestBrokerVerification: null,
+          ltiProfileSettings: null,
+          section,
           notice: createErrorNotice('Verification unavailable', error),
         }),
         statusForError(error),
@@ -52,9 +113,15 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
 
       await services.getOpsRepository().recordBrokerVerificationRun(verificationRun);
 
-      return context.redirect('/admin/verification', 303);
+      return context.redirect(
+        verificationRun.source === '1edtech'
+          ? '/admin/verification/official'
+          : '/admin/verification',
+        303,
+      );
     } catch (error) {
       return await renderVerificationResponse(context, services, {
+        section: 'new',
         notice: createErrorNotice('Verification update blocked', error),
         status: statusForVerificationError(error),
       });
@@ -69,9 +136,10 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
         defaultLtiProfile,
       });
 
-      return context.redirect('/admin/verification', 303);
+      return context.redirect('/admin/verification/lti-profile', 303);
     } catch (error) {
       return await renderVerificationResponse(context, services, {
+        section: 'profile',
         notice: createErrorNotice('Lantern default blocked', error),
         status: statusForVerificationError(error),
       });

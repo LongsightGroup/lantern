@@ -442,8 +442,13 @@ Deno.test("runtime gateway finalizes anonymous browser attempts only after evide
       buildAttemptEvidenceArtifactRecord({
         artifactId: "artifact-001",
         attemptId: "attempt-123",
-        kind: "structured_json",
-        fileName: "submission.json",
+        kind: "screenshot_png",
+        contentType: "image/png",
+        fileName: "submission.png",
+        storageKey:
+          "var/attempt-evidence/attempt-123/artifact-001-submission.png",
+        byteSize: 2048,
+        sha256: "sha256:screenshot-artifact-001",
       }),
     ],
   });
@@ -525,6 +530,8 @@ Deno.test("runtime gateway finalizes anonymous browser attempts only after evide
         assertEquals(result.submissionMode, "anonymous_submission");
         assertEquals(result.evidenceArtifacts.length, 1);
         assertEquals(result.evidenceArtifacts[0]?.artifactId, "artifact-001");
+        assertEquals(result.evidenceArtifacts[0]?.kind, "screenshot_png");
+        assertEquals(result.evidenceArtifacts[0]?.fileName, "submission.png");
         assertEquals(result.gradePublishedNow, true);
       },
     );

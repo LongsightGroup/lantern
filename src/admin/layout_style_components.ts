@@ -49,8 +49,8 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
 
       .flash-note {
         background: var(--accent-soft);
-        border-color: #c7d2fe;
-        color: #3730a3;
+        border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
+        color: color-mix(in srgb, var(--accent) 78%, var(--ink));
       }
 
       .flash-error {
@@ -193,8 +193,10 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
       .button-primary,
       button.button-primary {
         background: var(--accent);
-        color: white;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(79, 70, 229, 0.15);
+        color: #fdfefe;
+        box-shadow:
+          0 1px 2px rgba(0, 0, 0, 0.10),
+          0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
       }
 
       .button:hover,
@@ -216,7 +218,7 @@ export const ADMIN_LAYOUT_STYLE_COMPONENTS = `
 
       .button-danger {
         background: var(--danger);
-        color: white;
+        color: #fdfefe;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.10);
       }
 

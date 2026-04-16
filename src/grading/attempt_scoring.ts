@@ -1,34 +1,29 @@
-import type {
-  AttemptEventRecord,
-  AttemptRecord,
-} from "../package_review/types.ts";
-import type { AttemptScoreResult, ScoreAttemptInput } from "./types.ts";
+import type { AttemptEventRecord, AttemptRecord } from '../package_review/types.ts';
+import type { AttemptScoreResult, ScoreAttemptInput } from './types.ts';
 
 export function scoreAttempt(input: ScoreAttemptInput): AttemptScoreResult {
   switch (input.grading.mode) {
-    case "declarative":
+    case 'declarative':
       return scoreDeclarativeAttempt(input);
-    case "completion":
+    case 'completion':
       return scoreCompletionAttempt(input);
-    case "browser":
+    case 'browser':
       throw new Error(
-        "Browser grading must be finalized through the reviewed runtime browser grader result.",
+        'Browser grading must be finalized through the reviewed runtime browser grader result.',
       );
-    case "manual":
-      throw new Error(
-        "Manual grading cannot be finalized automatically in Phase 3.",
-      );
+    case 'manual':
+      throw new Error('Manual grading cannot be finalized automatically in Phase 3.');
   }
 }
 
 function scoreDeclarativeAttempt(input: ScoreAttemptInput): AttemptScoreResult {
   if (!input.rubric) {
-    throw new Error("Declarative grading requires a loaded reviewed rubric.");
+    throw new Error('Declarative grading requires a loaded reviewed rubric.');
   }
 
   if (input.grading.maxScore === null) {
     throw new Error(
-      "Declarative grading requires a reviewed max score before finalize can continue.",
+      'Declarative grading requires a reviewed max score before finalize can continue.',
     );
   }
 
@@ -38,14 +33,11 @@ function scoreDeclarativeAttempt(input: ScoreAttemptInput): AttemptScoreResult {
     );
   }
 
-  const validatedEvents = validateAndSortAttemptEvents(
-    input.attempt,
-    input.events,
-  );
+  const validatedEvents = validateAndSortAttemptEvents(input.attempt, input.events);
   const latestAnswers = new Map<string, string | string[]>();
 
   for (const record of validatedEvents) {
-    if (record.event.type !== "answer") {
+    if (record.event.type !== 'answer') {
       continue;
     }
 
@@ -71,20 +63,16 @@ function scoreDeclarativeAttempt(input: ScoreAttemptInput): AttemptScoreResult {
 function scoreCompletionAttempt(input: ScoreAttemptInput): AttemptScoreResult {
   if (input.grading.maxScore === null) {
     throw new Error(
-      "Completion grading requires a reviewed max score before finalize can continue.",
+      'Completion grading requires a reviewed max score before finalize can continue.',
     );
   }
 
   if (input.attempt.completionState === null) {
-    throw new Error(
-      "Completion grading requires a finalized completion state.",
-    );
+    throw new Error('Completion grading requires a finalized completion state.');
   }
 
   return {
-    scoreGiven: input.attempt.completionState === "completed"
-      ? input.grading.maxScore
-      : 0,
+    scoreGiven: input.attempt.completionState === 'completed' ? input.grading.maxScore : 0,
     scoreMaximum: input.grading.maxScore,
   };
 }
@@ -106,9 +94,7 @@ function validateAndSortAttemptEvents(
     }
 
     if (!Number.isInteger(record.sequence) || record.sequence <= 0) {
-      throw new Error(
-        `Attempt event ${record.id} must use a positive integer sequence.`,
-      );
+      throw new Error(`Attempt event ${record.id} must use a positive integer sequence.`);
     }
 
     if (sequences.has(record.sequence)) {
@@ -134,9 +120,7 @@ function validateAttemptEventRecord(record: AttemptEventRecord): void {
   const eventType = event.type;
 
   if (!isSupportedAttemptEventType(eventType)) {
-    throw new Error(
-      `Attempt event ${record.id} uses an unsupported event type.`,
-    );
+    throw new Error(`Attempt event ${record.id} uses an unsupported event type.`);
   }
 
   if (record.eventType !== eventType) {
@@ -146,16 +130,12 @@ function validateAttemptEventRecord(record: AttemptEventRecord): void {
   }
 
   switch (eventType) {
-    case "answer":
-      if (
-        typeof event.questionId !== "string" || event.questionId.trim() === ""
-      ) {
-        throw new Error(
-          `Attempt event ${record.id} answer is missing a questionId.`,
-        );
+    case 'answer':
+      if (typeof event.questionId !== 'string' || event.questionId.trim() === '') {
+        throw new Error(`Attempt event ${record.id} answer is missing a questionId.`);
       }
 
-      if (typeof event.answer !== "string" && !isStringArray(event.answer)) {
+      if (typeof event.answer !== 'string' && !isStringArray(event.answer)) {
         throw new Error(
           `Attempt event ${record.id} answer payload must be a string or string array.`,
         );
@@ -166,19 +146,13 @@ function validateAttemptEventRecord(record: AttemptEventRecord): void {
         `Attempt event ${record.id} answer timestamp is invalid.`,
       );
       return;
-    case "progress":
-      if (
-        typeof event.checkpoint !== "string" || event.checkpoint.trim() === ""
-      ) {
-        throw new Error(
-          `Attempt event ${record.id} progress checkpoint is required.`,
-        );
+    case 'progress':
+      if (typeof event.checkpoint !== 'string' || event.checkpoint.trim() === '') {
+        throw new Error(`Attempt event ${record.id} progress checkpoint is required.`);
       }
 
-      if (typeof event.value !== "number" || !Number.isFinite(event.value)) {
-        throw new TypeError(
-          `Attempt event ${record.id} progress value must be a finite number.`,
-        );
+      if (typeof event.value !== 'number' || !Number.isFinite(event.value)) {
+        throw new TypeError(`Attempt event ${record.id} progress value must be a finite number.`);
       }
 
       requireIsoTimestamp(
@@ -186,7 +160,7 @@ function validateAttemptEventRecord(record: AttemptEventRecord): void {
         `Attempt event ${record.id} progress timestamp is invalid.`,
       );
       return;
-    case "complete":
+    case 'complete':
       requireIsoTimestamp(
         event.timestamp,
         `Attempt event ${record.id} completion timestamp is invalid.`,
@@ -195,11 +169,8 @@ function validateAttemptEventRecord(record: AttemptEventRecord): void {
   }
 }
 
-function answersMatch(
-  learnerAnswer: string | string[],
-  correctAnswer: string | string[],
-): boolean {
-  if (typeof learnerAnswer === "string" || typeof correctAnswer === "string") {
+function answersMatch(learnerAnswer: string | string[], correctAnswer: string | string[]): boolean {
+  if (typeof learnerAnswer === 'string' || typeof correctAnswer === 'string') {
     return learnerAnswer === correctAnswer;
   }
 
@@ -220,22 +191,19 @@ function answersMatch(
 }
 
 function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) &&
-    value.every((item) => typeof item === "string");
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === 'object' && value !== null;
 }
 
-function isSupportedAttemptEventType(
-  value: unknown,
-): value is AttemptEventRecord["eventType"] {
-  return value === "answer" || value === "progress" || value === "complete";
+function isSupportedAttemptEventType(value: unknown): value is AttemptEventRecord['eventType'] {
+  return value === 'answer' || value === 'progress' || value === 'complete';
 }
 
 function requireIsoTimestamp(value: unknown, errorMessage: string): void {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     throw new TypeError(errorMessage);
   }
 

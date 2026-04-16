@@ -134,6 +134,7 @@ Deno.test('POST /admin/verification records official certification evidence glob
   });
 
   assertEquals(officialResponse.status, 303);
+  assertEquals(officialResponse.headers.get('location'), '/admin/verification/official');
 
   const workflowStatuses = await repository.listCertificationWorkflowStatuses();
   const statusesByWorkflow = new Map(
@@ -189,6 +190,7 @@ Deno.test('POST /admin/verification rejects missing certification workflow ident
 
   assertStringIncludes(body, 'Verification update blocked');
   assertStringIncludes(body, 'Certification workflow is required.');
+  assertStringIncludes(body, 'Record one verification result');
 });
 
 Deno.test('POST /admin/verification rejects relative certification evidence URLs', async () => {
@@ -230,4 +232,5 @@ Deno.test('POST /admin/verification rejects relative certification evidence URLs
 
   assertStringIncludes(body, 'Verification update blocked');
   assertStringIncludes(body, 'Verification detail URL must be an absolute URL.');
+  assertStringIncludes(body, 'Record one verification result');
 });

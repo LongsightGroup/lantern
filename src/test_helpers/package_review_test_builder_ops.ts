@@ -214,8 +214,18 @@ export function buildControlPlaneRuntimeEvidenceSnapshot(
       "Started the reviewed runtime session inside Lantern's contained browser boundary.",
     attemptId: overrides.attemptId ?? "attempt-123",
     sessionId: overrides.sessionId ?? "runtime-session-123",
+    packageVersionId: overrides.packageVersionId ?? 1,
+    packageVersion: overrides.packageVersion ?? "0.1.0",
+    artifactDigest: overrides.artifactDigest ??
+      "sha256:chapter-4-asteroids-0.1.0",
+    runtimeContractSignature: overrides.runtimeContractSignature ??
+      "test-reviewed-runtime-contract-signature",
     sandboxModel: overrides.sandboxModel ?? "contained_browser_runtime",
     boundary: overrides.boundary ?? "app_runtime_origin",
+    deliverySubstrate: overrides.deliverySubstrate ?? "dynamic_worker",
+    deliveryWorkerId: overrides.deliveryWorkerId ??
+      "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
+    deliveryState: overrides.deliveryState ?? "started",
     route: overrides.route ?? "session",
     capability: overrides.capability ?? null,
     code: overrides.code ?? null,
@@ -231,6 +241,10 @@ export function buildControlPlaneAnonymousEvidenceArtifact(
     artifactId: overrides.artifactId ?? "artifact-001",
     kind: overrides.kind ?? "structured_json",
     fileName: overrides.fileName ?? "submission.json",
+    contentType: overrides.contentType ?? "application/json",
+    byteSize: overrides.byteSize ?? 128,
+    sha256: overrides.sha256 ?? "sha256:artifact-001",
+    createdAt: overrides.createdAt ?? DEFAULT_PHASE4_AT,
     artifactUrl: overrides.artifactUrl ??
       "/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001",
   };

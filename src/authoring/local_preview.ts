@@ -470,7 +470,6 @@ async function serveLocalBrowserGraderAsset(input: {
   const url = new URL(input.request.url);
   const prefix = `${input.runtimeBasePath}/browser-grader/`;
   const assetPath = url.pathname.slice(prefix.length);
-  const runtimeBaseUrl = new URL(input.runtimeBasePath, url).toString();
 
   if (assetPath === "jasmine.js") {
     return new Response(buildBrowserGraderHarnessSource(), {
@@ -484,10 +483,8 @@ async function serveLocalBrowserGraderAsset(input: {
   if (assetPath === "runner.js") {
     return new Response(
       buildBrowserGraderRunnerSource({
-        runtimeBaseUrl,
         reviewedSpecFiles: config.reviewedSpecFiles,
         scoreMaximum: config.scoreMaximum,
-        token: input.sessionToken,
       }),
       {
         status: 200,

@@ -22,8 +22,6 @@ Deno.test("browser grader assets stay on the runtime session origin", () => {
 
 Deno.test("browser grader runner source only points at reviewed same-origin specs", () => {
   const source = buildBrowserGraderRunnerSource({
-    runtimeBaseUrl:
-      "https://runtime.lantern.example/runtime/sessions/runtime-session-123",
     reviewedSpecFiles: [
       "/grading/specs/structure.spec.js",
       "/grading/specs/behavior.spec.js",
@@ -31,14 +29,7 @@ Deno.test("browser grader runner source only points at reviewed same-origin spec
     scoreMaximum: 100,
   });
 
-  assertStringIncludes(
-    source,
-    "/runtime/sessions/runtime-session-123/browser-grader/reviewed/0.js",
-  );
-  assertStringIncludes(
-    source,
-    "/runtime/sessions/runtime-session-123/browser-grader/reviewed/1.js",
-  );
+  assertStringIncludes(source, "./reviewed/' + index + '.js");
   assertStringIncludes(source, '"scoreMaximum":100');
   assertEquals(source.includes("/dist/app.js"), false);
 });

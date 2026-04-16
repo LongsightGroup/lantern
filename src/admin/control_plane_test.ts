@@ -160,16 +160,18 @@ Deno.test('renderVerificationPage shows deployment-scoped verification facts whi
     },
   });
 
-  assertStringIncludes(html, 'Saved checks');
+  assertStringIncludes(html, 'Verification overview');
+  assertStringIncludes(html, 'Keep each verification job on its own page');
   assertStringIncludes(html, 'Certification checklist');
-  assertStringIncludes(html, 'Official 1EdTech listing');
+  assertStringIncludes(html, 'Saved internal workflows');
+  assertStringIncludes(html, 'Official evidence');
+  assertStringIncludes(html, 'Lantern default');
   assertStringIncludes(html, 'LTI Core');
   assertStringIncludes(html, 'Deep Linking');
   assertStringIncludes(html, 'NRPS');
   assertStringIncludes(html, 'AGS');
   assertStringIncludes(html, 'Chapter 4 Asteroids Pilot Deployment');
   assertStringIncludes(html, 'Chapter 4 Asteroids Moodle Deployment');
-  assertStringIncludes(html, 'Chapter 4 Asteroids Sakai Deployment');
   assertStringIncludes(html, 'Canvas deployment verification passed.');
   assertStringIncludes(html, 'Moodle deployment verification failed.');
   assertStringIncludes(html, 'A passed Core row does not cover Deep Linking, NRPS, or AGS.');
@@ -177,16 +179,44 @@ Deno.test('renderVerificationPage shows deployment-scoped verification facts whi
   assertStringIncludes(html, 'Not certified');
   assertStringIncludes(html, 'https://example.test/internal-proof');
   assertStringIncludes(html, 'https://example.test/moodle-proof');
-  assertStringIncludes(html, 'https://example.test/official-directory');
-  assertStringIncludes(html, 'Add a check');
-  assertStringIncludes(html, 'action="/admin/verification"');
-  assertStringIncludes(html, 'Lantern default profile');
-  assertStringIncludes(html, 'action="/admin/verification/lti-profile"');
+  assertStringIncludes(html, 'href="/admin/verification/new"');
+  assertStringIncludes(html, 'href="/admin/verification/official"');
+  assertStringIncludes(html, 'href="/admin/verification/lti-profile"');
   assertStringIncludes(html, 'Certification');
-  assertStringIncludes(html, 'Governed interoperability');
-  assertStringIncludes(html, 'name="deploymentRecordId"');
-  assertStringIncludes(html, 'name="workflowKey"');
-  assertStringIncludes(html, 'name="scope"');
   assertEquals(html.includes('Deployment inventory'), false);
   assertEquals(html.includes('Supported Canvas path'), false);
+  assertEquals(html.includes('Official 1EdTech listing'), false);
+  assertEquals(html.includes('action="/admin/verification"'), false);
+  assertEquals(html.includes('action="/admin/verification/lti-profile"'), false);
+});
+
+Deno.test('renderVerificationPage renders official evidence on its own dedicated page', () => {
+  const html = renderVerificationPage({
+    deployments: [buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 })],
+    latestBrokerVerification: buildBrokerVerificationStatus({
+      supportedPath: 'lti13LaunchAgsScore',
+      internal: null,
+      official: buildOfficialBrokerCertificationStatus({
+        state: 'ltiAdvantageCertified',
+        checkedAt: '2026-03-24T12:55:00Z',
+        directoryUrl: 'https://example.test/official-directory',
+      }),
+    }),
+    certificationWorkflowStatuses: [],
+    latestOfficialCertificationEvidence: buildLatestOfficialCertificationEvidence({
+      workflowKey: 'core',
+      state: 'ltiAdvantageCertified',
+      checkedAt: '2026-03-24T12:55:00Z',
+      summary: '1EdTech lists Lantern as LTI Advantage Certified for Core.',
+      directoryUrl: 'https://example.test/official-directory',
+    }),
+    ltiProfileSettings: null,
+    section: 'official',
+  });
+
+  assertStringIncludes(html, 'Official 1EdTech listing');
+  assertStringIncludes(html, 'Claim boundary');
+  assertStringIncludes(html, 'Open directory entry');
+  assertEquals(html.includes('Certification checklist'), false);
+  assertEquals(html.includes('action="/admin/verification"'), false);
 });

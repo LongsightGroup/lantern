@@ -8,7 +8,6 @@ import { renderPackageIndexPage } from "./admin/package_index.ts";
 import { createErrorNotice } from "./app_notice_support.ts";
 import { statusForError } from "./app_status_support.ts";
 import type { AppServices } from "./app_services.ts";
-import { materializeDraftPreviewPackageVersion } from "./authoring/draft_snapshot.ts";
 import { readEnv } from "./platform/env.ts";
 import { trimLeadingSlash } from "./package_review/snapshot_path.ts";
 import type {
@@ -55,14 +54,12 @@ export function registerAdminAuthoringPreviewRoutes(
           throw new Error("Preview requires at least one saved draft file.");
         }
 
-        const previewPackageVersion =
-          await materializeDraftPreviewPackageVersion(
-            {
-              draft: state.draft,
-              packageVersion: state.packageVersion,
-              createdAt: new Date().toISOString(),
-            },
-          );
+        const previewPackageVersion = await services
+          .materializeDraftPreviewPackageVersion({
+            draft: state.draft,
+            packageVersion: state.packageVersion,
+            createdAt: new Date().toISOString(),
+          });
         const launched = await launchPreviewRuntimeSession({
           repository: services.getRepository(),
           packageVersion: previewPackageVersion,

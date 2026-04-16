@@ -1,8 +1,11 @@
 # Lantern Template
 
-This is the smallest Lantern app package intended to be copied.
+This is the reference package behind the `browser-autograder` starter.
 
-It shows one blessed path:
+Use `deno task app:new ... --starter=browser-autograder` instead of copying this
+directory directly.
+
+It shows one blessed browser-autograder path:
 
 - static frontend files under `dist/`
 - one manifest
@@ -20,18 +23,23 @@ Its reviewed browser grading contract is explicit:
   `finalize_attempt`
 - `manifest.authoring.grader_spec_files` is the reviewed spec list
 - Lantern runs those files through its Lantern-owned Jasmine harness
+- `window.GatewayApp.submitEvidenceArtifact()` is the governed evidence path
+- structured JSON is the canonical example evidence format
+- supplemental screenshot evidence is optional and uses the same Lantern-owned
+  storage, finalize, and audit boundary
 - Lantern owns anonymous evidence return; the app does not submit directly to
   the LMS
 
-Start here:
+Scaffold a fresh package:
 
 ```sh
-cp -R examples/apps/template /tmp/my-lantern-app
-deno task app:validate /tmp/my-lantern-app
-deno task app:preview /tmp/my-lantern-app
+deno task app:new /tmp/my-browser-autograder --starter=browser-autograder --app-id=my-autograder --title="My Autograder"
+deno task app:validate /tmp/my-browser-autograder
+deno task app:test-preview /tmp/my-browser-autograder
+deno task app:preview /tmp/my-browser-autograder
 ```
 
-Then edit:
+Then use this directory as the reference for what to edit:
 
 - `manifest.json`
 - `content/activity.json`
@@ -41,6 +49,11 @@ Then edit:
 - `preview/tests.json`
 - `grading/specs/checks.spec.js`
 - `evidence/example-output.json`
+
+For the full reviewed browser-autograder flow, read:
+
+- [BROWSER_AUTOGRADER_COOKBOOK.md](../../../BROWSER_AUTOGRADER_COOKBOOK.md)
+- [AUTHORING.md](../../../AUTHORING.md)
 
 Do not add:
 

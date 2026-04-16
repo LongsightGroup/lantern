@@ -1,6 +1,12 @@
 import { assertEquals, assertExists } from "@std/assert";
-import { buildAuditEventRecord } from "../test_helpers/package_review.ts";
-import { insertAuditEvent } from "./repository_test_core_support.ts";
+import {
+  buildAttemptEvidenceArtifactRecord,
+  buildAuditEventRecord,
+} from "../test_helpers/package_review.ts";
+import {
+  insertAttemptEvidenceArtifact,
+  insertAuditEvent,
+} from "./repository_test_core_support.ts";
 import { withSeededOpsRepositoryTest } from "./repository_inventory_test_support.ts";
 
 Deno.test("ops repository returns deployment detail snapshots with recent launches, the latest checks, and only failed diagnostics", async () => {
@@ -236,8 +242,16 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
             "Started the reviewed runtime session inside Lantern's contained browser boundary.",
           detail: {
             sessionId: "runtime-session-123",
+            packageVersionId: 1,
+            packageVersion: "0.1.0",
+            artifactDigest: "sha256:chapter-4-asteroids-0.1.0",
+            runtimeContractSignature:
+              "test-reviewed-runtime-contract-signature",
             sandboxModel: "contained_browser_runtime",
             boundary: "app_runtime_origin",
+            deliverySubstrate: "dynamic_worker",
+            deliveryWorkerId:
+              "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
             route: "session",
             capabilityCount: 6,
           },
@@ -256,8 +270,16 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
             "Exited the reviewed runtime through Lantern's finalize boundary.",
           detail: {
             sessionId: "runtime-session-123",
+            packageVersionId: 1,
+            packageVersion: "0.1.0",
+            artifactDigest: "sha256:chapter-4-asteroids-0.1.0",
+            runtimeContractSignature:
+              "test-reviewed-runtime-contract-signature",
             sandboxModel: "contained_browser_runtime",
             boundary: "app_runtime_origin",
+            deliverySubstrate: "dynamic_worker",
+            deliveryWorkerId:
+              "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
             route: "finalize",
             completionState: "completed",
             scoreGiven: 8,
@@ -287,6 +309,21 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
           occurredAt: "2026-03-24T12:37:00Z",
         }),
       );
+      await insertAttemptEvidenceArtifact(
+        client,
+        buildAttemptEvidenceArtifactRecord({
+          artifactId: "artifact-001",
+          attemptId: "attempt-123",
+          kind: "structured_json",
+          contentType: "application/json",
+          fileName: "submission.json",
+          storageKey:
+            "var/attempt-evidence/attempt-123/artifact-001-submission.json",
+          byteSize: 128,
+          sha256: "sha256:artifact-001",
+          createdAt: "2026-03-24T12:36:30Z",
+        }),
+      );
     } finally {
       client.release();
     }
@@ -297,20 +334,38 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
     const runtimeDetail = detail as typeof detail & {
       latestRuntimeSession?: {
         sessionId: string | null;
+        packageVersionId: number | null;
+        packageVersion: string | null;
+        artifactDigest: string | null;
+        runtimeContractSignature: string | null;
         sandboxModel: string | null;
         boundary: string | null;
+        deliverySubstrate: string | null;
+        deliveryWorkerId: string | null;
+        deliveryState: string | null;
         route: string | null;
         attemptId: string | null;
       } | null;
       latestRuntimeOutcome?: {
         eventType: string;
         sessionId: string | null;
+        packageVersionId: number | null;
+        packageVersion: string | null;
+        artifactDigest: string | null;
+        runtimeContractSignature: string | null;
         sandboxModel: string | null;
         boundary: string | null;
+        deliverySubstrate: string | null;
+        deliveryWorkerId: string | null;
+        deliveryState: string | null;
         route: string | null;
       } | null;
       latestAnonymousEvidence?: Array<{
         artifactId: string;
+        contentType: string | null;
+        byteSize: number | null;
+        sha256: string | null;
+        createdAt: string | null;
         artifactUrl: string;
       }>;
     };
@@ -320,6 +375,16 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
       runtimeDetail.latestRuntimeSession?.sessionId,
       "runtime-session-123",
     );
+    assertEquals(runtimeDetail.latestRuntimeSession?.packageVersionId, 1);
+    assertEquals(runtimeDetail.latestRuntimeSession?.packageVersion, "0.1.0");
+    assertEquals(
+      runtimeDetail.latestRuntimeSession?.artifactDigest,
+      "sha256:chapter-4-asteroids-0.1.0",
+    );
+    assertEquals(
+      runtimeDetail.latestRuntimeSession?.runtimeContractSignature,
+      "test-reviewed-runtime-contract-signature",
+    );
     assertEquals(
       runtimeDetail.latestRuntimeSession?.sandboxModel,
       "contained_browser_runtime",
@@ -328,6 +393,15 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
       runtimeDetail.latestRuntimeSession?.boundary,
       "app_runtime_origin",
     );
+    assertEquals(
+      runtimeDetail.latestRuntimeSession?.deliverySubstrate,
+      "dynamic_worker",
+    );
+    assertEquals(
+      runtimeDetail.latestRuntimeSession?.deliveryWorkerId,
+      "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
+    );
+    assertEquals(runtimeDetail.latestRuntimeSession?.deliveryState, "started");
     assertEquals(runtimeDetail.latestRuntimeSession?.route, "session");
     assertEquals(runtimeDetail.latestRuntimeSession?.attemptId, "attempt-123");
     assertExists(runtimeDetail.latestRuntimeOutcome);
@@ -339,6 +413,16 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
       runtimeDetail.latestRuntimeOutcome?.sessionId,
       "runtime-session-123",
     );
+    assertEquals(runtimeDetail.latestRuntimeOutcome?.packageVersionId, 1);
+    assertEquals(runtimeDetail.latestRuntimeOutcome?.packageVersion, "0.1.0");
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.artifactDigest,
+      "sha256:chapter-4-asteroids-0.1.0",
+    );
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.runtimeContractSignature,
+      "test-reviewed-runtime-contract-signature",
+    );
     assertEquals(
       runtimeDetail.latestRuntimeOutcome?.sandboxModel,
       "contained_browser_runtime",
@@ -347,11 +431,33 @@ Deno.test("ops repository exposes runtime session and sandbox boundary evidence 
       runtimeDetail.latestRuntimeOutcome?.boundary,
       "app_runtime_origin",
     );
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.deliverySubstrate,
+      "dynamic_worker",
+    );
+    assertEquals(
+      runtimeDetail.latestRuntimeOutcome?.deliveryWorkerId,
+      "reviewed-runtime:v1:test-reviewed-runtime-contract-signature",
+    );
+    assertEquals(runtimeDetail.latestRuntimeOutcome?.deliveryState, "exited");
     assertEquals(runtimeDetail.latestRuntimeOutcome?.route, "finalize");
     assertEquals(runtimeDetail.latestAnonymousEvidence?.length, 1);
     assertEquals(
       runtimeDetail.latestAnonymousEvidence?.[0]?.artifactId,
       "artifact-001",
+    );
+    assertEquals(
+      runtimeDetail.latestAnonymousEvidence?.[0]?.contentType,
+      "application/json",
+    );
+    assertEquals(runtimeDetail.latestAnonymousEvidence?.[0]?.byteSize, 128);
+    assertEquals(
+      runtimeDetail.latestAnonymousEvidence?.[0]?.sha256,
+      "sha256:artifact-001",
+    );
+    assertEquals(
+      runtimeDetail.latestAnonymousEvidence?.[0]?.createdAt,
+      "2026-03-24T12:36:30.000Z",
     );
     assertEquals(
       runtimeDetail.latestAnonymousEvidence?.[0]?.artifactUrl,

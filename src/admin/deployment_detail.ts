@@ -11,6 +11,7 @@ import { renderManagedDeploymentSections } from './deployment_detail_release_sec
 import { renderVersionHistorySection } from './deployment_detail_history_section.ts';
 import { renderOperationalEvidenceSection } from './deployment_detail_ops_sections.ts';
 import { type AdminNotice, renderAdminLayout } from './layout.ts';
+import { renderPackagePageNav } from './package_navigation.ts';
 
 export interface DeploymentNrpsVerificationSummary {
   status: 'succeeded' | 'failed';
@@ -227,19 +228,24 @@ export function renderDeploymentDetailPage(input: {
 
   return renderAdminLayout({
     title: `${input.appTitle} App settings`,
-    eyebrow: 'App settings',
-    heading: `${input.appTitle} App settings`,
+    eyebrow: 'Settings',
+    heading: input.appTitle,
     intro: 'Connect this app to one LMS and choose what version people should open.',
-    activePath: '/admin/deployments',
+    activePath: '/admin/packages',
     breadcrumbs: [
       { label: 'Apps', href: '/admin/packages' },
       {
         label: input.appTitle,
-        href: `/admin/packages/${input.appId}/versions/${input.history[0]?.version ?? ''}`,
+        href: `/admin/packages/${input.appId}`,
       },
-      { label: 'Connections' },
+      { label: 'Settings' },
     ],
     notice: input.notice ?? null,
+    pageNav: renderPackagePageNav({
+      appId: input.appId,
+      history: input.history,
+      currentSection: 'settings',
+    }),
     body: `${renderManagedDeploymentSections({
       appId: input.appId,
       slots,

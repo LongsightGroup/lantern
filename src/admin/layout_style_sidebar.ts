@@ -80,6 +80,40 @@ export const ADMIN_LAYOUT_STYLE_SIDEBAR = `
         opacity: 0.9;
       }
 
+      .sidebar-nav-group {
+        display: grid;
+        gap: 4px;
+      }
+
+      .sidebar-subnav {
+        display: grid;
+        gap: 2px;
+        margin: 0 0 8px 36px;
+        padding-left: 12px;
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .sidebar-sublink {
+        display: block;
+        padding: 6px 10px;
+        border-radius: var(--radius-sm);
+        font-size: 12.5px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.5);
+        text-decoration: none;
+        transition: background 120ms, color 120ms;
+      }
+
+      .sidebar-sublink:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .sidebar-sublink.active {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+      }
+
       .sidebar-footer {
         padding: 14px 20px;
         border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -182,5 +216,46 @@ export const ADMIN_LAYOUT_STYLE_SIDEBAR = `
         font-size: 14px;
         font-weight: 600;
         color: var(--ink);
+      }
+
+      .page-header-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line-light);
+      }
+
+      .page-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .page-nav-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        color: var(--secondary);
+        font-size: 13.5px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: background 120ms, border-color 120ms, color 120ms;
+      }
+
+      .page-nav-link:hover {
+        background: var(--bg);
+        border-color: var(--line);
+        color: var(--ink);
+      }
+
+      .page-nav-link-current {
+        background: var(--accent-soft);
+        border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
+        color: color-mix(in srgb, var(--accent) 82%, var(--ink));
       }
 `;

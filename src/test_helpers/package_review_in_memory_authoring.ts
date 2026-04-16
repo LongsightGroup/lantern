@@ -1,23 +1,17 @@
-import type { PackageReviewRepository } from "../package_review/repository.ts";
+import type { PackageReviewRepository } from '../package_review/repository.ts';
 import {
   normalizeAuthoringDraftPath,
   readBrowserAutograderContract,
-} from "../package_review/repository_authoring.ts";
-import type {
-  AuthoringDraftRecord,
-  PackageVersionRecord,
-} from "../package_review/types.ts";
-import {
-  cloneRecord,
-  type InMemoryRepositoryState,
-} from "./package_review_in_memory_shared.ts";
+} from '../package_review/repository_authoring.ts';
+import type { AuthoringDraftRecord, PackageVersionRecord } from '../package_review/types.ts';
+import { cloneRecord, type InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
 
 type AuthoringRepository = Pick<
   PackageReviewRepository,
-  | "createAuthoringDraftFromPackageVersion"
-  | "getAuthoringDraftById"
-  | "saveAuthoringDraftFiles"
-  | "markAuthoringDraftPreviewed"
+  | 'createAuthoringDraftFromPackageVersion'
+  | 'getAuthoringDraftById'
+  | 'saveAuthoringDraftFiles'
+  | 'markAuthoringDraftPreviewed'
 >;
 
 export function createInMemoryAuthoringRepository(
@@ -33,14 +27,8 @@ export function createInMemoryAuthoringRepository(
         return Promise.resolve(hydrateDraft(state, existing.draftId));
       }
 
-      if (
-        state.authoringDrafts.some(
-          (candidate) => candidate.draftId === input.draftId,
-        )
-      ) {
-        throw new Error(
-          `Authoring draft ${input.draftId} already exists and cannot be replaced.`,
-        );
+      if (state.authoringDrafts.some((candidate) => candidate.draftId === input.draftId)) {
+        throw new Error(`Authoring draft ${input.draftId} already exists and cannot be replaced.`);
       }
 
       const packageVersion = getPackageVersionOrThrow(
@@ -59,7 +47,7 @@ export function createInMemoryAuthoringRepository(
         baseSnapshotRoot: packageVersion.artifact.snapshotRoot,
         latestPromptText: null,
         latestGenerationNotes: [],
-        savedSource: "manual",
+        savedSource: 'manual',
         lastPreviewedAt: null,
         createdAt: input.createdAt,
         updatedAt: input.createdAt,
@@ -72,9 +60,7 @@ export function createInMemoryAuthoringRepository(
     },
 
     getAuthoringDraftById(draftId) {
-      const draft = state.authoringDrafts.find(
-        (candidate) => candidate.draftId === draftId,
-      );
+      const draft = state.authoringDrafts.find((candidate) => candidate.draftId === draftId);
 
       return Promise.resolve(draft ? hydrateDraft(state, draftId) : null);
     },
@@ -113,16 +99,11 @@ export function createInMemoryAuthoringRepository(
       for (const file of normalizedFiles) {
         const existingFileIndex = state.authoringDraftFiles.findIndex(
           (candidate) =>
-            candidate.draftId === file.draftId &&
-            candidate.relativePath === file.relativePath,
+            candidate.draftId === file.draftId && candidate.relativePath === file.relativePath,
         );
 
         if (existingFileIndex >= 0) {
-          state.authoringDraftFiles.splice(
-            existingFileIndex,
-            1,
-            cloneRecord(file),
-          );
+          state.authoringDraftFiles.splice(existingFileIndex, 1, cloneRecord(file));
           continue;
         }
 
@@ -170,13 +151,8 @@ export function createInMemoryAuthoringRepository(
   };
 }
 
-function hydrateDraft(
-  state: InMemoryRepositoryState,
-  draftId: string,
-): AuthoringDraftRecord {
-  const draft = state.authoringDrafts.find((candidate) =>
-    candidate.draftId === draftId
-  );
+function hydrateDraft(state: InMemoryRepositoryState, draftId: string): AuthoringDraftRecord {
+  const draft = state.authoringDrafts.find((candidate) => candidate.draftId === draftId);
 
   if (!draft) {
     throw new Error(`Authoring draft ${draftId} was not found.`);
@@ -186,8 +162,7 @@ function hydrateDraft(
     .filter((candidate) => candidate.draftId === draftId)
     .sort(
       (left, right) =>
-        left.sequence - right.sequence ||
-        left.relativePath.localeCompare(right.relativePath),
+        left.sequence - right.sequence || left.relativePath.localeCompare(right.relativePath),
     )
     .map(cloneRecord);
 
@@ -203,9 +178,7 @@ function getPackageVersionOrThrow(
   packageVersions: PackageVersionRecord[],
   packageVersionId: number,
 ): PackageVersionRecord {
-  const packageVersion = packageVersions.find(
-    (candidate) => candidate.id === packageVersionId,
-  );
+  const packageVersion = packageVersions.find((candidate) => candidate.id === packageVersionId);
 
   if (!packageVersion) {
     throw new Error(`Package version id ${packageVersionId} was not found.`);
@@ -217,7 +190,7 @@ function getPackageVersionOrThrow(
 function requireApprovedBrowserAutograderContract(
   packageVersion: PackageVersionRecord,
 ): ReturnType<typeof readBrowserAutograderContract> {
-  if (packageVersion.approvalStatus !== "approved") {
+  if (packageVersion.approvalStatus !== 'approved') {
     throw new Error(
       `Authoring draft requires an approved package version. Found ${packageVersion.appId}@${packageVersion.version} in ${packageVersion.approvalStatus} state.`,
     );

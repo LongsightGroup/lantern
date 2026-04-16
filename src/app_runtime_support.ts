@@ -5,6 +5,7 @@ import type {
   SubmissionMode,
 } from "../sdk/app-sdk.ts";
 import type { RuntimeSessionRecord } from "./lti/types.ts";
+import type { PackageVersionRecord } from "./package_review/types.ts";
 import type { PackageReviewRepository } from "./package_review/repository.ts";
 import type { AuditEventStatus } from "./package_review/types.ts";
 import type { RequestAuditEnvelope } from "./request_audit.ts";
@@ -14,6 +15,7 @@ import {
   isRuntimeBrokerDenialError,
   isRuntimeOutcomeError,
 } from "./runtime/gateway_errors.ts";
+import type { RuntimeDeliveryDescriptor } from "./runtime/delivery.ts";
 import {
   RUNTIME_BOUNDARY,
   RUNTIME_SANDBOX_MODEL,
@@ -56,6 +58,8 @@ export async function recordRuntimeSessionStarted(input: {
   repository: PackageReviewRepository;
   session: RuntimeSessionRecord;
   runtimeOrigin: string;
+  reviewedPackage: RuntimeAuditReviewedPackage;
+  delivery: RuntimeDeliveryDescriptor;
   route: string;
   occurredAt?: string;
 }): Promise<void> {
@@ -70,6 +74,11 @@ export async function recordRuntimeSessionStarted(input: {
     detail: {
       route: input.route,
       runtimeOrigin: input.runtimeOrigin,
+      ...buildRuntimeAuditIdentityDetail({
+        session: input.session,
+        reviewedPackage: input.reviewedPackage,
+        delivery: input.delivery,
+      }),
       capabilityCount: input.session.capabilities.length,
     },
   });
@@ -124,6 +133,8 @@ export async function recordRuntimeScoreProposalAccepted(input: {
 export async function recordRuntimeSessionExited(input: {
   repository: PackageReviewRepository;
   session: RuntimeSessionRecord;
+  reviewedPackage: RuntimeAuditReviewedPackage | null;
+  delivery: RuntimeDeliveryDescriptor;
   completionState: "completed" | "abandoned" | null;
   scoreGiven: number;
   scoreMaximum: number;
@@ -148,6 +159,11 @@ export async function recordRuntimeSessionExited(input: {
     occurredAt: input.occurredAt,
     detail: {
       route: input.route,
+      ...buildRuntimeAuditIdentityDetail({
+        session: input.session,
+        reviewedPackage: input.reviewedPackage,
+        delivery: input.delivery,
+      }),
       completionState: input.completionState,
       scoreGiven: input.scoreGiven,
       scoreMaximum: input.scoreMaximum,
@@ -166,6 +182,8 @@ export async function recordRuntimeRouteFailure(input: {
   repository: PackageReviewRepository;
   session: RuntimeSessionRecord | null;
   error: unknown;
+  delivery: RuntimeDeliveryDescriptor;
+  reviewedPackage?: RuntimeAuditReviewedPackage | null;
   route: string;
   request: RequestAuditEnvelope;
   occurredAt?: string;
@@ -188,6 +206,11 @@ export async function recordRuntimeRouteFailure(input: {
       occurredAt: input.occurredAt,
       detail: {
         route: input.route,
+        ...buildRuntimeAuditIdentityDetail({
+          session: input.session,
+          reviewedPackage: input.reviewedPackage ?? null,
+          delivery: input.delivery,
+        }),
         category: input.error.category,
         code: input.error.code,
         capability: input.error.capability,
@@ -218,6 +241,11 @@ export async function recordRuntimeRouteFailure(input: {
       occurredAt: input.occurredAt,
       detail: {
         route: input.route,
+        ...buildRuntimeAuditIdentityDetail({
+          session: input.session,
+          reviewedPackage: input.reviewedPackage ?? null,
+          delivery: input.delivery,
+        }),
         code: input.error.code,
         request: input.request,
         ...input.error.detail,
@@ -253,4 +281,27 @@ async function recordRuntimeAuditEvent(input: {
     }),
     occurredAt: input.occurredAt ?? new Date().toISOString(),
   });
+}
+
+type RuntimeAuditReviewedPackage = Pick<
+  PackageVersionRecord,
+  "id" | "version" | "artifact" | "runtimeContractSignature"
+>;
+
+function buildRuntimeAuditIdentityDetail(input: {
+  session: RuntimeSessionRecord;
+  reviewedPackage: RuntimeAuditReviewedPackage | null;
+  delivery: RuntimeDeliveryDescriptor;
+}): Record<string, string | number | boolean | null | undefined> {
+  return {
+    packageVersionId: input.reviewedPackage?.id ??
+      input.session.packageVersionId,
+    packageVersion: input.reviewedPackage?.version ??
+      input.session.packageVersion,
+    artifactDigest: input.reviewedPackage?.artifact.digest ?? undefined,
+    runtimeContractSignature: input.reviewedPackage?.runtimeContractSignature ??
+      undefined,
+    deliverySubstrate: input.delivery.substrate,
+    deliveryWorkerId: input.delivery.workerId,
+  };
 }

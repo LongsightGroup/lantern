@@ -1,5 +1,6 @@
 import type { ManagedDeploymentSlot } from "./deployment_detail.ts";
 import type {
+  ControlPlaneAnonymousEvidenceArtifact,
   ControlPlaneDeploymentDetailSnapshot,
   ControlPlaneRuntimeEvidenceSnapshot,
 } from "../ops/types.ts";
@@ -8,6 +9,8 @@ import {
   describeActivityLtiProfile,
   describeRuntimeRoute,
   formatActivityTimestamp,
+  formatByteSize,
+  formatOptionalTimestamp,
   formatRuntimeTimestamp,
   readBooleanDetail,
   readNestedStringDetail,
@@ -17,7 +20,10 @@ import {
 } from "./deployment_detail_ops_support.ts";
 import {
   describeBrokerVerificationStatus as describeBrokerVerificationStatusLabel,
+  describeEvidenceArtifactKind,
   describeRuntimeBoundary,
+  describeRuntimeDeliveryState,
+  describeRuntimeDeliverySubstrate,
   describeRuntimeOutcome,
   describeRuntimeSandboxModel,
   describeSmokeCapability,
@@ -62,16 +68,29 @@ export function renderRuntimeSection(
 ): string {
   const latestRuntimeSession = detail?.latestRuntimeSession ?? null;
   const latestRuntimeOutcome = detail?.latestRuntimeOutcome ?? null;
+  const runtimeSnapshot = latestRuntimeOutcome ?? latestRuntimeSession;
+  const packageVersion = runtimeSnapshot?.packageVersion ?? null;
+  const artifactDigest = runtimeSnapshot?.artifactDigest ?? null;
+  const runtimeContractSignature = runtimeSnapshot?.runtimeContractSignature ??
+    null;
   const sandboxModel = latestRuntimeSession?.sandboxModel ??
     latestRuntimeOutcome?.sandboxModel ?? null;
   const boundary = latestRuntimeSession?.boundary ??
     latestRuntimeOutcome?.boundary ?? null;
+  const deliverySubstrate = latestRuntimeOutcome?.deliverySubstrate ??
+    latestRuntimeSession?.deliverySubstrate ?? null;
+  const deliveryState = latestRuntimeOutcome?.deliveryState ??
+    latestRuntimeSession?.deliveryState ?? null;
+  const deliveryWorkerId = latestRuntimeOutcome?.deliveryWorkerId ??
+    latestRuntimeSession?.deliveryWorkerId ?? null;
+  const attemptId = latestRuntimeOutcome?.attemptId ??
+    latestRuntimeSession?.attemptId ?? null;
 
   return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Reviewed runtime</p>
         <h2>Runtime session</h2>
-        <p>Lantern records which reviewed sandbox model and runtime boundary were active for this setup.</p>
+        <p>Lantern records which reviewed package was launched, how Lantern delivered it, and how the latest governed runtime session ended for this setup.</p>
         <div class="facts">
           ${
     renderRuntimeFact(
@@ -82,13 +101,50 @@ export function renderRuntimeSection(
     )
   }
           ${
+    renderRuntimeFact(
+      "Attempt binding",
+      attemptId ?? "Not recorded yet",
+      attemptId === null
+        ? "Lantern has not tied the latest reviewed runtime record to an attempt yet."
+        : `Lantern tied the latest reviewed runtime record to attempt ${attemptId}.`,
+    )
+  }
+          ${
+    renderRuntimeFact(
+      "Reviewed package",
+      packageVersion === null
+        ? "Not recorded yet"
+        : `Package ${packageVersion}`,
+      packageVersion === null
+        ? "Lantern has not recorded which approved reviewed package version launched for this setup yet."
+        : `Lantern launched the approved reviewed package version ${packageVersion} for this setup.`,
+    )
+  }
+          ${
+    renderRuntimeFact(
+      "Artifact digest",
+      artifactDigest ?? "Not recorded yet",
+      artifactDigest === null
+        ? "Lantern has not recorded the reviewed artifact digest for this runtime yet."
+        : "Lantern records the immutable reviewed artifact digest that backed this runtime session.",
+    )
+  }
+          ${
+    renderRuntimeFact(
+      "Runtime contract",
+      runtimeContractSignature ?? "Not recorded yet",
+      runtimeContractSignature === null
+        ? "Lantern has not recorded the reviewed runtime contract signature for this runtime yet."
+        : "Lantern records the reviewed runtime contract signature used to bind delivery and audit to the approved package.",
+    )
+  }
+          ${
     renderActivityFact(
       "Started at",
       formatRuntimeTimestamp(latestRuntimeSession),
-      latestRuntimeSession?.attemptId === null ||
-        latestRuntimeSession?.attemptId === undefined
-        ? "Lantern has not tied a reviewed runtime session to an attempt for this setup yet."
-        : `Lantern tied this reviewed runtime session to attempt ${latestRuntimeSession.attemptId}.`,
+      latestRuntimeSession === null
+        ? "Lantern has not recorded when the latest reviewed runtime session started for this setup yet."
+        : "Lantern records when the latest reviewed runtime session crossed into the governed runtime boundary.",
     )
   }
           ${
@@ -118,6 +174,37 @@ export function renderRuntimeSection(
     )
   }
           ${
+    renderActivityFact(
+      "Delivery substrate",
+      describeRuntimeDeliverySubstrate(deliverySubstrate),
+      deliverySubstrate === null
+        ? "Lantern has not recorded which reviewed-runtime delivery path served this setup yet."
+        : `Lantern served the latest reviewed runtime through ${
+          describeRuntimeDeliverySubstrate(
+            deliverySubstrate,
+          )
+        }.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      "Delivery state",
+      describeRuntimeDeliveryState(deliveryState),
+      deliveryState === null
+        ? "Lantern has not normalized the latest reviewed runtime state for this setup yet."
+        : describeRuntimeDeliveryStateSummary(runtimeSnapshot),
+    )
+  }
+          ${
+    renderRuntimeFact(
+      "Delivery worker",
+      deliveryWorkerId ?? "Not recorded yet",
+      deliveryWorkerId === null
+        ? "Lantern did not record a Dynamic Worker identity for this runtime delivery path."
+        : "Lantern records the deterministic Dynamic Worker id used for the immutable reviewed runtime envelope.",
+    )
+  }
+          ${
     renderRuntimeFact(
       "Latest outcome",
       describeRuntimeOutcome(latestRuntimeOutcome?.eventType),
@@ -126,7 +213,8 @@ export function renderRuntimeSection(
     )
   }
         </div>
-        ${renderRuntimeOutcomeCallout(latestRuntimeOutcome)}
+        ${renderRuntimeTroubleshootingCallout(runtimeSnapshot)}
+        ${renderRuntimeOutcomeCallout(runtimeSnapshot)}
       </div>
     </section>`;
 }
@@ -151,20 +239,7 @@ export function renderAnonymousEvidenceSection(
             <div class="line-list">
               ${
         anonymousEvidence
-          .map(
-            (artifact) =>
-              `<article class="line-item">
-                    <p class="line-title">${escapeHtml(artifact.fileName)}</p>
-                    <p class="line-copy">${
-                escapeHtml(
-                  `${artifact.kind} stored for ${artifact.artifactId}.`,
-                )
-              }</p>
-                    <p><a href="${
-                escapeHtml(artifact.artifactUrl)
-              }">Open stored artifact</a></p>
-                  </article>`,
-          )
+          .map((artifact) => renderAnonymousEvidenceArtifact(artifact))
           .join("")
       }
             </div>`
@@ -328,21 +403,40 @@ export function renderAgsSmokeSection(
     </section>`;
 }
 
-function renderRuntimeOutcomeCallout(
-  latestRuntimeOutcome: ControlPlaneRuntimeEvidenceSnapshot | null,
+function renderRuntimeTroubleshootingCallout(
+  runtimeSnapshot: ControlPlaneRuntimeEvidenceSnapshot | null,
 ): string {
-  if (latestRuntimeOutcome === null) {
+  if (runtimeSnapshot === null) {
+    return "";
+  }
+
+  const summary = describeRuntimeTroubleshootingSummary(runtimeSnapshot);
+
+  if (summary === null) {
+    return "";
+  }
+
+  return `<div class="callout">
+      <h3>${
+    escapeHtml(describeRuntimeDeliveryState(runtimeSnapshot.deliveryState))
+  }</h3>
+      <p>${escapeHtml(summary)}</p>
+    </div>`;
+}
+
+function renderRuntimeOutcomeCallout(
+  runtimeSnapshot: ControlPlaneRuntimeEvidenceSnapshot | null,
+): string {
+  if (runtimeSnapshot === null) {
     return "";
   }
 
   const runtimeFacts = [
-    describeRuntimeRoute(latestRuntimeOutcome.route),
-    latestRuntimeOutcome.capability === null
+    describeRuntimeRoute(runtimeSnapshot.route),
+    runtimeSnapshot.capability === null
       ? null
-      : `Capability ${latestRuntimeOutcome.capability}`,
-    latestRuntimeOutcome.code === null
-      ? null
-      : `Code ${latestRuntimeOutcome.code}`,
+      : `Capability ${runtimeSnapshot.capability}`,
+    runtimeSnapshot.code === null ? null : `Code ${runtimeSnapshot.code}`,
   ].filter((value): value is string => value !== null);
 
   if (runtimeFacts.length === 0) {
@@ -350,6 +444,58 @@ function renderRuntimeOutcomeCallout(
   }
 
   return `<p class="micro muted">${escapeHtml(runtimeFacts.join(" · "))}</p>`;
+}
+
+function describeRuntimeDeliveryStateSummary(
+  runtimeSnapshot: ControlPlaneRuntimeEvidenceSnapshot | null,
+): string {
+  if (runtimeSnapshot === null) {
+    return "Lantern has not normalized the latest reviewed runtime state for this setup yet.";
+  }
+
+  switch (runtimeSnapshot.deliveryState) {
+    case "started":
+      return "Lantern launched the reviewed package and has not recorded a later runtime outcome for this setup yet.";
+    case "exited":
+      return "Lantern recorded a governed runtime exit for the latest reviewed session.";
+    case "deliveryFailed":
+      return "Lantern recorded a reviewed-runtime delivery failure before app bytes could be served.";
+    case "assetMissing":
+      return "Lantern recorded that a reviewed runtime file was missing from the approved package snapshot.";
+    case "integrityFailed":
+      return "Lantern blocked the reviewed runtime before app code could continue because an integrity check failed.";
+    case "timedOut":
+      return "Lantern recorded that the reviewed runtime session timed out before the app could continue.";
+    case "denied":
+      return "Lantern denied the reviewed runtime session before app code could continue.";
+    case "capabilityDenied":
+      return "Lantern denied a reviewed app capability at the governed runtime boundary.";
+    case null:
+      return "Lantern has not normalized the latest reviewed runtime state for this setup yet.";
+  }
+}
+
+function describeRuntimeTroubleshootingSummary(
+  runtimeSnapshot: ControlPlaneRuntimeEvidenceSnapshot,
+): string | null {
+  switch (runtimeSnapshot.deliveryState) {
+    case "deliveryFailed":
+      return "Dynamic Worker delivery failed before Lantern could serve the immutable reviewed runtime bytes for the latest session.";
+    case "assetMissing":
+      return "Lantern could not find one of the reviewed runtime files inside the approved package snapshot.";
+    case "integrityFailed":
+      return "Lantern stopped the reviewed runtime before app code could continue because a governed integrity check failed.";
+    case "timedOut":
+      return "Lantern recorded that the reviewed runtime session timed out before the learner could continue.";
+    case "denied":
+      return "Lantern denied the reviewed runtime session before the reviewed app could continue.";
+    case "capabilityDenied":
+      return "Lantern denied a reviewed app capability at the governed runtime boundary.";
+    case "started":
+    case "exited":
+    case null:
+      return null;
+  }
 }
 
 function describeAnonymousEvidenceOutcome(
@@ -375,14 +521,76 @@ function describeAnonymousEvidenceOutcome(
   }
 
   if (
-    submissionMode === "anonymous_submission" &&
-    scoreGiven !== null &&
+    submissionMode === "anonymous_submission" && scoreGiven !== null &&
     scoreMaximum !== null
   ) {
     return `Latest finalize outcome: ${scoreGiven} / ${scoreMaximum} recorded through anonymous submission.`;
   }
 
   return latestRuntimeOutcome.summary;
+}
+
+function describeAnonymousEvidenceArtifactMetadata(artifact: {
+  contentType: string | null;
+  byteSize: number | null;
+  sha256: string | null;
+  createdAt: string | null;
+}): string {
+  const facts = [
+    artifact.contentType === null
+      ? "Content type not recorded yet"
+      : `Content type ${artifact.contentType}`,
+    `Size ${formatByteSize(artifact.byteSize)}`,
+    artifact.sha256 === null
+      ? "SHA-256 not recorded yet"
+      : `SHA-256 ${artifact.sha256}`,
+    `Recorded ${formatOptionalTimestamp(artifact.createdAt)}`,
+  ];
+
+  return facts.join(" · ");
+}
+
+function renderAnonymousEvidenceArtifact(
+  artifact: ControlPlaneAnonymousEvidenceArtifact,
+): string {
+  const isScreenshot = artifact.kind === "screenshot_png" ||
+    artifact.contentType === "image/png";
+
+  if (!isScreenshot) {
+    return `<article class="line-item">
+        <p class="line-title">${escapeHtml(artifact.fileName)}</p>
+        <p class="line-copy">${
+      escapeHtml(
+        `${
+          describeEvidenceArtifactKind(artifact.kind)
+        } stored for ${artifact.artifactId}.`,
+      )
+    }</p>
+        <p class="micro muted">${
+      escapeHtml(describeAnonymousEvidenceArtifactMetadata(artifact))
+    }</p>
+        <p><a href="${
+      escapeHtml(artifact.artifactUrl)
+    }">Open stored artifact</a></p>
+      </article>`;
+  }
+
+  return `<article class="line-item">
+      <p class="line-title">Supplemental screenshot evidence</p>
+      <p class="micro muted">${escapeHtml(artifact.fileName)}</p>
+      <p class="line-copy">Supplemental screenshot evidence stored for ${
+    escapeHtml(artifact.artifactId)
+  }. Helpful for review, but not exhaustive proof of learner behavior.</p>
+      <p class="micro muted">${
+    escapeHtml(describeAnonymousEvidenceArtifactMetadata(artifact))
+  }</p>
+      <img src="${escapeHtml(artifact.artifactUrl)}" alt="${
+    escapeHtml(`Supplemental screenshot evidence ${artifact.fileName}`)
+  }" loading="lazy" style="max-width: 100%; height: auto;">
+      <p><a href="${
+    escapeHtml(artifact.artifactUrl)
+  }">Open stored artifact</a></p>
+    </article>`;
 }
 
 function readFiniteDetailNumber(
@@ -400,7 +608,8 @@ function readBrowserGraderSpecCount(
   const browserGraderResult = detail.browserGraderResult;
 
   if (
-    !browserGraderResult || typeof browserGraderResult !== "object" ||
+    !browserGraderResult ||
+    typeof browserGraderResult !== "object" ||
     Array.isArray(browserGraderResult)
   ) {
     return null;

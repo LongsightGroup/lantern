@@ -246,9 +246,7 @@ function describeDiagnosticRequest(
   return `Request ${facts.join(" · ")}`;
 }
 
-function readRequestEnvelope(
-  detail: Record<string, unknown>,
-): {
+function readRequestEnvelope(detail: Record<string, unknown>): {
   method: string;
   path: string;
   host: string | null;
@@ -346,6 +344,29 @@ export function formatRuntimeTimestamp(
   }
 
   return formatDateTime(snapshot.occurredAt);
+}
+
+export function formatOptionalTimestamp(
+  value: string | null | undefined,
+): string {
+  if (value === null || value === undefined) {
+    return "Not recorded yet";
+  }
+
+  return formatDateTime(value);
+}
+
+export function formatByteSize(byteSize: number | null | undefined): string {
+  if (byteSize === null || byteSize === undefined) {
+    return "Not recorded yet";
+  }
+
+  if (byteSize < 1024) {
+    return `${byteSize} bytes`;
+  }
+
+  const kibibytes = byteSize / 1024;
+  return `${kibibytes.toFixed(kibibytes >= 10 ? 0 : 1)} KiB`;
 }
 
 export function describeActivityLtiProfile(

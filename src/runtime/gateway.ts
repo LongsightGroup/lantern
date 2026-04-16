@@ -181,7 +181,10 @@ export async function submitEvidenceArtifact(input: {
         attemptId: attempt.attemptId,
         artifactId: artifact.artifactId,
         kind: artifact.kind,
+        contentType: artifact.contentType,
         fileName: artifact.fileName,
+        byteSize: artifact.byteSize,
+        sha256: artifact.sha256,
       },
       occurredAt,
     });
@@ -596,16 +599,19 @@ function buildEvidenceArtifactStorageKey(input: {
   fileName: string;
 }): string {
   return `var/attempt-evidence/${input.attemptId}/${input.artifactId}-${
-    sanitizeEvidenceArtifactFileName(input.fileName)
+    sanitizeEvidenceArtifactFileName(
+      input.fileName,
+    )
   }`;
 }
 
 function sanitizeEvidenceArtifactFileName(fileName: string): string {
   const baseName = fileName.replaceAll("\\", "/").split("/").pop()?.trim() ??
     "";
-  const sanitized = baseName
-    .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const sanitized = baseName.replace(/[^A-Za-z0-9._-]+/g, "-").replace(
+    /^-+|-+$/g,
+    "",
+  );
 
   if (sanitized === "") {
     throw new Error(

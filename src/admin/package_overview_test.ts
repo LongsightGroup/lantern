@@ -1,38 +1,38 @@
-import { assertStringIncludes } from "@std/assert";
-import { renderPackageOverviewPage } from "./package_overview.ts";
+import { assertEquals, assertStringIncludes } from '@std/assert';
+import { renderPackageOverviewPage } from './package_overview.ts';
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
-} from "../test_helpers/package_review.ts";
-import { buildCanvasDeploymentBinding } from "../test_helpers/lti.ts";
+} from '../test_helpers/package_review.ts';
+import { buildCanvasDeploymentBinding } from '../test_helpers/lti.ts';
 
-Deno.test("renderPackageOverviewPage keeps latest approved distinct from live rollout", () => {
+Deno.test('renderPackageOverviewPage keeps latest approved distinct from live rollout', () => {
   const body = renderPackageOverviewPage({
-    appId: "office-hours-web-lab",
-    appTitle: "Office Hours Web Lab",
+    appId: 'typescript-ladder-game',
+    appTitle: 'TypeScript Ladder Game',
     history: [
       buildPackageVersionRecord({
         id: 3,
-        appId: "office-hours-web-lab",
-        title: "Office Hours Web Lab",
-        version: "0.2.1",
-        approvalStatus: "approved",
-        importedAt: "2026-04-09T22:38:00Z",
+        appId: 'typescript-ladder-game',
+        title: 'TypeScript Ladder Game',
+        version: '0.2.1',
+        approvalStatus: 'approved',
+        importedAt: '2026-04-09T22:38:00Z',
       }),
       buildPackageVersionRecord({
         id: 2,
-        appId: "office-hours-web-lab",
-        title: "Office Hours Web Lab",
-        version: "0.2.0",
-        approvalStatus: "approved",
-        importedAt: "2026-04-09T21:27:00Z",
+        appId: 'typescript-ladder-game',
+        title: 'TypeScript Ladder Game',
+        version: '0.2.0',
+        approvalStatus: 'approved',
+        importedAt: '2026-04-09T21:27:00Z',
       }),
     ],
     deployments: [
       buildDeploymentRecord({
-        appId: "office-hours-web-lab",
+        appId: 'typescript-ladder-game',
         enabledPackageVersionId: 2,
-        enabledPackageVersion: "0.2.0",
+        enabledPackageVersion: '0.2.0',
         binding: buildCanvasDeploymentBinding(),
       }),
     ],
@@ -40,11 +40,12 @@ Deno.test("renderPackageOverviewPage keeps latest approved distinct from live ro
 
   assertStringIncludes(
     body,
-    "Latest approved stays the current reviewed baseline. LMS setup decides which approved version is live.",
+    'Each version shows whether it is the current reviewed baseline and whether it is live in LMS now.',
   );
-  assertStringIncludes(body, "Latest approved");
-  assertStringIncludes(body, "version-row-current");
-  assertStringIncludes(body, "Live in 1 LMS setup");
-  assertStringIncludes(body, "Not live");
-  assertStringIncludes(body, "version-row-actions");
+  assertStringIncludes(body, 'Current reviewed baseline');
+  assertStringIncludes(body, 'version-row-current');
+  assertStringIncludes(body, 'Live now in 1 LMS setup');
+  assertStringIncludes(body, 'Not live in LMS');
+  assertStringIncludes(body, 'version-row-actions');
+  assertEquals(body.includes('Live rollout'), false);
 });

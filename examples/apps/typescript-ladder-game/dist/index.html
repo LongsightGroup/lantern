@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TypeScript Ladder Game</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4efe6;
+        --surface: #fdfaf4;
+        --surface-strong: #f7f1e6;
+        --line: #d8cfbf;
+        --line-strong: #bcae95;
+        --ink: #1f2833;
+        --muted: #5f6c74;
+        --accent: #1f5a66;
+        --accent-soft: #dcecef;
+        --success: #1d6a46;
+        --success-soft: #e5f4ea;
+        --warning: #8a5b13;
+        --warning-soft: #f7edd7;
+        --danger: #8f3042;
+        --danger-soft: #f7e6ea;
+        --code-bg: #222831;
+        --code-ink: #f6f1e7;
+        --shadow: 0 22px 48px rgba(31, 40, 51, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(
+            circle at top left,
+            rgba(31, 90, 102, 0.12),
+            transparent 28%
+          ),
+          radial-gradient(
+          circle at right top,
+          rgba(188, 174, 149, 0.18),
+          transparent 26%
+        ),
+          linear-gradient(180deg, #faf5ec 0%, var(--bg) 100%);
+      }
+
+      main {
+        width: min(1240px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0 56px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .hero,
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: color-mix(in srgb, var(--surface) 94%, white);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 28px;
+      }
+
+      .hero-copy {
+        display: grid;
+        gap: 12px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--accent);
+        font-size: 0.78rem;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family:
+          "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia,
+          serif;
+        letter-spacing: -0.02em;
+      }
+
+      h1 {
+        font-size: clamp(2.4rem, 5vw, 4rem);
+        line-height: 0.95;
+      }
+
+      h2 {
+        font-size: clamp(1.55rem, 2.5vw, 2.2rem);
+      }
+
+      h3 {
+        font-size: 1.05rem;
+      }
+
+      p {
+        color: var(--muted);
+        line-height: 1.58;
+      }
+
+      .chip-row,
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 0.93rem;
+      }
+
+      .chip-muted {
+        background: var(--surface-strong);
+        color: var(--muted);
+      }
+
+      .layout {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(280px, 0.9fr) minmax(420px, 1.35fr);
+      }
+
+      .panel {
+        padding: 22px;
+      }
+
+      .rail {
+        align-self: start;
+      }
+
+      .section-rule {
+        padding-top: 16px;
+        border-top: 1px solid
+          color-mix(in srgb, var(--line) 80%, transparent);
+      }
+
+      .step-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .step-card {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 14px 16px;
+        text-align: left;
+        background: #fffdf9;
+        cursor: pointer;
+        display: grid;
+        gap: 6px;
+        transition:
+          border-color 140ms ease,
+          transform 140ms ease,
+          background 140ms ease;
+      }
+
+      .step-card:hover:not(:disabled) {
+        border-color: var(--line-strong);
+        transform: translateY(-1px);
+      }
+
+      .step-card:disabled {
+        cursor: not-allowed;
+        opacity: 0.62;
+      }
+
+      .step-card[data-active="true"] {
+        border-color: var(--accent);
+        background: #f8fcfc;
+      }
+
+      .step-card[data-solved="true"] {
+        border-color: color-mix(in srgb, var(--success) 50%, var(--line));
+        background: var(--success-soft);
+      }
+
+      .step-card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .step-number {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--surface-strong);
+        color: var(--ink);
+        font-size: 0.9rem;
+      }
+
+      .step-card[data-solved="true"] .step-number {
+        background: color-mix(in srgb, var(--success) 24%, white);
+        color: var(--success);
+      }
+
+      .step-card-status {
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .step-card[data-solved="true"] .step-card-status {
+        color: var(--success);
+      }
+
+      .step-card[data-locked="true"] .step-card-status {
+        color: var(--warning);
+      }
+
+      .fact-grid {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .fact {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: 14px 16px;
+        background: #fffdfa;
+      }
+
+      .fact-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .fact-value {
+        font-size: 1.25rem;
+        color: var(--ink);
+      }
+
+      .studio-head {
+        display: grid;
+        gap: 14px;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .meta-chip {
+        display: inline-flex;
+        align-items: center;
+        min-height: 34px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--surface-strong);
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .note-card,
+      .feedback {
+        border-radius: 22px;
+        padding: 16px 18px;
+      }
+
+      .note-card {
+        border: 1px solid var(--line);
+        background: var(--surface-strong);
+      }
+
+      .guidance-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .guidance-item {
+        display: grid;
+        gap: 4px;
+        padding-top: 12px;
+        border-top: 1px solid
+          color-mix(in srgb, var(--line) 78%, transparent);
+      }
+
+      .guidance-item:first-child {
+        padding-top: 0;
+        border-top: 0;
+      }
+
+      .guidance-item p {
+        color: var(--ink);
+      }
+
+      .feedback {
+        border: 1px solid var(--line);
+        background: #fffdf9;
+      }
+
+      .feedback[data-tone="success"] {
+        border-color: color-mix(in srgb, var(--success) 40%, var(--line));
+        background: var(--success-soft);
+      }
+
+      .feedback[data-tone="error"] {
+        border-color: color-mix(in srgb, var(--danger) 40%, var(--line));
+        background: var(--danger-soft);
+      }
+
+      .feedback[data-tone="idle"] {
+        background: var(--surface-strong);
+      }
+
+      .editor-wrap {
+        display: grid;
+        gap: 10px;
+      }
+
+      .editor-head {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .editor-mode {
+        font-size: 0.88rem;
+        color: var(--muted);
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 440px;
+        border: 1px solid #12171d;
+        border-radius: 24px;
+        padding: 18px 20px;
+        resize: vertical;
+        background: var(--code-bg);
+        color: var(--code-ink);
+        font:
+          15px/1.65 "SF Mono",
+          "Cascadia Code",
+          "Liberation Mono",
+          Menlo,
+          monospace;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      }
+
+      textarea[readonly] {
+        opacity: 0.78;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 12px 18px;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+      }
+
+      .button-primary {
+        background: var(--accent);
+        color: #f6f0e7;
+      }
+
+      .button-secondary {
+        background: var(--surface-strong);
+        color: var(--ink);
+      }
+
+      .button-success {
+        background: var(--success);
+        color: #f4f8f5;
+      }
+
+      .button-ghost {
+        background: #ece4d8;
+        color: var(--ink);
+      }
+
+      .reference-list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .progress-meter {
+        width: 100%;
+        height: 12px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #e9e0d1;
+      }
+
+      .progress-meter > span {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #2a6770 0%, #7ea69c 100%);
+        border-radius: inherit;
+      }
+
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .fact-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        main {
+          width: min(100vw - 20px, 1240px);
+        }
+
+        .hero,
+        .panel {
+          border-radius: 24px;
+        }
+
+        .fact-grid {
+          grid-template-columns: 1fr;
+        }
+
+        textarea {
+          min-height: 360px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main id="app-shell" class="stack">
+      <section class="hero stack">
+        <div class="hero-copy">
+          <p class="eyebrow">Lantern TypeScript Ladder</p>
+          <h1 data-test="app-title">TypeScript Ladder Game</h1>
+          <p id="instructions">
+            Fix one reviewed TypeScript example at a time.
+          </p>
+          <p id="scenario" data-test="scenario-copy">
+            Loading reviewed exercise set...
+          </p>
+        </div>
+        <div class="chip-row">
+          <span class="chip" id="launch-chip" data-test="launch-chip"
+          >Loading launch...</span>
+          <span class="chip chip-muted" id="context-chip"
+          >Waiting for assignment...</span>
+          <span class="chip" id="status-chip" data-test="status-chip"
+          >Preparing ladder...</span>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="panel rail stack">
+          <section class="stack">
+            <h2>Progression</h2>
+            <p id="reviewed-note">
+              Lantern compares each snippet against one reviewed fix before the
+              next step unlocks.
+            </p>
+            <div class="progress-meter" aria-hidden="true">
+              <span id="progress-meter-fill" style="width: 0%"></span>
+            </div>
+          </section>
+
+          <section class="fact-grid">
+            <article class="fact">
+              <span class="fact-label">Solved</span>
+              <strong
+                class="fact-value"
+                id="progress-count"
+                data-test="progress-count"
+              >0 / 10</strong>
+            </article>
+            <article class="fact">
+              <span class="fact-label">Current Step</span>
+              <strong class="fact-value" id="current-label">Step 1</strong>
+            </article>
+            <article class="fact">
+              <span class="fact-label">Draft State</span>
+              <strong class="fact-value" id="save-state">Not saved yet</strong>
+            </article>
+            <article class="fact">
+              <span class="fact-label">Finalize State</span>
+              <strong
+                class="fact-value"
+                id="finalize-state"
+                data-test="finalize-state"
+              >Not finished</strong>
+            </article>
+          </section>
+
+          <section class="section-rule stack">
+            <h3>Ten reviewed examples</h3>
+            <ol id="step-list" class="step-list" data-test="step-list"></ol>
+          </section>
+        </aside>
+
+        <section class="panel stack">
+          <header class="studio-head">
+            <div class="stack">
+              <p class="eyebrow" id="step-number">Step 1</p>
+              <h2 id="current-step-title" data-test="current-step-title">
+                Fix the broken primitive type
+              </h2>
+              <p id="step-prompt">
+                Loading reviewed prompt...
+              </p>
+            </div>
+            <div class="meta-row">
+              <span class="meta-chip" id="concept-chip"
+              >Primitive annotations</span>
+              <span class="meta-chip" id="difficulty-chip">Warm-up</span>
+            </div>
+          </header>
+
+          <section class="note-card stack" data-test="step-guidance">
+            <h3>Step guidance</h3>
+            <div class="guidance-list">
+              <div class="guidance-item">
+                <span class="fact-label">Goal</span>
+                <p id="step-goal">
+                  Make the type annotation match the numeric value.
+                </p>
+              </div>
+              <div class="guidance-item">
+                <span class="fact-label">Hint</span>
+                <p id="step-hint">Only one token is wrong on the first line.</p>
+              </div>
+              <div class="guidance-item">
+                <span class="fact-label">Why it matters</span>
+                <p id="step-why">
+                  Type annotations should describe the value you already have.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section class="editor-wrap">
+            <div class="editor-head">
+              <h3>Reviewed snippet</h3>
+              <span class="editor-mode" id="editor-mode"
+              >Editable current step</span>
+            </div>
+            <textarea
+              id="step-editor"
+              data-test="step-editor"
+              spellcheck="false"
+              autocapitalize="off"
+              autocomplete="off"
+              autocorrect="off"
+            ></textarea>
+          </section>
+
+          <section
+            id="feedback-box"
+            class="feedback stack"
+            data-tone="idle"
+            aria-live="polite"
+          >
+            <h3>Step feedback</h3>
+            <p id="feedback-message" data-test="feedback-message">
+              Start with: Make the type annotation match the numeric value.
+              Hint: Only one token is wrong on the first line.
+            </p>
+          </section>
+
+          <div class="button-row">
+            <button type="button" class="button-primary" id="check-button">
+              Check step
+            </button>
+            <button type="button" class="button-secondary" id="continue-button">
+              Continue
+            </button>
+            <button type="button" class="button-secondary" id="save-button">
+              Save draft
+            </button>
+            <button type="button" class="button-ghost" id="reset-button">
+              Reset step
+            </button>
+            <button
+              type="button"
+              class="button-success"
+              id="complete-button"
+              data-test="complete-button"
+            >
+              Finish ladder
+            </button>
+          </div>
+
+          <section class="note-card stack">
+            <h3>How Lantern grades this</h3>
+            <ul class="reference-list">
+              <li>
+                The next example stays locked until the current fix matches the
+                reviewed solution.
+              </li>
+              <li>
+                The browser grader scores one reviewed spec file per step.
+              </li>
+              <li>The app never executes arbitrary learner TypeScript.</li>
+            </ul>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

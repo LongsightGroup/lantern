@@ -1,24 +1,15 @@
-import type {
-  AuthoringDraftRecord,
-  PackageVersionRecord,
-} from "../package_review/types.ts";
-import {
-  joinSnapshotPath,
-  trimLeadingSlash,
-} from "../package_review/snapshot_path.ts";
+import type { AuthoringDraftRecord, PackageVersionRecord } from '../package_review/types.ts';
+import { joinSnapshotPath, trimLeadingSlash } from '../package_review/snapshot_path.ts';
 
 const DRAFT_SNAPSHOT_OUTSIDE_MESSAGE =
-  "Draft snapshot files must stay inside the materialized root.";
+  'Draft snapshot files must stay inside the materialized root.';
 
 export async function materializeDraftPreviewPackageVersion(input: {
   draft: AuthoringDraftRecord;
   packageVersion: PackageVersionRecord;
   createdAt: string;
 }): Promise<PackageVersionRecord> {
-  const snapshotRoot = buildAuthoringDraftSnapshotRoot(
-    input.draft.draftId,
-    input.createdAt,
-  );
+  const snapshotRoot = buildAuthoringDraftSnapshotRoot(input.draft.draftId, input.createdAt);
 
   await copyDirectory(input.packageVersion.artifact.snapshotRoot, snapshotRoot);
 
@@ -37,50 +28,34 @@ export async function materializeDraftPreviewPackageVersion(input: {
     ...input.packageVersion,
     artifact: {
       snapshotRoot,
-      manifestPath: joinSnapshotPath(
-        snapshotRoot,
-        "manifest.json",
-        DRAFT_SNAPSHOT_OUTSIDE_MESSAGE,
-      ),
+      manifestPath: joinSnapshotPath(snapshotRoot, 'manifest.json', DRAFT_SNAPSHOT_OUTSIDE_MESSAGE),
       entrypointPath: joinSnapshotPath(
         snapshotRoot,
         trimLeadingSlash(input.packageVersion.entrypoint),
         DRAFT_SNAPSHOT_OUTSIDE_MESSAGE,
       ),
-      digest: `sha256:authoring-draft-${input.draft.draftId}-${
-        formatSnapshotTimestamp(
-          input.createdAt,
-        )
-      }`,
+      digest: `sha256:authoring-draft-${input.draft.draftId}-${formatSnapshotTimestamp(
+        input.createdAt,
+      )}`,
     },
   };
 }
 
-export function buildAuthoringDraftSnapshotRoot(
-  draftId: string,
-  createdAt: string,
-): string {
-  return `var/authoring-drafts/${draftId}/snapshots/${
-    formatSnapshotTimestamp(createdAt)
-  }`;
+export function buildAuthoringDraftSnapshotRoot(draftId: string, createdAt: string): string {
+  return `var/authoring-drafts/${draftId}/snapshots/${formatSnapshotTimestamp(createdAt)}`;
 }
 
 function formatSnapshotTimestamp(createdAt: string): string {
   const timestamp = new Date(createdAt);
 
   if (Number.isNaN(timestamp.getTime())) {
-    throw new Error(
-      `Draft snapshot time ${createdAt} is not a valid timestamp.`,
-    );
+    throw new Error(`Draft snapshot time ${createdAt} is not a valid timestamp.`);
   }
 
-  return timestamp.toISOString().replaceAll(/[-:.]/g, "");
+  return timestamp.toISOString().replaceAll(/[-:.]/g, '');
 }
 
-async function copyDirectory(
-  sourceRoot: string,
-  targetRoot: string,
-): Promise<void> {
+async function copyDirectory(sourceRoot: string, targetRoot: string): Promise<void> {
   await Deno.mkdir(targetRoot, { recursive: true });
 
   for await (const entry of Deno.readDir(sourceRoot)) {
@@ -100,7 +75,7 @@ async function copyDirectory(
 }
 
 function parentDirectory(path: string): string {
-  const separatorIndex = path.lastIndexOf("/");
+  const separatorIndex = path.lastIndexOf('/');
 
-  return separatorIndex < 0 ? "." : path.slice(0, separatorIndex);
+  return separatorIndex < 0 ? '.' : path.slice(0, separatorIndex);
 }

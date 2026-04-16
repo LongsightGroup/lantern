@@ -7,7 +7,7 @@ import type { AuthoringReferenceExample } from './ai_writer.ts';
 const AUTHORING_REFERENCE_APP_IDS = [
   'template-app',
   'web-checkup',
-  'office-hours-web-lab',
+  'typescript-ladder-game',
 ] as const;
 
 export async function loadAuthoringReferenceExamples(): Promise<AuthoringReferenceExample[]> {

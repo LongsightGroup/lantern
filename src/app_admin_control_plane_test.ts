@@ -3,6 +3,7 @@ import { createApp } from './app.ts';
 import type { OpsRepository } from './ops/repository.ts';
 import {
   buildBrokerVerificationStatus,
+  buildCertificationWorkflowStatus,
   buildControlPlaneDeploymentInventoryRow,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
@@ -136,6 +137,32 @@ Deno.test('GET /admin/verification renders verification on a dedicated page', as
         },
       }),
     ],
+    certificationWorkflowStatuses: [
+      buildCertificationWorkflowStatus({
+        workflowKey: 'core',
+        latestInternal: {
+          deploymentRecordId: 1,
+          deploymentLabel: 'Chapter 4 Asteroids Pilot Deployment',
+          status: 'passed',
+          checkedAt: '2026-03-24T12:50:00Z',
+          summary: 'Canvas deployment verification passed.',
+          evidenceUrl: 'https://example.test/internal-proof',
+        },
+      }),
+      buildCertificationWorkflowStatus({
+        workflowKey: 'deepLinking',
+        latestInternal: {
+          deploymentRecordId: 2,
+          deploymentLabel: 'Chapter 4 Asteroids Moodle Deployment',
+          status: 'failed',
+          checkedAt: '2026-03-24T12:40:00Z',
+          summary: 'Moodle deployment verification failed.',
+          evidenceUrl: 'https://example.test/moodle-proof',
+        },
+      }),
+      buildCertificationWorkflowStatus({ workflowKey: 'nrps' }),
+      buildCertificationWorkflowStatus({ workflowKey: 'ags' }),
+    ],
     lanternLtiProfileSettings: {
       defaultLtiProfile: 'certification',
       updatedAt: '2026-03-24T13:00:00Z',
@@ -151,22 +178,102 @@ Deno.test('GET /admin/verification renders verification on a dedicated page', as
   const body = await response.text();
 
   assertStringIncludes(body, 'Verification');
-  assertStringIncludes(body, 'Saved checks');
-  assertStringIncludes(body, 'Official 1EdTech listing');
+  assertStringIncludes(body, 'Verification overview');
+  assertStringIncludes(body, 'Certification checklist');
   assertStringIncludes(body, 'Chapter 4 Asteroids Pilot Deployment');
   assertStringIncludes(body, 'Chapter 4 Asteroids Moodle Deployment');
-  assertStringIncludes(body, 'Chapter 4 Asteroids Sakai Deployment');
-  assertStringIncludes(body, 'Add a check');
+  assertStringIncludes(body, 'href="/admin/verification/new"');
+  assertStringIncludes(body, 'href="/admin/verification/official"');
+  assertStringIncludes(body, 'href="/admin/verification/lti-profile"');
+  assertStringIncludes(body, 'class="sidebar-sublink active" href="/admin/verification"');
+  assertStringIncludes(body, 'Certification');
+  assertEquals(body.includes('One row per LMS connection'), false);
+  assertEquals(body.includes('Supported Canvas path'), false);
+  assertEquals(body.includes('Official 1EdTech listing'), false);
+  assertEquals(body.includes('action="/admin/verification"'), false);
+  assertEquals(body.includes('action="/admin/verification/lti-profile"'), false);
+});
+
+Deno.test('GET /admin/verification/official renders official evidence on its own page', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 1,
+        approvalStatus: 'approved',
+        reviewedAt: '2026-03-23T18:05:00Z',
+      }),
+    ],
+    controlPlaneDeployments: [buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 })],
+    brokerVerifications: [
+      buildBrokerVerificationStatus({
+        supportedPath: 'lti13LaunchAgsScore',
+        internal: null,
+        official: {
+          state: 'ltiAdvantageCertified',
+          checkedAt: '2026-03-24T12:55:00Z',
+          directoryUrl: 'https://example.test/official-directory',
+        },
+      }),
+    ],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request('http://localhost/admin/verification/official');
+
+  assertEquals(response.status, 200);
+
+  const body = await response.text();
+
+  assertStringIncludes(body, 'Official 1EdTech listing');
+  assertStringIncludes(body, 'Claim boundary');
+  assertStringIncludes(body, 'Open directory entry');
+  assertStringIncludes(body, 'class="sidebar-sublink active" href="/admin/verification/official"');
+  assertEquals(body.includes('Certification checklist'), false);
+});
+
+Deno.test('GET /admin/verification/new renders the dedicated verification entry page', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [buildPackageVersionRecord({ id: 1, approvalStatus: 'approved' })],
+    controlPlaneDeployments: [buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 })],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request('http://localhost/admin/verification/new');
+
+  assertEquals(response.status, 200);
+
+  const body = await response.text();
+
+  assertStringIncludes(body, 'Record one verification result');
   assertStringIncludes(body, 'action="/admin/verification"');
+  assertStringIncludes(body, 'name="deploymentRecordId"');
+  assertStringIncludes(body, 'name="workflowKey"');
+  assertStringIncludes(body, 'name="scope"');
+  assertEquals(body.includes('Certification checklist'), false);
+});
+
+Deno.test('GET /admin/verification/lti-profile renders the dedicated Lantern default page', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    lanternLtiProfileSettings: {
+      defaultLtiProfile: 'certification',
+      updatedAt: '2026-03-24T13:00:00Z',
+    },
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request('http://localhost/admin/verification/lti-profile');
+
+  assertEquals(response.status, 200);
+
+  const body = await response.text();
+
   assertStringIncludes(body, 'Lantern default profile');
   assertStringIncludes(body, 'action="/admin/verification/lti-profile"');
   assertStringIncludes(body, 'name="defaultLtiProfile"');
-  assertStringIncludes(body, 'Certification');
-  assertStringIncludes(body, 'Governed interoperability');
-  assertStringIncludes(body, 'name="deploymentRecordId"');
-  assertStringIncludes(body, 'name="scope"');
-  assertEquals(body.includes('One row per LMS connection'), false);
-  assertEquals(body.includes('Supported Canvas path'), false);
+  assertEquals(body.includes('Certification checklist'), false);
 });
 
 Deno.test('GET /admin/deployments keeps route failures inside the admin shell', async () => {
@@ -276,7 +383,7 @@ Deno.test('POST /admin/verification records deployment-scoped broker verificatio
   assertEquals(latestVerification?.official.state, 'notCertified');
 });
 
-Deno.test('POST /admin/verification/lti-profile saves the Lantern-wide default profile and redirects back to verification', async () => {
+Deno.test('POST /admin/verification/lti-profile saves the Lantern-wide default profile and redirects back to the profile page', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const app = createApp({ getRepository: () => repository });
   const formData = new FormData();
@@ -290,14 +397,14 @@ Deno.test('POST /admin/verification/lti-profile saves the Lantern-wide default p
   });
 
   assertEquals(response.status, 303);
-  assertEquals(response.headers.get('location'), '/admin/verification');
+  assertEquals(response.headers.get('location'), '/admin/verification/lti-profile');
   assertEquals(
     (await repository.getLanternLtiProfileSettings()).defaultLtiProfile,
     'certification',
   );
 });
 
-Deno.test('POST /admin/verification/lti-profile rejects unsupported profile ids on the verification page', async () => {
+Deno.test('POST /admin/verification/lti-profile rejects unsupported profile ids on the profile page', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const app = createApp({ getRepository: () => repository });
   const formData = new FormData();
@@ -315,6 +422,7 @@ Deno.test('POST /admin/verification/lti-profile rejects unsupported profile ids 
 
   assertStringIncludes(body, 'Lantern default blocked');
   assertStringIncludes(body, 'Choose one supported LTI profile.');
+  assertStringIncludes(body, 'Lantern default profile');
   assertEquals(
     (await repository.getLanternLtiProfileSettings()).defaultLtiProfile,
     'governedCompatibility',

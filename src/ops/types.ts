@@ -41,6 +41,16 @@ export type ControlPlaneBoundaryDenialCategory = "specInvalid" | "policyDenied";
 
 export type ControlPlaneRuntimeSandboxModel = "contained_browser_runtime";
 export type ControlPlaneRuntimeBoundary = "app_runtime_origin";
+export type ControlPlaneRuntimeDeliverySubstrate = "direct" | "dynamic_worker";
+export type ControlPlaneRuntimeDeliveryState =
+  | "started"
+  | "exited"
+  | "deliveryFailed"
+  | "assetMissing"
+  | "integrityFailed"
+  | "timedOut"
+  | "denied"
+  | "capabilityDenied";
 
 export type BrokerVerificationSource = "manual" | "ci" | "1edtech";
 export type BrokerVerificationRunStatus =
@@ -161,8 +171,15 @@ export interface ControlPlaneRuntimeEvidenceSnapshot {
   summary: string;
   attemptId: string | null;
   sessionId: string | null;
+  packageVersionId: number | null;
+  packageVersion: string | null;
+  artifactDigest: string | null;
+  runtimeContractSignature: string | null;
   sandboxModel: ControlPlaneRuntimeSandboxModel | null;
   boundary: ControlPlaneRuntimeBoundary | null;
+  deliverySubstrate: ControlPlaneRuntimeDeliverySubstrate | null;
+  deliveryWorkerId: string | null;
+  deliveryState: ControlPlaneRuntimeDeliveryState | null;
   route: string | null;
   capability: string | null;
   code: string | null;
@@ -174,6 +191,10 @@ export interface ControlPlaneAnonymousEvidenceArtifact {
   artifactId: string;
   kind: string;
   fileName: string;
+  contentType: string | null;
+  byteSize: number | null;
+  sha256: string | null;
+  createdAt: string | null;
   artifactUrl: string;
 }
 

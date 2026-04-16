@@ -34,32 +34,148 @@ const CERTIFICATION_CHECKLIST: readonly CertificationChecklistItem[] = [
   { workflowKey: 'ags', label: 'AGS' },
 ] as const;
 
-export function renderBrokerVerificationSection(input: {
-  deployments: ControlPlaneDeploymentInventoryRow[];
+export function renderVerificationSummarySection(input: {
   certificationWorkflowStatuses: CertificationWorkflowStatus[];
   officialEvidence: VerificationOfficialEvidenceDisplay | null;
+  ltiProfileSettings: LanternLtiProfileSettingsRecord | null;
+}): string {
+  const currentProfile = getLtiProfileDefinition(
+    input.ltiProfileSettings?.defaultLtiProfile ?? DEFAULT_LTI_PROFILE_ID,
+  );
+  const recordedWorkflows = input.certificationWorkflowStatuses.filter(
+    (status) => status.latestInternal !== null,
+  ).length;
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <div class="panel-header">
+          <div class="stack">
+            <p class="section-label">Verification overview</p>
+            <h2>Keep each verification job on its own page</h2>
+            <p>The checklist keeps only internal workflow results. Official Product Directory evidence and Lantern-wide defaults now live on dedicated pages.</p>
+          </div>
+          <div class="button-row">
+            <a class="button-secondary" href="/admin/verification/new">Add result</a>
+            <a class="button-ghost" href="/admin/verification/official">Official evidence</a>
+            <a class="button-ghost" href="/admin/verification/lti-profile">Lantern default</a>
+          </div>
+        </div>
+        <div class="card-grid">
+          <div class="fact">
+            <span class="fact-label">Saved internal workflows</span>
+            <span class="fact-value">${recordedWorkflows} of ${CERTIFICATION_CHECKLIST.length} recorded</span>
+            <p class="micro muted">Each workflow stores only its latest internal result.</p>
+          </div>
+          <div class="fact">
+            <span class="fact-label">Official directory</span>
+            <span class="fact-value">${escapeHtml(
+              input.officialEvidence === null
+                ? 'No official claim recorded'
+                : describeOfficialCertificationState(input.officialEvidence.state),
+            )}</span>
+            <p class="micro muted">${escapeHtml(
+              input.officialEvidence?.summary ??
+                'No 1EdTech Product Directory evidence is recorded yet.',
+            )}</p>
+          </div>
+          <div class="fact">
+            <span class="fact-label">Lantern default</span>
+            <span class="fact-value">${escapeHtml(currentProfile.label)}</span>
+            <p class="micro muted">${escapeHtml(currentProfile.summary)}</p>
+          </div>
+        </div>
+      </div>
+    </section>`;
+}
+
+export function renderVerificationChecklistSection(input: {
+  deployments: ControlPlaneDeploymentInventoryRow[];
+  certificationWorkflowStatuses: CertificationWorkflowStatus[];
 }): string {
   const workflowStatuses = new Map(
     input.certificationWorkflowStatuses.map((status) => [status.workflowKey, status] as const),
   );
 
   return `<section class="panel">
-      <div class="panel-body two-column">
-        <div class="stack">
-          <p class="section-label">Certification checklist</p>
-          <h2>Certification checklist</h2>
-          <p>Saved checks stay on this page, but each workflow keeps its own latest internal evidence.</p>
-          <div class="table-list">
-            ${CERTIFICATION_CHECKLIST.map((item) =>
-              renderCertificationChecklistRow({
-                item,
-                status: workflowStatuses.get(item.workflowKey) ?? null,
-                deployments: input.deployments,
-              }),
-            ).join('')}
+      <div class="panel-body stack">
+        <div class="panel-header">
+          <div class="stack">
+            <p class="section-label">Saved checks</p>
+            <h2>Certification checklist</h2>
+            <p>Review one workflow at a time. A passed result never spills into a different workflow.</p>
+          </div>
+          <div class="button-row">
+            <a class="button-secondary" href="/admin/verification/new">Add result</a>
           </div>
         </div>
-        ${renderOfficialEvidenceSection(input.officialEvidence)}
+        <div class="table-list">
+          ${CERTIFICATION_CHECKLIST.map((item) =>
+            renderCertificationChecklistRow({
+              item,
+              status: workflowStatuses.get(item.workflowKey) ?? null,
+              deployments: input.deployments,
+            }),
+          ).join('')}
+        </div>
+      </div>
+    </section>`;
+}
+
+export function renderOfficialEvidenceSection(
+  officialEvidence: VerificationOfficialEvidenceDisplay | null,
+): string {
+  const latestCheckedAt =
+    officialEvidence === null ? 'Not recorded yet' : formatDateTime(officialEvidence.checkedAt);
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <div class="panel-header">
+          <div class="stack">
+            <p class="section-label">Official evidence</p>
+            <h2>Official 1EdTech listing</h2>
+            <p>Only the 1EdTech Product Directory supports an official certification claim. Internal checklist rows stay separate.</p>
+          </div>
+          <div class="button-row">
+            <a class="button-secondary" href="/admin/verification/new">Add result</a>
+            ${
+              officialEvidence?.directoryUrl
+                ? `<a class="button-ghost" href="${escapeHtml(
+                    officialEvidence.directoryUrl,
+                  )}">Open directory entry</a>`
+                : ''
+            }
+          </div>
+        </div>
+        <div class="card-grid">
+          <div class="fact">
+            <span class="fact-label">Product Directory status</span>
+            <span class="fact-value">${escapeHtml(
+              officialEvidence === null
+                ? 'No official claim recorded'
+                : describeOfficialCertificationState(officialEvidence.state),
+            )}</span>
+            <p class="micro muted">Internal checks can support readiness work, but they never become an official claim.</p>
+          </div>
+          <div class="fact">
+            <span class="fact-label">Covers workflow</span>
+            <span class="fact-value">${escapeHtml(
+              officialEvidence?.workflowLabel ?? 'No workflow recorded',
+            )}</span>
+            <p class="micro muted">Save one Product Directory result against the workflow it actually covers.</p>
+          </div>
+          <div class="fact">
+            <span class="fact-label">Latest official evidence</span>
+            <span class="fact-value">${escapeHtml(latestCheckedAt)}</span>
+            <p class="micro muted">${escapeHtml(
+              officialEvidence?.summary ??
+                'Lantern has no recorded 1EdTech Product Directory evidence yet.',
+            )}</p>
+          </div>
+        </div>
+        <div class="callout">
+          <h3>Claim boundary</h3>
+          <p>A passed Core, Deep Linking, NRPS, or AGS row does not claim official certification on its own. Only the dated Product Directory entry on this page can do that.</p>
+        </div>
       </div>
     </section>`;
 }
@@ -68,11 +184,28 @@ export function renderVerificationUpdateSection(
   deployments: ControlPlaneDeploymentInventoryRow[],
 ): string {
   return `<section class="panel">
-      <div class="panel-body two-column">
-        <div class="stack">
-          <p class="section-label">Add a result</p>
-          <h2>Add a check</h2>
-          <p>Save one check result for one app setup.</p>
+      <div class="panel-body stack">
+        <div class="panel-header">
+          <div class="stack">
+            <p class="section-label">Add result</p>
+            <h2>Record one verification result</h2>
+            <p>Save one workflow result at a time. Internal checks need a specific deployment. Leave deployment blank only for Product Directory evidence.</p>
+          </div>
+          <div class="button-row">
+            <a class="button-ghost" href="/admin/verification">Back to checklist</a>
+          </div>
+        </div>
+        <div class="card-grid">
+          <div class="fact">
+            <span class="fact-label">Internal result</span>
+            <span class="fact-value">CI or manual workflow evidence</span>
+            <p class="micro muted">Choose one deployment and one workflow. Lantern stores the latest internal result for that workflow only.</p>
+          </div>
+          <div class="fact">
+            <span class="fact-label">Official result</span>
+            <span class="fact-value">1EdTech Product Directory evidence</span>
+            <p class="micro muted">Use the directory URL and official certification state. Leave deployment blank for this case.</p>
+          </div>
         </div>
         ${renderBrokerVerificationForm(deployments)}
       </div>
@@ -85,13 +218,24 @@ export function renderLtiProfileSettingsSection(
   const currentProfile = getLtiProfileDefinition(
     settings?.defaultLtiProfile ?? DEFAULT_LTI_PROFILE_ID,
   );
+  const savedAt =
+    settings?.updatedAt === undefined || settings?.updatedAt === null
+      ? 'Not recorded yet'
+      : formatDateTime(settings.updatedAt);
 
   return `<section class="panel">
-      <div class="panel-body two-column">
-        <div class="stack">
-          <p class="section-label">Default LTI behavior</p>
-          <h2>Lantern default profile</h2>
-          <p>Choose the LTI behavior Lantern should enforce unless one deployment saves its own override.</p>
+      <div class="panel-body stack">
+        <div class="panel-header">
+          <div class="stack">
+            <p class="section-label">Default LTI behavior</p>
+            <h2>Lantern default profile</h2>
+            <p>Choose the baseline LTI behavior Lantern should enforce unless one deployment saves its own explicit override.</p>
+          </div>
+          <div class="button-row">
+            <a class="button-ghost" href="/admin/verification">Back to checklist</a>
+          </div>
+        </div>
+        <div class="card-grid">
           <div class="fact">
             <span class="fact-label">Current Lantern default</span>
             <span class="fact-value">${escapeHtml(currentProfile.label)}</span>
@@ -102,149 +246,118 @@ export function renderLtiProfileSettingsSection(
             <span class="fact-value">Allowed</span>
             <p class="micro muted">An individual LMS setup can inherit this default or save one explicit profile on the app settings page.</p>
           </div>
-          ${
-            settings?.updatedAt
-              ? `<p class="micro muted">Saved ${escapeHtml(formatDateTime(settings.updatedAt))}</p>`
-              : ''
-          }
+          <div class="fact">
+            <span class="fact-label">Last saved</span>
+            <span class="fact-value">${escapeHtml(savedAt)}</span>
+            <p class="micro muted">This Lantern-wide setting applies before any deployment-specific override.</p>
+          </div>
         </div>
         ${renderLtiProfileSettingsForm(currentProfile.id)}
       </div>
     </section>`;
 }
 
-function renderOfficialEvidenceSection(
-  officialEvidence: VerificationOfficialEvidenceDisplay | null,
-): string {
-  return `<section class="stack">
-      <p class="section-label">Official 1EdTech evidence</p>
-      <h2>Official 1EdTech listing</h2>
-      <p>Only the 1EdTech Product Directory supports an official certification claim.</p>
-      <div class="fact">
-        <span class="fact-label">Product Directory status</span>
-        <span class="fact-value">${escapeHtml(
-          officialEvidence === null
-            ? 'No official claim recorded'
-            : describeOfficialCertificationState(officialEvidence.state),
-        )}</span>
-      </div>
-      ${
-        officialEvidence?.workflowLabel
-          ? `<div class="fact">
-            <span class="fact-label">Covers workflow</span>
-            <span class="fact-value">${escapeHtml(officialEvidence.workflowLabel)}</span>
-          </div>`
-          : ''
-      }
-      <div class="fact">
-        <span class="fact-label">Latest official evidence</span>
-        <span class="fact-value">${escapeHtml(
-          officialEvidence?.summary ??
-            'Lantern has no recorded 1EdTech Product Directory evidence yet.',
-        )}</span>
-        <p class="micro muted">${escapeHtml(
-          officialEvidence === null
-            ? 'Checked at Not recorded yet'
-            : `Checked ${formatDateTime(officialEvidence.checkedAt)}`,
-        )}</p>
-      </div>
-      ${
-        officialEvidence?.directoryUrl
-          ? `<div class="button-row">
-              <a class="button-ghost" href="${escapeHtml(
-                officialEvidence.directoryUrl,
-              )}">Open directory entry</a>
-            </div>`
-          : ''
-      }
-    </section>`;
-}
-
 function renderBrokerVerificationForm(deployments: ControlPlaneDeploymentInventoryRow[]): string {
   return `<form method="post" action="/admin/verification" class="stack">
-    <div class="field">
-      <label for="verification-source">Result source</label>
-      <select id="verification-source" name="source">
-        <option value="ci">Automated check</option>
-        <option value="manual">Manual follow-up</option>
-        <option value="1edtech">Official 1EdTech listing</option>
-      </select>
-    </div>
-    <div class="field">
-      <label for="verification-deployment-record-id">App setup</label>
-      <select id="verification-deployment-record-id" name="deploymentRecordId">
-        <option value="">No deployment selected</option>
-        ${deployments
-          .map(
-            (deployment) =>
-              `<option value="${deployment.deploymentId}">${escapeHtml(
-                deployment.deploymentLabel,
-              )}</option>`,
-          )
-          .join('')}
-      </select>
-      <p class="field-hint">Leave this blank only for an official 1EdTech listing.</p>
-    </div>
-    <div class="field">
-      <label for="verification-scope">Compatibility profile</label>
-      <select id="verification-scope" name="scope">
-        ${BROKER_VERIFICATION_SUPPORTED_PATHS.map(
-          (supportedPath) =>
-            `<option value="${supportedPath}">${escapeHtml(
-              describeSupportedPath(supportedPath),
-            )}</option>`,
-        ).join('')}
-      </select>
-    </div>
-    <div class="field">
-      <label for="verification-workflow-key">Certification workflow</label>
-      <select id="verification-workflow-key" name="workflowKey">
-        ${CERTIFICATION_CHECKLIST.map(
-          (item) => `<option value="${item.workflowKey}">${escapeHtml(item.label)}</option>`,
-        ).join('')}
-      </select>
-      <p class="field-hint">Save each result against exactly one workflow. A passed AGS row does not also cover NRPS, Core, or Deep Linking.</p>
-    </div>
-    <div class="field">
-      <label for="verification-status">Result</label>
-      <select id="verification-status" name="status">
-        <option value="passed">Passed</option>
-        <option value="failed">Failed</option>
-        <option value="pending">Pending</option>
-        <option value="notCertified">Not certified</option>
-      </select>
-    </div>
-    <div class="field">
-      <label for="verification-checked-at">Checked at</label>
-      <input id="verification-checked-at" name="checkedAt" type="text" placeholder="2026-03-24T12:50:00Z">
-      <p class="field-hint">Enter the evidence timestamp in ISO-8601 format.</p>
-    </div>
-    <div class="field">
-      <label for="verification-detail-url">Notes or log link</label>
-      <input id="verification-detail-url" name="detailUrl" type="url" placeholder="https://example.test/verification/run">
-      <p class="field-hint">Link to CI logs, operator notes, or the official 1EdTech directory entry.</p>
-    </div>
-    <div class="field">
-      <label for="verification-summary">What happened</label>
-      <textarea id="verification-summary" name="summary" placeholder="Describe what this check showed for the selected connection or official listing."></textarea>
-      <p class="field-hint">Keep the wording factual. Lantern should not claim official certification from internal checks alone.</p>
-    </div>
-    <details>
-      <summary>Official listing details</summary>
-      <div class="detail-stack">
-        <div class="field">
-          <label for="verification-certification-state">Official certification listing</label>
-          <select id="verification-certification-state" name="certificationState">
-            <option value="">No official certified state recorded</option>
-            <option value="ltiAdvantageCertified">LTI Advantage Certified</option>
-            <option value="ltiAdvantageComplete">LTI Advantage Complete</option>
-          </select>
-          <p class="field-hint">Use this only when the 1EdTech directory shows a certified state.</p>
-        </div>
+    <div class="form-grid">
+      <div class="field">
+        <label for="verification-source">Result source</label>
+        <select id="verification-source" name="source">
+          <option value="ci">Automated check</option>
+          <option value="manual">Manual follow-up</option>
+          <option value="1edtech">Official 1EdTech listing</option>
+        </select>
       </div>
-    </details>
+      <div class="field">
+        <label for="verification-deployment-record-id">App setup</label>
+        <select id="verification-deployment-record-id" name="deploymentRecordId">
+          <option value="">No deployment selected</option>
+          ${deployments
+            .map(
+              (deployment) =>
+                `<option value="${deployment.deploymentId}">${escapeHtml(
+                  deployment.deploymentLabel,
+                )}</option>`,
+            )
+            .join('')}
+        </select>
+        <p class="field-hint">Leave this blank only for an official 1EdTech listing.</p>
+      </div>
+      <div class="field">
+        <label for="verification-scope">Compatibility profile</label>
+        <select id="verification-scope" name="scope">
+          ${BROKER_VERIFICATION_SUPPORTED_PATHS.map(
+            (supportedPath) =>
+              `<option value="${supportedPath}">${escapeHtml(
+                describeSupportedPath(supportedPath),
+              )}</option>`,
+          ).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label for="verification-workflow-key">Certification workflow</label>
+        <select id="verification-workflow-key" name="workflowKey">
+          ${CERTIFICATION_CHECKLIST.map(
+            (item) => `<option value="${item.workflowKey}">${escapeHtml(item.label)}</option>`,
+          ).join('')}
+        </select>
+        <p class="field-hint">Save each result against exactly one workflow. A passed AGS row does not also cover NRPS, Core, or Deep Linking.</p>
+      </div>
+      <div class="field">
+        <label for="verification-status">Result</label>
+        <select id="verification-status" name="status">
+          <option value="passed">Passed</option>
+          <option value="failed">Failed</option>
+          <option value="pending">Pending</option>
+          <option value="notCertified">Not certified</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="verification-checked-at">Checked at</label>
+        <input
+          id="verification-checked-at"
+          name="checkedAt"
+          type="text"
+          placeholder="2026-03-24T12:50:00Z"
+        >
+        <p class="field-hint">Enter the evidence timestamp in ISO-8601 format.</p>
+      </div>
+      <div class="field field-span-full">
+        <label for="verification-detail-url">Notes or log link</label>
+        <input
+          id="verification-detail-url"
+          name="detailUrl"
+          type="url"
+          placeholder="https://example.test/verification/run"
+        >
+        <p class="field-hint">Link to CI logs, operator notes, or the official 1EdTech directory entry.</p>
+      </div>
+      <div class="field field-span-full">
+        <label for="verification-summary">What happened</label>
+        <textarea
+          id="verification-summary"
+          name="summary"
+          placeholder="Describe what this check showed for the selected connection or official listing."
+        ></textarea>
+        <p class="field-hint">Keep the wording factual. Lantern should not claim official certification from internal checks alone.</p>
+      </div>
+      <details class="field-span-full">
+        <summary>Official listing details</summary>
+        <div class="detail-stack">
+          <div class="field">
+            <label for="verification-certification-state">Official certification listing</label>
+            <select id="verification-certification-state" name="certificationState">
+              <option value="">No official certified state recorded</option>
+              <option value="ltiAdvantageCertified">LTI Advantage Certified</option>
+              <option value="ltiAdvantageComplete">LTI Advantage Complete</option>
+            </select>
+            <p class="field-hint">Use this only when the 1EdTech directory shows a certified state.</p>
+          </div>
+        </div>
+      </details>
+    </div>
     <div class="button-row">
-      <button type="submit" class="button-secondary">Save check result</button>
+      <button type="submit" class="button-secondary">Save verification result</button>
     </div>
   </form>`;
 }
@@ -257,17 +370,17 @@ function renderLtiProfileSettingsForm(currentProfileId: string): string {
         ${LTI_PROFILE_DEFINITIONS.map(
           (profile) =>
             `<label class="choice-row">
-            <input
-              type="radio"
-              name="defaultLtiProfile"
-              value="${escapeHtml(profile.id)}"
-              ${profile.id === currentProfileId ? 'checked' : ''}
-            >
-            <span>
-              <strong>${escapeHtml(profile.label)}</strong>
-              <span class="micro muted">${escapeHtml(profile.summary)}</span>
-            </span>
-          </label>`,
+              <input
+                type="radio"
+                name="defaultLtiProfile"
+                value="${escapeHtml(profile.id)}"
+                ${profile.id === currentProfileId ? 'checked' : ''}
+              >
+              <span>
+                <strong>${escapeHtml(profile.label)}</strong>
+                <span class="micro muted">${escapeHtml(profile.summary)}</span>
+              </span>
+            </label>`,
         ).join('')}
       </div>
       <p class="field-hint">This is the saved Lantern-wide default. Deployment pages can still choose “Use Lantern default” or save one explicit override.</p>

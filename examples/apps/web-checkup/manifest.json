@@ -35,10 +35,7 @@
   },
   "authoring": {
     "kind": "browser_autograder",
-    "grader_spec_files": [
-      "/grading/specs/structure.spec.js",
-      "/grading/specs/behavior.spec.js"
-    ],
+    "grader_spec_files": ["/grading/specs/structure.spec.js", "/grading/specs/behavior.spec.js"],
     "evidence_example_file": "/evidence/example-output.json"
   }
 }

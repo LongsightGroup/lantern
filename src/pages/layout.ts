@@ -23,14 +23,14 @@ export function renderLayout(title: string, body: string): string {
       :root {
         color-scheme: light;
         --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-        --ink: #0a2540;
-        --secondary: #425466;
-        --muted: #6b7c93;
-        --accent: #4f46e5;
-        --accent-hover: #4338ca;
-        --brand-warm: #f59e0b;
-        --line: #e3e8ee;
-        --surface: #ffffff;
+        --ink: #11253d;
+        --secondary: #475c72;
+        --muted: #708397;
+        --accent: #153a61;
+        --accent-hover: #102f4d;
+        --brand-warm: #c7771d;
+        --line: #dbe4ec;
+        --surface: #fcfdff;
       }
 
       * {
@@ -44,9 +44,9 @@ export function renderLayout(title: string, body: string): string {
         font: 16px/1.6 var(--font);
         -webkit-font-smoothing: antialiased;
         background:
-          radial-gradient(circle at 10% 10%, rgba(79, 70, 229, 0.07), transparent 45%),
-          radial-gradient(circle at 90% 0%, rgba(245, 158, 11, 0.07), transparent 35%),
-          #f7f9fc;
+          radial-gradient(circle at 10% 10%, rgba(21, 58, 97, 0.08), transparent 45%),
+          radial-gradient(circle at 90% 0%, rgba(199, 119, 29, 0.08), transparent 35%),
+          #f5f8fb;
       }
 
       .home {
@@ -56,7 +56,7 @@ export function renderLayout(title: string, body: string): string {
       }
 
       .home-hero {
-        background: linear-gradient(165deg, #ffffff 0%, #f5f8ff 100%);
+        background: linear-gradient(165deg, #fcfdff 0%, #f3f7fa 100%);
         border: 1px solid var(--line);
         border-radius: 16px;
         padding: clamp(24px, 4vw, 40px);
@@ -128,7 +128,7 @@ export function renderLayout(title: string, body: string): string {
         padding: 0 14px;
         border-radius: 8px;
         background: var(--accent);
-        color: #fff;
+        color: #fdfefe;
         text-decoration: none;
         font-weight: 600;
       }

@@ -1,5 +1,5 @@
-import type { BootstrapPayload } from "../../sdk/app-sdk.ts";
-import { buildBrowserGraderAssetUrls } from "./browser_grader.ts";
+import type { BootstrapPayload } from '../../sdk/app-sdk.ts';
+import { buildBrowserGraderAssetUrls } from './browser_grader.ts';
 
 export function buildRuntimeBootstrapScript(input: {
   bootstrap: BootstrapPayload;
@@ -7,37 +7,25 @@ export function buildRuntimeBootstrapScript(input: {
   previewSessionId: string | null;
 }): string {
   const bootstrapJson = serializeForInlineScript(input.bootstrap);
-  const contentUrl = serializeForInlineScript(
-    `${input.runtimeBaseUrl}/content`,
-  );
-  const localStateUrl = serializeForInlineScript(
-    `${input.runtimeBaseUrl}/local-state`,
-  );
-  const attemptEventsUrl = serializeForInlineScript(
-    `${input.runtimeBaseUrl}/attempt-events`,
-  );
+  const contentUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/content`);
+  const localStateUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/local-state`);
+  const attemptEventsUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/attempt-events`);
   const evidenceArtifactsUrl = serializeForInlineScript(
     `${input.runtimeBaseUrl}/evidence-artifacts`,
   );
-  const scoreProposalUrl = serializeForInlineScript(
-    `${input.runtimeBaseUrl}/score-proposal`,
-  );
-  const finalizeUrl = serializeForInlineScript(
-    `${input.runtimeBaseUrl}/finalize`,
-  );
+  const scoreProposalUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/score-proposal`);
+  const finalizeUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/finalize`);
   const browserGraderUrls = buildBrowserGraderAssetUrls({
     runtimeBaseUrl: input.runtimeBaseUrl,
   });
-  const browserGraderJasmineUrl = serializeForInlineScript(
-    browserGraderUrls.jasmineUrl,
-  );
-  const browserGraderRunnerUrl = serializeForInlineScript(
-    browserGraderUrls.runnerUrl,
-  );
+  const browserGraderJasmineUrl = serializeForInlineScript(browserGraderUrls.jasmineUrl);
+  const browserGraderRunnerUrl = serializeForInlineScript(browserGraderUrls.runnerUrl);
   const previewJson = serializeForInlineScript(
-    input.previewSessionId === null ? null : {
-      previewSessionId: input.previewSessionId,
-    },
+    input.previewSessionId === null
+      ? null
+      : {
+          previewSessionId: input.previewSessionId,
+        },
   );
 
   return `window.GatewayBootstrap = ${bootstrapJson};
@@ -215,7 +203,7 @@ window.GatewayApp = {
 
 export function injectBeforeClosingTag(
   html: string,
-  tagName: "head" | "body",
+  tagName: 'head' | 'body',
   injection: string,
 ): string {
   const closingTag = `</${tagName}>`;
@@ -230,17 +218,17 @@ export function injectBeforeClosingTag(
 
 export function escapeHtmlAttribute(value: string): string {
   return value
-    .replaceAll("&", "&amp;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;");
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
 }
 
 function serializeForInlineScript(value: unknown): string {
   return JSON.stringify(value)
-    .replaceAll("<", "\\u003c")
-    .replaceAll(">", "\\u003e")
-    .replaceAll("&", "\\u0026")
-    .replaceAll("\u2028", "\\u2028")
-    .replaceAll("\u2029", "\\u2029");
+    .replaceAll('<', '\\u003c')
+    .replaceAll('>', '\\u003e')
+    .replaceAll('&', '\\u0026')
+    .replaceAll('\u2028', '\\u2028')
+    .replaceAll('\u2029', '\\u2029');
 }

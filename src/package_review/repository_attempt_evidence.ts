@@ -1,12 +1,12 @@
-import type { Pool } from "@db/postgres";
-import { withClient, withTransaction } from "./repository_core.ts";
+import type { Pool } from '@db/postgres';
+import { withClient, withTransaction } from './repository_core.ts';
 import {
   mapAttemptEvidenceArtifactRow,
   mapOptionalAttemptEvidenceArtifact,
-} from "./repository_mappers_attempts.ts";
-import type { AttemptEvidenceArtifactRow } from "./repository_row_types.ts";
-import { isUniqueViolation } from "./repository_value_support.ts";
-import type { PackageReviewRepository } from "./repository.ts";
+} from './repository_mappers_attempts.ts';
+import type { AttemptEvidenceArtifactRow } from './repository_row_types.ts';
+import { isUniqueViolation } from './repository_value_support.ts';
+import type { PackageReviewRepository } from './repository.ts';
 
 const ATTEMPT_EVIDENCE_ARTIFACT_SELECT = `
   SELECT
@@ -27,16 +27,16 @@ export function createAttemptEvidenceRepositoryMethods(
   pool: Pool,
 ): Pick<
   PackageReviewRepository,
-  | "createAttemptEvidenceArtifact"
-  | "getAttemptEvidenceArtifactById"
-  | "listAttemptEvidenceArtifacts"
+  | 'createAttemptEvidenceArtifact'
+  | 'getAttemptEvidenceArtifactById'
+  | 'listAttemptEvidenceArtifacts'
 > {
   return {
     async createAttemptEvidenceArtifact(input) {
       return await withClient(pool, async (client) => {
         return await withTransaction(
           client,
-          "create_attempt_evidence_artifact",
+          'create_attempt_evidence_artifact',
           async (transaction) => {
             const attemptResult = await transaction.queryObject<{
               attemptId: string;
@@ -69,9 +69,7 @@ export function createAttemptEvidenceRepositoryMethods(
             const nextSequence = sequenceResult.rows[0]?.nextSequence ?? 1;
 
             try {
-              const result = await transaction.queryObject<
-                AttemptEvidenceArtifactRow
-              >({
+              const result = await transaction.queryObject<AttemptEvidenceArtifactRow>({
                 text: `
                   INSERT INTO attempt_evidence_artifacts (
                     artifact_id,

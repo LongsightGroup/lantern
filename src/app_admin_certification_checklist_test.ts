@@ -63,7 +63,7 @@ Deno.test('GET /admin/verification renders one certification checklist in Core, 
   const body = await response.text();
 
   assertStringIncludes(body, 'Certification checklist');
-  assertStringIncludes(body, 'name="workflowKey"');
+  assertEquals(body.includes('action="/admin/verification"'), false);
   assertTextAppearsInOrder(body, ['LTI Core', 'Deep Linking', 'NRPS', 'AGS']);
 });
 

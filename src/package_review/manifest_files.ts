@@ -1,10 +1,10 @@
-import type { AppManifest } from "./manifest_contract.ts";
-import type { PackageSource } from "./package_source.ts";
-import type { ValidationIssue } from "./types.ts";
+import type { AppManifest } from './manifest_contract.ts';
+import type { PackageSource } from './package_source.ts';
+import type { ValidationIssue } from './types.ts';
 
 export async function readManifestJsonFromSource(
   source: PackageSource,
-  manifestPath = "manifest.json",
+  manifestPath = 'manifest.json',
 ): Promise<{ value: unknown } | { issues: ValidationIssue[] }> {
   let sourceText: string;
 
@@ -13,14 +13,14 @@ export async function readManifestJsonFromSource(
 
     if (text === null) {
       return {
-        issues: [createMissingFileIssue("/manifest.json", "/manifest.json")],
+        issues: [createMissingFileIssue('/manifest.json', '/manifest.json')],
       };
     }
 
     sourceText = text;
   } catch {
     return {
-      issues: [createMissingFileIssue("/manifest.json", "/manifest.json")],
+      issues: [createMissingFileIssue('/manifest.json', '/manifest.json')],
     };
   }
 
@@ -32,10 +32,10 @@ export async function readManifestJsonFromSource(
     return {
       issues: [
         {
-          field: "/manifest.json",
-          keyword: "invalid_json",
-          severity: "error",
-          message: "Manifest must be valid JSON before Lantern can review it.",
+          field: '/manifest.json',
+          keyword: 'invalid_json',
+          severity: 'error',
+          message: 'Manifest must be valid JSON before Lantern can review it.',
         },
       ],
     };
@@ -48,14 +48,14 @@ export async function collectReferencedFileIssuesFromSource(
 ): Promise<ValidationIssue[]> {
   const references: Array<{ field: string; path: string }> = [
     {
-      field: "/entrypoint",
+      field: '/entrypoint',
       path: manifest.entrypoint,
     },
   ];
 
   if (manifest.grading.rubric_file) {
     references.push({
-      field: "/grading/rubric_file",
+      field: '/grading/rubric_file',
       path: manifest.grading.rubric_file,
     });
   }
@@ -69,20 +69,17 @@ export async function collectReferencedFileIssuesFromSource(
 
   if (manifest.preview) {
     references.push({
-      field: "/preview/fixtures_file",
+      field: '/preview/fixtures_file',
       path: manifest.preview.fixtures_file,
     });
     references.push({
-      field: "/preview/tests_file",
+      field: '/preview/tests_file',
       path: manifest.preview.tests_file,
     });
   }
 
   if (manifest.authoring) {
-    for (
-      const [index, graderSpecPath] of manifest.authoring.grader_spec_files
-        .entries()
-    ) {
+    for (const [index, graderSpecPath] of manifest.authoring.grader_spec_files.entries()) {
       references.push({
         field: `/authoring/grader_spec_files/${index}`,
         path: graderSpecPath,
@@ -90,14 +87,14 @@ export async function collectReferencedFileIssuesFromSource(
     }
 
     references.push({
-      field: "/authoring/evidence_example_file",
+      field: '/authoring/evidence_example_file',
       path: manifest.authoring.evidence_example_file,
     });
   }
 
   if (manifest.icon) {
     references.push({
-      field: "/icon",
+      field: '/icon',
       path: manifest.icon,
     });
   }
@@ -112,30 +109,70 @@ export async function collectReferencedFileIssuesFromSource(
     }
   }
 
-  const layoutEntrypointExists = await source.fileExists("dist/index.html");
+  const entrypointPath = trimLeadingSlash(manifest.entrypoint);
+  const entrypointHtml = await source.readText(entrypointPath);
+
+  if (entrypointHtml !== null) {
+    for (const assetUrl of listRootRelativeReviewedAssetUrls(entrypointHtml)) {
+      issues.push({
+        field: '/entrypoint',
+        keyword: 'invalid_asset_path',
+        severity: 'error',
+        message: `Entrypoint HTML cannot use root-relative reviewed asset URL ${assetUrl}. Use a relative asset path instead.`,
+      });
+    }
+  }
+
+  const layoutEntrypointExists = await source.fileExists('dist/index.html');
 
   if (!layoutEntrypointExists) {
     issues.push({
-      field: "/entrypoint",
-      keyword: "missing_file",
-      severity: "error",
-      message:
-        "Package must include /dist/index.html for the reviewed app shell.",
+      field: '/entrypoint',
+      keyword: 'missing_file',
+      severity: 'error',
+      message: 'Package must include /dist/index.html for the reviewed app shell.',
     });
   }
 
   return issues;
 }
 
+function listRootRelativeReviewedAssetUrls(html: string): string[] {
+  const urls = new Set<string>();
+
+  for (const pattern of ROOT_RELATIVE_REVIEWED_ASSET_PATTERNS) {
+    for (const match of html.matchAll(pattern)) {
+      const relativePath = match[1];
+
+      if (typeof relativePath === 'string' && relativePath !== '') {
+        urls.add(`/${relativePath}`);
+      }
+    }
+  }
+
+  return [...urls];
+}
+
+const ROOT_RELATIVE_REVIEWED_ASSET_PATTERNS = [
+  /<script\b[^>]*\bsrc=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+  /<link\b[^>]*\bhref=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+  /<img\b[^>]*\bsrc=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+  /<source\b[^>]*\bsrc=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+  /<audio\b[^>]*\bsrc=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+  /<video\b[^>]*\bsrc=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+  /<video\b[^>]*\bposter=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+  /<track\b[^>]*\bsrc=["']\/(?!\/)([^"'?#>]+(?:\?[^"'#>]*)?(?:#[^"'>]*)?)["'][^>]*>/gi,
+];
+
 function createMissingFileIssue(field: string, path: string): ValidationIssue {
   return {
     field,
-    keyword: "missing_file",
-    severity: "error",
+    keyword: 'missing_file',
+    severity: 'error',
     message: `Referenced file ${path} is missing from the package.`,
   };
 }
 
 function trimLeadingSlash(value: string): string {
-  return value.replace(/^\/+/, "");
+  return value.replace(/^\/+/, '');
 }

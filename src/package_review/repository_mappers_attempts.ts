@@ -5,7 +5,7 @@ import type {
   AuditEventRecord,
   GradePublicationRecord,
   LineItemBindingRecord,
-} from "./types.ts";
+} from './types.ts';
 import type {
   AttemptEventRow,
   AttemptEvidenceArtifactRow,
@@ -13,16 +13,14 @@ import type {
   AuditEventRow,
   GradePublicationRow,
   LineItemBindingRow,
-} from "./repository_row_types.ts";
+} from './repository_row_types.ts';
 import {
   normalizeNumeric,
   normalizeOptionalTimestamp,
   normalizeTimestamp,
-} from "./repository_value_support.ts";
+} from './repository_value_support.ts';
 
-export function mapOptionalAttempt(
-  row: AttemptRow | undefined,
-): AttemptRecord | null {
+export function mapOptionalAttempt(row: AttemptRow | undefined): AttemptRecord | null {
   if (!row) {
     return null;
   }
@@ -32,7 +30,7 @@ export function mapOptionalAttempt(
 
 export function mapAttemptRow(row: AttemptRow | undefined): AttemptRecord {
   if (!row) {
-    throw new Error("Expected an attempt row.");
+    throw new Error('Expected an attempt row.');
   }
 
   return {
@@ -59,11 +57,9 @@ export function mapAttemptRow(row: AttemptRow | undefined): AttemptRecord {
   };
 }
 
-export function mapAttemptEventRow(
-  row: AttemptEventRow | undefined,
-): AttemptEventRecord {
+export function mapAttemptEventRow(row: AttemptEventRow | undefined): AttemptEventRecord {
   if (!row) {
-    throw new Error("Expected an attempt event row.");
+    throw new Error('Expected an attempt event row.');
   }
 
   return {
@@ -90,7 +86,7 @@ export function mapAttemptEvidenceArtifactRow(
   row: AttemptEvidenceArtifactRow | undefined,
 ): AttemptEvidenceArtifactRecord {
   if (!row) {
-    throw new Error("Expected an attempt evidence artifact row.");
+    throw new Error('Expected an attempt evidence artifact row.');
   }
 
   return {
@@ -117,11 +113,9 @@ export function mapOptionalLineItemBinding(
   return mapLineItemBindingRow(row);
 }
 
-export function mapLineItemBindingRow(
-  row: LineItemBindingRow | undefined,
-): LineItemBindingRecord {
+export function mapLineItemBindingRow(row: LineItemBindingRow | undefined): LineItemBindingRecord {
   if (!row) {
-    throw new Error("Expected a line item binding row.");
+    throw new Error('Expected a line item binding row.');
   }
 
   return {
@@ -156,7 +150,7 @@ export function mapGradePublicationRow(
   row: GradePublicationRow | undefined,
 ): GradePublicationRecord {
   if (!row) {
-    throw new Error("Expected a grade publication row.");
+    throw new Error('Expected a grade publication row.');
   }
 
   return {
@@ -178,11 +172,9 @@ export function mapGradePublicationRow(
   };
 }
 
-export function mapAuditEventRow(
-  row: AuditEventRow | undefined,
-): AuditEventRecord {
+export function mapAuditEventRow(row: AuditEventRow | undefined): AuditEventRecord {
   if (!row) {
-    throw new Error("Expected an audit event row.");
+    throw new Error('Expected an audit event row.');
   }
 
   return {

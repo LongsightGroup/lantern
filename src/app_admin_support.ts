@@ -3,6 +3,7 @@ import {
   renderDeploymentsPage as renderAdminDeploymentsPage,
   renderVerificationPage as renderAdminVerificationPage,
 } from './admin/control_plane.ts';
+import type { VerificationPageSection } from './admin/verification_navigation.ts';
 import {
   type DeploymentEditorState,
   renderDeploymentDetailPage,
@@ -180,6 +181,7 @@ export async function renderVerificationPage(
   input: {
     notice?: AdminNotice | null;
     status?: 200 | 400 | 500;
+    section?: VerificationPageSection;
   } = {},
 ) {
   const opsRepository = services.getOpsRepository();
@@ -198,6 +200,7 @@ export async function renderVerificationPage(
       latestOfficialCertificationEvidence,
       ltiProfileSettings,
       notice: input.notice ?? null,
+      section: input.section ?? 'checklist',
     }),
     input.status ?? 200,
   );

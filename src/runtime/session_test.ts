@@ -6,7 +6,7 @@ import {
   createR2RuntimeArtifactStore,
   type RuntimeArtifactBucket,
 } from "./artifact_store.ts";
-import { getDefaultRuntimeArtifactStore } from "./artifact_store_fs.ts";
+import { createDirectRuntimeDelivery } from "./delivery.ts";
 import {
   authorizeRuntimeSession,
   loadRuntimeActivityContent,
@@ -16,10 +16,18 @@ import {
   buildRuntimeSessionRecord,
   getTestToolPrivateJwkEnvValue,
 } from "../test_helpers/lti.ts";
+import { buildPackageVersionRecord } from "../test_helpers/package_review.ts";
 
 const EXAMPLE_SNAPSHOT_ROOT = "examples/apps/chapter-4-asteroids";
 const WORKER_SNAPSHOT_ROOT = "var/packages/chapter-4-asteroids/1.0.0";
-const fileSystemArtifactStore = getDefaultRuntimeArtifactStore();
+const exampleArtifactStore = createR2RuntimeArtifactStore(
+  createTestRuntimeArtifactBucket({
+    [`${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`]:
+      "<!doctype html><html><head><title>Chapter 4 Asteroids</title></head><body>Chapter 4 Asteroids</body></html>",
+    [`${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`]:
+      '{"title":"Chapter 4 Asteroids","questions":[{"id":"q1"}]}',
+  }),
+);
 const TEST_SIGNING_ENV = {
   get(name: string): string | undefined {
     return name === "LTI_TOOL_PRIVATE_JWK"
@@ -38,9 +46,12 @@ Deno.test("runtime session route serves the pinned reviewed entrypoint with an i
       contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
     }),
     {
-      runtimeContractSignature: "test-reviewed-runtime-contract-signature",
       env: TEST_SIGNING_ENV,
-      artifactStore: fileSystemArtifactStore,
+      runtimeDelivery: createDirectRuntimeDelivery(exampleArtifactStore),
+      reviewedPackage: buildReviewedPackageVersion({
+        snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+        entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+      }),
     },
   );
   const bootstrap = extractBootstrapFromHtml(html);
@@ -109,7 +120,7 @@ Deno.test("runtime content route serves reviewed activity content through the La
       entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
       contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`,
     }),
-    fileSystemArtifactStore,
+    exampleArtifactStore,
   )) as { title: string; questions: Array<{ id: string }> };
 
   assertEquals(content.title, "Chapter 4 Asteroids");
@@ -131,9 +142,13 @@ Deno.test("runtime session helpers can load reviewed artifacts from an R2-backed
     contentPath: `${WORKER_SNAPSHOT_ROOT}/content/activity.json`,
   });
   const html = await renderRuntimeSessionPage(session, {
-    runtimeContractSignature: "test-reviewed-runtime-contract-signature",
     env: TEST_SIGNING_ENV,
-    artifactStore,
+    runtimeDelivery: createDirectRuntimeDelivery(artifactStore),
+    reviewedPackage: buildReviewedPackageVersion({
+      snapshotRoot: WORKER_SNAPSHOT_ROOT,
+      entrypointPath: `${WORKER_SNAPSHOT_ROOT}/dist/index.html`,
+      digest: "sha256:chapter-4-asteroids-1.0.0",
+    }),
   });
   const content =
     (await loadRuntimeActivityContent(session, artifactStore)) as {
@@ -239,4 +254,20 @@ function createTestRuntimeArtifactBucket(
       });
     },
   };
+}
+
+function buildReviewedPackageVersion(input: {
+  snapshotRoot: string;
+  entrypointPath: string;
+  digest?: string;
+}) {
+  return buildPackageVersionRecord({
+    approvalStatus: "approved",
+    artifact: {
+      snapshotRoot: input.snapshotRoot,
+      manifestPath: `${input.snapshotRoot}/manifest.json`,
+      entrypointPath: input.entrypointPath,
+      digest: input.digest ?? "sha256:chapter-4-asteroids-0.1.0",
+    },
+  });
 }

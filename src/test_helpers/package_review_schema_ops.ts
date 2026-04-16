@@ -231,4 +231,4 @@ export const PACKAGE_REVIEW_OPS_SCHEMA_STATEMENTS = [
 ];
 
 export const PACKAGE_REVIEW_RESET_SQL =
-  "TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, line_item_bindings, attempt_evidence_artifacts, attempt_events, attempts, authoring_draft_files, authoring_drafts, preview_evidence, preview_sessions, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE";
+  'TRUNCATE TABLE broker_verification_runs, audit_events, grade_publications, line_item_bindings, attempt_evidence_artifacts, attempt_events, attempts, authoring_draft_files, authoring_drafts, preview_evidence, preview_sessions, reviewed_placements, deep_linking_sessions, runtime_sessions, lti_login_states, deployments, package_versions RESTART IDENTITY CASCADE';

@@ -32,31 +32,24 @@ import {
   failRuntimeOutcome,
   toRuntimeBrokerResult,
 } from "./runtime/gateway_errors.ts";
+import type { RuntimeDeliveryDescriptor } from "./runtime/delivery.ts";
 import {
   authorizeRuntimeSession,
-  contentTypeForRuntimePath,
   loadRuntimeActivityContent,
-  loadRuntimeAssetBytes,
   renderRuntimeSessionPage,
 } from "./runtime/session.ts";
-import {
-  buildBrowserGraderHarnessSource,
-  buildBrowserGraderRunnerSource,
-  readReviewedBrowserGraderConfig,
-} from "./runtime/browser_grader.ts";
+import type { PackageVersionRecord } from "./package_review/types.ts";
 import { readEnv } from "./platform/env.ts";
 import { buildRequestAuditEnvelope } from "./request_audit.ts";
-import {
-  buildRuntimeSessionBaseUrl,
-  requireRuntimeRequestOrigin,
-} from "./runtime_origin.ts";
-import { trimLeadingSlash } from "./package_review/snapshot_path.ts";
+import { requireRuntimeRequestOrigin } from "./runtime_origin.ts";
 
 export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
   app.get("/runtime/sessions/:sessionId", async (context) => {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let reviewedPackage: PackageVersionRecord | null = null;
+    let delivery = defaultRuntimeDeliveryDescriptor(services);
     const request = buildRequestAuditEnvelope({ context });
 
     try {
@@ -71,11 +64,11 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         ),
         expected: session,
       });
-      const packageVersion = await repository.getPackageVersionById(
+      reviewedPackage = await repository.getPackageVersionById(
         session.packageVersionId,
       );
 
-      if (!packageVersion) {
+      if (!reviewedPackage) {
         failRuntimeOutcome({
           type: "integrity_failure",
           code: "package_version_missing",
@@ -88,24 +81,28 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         });
       }
 
-      if (packageVersion.approvalStatus !== "approved") {
+      if (reviewedPackage.approvalStatus !== "approved") {
         failRuntimeOutcome({
           type: "integrity_failure",
           code: "package_version_not_approved",
           message:
-            `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+            `Runtime session package version ${reviewedPackage.appId}@${reviewedPackage.version} is not approved.`,
           status: 409,
           detail: {
-            packageVersionId: packageVersion.id,
+            packageVersionId: reviewedPackage.id,
           },
         });
       }
+      delivery = services.runtimeDelivery.describeDelivery({
+        session,
+        reviewedPackage,
+      });
 
       const response = context.html(
         await renderRuntimeSessionPage(session, {
-          runtimeContractSignature: packageVersion.runtimeContractSignature,
           env: services.env,
-          artifactStore: services.runtimeArtifactStore,
+          runtimeDelivery: services.runtimeDelivery,
+          reviewedPackage,
         }),
       );
 
@@ -114,6 +111,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         runtimeOrigin,
+        reviewedPackage,
+        delivery,
         route: "session",
       });
       return response;
@@ -127,6 +126,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
+        reviewedPackage,
         route: "session",
         request,
       });
@@ -138,6 +139,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const delivery = defaultRuntimeDeliveryDescriptor(services);
     const request = buildRequestAuditEnvelope({ context });
 
     try {
@@ -182,6 +184,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
         route: "content",
         request,
       });
@@ -193,6 +196,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const delivery = defaultRuntimeDeliveryDescriptor(services);
     const request = buildRequestAuditEnvelope({ context });
 
     try {
@@ -223,6 +227,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
         route: "local-state.read",
         request,
       });
@@ -234,6 +239,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const delivery = defaultRuntimeDeliveryDescriptor(services);
     let request = buildRequestAuditEnvelope({ context });
 
     try {
@@ -270,6 +276,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
         route: "local-state.write",
         request,
       });
@@ -281,6 +288,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const delivery = defaultRuntimeDeliveryDescriptor(services);
     let request = buildRequestAuditEnvelope({ context });
 
     try {
@@ -343,6 +351,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
         route: "attempt-events",
         request,
       });
@@ -356,6 +365,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       const repository = services.getRepository();
       const sessionId = context.req.param("sessionId");
       let session: RuntimeSessionRecord | null = null;
+      const delivery = defaultRuntimeDeliveryDescriptor(services);
       let request = buildRequestAuditEnvelope({ context });
 
       try {
@@ -403,6 +413,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           repository,
           session,
           error,
+          delivery,
           route: "evidence-artifacts",
           request,
         });
@@ -415,6 +426,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    const delivery = defaultRuntimeDeliveryDescriptor(services);
     let request = buildRequestAuditEnvelope({ context });
 
     try {
@@ -465,6 +477,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
         route: "score-proposal",
         request,
       });
@@ -476,6 +489,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let reviewedPackage: PackageVersionRecord | null = null;
+    let delivery = defaultRuntimeDeliveryDescriptor(services);
     let request = buildRequestAuditEnvelope({ context });
 
     try {
@@ -489,6 +504,15 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         ),
         expected: session,
       });
+      reviewedPackage = await repository.getPackageVersionById(
+        session.packageVersionId,
+      );
+      if (reviewedPackage !== null) {
+        delivery = services.runtimeDelivery.describeDelivery({
+          session,
+          reviewedPackage,
+        });
+      }
 
       const payload = await context.req.json();
       request = buildRequestAuditEnvelope({
@@ -537,6 +561,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         await recordRuntimeSessionExited({
           repository,
           session,
+          reviewedPackage,
+          delivery,
           completionState: result.attempt.completionState,
           scoreGiven: result.score.scoreGiven,
           scoreMaximum: result.score.scoreMaximum,
@@ -617,6 +643,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
+        reviewedPackage,
         route: "finalize",
         request,
       });
@@ -628,33 +656,36 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let reviewedPackage: PackageVersionRecord | null = null;
+    let delivery = defaultRuntimeDeliveryDescriptor(services);
     const request = buildRequestAuditEnvelope({ context });
 
     try {
       requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const fileRequest = readRuntimeFileRequest(context);
+      const approvedPackage = await requireApprovedRuntimePackageVersion(
+        repository,
+        session,
+      );
+      reviewedPackage = approvedPackage;
+      delivery = services.runtimeDelivery.describeDelivery({
+        session,
+        reviewedPackage: approvedPackage,
+      });
 
       authorizeRuntimeSession({
         token: fileRequest.token,
         expected: session,
       });
 
-      const relativePath = fileRequest.relativePath;
-      const contentType = contentTypeForRuntimePath(relativePath);
-      const assetBytes = await loadRuntimeAssetBytes(
-        session,
-        relativePath,
-        services.runtimeArtifactStore,
+      return buildRuntimeAssetResponse(
+        await services.runtimeDelivery.loadReviewedAsset({
+          session,
+          reviewedPackage: approvedPackage,
+          relativePath: fileRequest.relativePath,
+        }),
       );
-      const assetBody = new Uint8Array(assetBytes.byteLength);
-
-      assetBody.set(assetBytes);
-
-      return new Response(new Blob([assetBody], { type: contentType }), {
-        status: 200,
-        headers: buildRuntimeAssetHeaders(contentType),
-      });
     } catch (error) {
       session = await resolveRuntimeSessionForAudit(
         repository,
@@ -665,6 +696,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
+        reviewedPackage,
         route: "files",
         request,
       });
@@ -676,10 +709,12 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
     const repository = services.getRepository();
     const sessionId = context.req.param("sessionId");
     let session: RuntimeSessionRecord | null = null;
+    let reviewedPackage: PackageVersionRecord | null = null;
+    let delivery = defaultRuntimeDeliveryDescriptor(services);
     const request = buildRequestAuditEnvelope({ context });
 
     try {
-      const runtimeOrigin = requireRuntimeOriginBoundary(context, services);
+      requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const url = new URL(context.req.url);
       const token = readBearerToken(context.req.header("authorization")) ??
@@ -693,100 +728,33 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         expected: session,
       });
 
-      const packageVersion = await repository.getPackageVersionById(
-        session.packageVersionId,
+      const approvedPackage = await requireApprovedRuntimePackageVersion(
+        repository,
+        session,
       );
+      reviewedPackage = approvedPackage;
+      delivery = services.runtimeDelivery.describeDelivery({
+        session,
+        reviewedPackage: approvedPackage,
+      });
+      const assetPath = url.pathname.slice(
+        `/runtime/sessions/${encodeURIComponent(sessionId)}/browser-grader/`
+          .length,
+      );
+      const asset = await services.runtimeDelivery.loadBrowserGraderAsset({
+        session,
+        reviewedPackage: approvedPackage,
+        assetPath,
+      });
 
-      if (!packageVersion) {
-        failRuntimeOutcome({
-          type: "integrity_failure",
-          code: "package_version_missing",
-          message:
-            `Runtime session package version id ${session.packageVersionId} was not found.`,
-          status: 409,
-          detail: {
-            packageVersionId: session.packageVersionId,
-          },
-        });
-      }
-
-      const config = readReviewedBrowserGraderConfig(packageVersion);
-
-      if (config === null) {
+      if (asset === null) {
         return context.text(
           "Browser grader is not configured for this reviewed package.",
           404,
         );
       }
 
-      const runtimeBaseUrl = buildRuntimeSessionBaseUrl({
-        runtimeOrigin,
-        sessionId,
-      });
-      const prefix = `/runtime/sessions/${
-        encodeURIComponent(sessionId)
-      }/browser-grader/`;
-      const assetPath = url.pathname.slice(prefix.length);
-
-      if (assetPath === "jasmine.js") {
-        return new Response(buildBrowserGraderHarnessSource(), {
-          status: 200,
-          headers: buildRuntimeAssetHeaders(
-            "application/javascript; charset=UTF-8",
-          ),
-        });
-      }
-
-      if (assetPath === "runner.js") {
-        return new Response(
-          buildBrowserGraderRunnerSource({
-            runtimeBaseUrl,
-            reviewedSpecFiles: config.reviewedSpecFiles,
-            scoreMaximum: config.scoreMaximum,
-            token: session.sessionToken,
-          }),
-          {
-            status: 200,
-            headers: buildRuntimeAssetHeaders(
-              "application/javascript; charset=UTF-8",
-            ),
-          },
-        );
-      }
-
-      const reviewedMatch = assetPath.match(/^reviewed\/([0-9]+)\.js$/);
-
-      if (!reviewedMatch?.[1]) {
-        return context.text("Browser grader asset not found.", 404);
-      }
-
-      const specPath = config.reviewedSpecFiles.at(Number(reviewedMatch[1]));
-
-      if (!specPath) {
-        return context.text("Browser grader spec was not found.", 404);
-      }
-
-      const assetBytes = await loadRuntimeAssetBytes(
-        session,
-        trimLeadingSlash(specPath),
-        services.runtimeArtifactStore,
-      );
-      const assetBody = new Uint8Array(assetBytes.byteLength);
-
-      assetBody.set(assetBytes);
-
-      return new Response(
-        new Blob(
-          [assetBody],
-          { type: contentTypeForRuntimePath(trimLeadingSlash(specPath)) },
-        ),
-        {
-          status: 200,
-          headers: buildRuntimeAssetHeaders(
-            contentTypeForRuntimePath(trimLeadingSlash(specPath)),
-          ),
-        },
-      );
+      return buildRuntimeAssetResponse(asset);
     } catch (error) {
       session = await resolveRuntimeSessionForAudit(
         repository,
@@ -797,6 +765,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         repository,
         session,
         error,
+        delivery,
+        reviewedPackage,
         route: "browser-grader",
         request,
       });
@@ -887,6 +857,57 @@ function buildRuntimeAssetHeaders(contentType: string): Headers {
   return headers;
 }
 
+function buildRuntimeAssetResponse(asset: {
+  bytes: Uint8Array;
+  contentType: string;
+}): Response {
+  const body = new Uint8Array(asset.bytes.byteLength);
+
+  body.set(asset.bytes);
+
+  return new Response(new Blob([body], { type: asset.contentType }), {
+    status: 200,
+    headers: buildRuntimeAssetHeaders(asset.contentType),
+  });
+}
+
+async function requireApprovedRuntimePackageVersion(
+  repository: ReturnType<AppServices["getRepository"]>,
+  session: RuntimeSessionRecord,
+): Promise<PackageVersionRecord> {
+  const packageVersion = await repository.getPackageVersionById(
+    session.packageVersionId,
+  );
+
+  if (!packageVersion) {
+    failRuntimeOutcome({
+      type: "integrity_failure",
+      code: "package_version_missing",
+      message:
+        `Runtime session package version id ${session.packageVersionId} was not found.`,
+      status: 409,
+      detail: {
+        packageVersionId: session.packageVersionId,
+      },
+    });
+  }
+
+  if (packageVersion.approvalStatus !== "approved") {
+    failRuntimeOutcome({
+      type: "integrity_failure",
+      code: "package_version_not_approved",
+      message:
+        `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+      status: 409,
+      detail: {
+        packageVersionId: packageVersion.id,
+      },
+    });
+  }
+
+  return packageVersion;
+}
+
 function applyRuntimeResponseHeaders(headers: Headers): void {
   headers.set("cache-control", "no-store");
   headers.set("cross-origin-resource-policy", "same-origin");
@@ -897,11 +918,11 @@ function applyRuntimeResponseHeaders(headers: Headers): void {
 function runtimeContentSecurityPolicy(): string {
   return [
     "default-src 'none'",
-    "script-src 'self' 'unsafe-inline'",
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
     "font-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self' https://cloudflareinsights.com",
     "media-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",
@@ -933,4 +954,13 @@ function runtimePermissionsPolicy(): string {
     "web-share=()",
     "xr-spatial-tracking=()",
   ].join(", ");
+}
+
+function defaultRuntimeDeliveryDescriptor(
+  services: AppServices,
+): RuntimeDeliveryDescriptor {
+  return {
+    substrate: services.runtimeDelivery.substrate,
+    workerId: null,
+  };
 }

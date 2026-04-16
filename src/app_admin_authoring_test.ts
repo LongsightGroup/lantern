@@ -112,7 +112,7 @@ Deno.test('POST /authoring/generate returns notes and diffs without saving the d
   );
   assertEquals(
     capturedInput.referenceExamples.map((example) => example.appId),
-    ['template-app', 'web-checkup', 'office-hours-web-lab'],
+    ['template-app', 'web-checkup', 'typescript-ladder-game'],
   );
   assertStringIncludes(capturedInput.currentFiles[0]?.contents ?? '', 'template authoring checks');
 });

@@ -22,7 +22,7 @@ export interface AuthoringAiWriter {
 }
 
 export const AUTHORING_AI_UNCONFIGURED_MESSAGE =
-  "AI assist is not configured for this Lantern environment.";
+  'AI assist is not configured for this Lantern environment.';
 
 export function createUnavailableAuthoringAiWriter(): AuthoringAiWriter {
   return {

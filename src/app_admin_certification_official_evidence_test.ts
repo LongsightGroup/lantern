@@ -10,7 +10,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 
-Deno.test('GET /admin/verification keeps official 1EdTech evidence in its own dated section', async () => {
+Deno.test('GET /admin/verification/official keeps official 1EdTech evidence on its own dated page', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -58,13 +58,13 @@ Deno.test('GET /admin/verification keeps official 1EdTech evidence in its own da
 
   const response = await createApp({
     getRepository: () => repository,
-  }).request('http://localhost/admin/verification');
+  }).request('http://localhost/admin/verification/official');
 
   assertEquals(response.status, 200);
 
   const body = await response.text();
 
-  assertStringIncludes(body, 'Official 1EdTech evidence');
+  assertStringIncludes(body, 'Official evidence');
   assertStringIncludes(
     body,
     'Only the 1EdTech Product Directory supports an official certification claim.',
@@ -78,7 +78,7 @@ Deno.test('GET /admin/verification keeps official 1EdTech evidence in its own da
   assertStringIncludes(body, 'https://example.test/certification/1edtech-directory');
 });
 
-Deno.test('GET /admin/verification keeps internal passed rows from reading like an official certification claim', async () => {
+Deno.test('GET /admin/verification/official keeps internal passed rows off the official evidence page', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -120,14 +120,14 @@ Deno.test('GET /admin/verification keeps internal passed rows from reading like 
 
   const response = await createApp({
     getRepository: () => repository,
-  }).request('http://localhost/admin/verification');
+  }).request('http://localhost/admin/verification/official');
 
   assertEquals(response.status, 200);
 
   const body = await response.text();
 
-  assertStringIncludes(body, 'Internal core verification passed.');
   assertStringIncludes(body, 'No official claim recorded');
   assertStringIncludes(body, 'Lantern has no recorded 1EdTech Product Directory evidence yet.');
+  assertEquals(body.includes('Internal core verification passed.'), false);
   assertEquals(body.includes('Lantern is certified.'), false);
 });

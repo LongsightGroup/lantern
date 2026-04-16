@@ -1,0 +1,41 @@
+[
+  {
+    "name": "renders title",
+    "assert": {
+      "selector": "[data-test='app-title']",
+      "text": "TypeScript Ladder Game"
+    }
+  },
+  {
+    "name": "renders scenario copy",
+    "assert": {
+      "selector": "[data-test='scenario-copy']",
+      "contains": "reviewed TypeScript examples"
+    }
+  },
+  {
+    "name": "renders step list",
+    "assert": {
+      "selector": "[data-test='step-list']"
+    }
+  },
+  {
+    "name": "renders code editor",
+    "assert": {
+      "selector": "[data-test='step-editor']"
+    }
+  },
+  {
+    "name": "renders step guidance",
+    "assert": {
+      "selector": "#step-goal",
+      "contains": "type annotation"
+    }
+  },
+  {
+    "name": "renders finish action",
+    "assert": {
+      "selector": "[data-test='complete-button']"
+    }
+  }
+]

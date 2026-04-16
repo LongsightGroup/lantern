@@ -1,0 +1,35 @@
+{
+  "schema_version": "1",
+  "app_id": "simple-activity-starter",
+  "version": "0.1.0",
+  "title": "Simple Activity Starter",
+  "description": "A minimal Lantern activity starter that stays on the governed runtime seam.",
+  "owner": {
+    "type": "user",
+    "id": "author_123"
+  },
+  "entrypoint": "/dist/index.html",
+  "roles": ["learner", "instructor"],
+  "install_scope": "course",
+  "capabilities": [
+    "read_launch_context",
+    "read_activity_content",
+    "submit_attempt_event",
+    "finalize_attempt",
+    "read_local_state",
+    "write_local_state"
+  ],
+  "grading": {
+    "mode": "completion",
+    "max_score": 100
+  },
+  "browser": {
+    "fullscreen": false,
+    "clipboard_write": false
+  },
+  "content_files": ["/content/activity.json"],
+  "preview": {
+    "fixtures_file": "/preview/fixtures.json",
+    "tests_file": "/preview/tests.json"
+  }
+}

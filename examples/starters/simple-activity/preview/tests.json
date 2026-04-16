@@ -1,0 +1,27 @@
+[
+  {
+    "name": "renders title",
+    "assert": {
+      "selector": "[data-test='app-title']",
+      "text": "Simple Activity Starter"
+    }
+  },
+  {
+    "name": "renders prompt",
+    "assert": {
+      "selector": "[data-test='question-prompt']"
+    }
+  },
+  {
+    "name": "renders progress action",
+    "assert": {
+      "selector": "[data-test='progress-button']"
+    }
+  },
+  {
+    "name": "renders complete action",
+    "assert": {
+      "selector": "[data-test='complete-button']"
+    }
+  }
+]

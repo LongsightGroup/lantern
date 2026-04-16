@@ -1,0 +1,20 @@
+{
+  "launch": {
+    "user_role": "learner",
+    "course_id": "course_demo",
+    "assignment_id": "assignment_typescript_ladder_game",
+    "activity_id": "typescript-ladder-game"
+  },
+  "attempt_id": "attempt_typescript_ladder_game_demo",
+  "local_state": {
+    "completedCount": 0,
+    "currentStepIndex": 0,
+    "stepCodes": {
+      "step-01": "const launchReady: string = 3;\n\nexport function getBanner(): string {\n  return `Examples ready: ${launchReady}`;\n}\n"
+    },
+    "feedbackTone": "idle",
+    "feedbackMessage": "Start with: Make the type annotation match the numeric value. Hint: Only one token is wrong on the first line.",
+    "savedAt": null,
+    "finalized": "Not finished"
+  }
+}
