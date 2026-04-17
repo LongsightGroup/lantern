@@ -219,9 +219,17 @@ runtime launch later verifies. On Workers, Lantern uses that reviewed identity
 to key the Dynamic Worker envelope, so the same approved package bytes can be
 reused across sessions without turning reviewed packages into arbitrary
 server-side apps. The Worker app path no longer depends on local disk for demo
-package import or reviewed runtime delivery. The remaining deployment work is
-operational: provision the curated reference package source files into
-`PACKAGE_ARTIFACTS` as part of your Cloudflare bootstrap or release flow.
+package import or reviewed runtime delivery. Provision the curated reference
+package source files into `PACKAGE_ARTIFACTS` during Cloudflare bootstrap or
+release with:
+
+```sh
+deno task reference:sync --bucket=replace-with-package-artifact-bucket
+```
+
+This command shells out to Wrangler's `r2 object put` flow. Authenticate with
+Wrangler first or provide a Cloudflare API token in the environment you use for
+the command.
 
 For local Worker development, Wrangler now builds a single generated Worker
 artifact through `deno task build:worker` before `dev` or `deploy`. The repo
@@ -246,9 +254,11 @@ To run the Worker locally:
 - when using `wrangler dev --local`, make sure that local Hyperdrive connection
   string includes a password segment because Miniflare rejects passwordless DSNs
   even if your local Postgres allows them
-- if you want the demo import path to work on Workers, seed
-  `PACKAGE_ARTIFACTS/reference-packages/<app-id>/source/...` in your local or
-  remote R2 bucket before calling `/admin/packages/import-reference`
+- if you want the demo import path to work on Workers, provision the curated
+  reference sources into the same bucket first with
+  `deno task reference:sync --bucket=<bucket-name>` or
+  `deno task reference:sync --bucket=<bucket-name> --local --persist-to=<dir>`
+  before calling `/admin/packages/import-reference`
 - then run `npx wrangler dev --local`
 
 The reviewed runtime contract remains the same across local Deno preview and the
@@ -344,6 +354,7 @@ Common commands:
 - `deno task app:validate <package-root>`
 - `deno task app:test-preview <package-root>`
 - `deno task app:preview <package-root>`
+- `deno task reference:sync --bucket=<bucket-name>`
 - `deno task fmt`
 - `deno task fmt:check`
 - `deno task lint`

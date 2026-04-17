@@ -27,7 +27,7 @@ if (import.meta.main) {
     console.log('Next:');
     console.log('1. Run `deno task local:start`.');
     console.log('2. Open http://localhost:8417/admin/packages.');
-    console.log('3. Start with Template App, Web Checkup, or Office Hours Web Lab.');
+    console.log('3. Start with Template App, Web Checkup, or TypeScript Ladder Game.');
   } finally {
     await pool.end();
   }

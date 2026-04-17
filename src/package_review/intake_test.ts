@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertRejects, assertThrows } from '@std/assert';
 import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
 import {
+  getReferencePackageBucketSourceRoot,
   getReferencePackageSourceRoot,
   importDemoPackage,
   importPackage,
@@ -214,12 +215,24 @@ Deno.test('curated authoring examples stay explicitly registered in the referenc
 
   assertEquals(ids.includes('template-app'), true);
   assertEquals(getReferencePackageSourceRoot('template-app'), 'examples/apps/template');
+  assertEquals(
+    getReferencePackageBucketSourceRoot('template-app'),
+    'reference-packages/template-app/source',
+  );
   assertEquals(ids.includes('web-checkup'), true);
   assertEquals(getReferencePackageSourceRoot('web-checkup'), 'examples/apps/web-checkup');
+  assertEquals(
+    getReferencePackageBucketSourceRoot('web-checkup'),
+    'reference-packages/web-checkup/source',
+  );
   assertEquals(ids.includes('typescript-ladder-game'), true);
   assertEquals(
     getReferencePackageSourceRoot('typescript-ladder-game'),
     'examples/apps/typescript-ladder-game',
+  );
+  assertEquals(
+    getReferencePackageBucketSourceRoot('typescript-ladder-game'),
+    'reference-packages/typescript-ladder-game/source',
   );
 });
 

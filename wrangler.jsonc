@@ -36,6 +36,8 @@
       "binding": "PACKAGE_ARTIFACTS",
       // Store reviewed snapshots under var/packages/... and curated
       // reference package sources under reference-packages/<app-id>/source/...
+      // after bucket creation run:
+      // deno task reference:sync --bucket=<bucket_name>
       "bucket_name": "replace-with-package-artifact-bucket",
     },
   ],

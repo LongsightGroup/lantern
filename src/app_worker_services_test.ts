@@ -1,6 +1,7 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import { resolveWorkerServices } from './app_worker_services.ts';
 import { createObjectEnvReader } from './platform/env.ts';
+import { getReferencePackageBucketSourceRoot } from './package_review/intake.ts';
 import { createMemoryPackageSource } from './package_review/package_source.ts';
 import { verifyReviewedRuntimeContractSignature } from './package_review/runtime_contract.ts';
 import type { RuntimeArtifactBucket } from './runtime/artifact_store.ts';
@@ -10,7 +11,7 @@ import {
   buildRuntimeSessionRecord,
 } from './test_helpers/package_review.ts';
 
-const DEMO_BUCKET_SOURCE_ROOT = 'reference-packages/chapter-4-asteroids/source';
+const DEMO_BUCKET_SOURCE_ROOT = getReferencePackageBucketSourceRoot('chapter-4-asteroids');
 const DEMO_SNAPSHOT_ROOT = 'var/packages/chapter-4-asteroids/0.1.0';
 const DEMO_REFERENCE_SOURCE_FILES = {
   'manifest.json': `{

@@ -6,6 +6,7 @@ import { createHyperdriveDatabasePool, type HyperdriveBinding } from './db/pool.
 import { createOpsRepository, type OpsRepository } from './ops/repository.ts';
 import type { EnvReader } from './platform/env.ts';
 import {
+  getReferencePackageBucketSourceRoot,
   importPackage,
   isReferencePackageId,
   loadPackageSnapshot,
@@ -39,7 +40,7 @@ const WORKER_RUNTIME_ARTIFACT_MESSAGE =
 const WORKER_EVIDENCE_ARTIFACT_MESSAGE =
   'Cloudflare Workers evidence artifact storage requires an R2 binding named PACKAGE_ARTIFACTS with write access. Bind the reviewed package artifact bucket before accepting anonymous evidence uploads on Workers.';
 const WORKER_REFERENCE_PACKAGE_MESSAGE =
-  'Curated reference packages must be stored in PACKAGE_ARTIFACTS under reference-packages/<app-id>/source before Workers can import or inspect them.';
+  'Curated reference packages must be stored in PACKAGE_ARTIFACTS under reference-packages/<app-id>/source before Workers can import or inspect them. Run `deno task reference:sync --bucket=<bucket-name>` during Worker bootstrap or release.';
 const WORKER_RUNTIME_DELIVERY_MESSAGE =
   'Cloudflare Workers reviewed runtime delivery requires a Worker Loader binding named LOADER. Bind the Dynamic Worker loader before serving immutable reviewed runtime bytes from Workers.';
 const WORKER_AUTHORING_REFERENCE_MESSAGE =
@@ -161,7 +162,7 @@ function resolveWorkerReferencePackageSource(
   const bucket = bindings.PACKAGE_ARTIFACTS;
 
   if (isRuntimeArtifactBucket(bucket) && typeof bucket.list === 'function') {
-    return createBucketPackageSource(bucket, `reference-packages/${appId}/source`);
+    return createBucketPackageSource(bucket, getReferencePackageBucketSourceRoot(appId));
   }
 
   return createUnsupportedPackageSource(WORKER_REFERENCE_PACKAGE_MESSAGE);
