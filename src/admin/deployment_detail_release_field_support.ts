@@ -164,7 +164,7 @@ export function renderCanvasEnvironmentField(input: {
           <select id="canvas-environment" name="canvasEnvironment" ${
             input.disabled ? 'disabled' : ''
           } ${renderFieldAriaInvalid(input.editorState, 'canvasEnvironment')}
-  }>
+          >
             ${input.supportedCanvasEnvironments
               .map(
                 (environment) =>

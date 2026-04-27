@@ -68,6 +68,8 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
   assertStringIncludes(html, 'Advanced Canvas settings');
   assertStringIncludes(html, 'Configuration URL');
   assertStringIncludes(html, 'Canvas environment');
+  assertStringIncludes(html, '<select id="canvas-environment" name="canvasEnvironment"');
+  assertFalse(html.includes('name="canvasEnvironment" \n  }'));
   assertStringIncludes(html, binding.issuer);
   assertStringIncludes(html, 'chip-status-healthy');
   assertStringIncludes(html, 'Recent launches');
