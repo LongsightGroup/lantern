@@ -2,7 +2,6 @@ import { calculateJwkThumbprint, exportJWK, generateKeyPair } from 'jose';
 
 export const DEFAULT_LOCAL_PORT = '8417';
 export const DEFAULT_LOCAL_APP_ORIGIN = `http://localhost:${DEFAULT_LOCAL_PORT}`;
-export const DEFAULT_LOCAL_DATABASE_URL = 'postgres://localhost:5432/lantern?sslmode=disable';
 export const DEFAULT_LOCAL_ENV_PATH = '.env.local';
 
 const ENV_ASSIGNMENT_PATTERN = /^\s*([A-Z][A-Z0-9_]*)\s*=/;
@@ -77,14 +76,13 @@ export function defaultLocalEnvAssignments(): Record<string, string> {
     PORT: DEFAULT_LOCAL_PORT,
     APP_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
     APP_RUNTIME_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
-    DATABASE_URL: DEFAULT_LOCAL_DATABASE_URL,
   };
 }
 
 function defaultLocalEnvHeader(): string {
   return [
     '# Local Lantern development defaults.',
-    '# Edit DATABASE_URL if your local Postgres host, database, or credentials differ.',
+    '# Full Lantern persistence runs through Cloudflare D1 via Wrangler.',
     '# APP_RUNTIME_ORIGIN defaults to the same localhost origin for local development.',
     '',
   ].join('\n');

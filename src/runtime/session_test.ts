@@ -61,6 +61,7 @@ Deno.test('runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(html, 'submissionMode');
   assertStringIncludes(html, 'readLocalState');
   assertStringIncludes(html, 'writeLocalState');
+  assertEquals(html.indexOf('window.GatewayApp =') < html.indexOf('</body>'), true);
   assertStringIncludes(
     html,
     'https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/',

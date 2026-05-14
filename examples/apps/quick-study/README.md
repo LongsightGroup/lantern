@@ -17,7 +17,7 @@ It also demonstrates the governed runtime boundary:
 - uses Lantern local state for deck memory when available
 - finalizes the study session through Lantern
 - never writes grades directly
-- never accesses LMS tokens or a database
+- never accesses LMS tokens or Lantern's D1 database
 
 The current demo is a flashcard deck with a light mastery loop:
 

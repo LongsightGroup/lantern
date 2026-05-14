@@ -216,6 +216,16 @@ export function injectBeforeClosingTag(
   return `${html.slice(0, index)}${injection}${html.slice(index)}`;
 }
 
+export function injectBeforeFirstScriptOrClosingBody(html: string, injection: string): string {
+  const scriptIndex = html.search(/<script\b/i);
+
+  if (scriptIndex >= 0) {
+    return `${html.slice(0, scriptIndex)}${injection}${html.slice(scriptIndex)}`;
+  }
+
+  return injectBeforeClosingTag(html, 'body', injection);
+}
+
 export function escapeHtmlAttribute(value: string): string {
   return value
     .replaceAll('&', '&amp;')

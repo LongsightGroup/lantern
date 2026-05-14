@@ -2,7 +2,7 @@ import type { PackageReviewRepository } from '../package_review/repository.ts';
 import {
   normalizeAuthoringDraftPath,
   readBrowserAutograderContract,
-} from '../package_review/repository_authoring.ts';
+} from '../package_review/repository_authoring_contract.ts';
 import type { AuthoringDraftRecord, PackageVersionRecord } from '../package_review/types.ts';
 import { cloneRecord, type InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
 

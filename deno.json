@@ -2,7 +2,8 @@
   "tasks": {
     "dev": "deno run --unsafely-ignore-certificate-errors --watch --allow-read --allow-write --allow-env --allow-net main.ts",
     "start": "deno run --allow-read --allow-write --allow-env --allow-net main.ts",
-    "db:migrate": "deno run --allow-read --allow-env --allow-net src/db/migrate.ts",
+    "db:migrate": "npx wrangler d1 migrations apply lantern --local",
+    "db:migrate:remote": "npx wrangler d1 migrations apply lantern --remote",
     "app:validate": "deno run --allow-read tools/app_validate.ts",
     "app:preview": "deno run --allow-read --allow-net tools/app_preview.ts",
     "app:dev": "deno run --allow-read --allow-net tools/app_dev.ts",
@@ -10,11 +11,10 @@
     "app:new": "deno run --allow-read --allow-write tools/app_new.ts",
     "reference:sync": "deno run --allow-read --allow-run tools/reference_sync.ts",
     "local:init": "deno run --allow-read --allow-write tools/local_init.ts",
-    "local:migrate": "deno run --env-file=.env.local --allow-read --allow-env --allow-net src/db/migrate.ts",
-    "local:seed": "deno run --env-file=.env.local --allow-read --allow-write --allow-env --allow-net tools/local_seed.ts",
-    "local:bootstrap": "deno task local:seed",
-    "local:start": "deno run --env-file=.env.local --allow-read --allow-write --allow-env --allow-net main.ts",
-    "local:dev": "deno run --env-file=.env.local --watch --allow-read --allow-write --allow-env --allow-net main.ts",
+    "local:migrate": "deno task db:migrate",
+    "local:bootstrap": "deno task local:migrate",
+    "local:start": "npx wrangler dev",
+    "local:dev": "npx wrangler dev",
     "build:worker": "deno bundle --platform=browser src/worker.ts -o output/worker.bundle.mjs",
     "check:worker": "deno task build:worker && deno run --allow-read tools/check_worker_bundle.ts && deno run --allow-read tools/check_worker_config.ts",
     "fmt": "deno run -A npm:oxfmt@0.43.0 --write .",
@@ -25,15 +25,13 @@
     "validate": "deno task fmt:check && deno task lint && deno task check && deno task check:worker && deno test --allow-read --allow-write --allow-env --allow-net"
   },
   "imports": {
-    "@ajv2020": "npm:ajv@8.18.0/dist/2020.js",
-    "@db/postgres": "./src/db/postgres.ts",
-    "@happy-dom": "npm:happy-dom@15.11.7",
-    "@hono/hono": "jsr:@hono/hono@^4.10.1",
-    "@std/assert": "jsr:@std/assert@^1.0.15",
+    "@ajv2020": "npm:ajv@8.20.0/dist/2020.js",
+    "@happy-dom": "npm:happy-dom@20.9.0",
+    "@hono/hono": "jsr:@hono/hono@^4.12.18",
+    "@std/assert": "jsr:@std/assert@^1.0.19",
     "@std/semver": "jsr:@std/semver@1.0.8",
-    "jose": "npm:jose@6.2.2",
-    "oauth4webapi": "npm:oauth4webapi@3.8.5",
-    "postgres": "npm:postgres@3.4.7"
+    "jose": "npm:jose@6.2.3",
+    "oauth4webapi": "npm:oauth4webapi@3.8.6"
   },
   "compilerOptions": {
     "strict": true,

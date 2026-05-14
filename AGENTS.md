@@ -66,11 +66,12 @@ Default stack:
 
 - Deno
 - Hono
-- Postgres
+- Cloudflare D1 for persistence
+- Cloudflare R2 for reviewed artifacts and evidence
+- Cloudflare Worker Loader / Dynamic Workers for reviewed runtime delivery
 - hand-written SQL
 - server-rendered HTML
 - plain CSS tokens
-- HTMX only where it clearly helps
 
 Avoid by default:
 
@@ -132,7 +133,7 @@ The platform is the trusted boundary.
 Generated apps should not get:
 
 - raw LMS tokens
-- direct database access
+- direct D1 database access
 - arbitrary outbound HTTP
 - direct grade writes
 

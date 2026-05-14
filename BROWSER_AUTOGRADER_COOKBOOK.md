@@ -150,9 +150,9 @@ checks instead of one starter file.
 
 When the package is ready for governed review:
 
-1. Start Lantern locally with `deno task local:init`, `createdb lantern`,
+1. Start Lantern locally with `deno task local:init`,
    `deno task local:bootstrap`, and `deno task local:start`.
-2. Open `http://localhost:8417/admin/packages/import`.
+2. Open `/admin/packages/import` on the localhost URL printed by Wrangler.
 3. Import the exact package directory you validated locally.
 
 Lantern stores an immutable reviewed snapshot, signs the reviewed runtime

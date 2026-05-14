@@ -55,15 +55,11 @@ run:
 
 ```sh
 deno task local:init
-createdb lantern
 deno task local:bootstrap
 deno task local:start
 ```
 
-Then open `http://localhost:8417/admin/packages`.
-
-If `createdb` is not installed, create the `lantern` database through your
-normal Postgres tooling before `deno task local:bootstrap`.
+Then open the localhost URL printed by Wrangler.
 
 ## Package Shape
 
@@ -206,7 +202,7 @@ Do not add:
 
 - backend code
 - direct LMS calls
-- direct database calls
+- direct D1 database calls
 - arbitrary outbound HTTP
 - direct grade writes
 - fallback-heavy runtime branches
@@ -233,7 +229,7 @@ and admin import.
 When you want to move a reviewed package into Lantern's governed inventory:
 
 1. Start Lantern locally.
-2. Open `http://localhost:8417/admin/packages/import`.
+2. Open `/admin/packages/import` on the localhost URL printed by Wrangler.
 3. Choose the exact package directory you scaffolded and validated locally.
 
 Lantern validates the manifest and referenced files, stores an immutable

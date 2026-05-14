@@ -16,6 +16,7 @@ import {
   buildRuntimeBootstrapScript,
   escapeHtmlAttribute,
   injectBeforeClosingTag,
+  injectBeforeFirstScriptOrClosingBody,
 } from './session_html.ts';
 import { errorMessage, failRuntimeOutcome, isRuntimeOutcomeError } from './gateway_errors.ts';
 
@@ -103,9 +104,8 @@ export async function renderRuntimeSessionPage(
     previewSessionId: session.preview?.previewSessionId ?? null,
   })}</script>`;
 
-  return injectBeforeClosingTag(
+  return injectBeforeFirstScriptOrClosingBody(
     injectBeforeClosingTag(entrypointHtml, 'head', headInjection),
-    'body',
     bodyInjection,
   );
 }

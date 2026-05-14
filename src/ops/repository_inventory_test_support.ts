@@ -1,28 +1,5 @@
-import type { Pool } from '@db/postgres';
-import {
-  bootstrapPackageReviewSchema,
-  resetPackageReviewTables,
-  withPackageReviewTestDatabase,
-} from '../test_helpers/postgres.ts';
-import type { DeploymentActivitySnapshot } from './types.ts';
 import type { InventoryQueryRow } from './repository_types.ts';
-import { createOpsRepositoryForTest } from './repository_test_core_support.ts';
-import { seedOpsRepositoryFixtures } from './repository_test_seed.ts';
-
-export type OpsRepositoryForTest = Awaited<ReturnType<typeof createOpsRepositoryForTest>>;
-
-export async function withSeededOpsRepositoryTest(
-  run: (pool: Pool, repository: OpsRepositoryForTest) => Promise<void>,
-): Promise<void> {
-  await withPackageReviewTestDatabase(async (pool) => {
-    await bootstrapPackageReviewSchema(pool);
-    await resetPackageReviewTables(pool);
-    await seedOpsRepositoryFixtures(pool);
-
-    const repository = await createOpsRepositoryForTest(pool);
-    await run(pool, repository);
-  });
-}
+import type { DeploymentActivitySnapshot } from './types.ts';
 
 export function buildInventoryQueryRow(
   overrides: Partial<InventoryQueryRow> = {},

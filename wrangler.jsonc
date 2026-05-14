@@ -21,14 +21,12 @@
       "binding": "LOADER",
     },
   ],
-  "hyperdrive": [
+  "d1_databases": [
     {
-      "binding": "HYPERDRIVE",
-      "id": "00000000-0000-0000-0000-000000000000",
-      // Sample local DSN only. Prefer overriding this for local development
-      // with CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE so the
-      // checked-in config stays generic.
-      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5432/lantern_dev",
+      "binding": "DB",
+      "database_name": "lantern",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "src/db/d1_migrations",
     },
   ],
   "r2_buckets": [

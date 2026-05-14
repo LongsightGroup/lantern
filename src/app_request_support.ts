@@ -6,6 +6,7 @@ export { parseBrokerVerificationRunForm } from './app_request_broker_verificatio
 export interface ReadLoginRequestResult {
   request: LoginRequest;
   compatibility: LoginRequestCompatibility;
+  ltiStorageTarget: string | null;
 }
 
 export function normalizeOptionalString(value: FormDataEntryValue | null): string | null {
@@ -107,6 +108,7 @@ export async function readLoginRequest(context: Context): Promise<ReadLoginReque
         decodedLoginHint: loginHint.decoded,
         decodedLtiMessageHint: ltiMessageHint.decoded,
       },
+      ltiStorageTarget: normalizeNullableString(url.searchParams.get('lti_storage_target')),
     };
   }
 
@@ -133,6 +135,7 @@ export async function readLoginRequest(context: Context): Promise<ReadLoginReque
       decodedLoginHint: loginHint.decoded,
       decodedLtiMessageHint: ltiMessageHint.decoded,
     },
+    ltiStorageTarget: normalizeOptionalString(formData.get('lti_storage_target')),
   };
 }
 

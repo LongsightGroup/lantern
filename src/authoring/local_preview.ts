@@ -7,7 +7,10 @@ import {
   ScoreProposal,
 } from '../../sdk/app-sdk.ts';
 import { resolveSubmissionMode } from '../../sdk/app-sdk.ts';
-import { buildRuntimeBootstrapScript, injectBeforeClosingTag } from '../runtime/session_html.ts';
+import {
+  buildRuntimeBootstrapScript,
+  injectBeforeFirstScriptOrClosingBody,
+} from '../runtime/session_html.ts';
 import {
   denyRuntimeBroker,
   errorMessage,
@@ -507,7 +510,7 @@ function injectPreviewRuntimeBridge(input: {
   });
   const scriptTag = `<script>${scriptBody}</script>`;
 
-  return injectBeforeClosingTag(input.html, 'body', scriptTag);
+  return injectBeforeFirstScriptOrClosingBody(input.html, scriptTag);
 }
 
 function runtimeReadErrorResponse(error: unknown): Response {

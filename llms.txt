@@ -1,0 +1,95 @@
+# Lantern
+
+> Lantern is a governed app platform for institution-built and AI-built learning
+> apps. It runs small learning apps through one trusted LMS integration boundary
+> for review, approval, grading, and audit.
+
+Lantern is not a general app hosting platform, an LMS replacement, or a
+compatibility layer for every LMS variation. Prefer the smallest correct path
+that preserves Lantern's trust boundary.
+
+## Start Here
+
+- [README.md](README.md): product overview, local setup, runtime model, and
+  deployment notes.
+- [AUTHORING.md](AUTHORING.md): human-facing path for creating reviewed Lantern
+  app packages.
+- [AUTHORING_FOR_LLMS.md](AUTHORING_FOR_LLMS.md): rules and package shapes for
+  LLM-generated Lantern apps.
+- [APP_PACKAGE_SPEC.md](APP_PACKAGE_SPEC.md): v1 reviewed app package contract.
+- [BROWSER_AUTOGRADER_COOKBOOK.md](BROWSER_AUTOGRADER_COOKBOOK.md): canonical
+  pattern for reviewed browser autograders.
+
+## Runtime Contracts
+
+- [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json):
+  manifest schema for reviewed app packages.
+- [sdk/app-sdk.ts](sdk/app-sdk.ts): browser SDK contract exposed to app
+  packages.
+- [main.ts](main.ts): local Deno server adapter.
+- [src/worker.ts](src/worker.ts): canonical Cloudflare Workers runtime
+  entrypoint.
+
+Apps run as signed, reviewed, browser-first packages. Generated or institution
+authored apps must not receive raw LMS tokens, direct database access,
+arbitrary outbound HTTP, direct grade writes, or server-side execution inside
+the package.
+
+## App Examples
+
+- [examples/apps/template/README.md](examples/apps/template/README.md): starter
+  package reference.
+- [examples/apps/web-checkup/README.md](examples/apps/web-checkup/README.md):
+  browser autograder reference.
+- [examples/apps/typescript-ladder-game/README.md](examples/apps/typescript-ladder-game/README.md):
+  JS/TS teaching app reference.
+- [examples/apps/quick-study/README.md](examples/apps/quick-study/README.md):
+  small activity reference.
+- [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md):
+  game-style activity reference.
+
+## Development Commands
+
+Lantern uses Deno. Common commands:
+
+```sh
+deno task app:new --list-starters
+deno task app:validate /path/to/app
+deno task app:test-preview /path/to/app
+deno task app:preview /path/to/app
+deno task local:init
+deno task local:bootstrap
+deno task local:start
+```
+
+For TypeScript changes, verify with:
+
+```sh
+deno task fmt
+deno task lint
+deno task check
+```
+
+Run touched-area tests when they exist.
+
+## Coding Guidance
+
+- Keep the architecture simple and the dependency graph small.
+- Prefer one correct path over multiple fallback paths.
+- Validate and narrow untrusted data at boundaries.
+- Keep TypeScript strict: no `any`, no unjustified suppression comments, and
+  explicit public interfaces.
+- Prefer Deno, Hono, Cloudflare D1, hand-written SQL, server-rendered HTML, and
+  plain CSS tokens.
+- Avoid React, ORMs, Tailwind, queue platforms, and fallback-heavy abstractions
+  unless a change explicitly justifies them.
+- Keep UI institutional, calm, accessible, and compatible with LMS admin
+  contexts.
+
+## Public Context Boundary
+
+Use this root documentation, public schemas, SDKs, source files, and examples as
+the public Lantern context. The `private/` directory is not part of the public
+documentation surface and must not be copied, summarized into public docs, or
+used to expose private strategy, infrastructure details, account values,
+security notes, pricing, or internal operations.

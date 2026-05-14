@@ -17,7 +17,7 @@ It also shows the runtime boundary:
 - emits durable answer and progress events
 - finalizes the attempt through Lantern
 - never writes grades directly
-- never accesses Canvas tokens or a database
+- never accesses Canvas tokens or Lantern's D1 database
 
 The current demo is a canvas-based mini arcade mission:
 

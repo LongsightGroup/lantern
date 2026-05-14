@@ -25,15 +25,3 @@ export function normalizeNumeric(value: number | string): number {
 
   return Number(value);
 }
-
-export function isUniqueViolation(error: unknown): error is Error & {
-  code?: string;
-  fields?: { code?: string };
-} {
-  const withCode = error as { code?: string } | null;
-  const withFields = error as { fields?: { code?: string } } | null;
-
-  return (
-    error instanceof Error && (withCode?.code === '23505' || withFields?.fields?.code === '23505')
-  );
-}

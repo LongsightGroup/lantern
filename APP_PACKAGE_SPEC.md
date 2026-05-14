@@ -35,7 +35,7 @@ This spec does not support:
 
 - arbitrary backend code
 - direct LMS API access
-- direct database access
+- direct D1 database access
 - arbitrary outbound HTTP
 - direct grade writes
 
@@ -372,29 +372,26 @@ If we add those, we have broken the trust boundary.
 
 ## Runtime Backend Note
 
-This spec defines the app-facing capability contract, not one required hosting
-vendor or transport.
+This spec defines the app-facing capability contract. Lantern's checked-in
+runtime implementation is Cloudflare-native: Workers, D1, R2, and Worker
+Loader / Dynamic Workers.
 
-Lantern may realize this contract through different runtime backends as long as
-the app sees the same narrow SDK surface and the same trust boundary.
-
-For example, a managed Lantern deployment may choose a capability-based sandbox
-such as Cloudflare Dynamic Workers to:
+Lantern realizes this contract through a capability-based Dynamic Worker
+sandbox that:
 
 - block arbitrary outbound Internet access
 - inject only explicit typed bindings that match Lantern capabilities
 - keep LMS credentials and other privileged secrets outside the app sandbox
 
-That does not change the public package contract.
+That does not change the public package contract: app packages remain
+browser-first artifacts and do not receive Cloudflare bindings directly.
 
 Rules:
 
 - app packages must not depend on Cloudflare-specific APIs, bindings, or worker
   internals
-- self-hosted Lantern deployments must be able to honor the same contract
-  through a different backend
-- Dynamic Workers or any similar sandbox may tighten the implementation, but
-  they do not add new app capabilities by themselves
+- Dynamic Workers may tighten the implementation, but they do not add new app
+  capabilities by themselves
 
 ## Scoring Contract
 

@@ -47,6 +47,10 @@ Deno.test('local preview harness injects GatewayApp and serves preview state', a
   assertStringIncludes(entrypointBody, 'window.GatewayBootstrap =');
   assertStringIncludes(entrypointBody, 'runBrowserGrader');
   assertStringIncludes(entrypointBody, 'submitEvidenceArtifact');
+  assertEquals(
+    entrypointBody.indexOf('window.GatewayApp =') < entrypointBody.indexOf('src="./app.js"'),
+    true,
+  );
   assertEquals(harness.bootstrap.launch.submission_mode, 'anonymous_submission');
 
   const authorization = `Bearer ${harness.bootstrap.session.token}`;

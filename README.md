@@ -14,7 +14,7 @@ with the full platform install:
 2. Run `deno task app:preview examples/apps/typescript-ladder-game`.
 3. Open the localhost URL printed by the command.
 
-This path does not need Postgres, LMS setup, or Cloudflare. It runs the same
+This path does not need LMS setup or a Cloudflare account. It runs the same
 browser authoring seam Lantern uses for local package preview, so you can judge
 the app model first.
 
@@ -25,30 +25,22 @@ bootstrap path:
 
 ```sh
 deno task local:init
-createdb lantern
 deno task local:bootstrap
 deno task local:start
 ```
 
-Then open `http://localhost:8417/admin/packages`.
+Then open the localhost URL printed by Wrangler.
 
 For arbitrary reviewed packages, use
-`http://localhost:8417/admin/packages/import`. Reference apps remain available
-at `http://localhost:8417/admin/packages/reference`.
-
-If `createdb` is not installed on your machine, create a local Postgres database
-named `lantern` however you normally manage Postgres and then continue.
+`/admin/packages/import`. Reference apps remain available at
+`/admin/packages/reference`.
 
 What these commands do:
 
 - `local:init` writes `.env.local`, generates a local development signing key,
   and creates Lantern's local artifact directories
-- `local:bootstrap` runs migrations and seeds the shipped reference packages,
-  including Template App, Web Checkup, and TypeScript Ladder Game
-- `local:start` runs Lantern with `.env.local`
-
-If your local Postgres uses a different host, user, password, or database, edit
-`.env.local` after `local:init` before running `local:bootstrap`.
+- `local:bootstrap` applies local D1 migrations through Wrangler
+- `local:start` runs Lantern through Wrangler with the checked-in Worker config
 
 ## JS/TS Authoring Path
 
@@ -96,7 +88,7 @@ Use `--starter=browser-autograder` when the reviewed package needs
 - a general app hosting platform
 - an LMS replacement
 - a pile of compatibility shims for every LMS quirk
-- a way to hand raw LMS tokens or database access to generated apps
+- a way to hand raw LMS tokens or D1 database access to generated apps
 - a backend framework for arbitrary server code inside app packages
 
 ## How It Works
@@ -117,7 +109,7 @@ This keeps the design simple:
 - apps do not get raw LMS access tokens
 - apps do not get arbitrary outbound HTTP
 - apps do not get direct grade-write power
-- apps do not get direct database access
+- apps do not get direct D1 database access
 
 ## LTI In Reality
 
@@ -157,12 +149,12 @@ Instead, Lantern treats `state` as a one-time server-side record:
 This means the browser does not need to hold the real launch state in a
 third-party cookie. If the LMS is embedding Lantern in an iframe and the browser
 blocks third-party cookies, the launch can still be correlated because the real
-state lives in Lantern's database.
+state lives in Lantern's D1 database.
 
-## Cloudflare And Proxy Deployment
+## Cloudflare Deployment
 
-Lantern is expected to run either directly on Cloudflare Workers or behind a
-reverse proxy.
+Lantern's canonical full-app runtime is Cloudflare Workers with D1, R2, and
+Worker Loader bindings.
 
 For public LTI URLs, Lantern resolves its public origin in this order:
 
@@ -171,13 +163,13 @@ For public LTI URLs, Lantern resolves its public origin in this order:
 3. the raw request origin
 
 This keeps LTI config, login redirects, dynamic registration callbacks, and Deep
-Linking responses consistent when Lantern is deployed behind Cloudflare or
-another proxy.
+Linking responses consistent behind Cloudflare domains, routes, and previews.
 
-The repo now treats the Workers entrypoint at [src/worker.ts](src/worker.ts) as
-the canonical runtime path. The Deno server entrypoint in [main.ts](main.ts) is
-a local adapter for development and tooling. The repo also includes a starter
-Wrangler config at [wrangler.jsonc](wrangler.jsonc).
+The repo treats the Workers entrypoint at [src/worker.ts](src/worker.ts) as the
+canonical runtime path. The Deno app wrapper in [src/app.ts](src/app.ts) exists
+for injected tests and package preview tooling; full persistence runs through
+the Worker `DB` binding. The repo also includes a starter Wrangler config at
+[wrangler.jsonc](wrangler.jsonc).
 
 Current Workers boundaries:
 
@@ -188,19 +180,18 @@ Current Workers boundaries:
   reviewed browser-grader files launch through a reviewed-identity-keyed Dynamic
   Worker envelope created from a Worker Loader binding named `LOADER`
 - that Dynamic Worker envelope is browser-first and read-only: it serves only
-  reviewed immutable bytes, receives no Hyperdrive, LMS, or generic outbound
+  reviewed immutable bytes, receives no D1 database, LMS, or generic outbound
   capability, and sets `globalOutbound: null`
 - reviewed package snapshots are also written to and reloaded from that same
   `PACKAGE_ARTIFACTS` bucket on Workers
 - arbitrary reviewed package imports and curated reference app imports follow
   the same governed snapshot flow and land under
   `var/packages/<app-id>/<version>/...`
-- repository-backed routes use Postgres through a Hyperdrive binding named
-  `HYPERDRIVE`
+- repository-backed Worker routes use D1 through a binding named `DB`
 - curated reference package imports on Workers read source files from
   `PACKAGE_ARTIFACTS` under `reference-packages/<app-id>/source`
 - the Wrangler starter enables `nodejs_compat` and Smart Placement because
-  Lantern makes multiple database queries per request
+  Lantern makes multiple D1 queries per request
 - both Wrangler configs now include `worker_loaders` for the `LOADER` binding
   used to cache Dynamic Workers by reviewed runtime identity instead of by
   session id
@@ -243,17 +234,9 @@ To run the Worker locally:
   `--var ...` flags or `.dev.vars`
 - keep the `LOADER` Worker Loader binding present; Lantern uses it for the
   governed Dynamic Worker envelope around immutable reviewed runtime delivery
-- prefer exporting `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE`
-  with your real local Postgres connection string before `wrangler dev --local`;
-  Wrangler uses that to override the sample
-  `hyperdrive[0].localConnectionString` in `wrangler.jsonc` without editing the
-  checked-in file
-- if you do not use the override env var, replace `wrangler.jsonc`
-  `hyperdrive[0].localConnectionString` with a real local Postgres connection
-  string before using repository-backed admin routes like `/admin/packages`
-- when using `wrangler dev --local`, make sure that local Hyperdrive connection
-  string includes a password segment because Miniflare rejects passwordless DSNs
-  even if your local Postgres allows them
+- keep the `DB` D1 binding present; it is the Worker persistence binding
+- apply D1 migrations from `src/db/d1_migrations` before using
+  repository-backed Worker routes
 - if you want the demo import path to work on Workers, provision the curated
   reference sources into the same bucket first with
   `deno task reference:sync --bucket=<bucket-name>` or
@@ -287,15 +270,18 @@ code-hosting path for arbitrary uploaded server logic.
   [examples/apps/typescript-ladder-game/README.md](examples/apps/typescript-ladder-game/README.md)
 - Browser-autograder starter reference:
   [examples/apps/template/README.md](examples/apps/template/README.md)
+- Public UI design contract: [DESIGN.md](DESIGN.md)
 - Canonical Workers entrypoint: [src/worker.ts](src/worker.ts)
-- Local Deno app wrapper: [src/app.ts](src/app.ts)
-- Local Deno server entrypoint: [main.ts](main.ts)
+- Test/tooling app wrapper: [src/app.ts](src/app.ts)
 
 ## Stack
 
 - Deno
 - Hono
-- Postgres
+- Cloudflare Workers
+- Cloudflare D1
+- Cloudflare R2
+- Cloudflare Worker Loader / Dynamic Workers
 - hand-written SQL
 - server-rendered HTML
 - plain CSS tokens
@@ -306,15 +292,11 @@ Fast path:
 
 ```sh
 deno task local:init
-createdb lantern
 deno task local:bootstrap
 deno task local:start
 ```
 
-Open `http://localhost:8417/admin/packages`.
-
-If `createdb` is not installed, create the `lantern` database through your
-normal Postgres tooling before `deno task local:bootstrap`.
+Open the localhost URL printed by Wrangler.
 
 Generated local environment:
 
@@ -323,15 +305,10 @@ Generated local environment:
 - `APP_ORIGIN`: defaults to `http://localhost:8417`
 - `APP_RUNTIME_ORIGIN`: defaults to `http://localhost:8417` so local preview and
   reviewed runtime stay on one origin
-- `DATABASE_URL`: defaults to
-  `postgres://localhost:5432/lantern?sslmode=disable`
 - `LTI_TOOL_PRIVATE_JWK`: generated automatically for local development
 
 Manual minimum environment if you do not use `local:init`:
 
-- `DATABASE_URL`: Postgres connection string
-- `DATABASE_CA_CERT`: optional PEM CA certificate for managed Postgres providers
-  such as DigitalOcean
 - `LTI_TOOL_PRIVATE_JWK`: one RSA private JWK used to publish Lantern's public
   JWKS and sign LTI assertions
 - `APP_ORIGIN`: recommended for stable local config and required anywhere
@@ -343,7 +320,6 @@ Common commands:
 
 - `deno task local:init`
 - `deno task local:migrate`
-- `deno task local:seed`
 - `deno task local:bootstrap`
 - `deno task local:start`
 - `deno task local:dev`

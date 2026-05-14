@@ -154,7 +154,12 @@ async function loadPreviewRuntime(
   const address = server.addr as Deno.NetAddr;
   const origin = `http://${address.hostname}:${address.port}`;
   const entrypointUrl = `${origin}${harness.entrypointPath}`;
-  const browser = new Browser();
+  const browser = new Browser({
+    settings: {
+      disableJavaScriptFileLoading: true,
+      handleDisabledFileLoadingAsSuccess: true,
+    },
+  });
   const page = browser.newPage();
 
   try {
@@ -171,10 +176,7 @@ async function loadPreviewRuntime(
     attachRuntimeErrorCapture(frame.window, runtimeErrors);
     const pendingFetches = trackWindowFetch(frame.window);
 
-    // happy-dom executes inline preview bootstrap scripts here, but not
-    // reviewed external app scripts reliably under Deno, so Lantern runs the
-    // package-owned external scripts explicitly in document order.
-    await executeExternalPreviewScripts(frame.window, entrypointUrl);
+    await executePreviewScripts(frame.window, entrypointUrl);
     await waitForPreviewIdle({
       runtimeErrors,
       pendingFetches,
@@ -241,13 +243,10 @@ function trackWindowFetch(window: BrowserWindow): () => number {
   return () => pendingFetches;
 }
 
-async function executeExternalPreviewScripts(
-  window: BrowserWindow,
-  entrypointUrl: string,
-): Promise<void> {
-  const scripts = [...window.document.querySelectorAll('script[src]')];
+async function executePreviewScripts(window: BrowserWindow, entrypointUrl: string): Promise<void> {
+  const scripts = [...window.document.querySelectorAll('script')];
 
-  for (const script of scripts) {
+  for (const [index, script] of scripts.entries()) {
     const type = script.getAttribute('type')?.trim() ?? '';
 
     if (!isSupportedPreviewScriptType(type)) {
@@ -259,6 +258,13 @@ async function executeExternalPreviewScripts(
     const scriptSource = script.getAttribute('src');
 
     if (!scriptSource) {
+      const source = script.textContent ?? '';
+
+      if (source.trim() === '') {
+        continue;
+      }
+
+      window.eval(`${source}\n//# sourceURL=${entrypointUrl}#inline-${index}`);
       continue;
     }
 

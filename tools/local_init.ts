@@ -40,12 +40,8 @@ if (import.meta.main) {
 
   console.log('');
   console.log('Next:');
-  console.log('1. Create a local Postgres database named `lantern` if you do not have one yet.');
-  console.log(
-    `2. Edit ${outputPath} if your DATABASE_URL should use a different host, user, password, or database.`,
-  );
-  console.log('3. Run `deno task local:bootstrap`.');
-  console.log('4. Run `deno task local:start` and open http://localhost:8417/admin/packages.');
+  console.log('1. Run `deno task local:bootstrap` to apply local D1 migrations.');
+  console.log('2. Run `deno task local:start` and open the Wrangler localhost URL.');
 }
 
 function readOutputPath(args: string[]): string | null {

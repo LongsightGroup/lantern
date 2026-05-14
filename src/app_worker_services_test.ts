@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import { resolveWorkerServices } from './app_worker_services.ts';
+import type { D1Database } from './db/d1.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import { getReferencePackageBucketSourceRoot } from './package_review/intake.ts';
 import { createMemoryPackageSource } from './package_review/package_source.ts';
@@ -256,6 +257,16 @@ Deno.test('worker services expose Dynamic Worker runtime delivery only when LOAD
   );
 });
 
+Deno.test('worker services route D1 persistence through ported repository slices', async () => {
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+  const services = resolveWorkerServices({ DB: createStubD1Database([]) }, env);
+
+  assertEquals(await services.getRepository().listPackageVersions(), []);
+  assertEquals(await services.getOpsRepository().listControlPlaneDeployments(), []);
+});
+
 function createSeededArtifactBucket(
   bucketRoot: string,
   files: Record<string, string>,
@@ -302,6 +313,44 @@ function createInMemoryArtifactBucket(
           .filter((key) => key.startsWith(options.prefix))
           .sort()
           .map((key) => ({ key })),
+      });
+    },
+  };
+}
+
+function createStubD1Database(results: Array<Record<string, unknown>>): D1Database {
+  return {
+    prepare(_query) {
+      return {
+        bind() {
+          return this;
+        },
+        all<T>() {
+          return Promise.resolve({
+            success: true,
+            results: results as T[],
+          });
+        },
+        first() {
+          return Promise.resolve(null);
+        },
+        run() {
+          return Promise.resolve({
+            success: true,
+          });
+        },
+        raw<T>() {
+          return Promise.resolve([] as T[]);
+        },
+      };
+    },
+    batch(_statements) {
+      return Promise.resolve([]);
+    },
+    exec(_query) {
+      return Promise.resolve({
+        count: 0,
+        duration: 0,
       });
     },
   };

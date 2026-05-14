@@ -111,7 +111,7 @@ The app must not expect:
 
 - raw LMS tokens
 - arbitrary network access
-- database access
+- D1 database access
 - server-side execution inside the package
 
 ## Preview Files

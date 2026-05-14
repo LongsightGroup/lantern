@@ -170,6 +170,51 @@ Deno.test('GET /lti/login returns a top-level launch escape page for iframe-embe
   );
 });
 
+Deno.test('GET /lti/login uses LTI platform storage when the LMS advertises lti_storage_target', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    deployments: [buildDeploymentRecord({ binding: buildDeploymentBinding() })],
+  });
+  const loginRequest = buildCanvasLoginRequest();
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request(
+    `http://localhost/lti/login?iss=${encodeURIComponent(
+      loginRequest.iss,
+    )}&login_hint=${encodeURIComponent(
+      loginRequest.loginHint,
+    )}&target_link_uri=${encodeURIComponent(
+      loginRequest.targetLinkUri ?? '',
+    )}&client_id=${encodeURIComponent(
+      loginRequest.clientId ?? '',
+    )}&deployment_id=${encodeURIComponent(
+      loginRequest.deploymentId,
+    )}&lti_storage_target=post_message_forwarding`,
+    {
+      headers: {
+        'sec-fetch-dest': 'iframe',
+      },
+    },
+  );
+  const body = await response.text();
+
+  assertEquals(response.status, 200);
+  assertStringIncludes(body, 'Continuing the LMS launch');
+  assertStringIncludes(body, 'lti.put_data');
+  assertStringIncludes(body, 'post_message_forwarding');
+  assertStringIncludes(body, 'https://sso.canvaslms.com');
+  assertEquals(body.includes('window.top.location'), false);
+
+  const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
+  assertEquals(
+    interopEvents.some((event) => event.detail.path === 'lti_platform_storage'),
+    true,
+  );
+  assertEquals(
+    interopEvents.some((event) => event.detail.path === 'iframe_top_level_escape'),
+    false,
+  );
+});
+
 Deno.test('GET /lti/login accepts Sakai-style login initiation and redirects to the saved OIDC endpoint', async () => {
   const repository = createInMemoryPackageReviewRepository({
     deployments: [

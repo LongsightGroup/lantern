@@ -8,7 +8,7 @@ import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
 import type { AuthoringDraftFileInput } from './authoring/ai_writer.ts';
 import { buildDraftDiff } from './authoring/draft_diff.ts';
-import { normalizeAuthoringDraftPath } from './package_review/repository_authoring.ts';
+import { normalizeAuthoringDraftPath } from './package_review/repository_authoring_contract.ts';
 import { trimLeadingSlash } from './package_review/snapshot_path.ts';
 import type {
   AuthoringDraftRecord,

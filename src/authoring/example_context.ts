@@ -1,6 +1,6 @@
 import { getReferencePackageSourceRoot } from '../package_review/intake.ts';
 import { createFileSystemPackageSource } from '../package_review/package_source_fs.ts';
-import { readBrowserAutograderContract } from '../package_review/repository_authoring.ts';
+import { readBrowserAutograderContract } from '../package_review/repository_authoring_contract.ts';
 import { trimLeadingSlash } from '../package_review/snapshot_path.ts';
 import type { AuthoringReferenceExample } from './ai_writer.ts';
 

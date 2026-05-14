@@ -2,8 +2,9 @@ import type { JSONWebKeySet } from 'jose';
 import type { AuthoringReferenceExample } from './authoring/ai_writer.ts';
 import { createUnavailableAuthoringAiWriter } from './authoring/ai_writer.ts';
 import type { AppServices } from './app_services.ts';
-import { createHyperdriveDatabasePool, type HyperdriveBinding } from './db/pool.ts';
-import { createOpsRepository, type OpsRepository } from './ops/repository.ts';
+import { type D1Database, isD1Database } from './db/d1.ts';
+import type { OpsRepository } from './ops/repository.ts';
+import { createD1OpsRepository } from './ops/repository_d1.ts';
 import type { EnvReader } from './platform/env.ts';
 import {
   getReferencePackageBucketSourceRoot,
@@ -13,10 +14,8 @@ import {
   readReferencePackageReviewData,
 } from './package_review/intake.ts';
 import { createBucketPackageSource, type PackageSource } from './package_review/package_source.ts';
-import {
-  createPackageReviewRepository,
-  type PackageReviewRepository,
-} from './package_review/repository.ts';
+import type { PackageReviewRepository } from './package_review/repository.ts';
+import { createD1PackageReviewRepository } from './package_review/repository_package_versions_d1.ts';
 import {
   createR2PackageSnapshotStore,
   type PackageSnapshotStore,
@@ -33,8 +32,7 @@ import {
 } from './runtime/evidence_artifact_store.ts';
 import type { AuthoringDraftRecord, PackageVersionRecord } from './package_review/types.ts';
 
-const WORKER_REPOSITORY_MESSAGE =
-  'Cloudflare Workers persistence requires a Hyperdrive binding named HYPERDRIVE. Bind Hyperdrive before using repository-backed Lantern routes on Workers.';
+const WORKER_REPOSITORY_MESSAGE = 'Cloudflare Workers persistence requires a D1 binding named DB.';
 const WORKER_RUNTIME_ARTIFACT_MESSAGE =
   'Cloudflare Workers runtime artifact access requires an R2 binding named PACKAGE_ARTIFACTS. Bind the reviewed package snapshot bucket before serving runtime HTML, content, or files from Workers.';
 const WORKER_EVIDENCE_ARTIFACT_MESSAGE =
@@ -49,7 +47,7 @@ const WORKER_AUTHORING_DRAFT_PREVIEW_MESSAGE =
   'Cloudflare Workers do not materialize draft preview snapshots from the local filesystem. Use the local Deno authoring preview flow instead.';
 
 export interface WorkerBindings extends Record<string, unknown> {
-  HYPERDRIVE?: HyperdriveBinding;
+  DB?: D1Database;
   PACKAGE_ARTIFACTS?: RuntimeArtifactBucket;
   LOADER?: DynamicWorkerLoader;
 }
@@ -114,20 +112,18 @@ function resolveWorkerRepositories(bindings: WorkerBindings): {
   repository: PackageReviewRepository;
   opsRepository: OpsRepository;
 } {
-  const binding = bindings.HYPERDRIVE;
+  if (isD1Database(bindings.DB)) {
+    const repository = createD1PackageReviewRepository(bindings.DB);
 
-  if (!isHyperdriveBinding(binding)) {
     return {
-      repository: createUnsupportedWorkerProxy<PackageReviewRepository>(WORKER_REPOSITORY_MESSAGE),
-      opsRepository: createUnsupportedWorkerProxy<OpsRepository>(WORKER_REPOSITORY_MESSAGE),
+      repository,
+      opsRepository: createD1OpsRepository(bindings.DB, repository),
     };
   }
 
-  const pool = createHyperdriveDatabasePool(binding);
-
   return {
-    repository: createPackageReviewRepository(pool),
-    opsRepository: createOpsRepository(pool),
+    repository: createUnsupportedWorkerProxy<PackageReviewRepository>(WORKER_REPOSITORY_MESSAGE),
+    opsRepository: createUnsupportedWorkerProxy<OpsRepository>(WORKER_REPOSITORY_MESSAGE),
   };
 }
 
@@ -293,13 +289,5 @@ function isRuntimeArtifactBucket(value: unknown): value is RuntimeArtifactBucket
     typeof value === 'object' &&
     value !== null &&
     typeof (value as Partial<RuntimeArtifactBucket>).get === 'function'
-  );
-}
-
-function isHyperdriveBinding(value: unknown): value is HyperdriveBinding {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as Partial<HyperdriveBinding>).connectionString === 'string'
   );
 }

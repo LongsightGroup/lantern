@@ -7,7 +7,7 @@ import {
 import { isLaunchRejectionError } from './lti/launch_rejection.ts';
 import { readLoginRequest } from './app_request_support.ts';
 import { errorMessage, statusForError } from './app_status_support.ts';
-import { renderTopLevelLaunchPage } from './app_lti_views.ts';
+import { renderLtiPlatformStorageLaunchPage, renderTopLevelLaunchPage } from './app_lti_views.ts';
 import type { AppServices } from './app_services.ts';
 import { recordInteropPathUsed } from './interop_audit.ts';
 import { readEnv } from './platform/env.ts';
@@ -31,9 +31,14 @@ export async function handleLoginInitiation(context: Context, services: AppServi
         configuredOrigin: readEnv('APP_ORIGIN', services.env),
       }),
     });
+    const ltiStorageTarget = loginRequest.ltiStorageTarget;
+    const usesLtiPlatformStorage = ltiStorageTarget !== null;
     const compatibilityPaths = [
       ...result.compatibilityPathsUsed,
-      ...(context.req.header('sec-fetch-dest') === 'iframe' ? ['iframe_top_level_escape'] : []),
+      ...(usesLtiPlatformStorage ? ['lti_platform_storage'] : []),
+      ...(!usesLtiPlatformStorage && context.req.header('sec-fetch-dest') === 'iframe'
+        ? ['iframe_top_level_escape']
+        : []),
     ];
 
     await Promise.all(
@@ -56,6 +61,18 @@ export async function handleLoginInitiation(context: Context, services: AppServi
         }),
       ),
     );
+
+    if (usesLtiPlatformStorage) {
+      return context.html(
+        renderLtiPlatformStorageLaunchPage({
+          location: result.location,
+          platformOrigin: new URL(result.location).origin,
+          storageTarget: ltiStorageTarget,
+          state: result.loginState.state,
+          nonce: result.loginState.nonce,
+        }),
+      );
+    }
 
     if (context.req.header('sec-fetch-dest') === 'iframe') {
       return context.html(

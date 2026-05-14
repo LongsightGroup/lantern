@@ -1,4 +1,3 @@
-import type { Pool } from '@db/postgres';
 import type {
   AccessibilityReview,
   AttemptEventRecord,
@@ -28,23 +27,6 @@ import type {
   RuntimeSessionRecord,
 } from '../lti/types.ts';
 import type { LtiProfileId } from '../lti/profile.ts';
-import { createAuditEventRepositoryMethods } from './repository_audit_events.ts';
-import { createAuthoringRepositoryMethods } from './repository_authoring.ts';
-import { createAttemptFlowRepositoryMethods } from './repository_attempt_flows.ts';
-import { createAttemptEvidenceRepositoryMethods } from './repository_attempt_evidence.ts';
-import { createAttemptQueryRepositoryMethods } from './repository_attempt_queries.ts';
-import { createDeepLinkingSessionRepositoryMethods } from './repository_deep_linking_sessions.ts';
-import { createDeploymentLoginRepositoryMethods } from './repository_deployment_login.ts';
-import { createDeploymentMutationRepositoryMethods } from './repository_deployment_mutations.ts';
-import { createDynamicRegistrationStateRepositoryMethods } from './repository_dynamic_registration_states.ts';
-import { createGradePublicationRepositoryMethods } from './repository_grade_publications.ts';
-import { createLineItemRepositoryMethods } from './repository_line_items.ts';
-import { createLtiProfileSettingsRepositoryMethods } from './repository_lti_profile_settings.ts';
-import { createPackageVersionRepositoryMethods } from './repository_package_versions.ts';
-import { createPreviewRepositoryMethods } from './repository_preview.ts';
-import { createReviewedPlacementRepositoryMethods } from './repository_reviewed_placements.ts';
-import { createRuntimeLookupRepositoryMethods } from './repository_runtime_lookup.ts';
-import { createRuntimeSessionRepositoryMethods } from './repository_runtime_sessions.ts';
 
 export interface PackageReviewRepository {
   registerPackageVersion(input: ImportedPackageVersion): Promise<PackageVersionRecord>;
@@ -227,28 +209,6 @@ export interface PackageReviewRepository {
     deploymentId: number;
     ltiProfileOverride: LtiProfileId | null;
   }): Promise<DeploymentRecord>;
-}
-
-export function createPackageReviewRepository(pool: Pool): PackageReviewRepository {
-  return {
-    ...createPackageVersionRepositoryMethods(pool),
-    ...createDeploymentLoginRepositoryMethods(pool),
-    ...createDynamicRegistrationStateRepositoryMethods(pool),
-    ...createRuntimeSessionRepositoryMethods(pool),
-    ...createDeepLinkingSessionRepositoryMethods(pool),
-    ...createReviewedPlacementRepositoryMethods(pool),
-    ...createAuthoringRepositoryMethods(pool),
-    ...createPreviewRepositoryMethods(pool),
-    ...createRuntimeLookupRepositoryMethods(pool),
-    ...createAttemptQueryRepositoryMethods(pool),
-    ...createAttemptEvidenceRepositoryMethods(pool),
-    ...createAttemptFlowRepositoryMethods(pool),
-    ...createLineItemRepositoryMethods(pool),
-    ...createGradePublicationRepositoryMethods(pool),
-    ...createAuditEventRepositoryMethods(pool),
-    ...createDeploymentMutationRepositoryMethods(pool),
-    ...createLtiProfileSettingsRepositoryMethods(pool),
-  };
 }
 
 export { derivePlacementAuditStatus } from './repository_mappers_review.ts';

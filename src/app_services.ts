@@ -1,4 +1,3 @@
-import type { Pool } from '@db/postgres';
 import type { JSONWebKeySet } from 'jose';
 import {
   type AuthoringAiWriter,
@@ -7,8 +6,6 @@ import {
 } from './authoring/ai_writer.ts';
 import { loadAuthoringReferenceExamples } from './authoring/example_context.ts';
 import { materializeDraftPreviewPackageVersion } from './authoring/draft_snapshot.ts';
-import { createDatabasePool } from './db/pool.ts';
-import { getDenoEnvReader } from './platform/deno_env.ts';
 import { type EnvReader, getDefaultEnvReader } from './platform/env.ts';
 import {
   getReferencePackageSourceRoot,
@@ -20,11 +17,8 @@ import {
 import type { PackageSource } from './package_review/package_source.ts';
 import { createFileSystemPackageSource } from './package_review/package_source_fs.ts';
 import { getDefaultPackageSnapshotStore } from './package_review/snapshot_store_fs.ts';
-import {
-  createPackageReviewRepository,
-  type PackageReviewRepository,
-} from './package_review/repository.ts';
-import { createOpsRepository, type OpsRepository } from './ops/repository.ts';
+import { type PackageReviewRepository } from './package_review/repository.ts';
+import type { OpsRepository } from './ops/repository.ts';
 import type { RuntimeArtifactStore } from './runtime/artifact_store.ts';
 import { getDefaultRuntimeArtifactStore } from './runtime/artifact_store_fs.ts';
 import { createDirectRuntimeDelivery, type RuntimeDelivery } from './runtime/delivery.ts';
@@ -69,9 +63,11 @@ export interface AppServices {
   ) => Promise<ImportedPackageVersion | null>;
 }
 
-let defaultPool: Pool | null = null;
 let defaultRepository: PackageReviewRepository | null = null;
 let defaultOpsRepository: OpsRepository | null = null;
+
+const LOCAL_REPOSITORY_MESSAGE =
+  'Lantern persistence is Cloudflare D1-only. Run Lantern through the Cloudflare Worker entrypoint with a DB binding.';
 
 export function resolveServices(services: Partial<AppServices>): AppServices {
   const env = services.env ?? getDefaultEnvReader();
@@ -138,7 +134,8 @@ function resolveReferencePackageSource(appId: string) {
 
 function getDefaultRepository(): PackageReviewRepository {
   if (defaultRepository === null) {
-    defaultRepository = createPackageReviewRepository(getDefaultPool());
+    defaultRepository =
+      createUnavailableLocalProxy<PackageReviewRepository>(LOCAL_REPOSITORY_MESSAGE);
   }
 
   return defaultRepository;
@@ -146,7 +143,7 @@ function getDefaultRepository(): PackageReviewRepository {
 
 function getDefaultOpsRepository(): OpsRepository {
   if (defaultOpsRepository === null) {
-    defaultOpsRepository = createOpsRepository(getDefaultPool());
+    defaultOpsRepository = createUnavailableLocalProxy<OpsRepository>(LOCAL_REPOSITORY_MESSAGE);
   }
 
   return defaultOpsRepository;
@@ -162,14 +159,6 @@ async function defaultLoadCanvasJwks(url: string): Promise<JSONWebKeySet> {
   return await response.json();
 }
 
-function getDefaultPool(): Pool {
-  if (defaultPool === null) {
-    defaultPool = createDatabasePool(getDenoEnvReader());
-  }
-
-  return defaultPool;
-}
-
 function isOpsRepository(
   repository: PackageReviewRepository,
 ): repository is PackageReviewRepository & OpsRepository {
@@ -180,4 +169,21 @@ function isOpsRepository(
     typeof (repository as Partial<OpsRepository>).recordBrokerVerificationRun === 'function' &&
     typeof (repository as Partial<OpsRepository>).getRetryableGradePublicationLookup === 'function'
   );
+}
+
+function createUnavailableLocalProxy<T extends object>(message: string): T {
+  return new Proxy(
+    {},
+    {
+      get(_target, property) {
+        if (property === 'then') {
+          return null;
+        }
+
+        return () => {
+          throw new Error(message);
+        };
+      },
+    },
+  ) as T;
 }

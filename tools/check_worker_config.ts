@@ -1,7 +1,12 @@
 export function validateWorkerConfigBindings(configText: string): string[] {
-  return REQUIRED_BINDINGS.filter(({ pattern }) => !pattern.test(configText)).map(
+  const missing = REQUIRED_BINDINGS.filter(({ pattern }) => !pattern.test(configText)).map(
     ({ description }) => description,
   );
+  const prohibited = PROHIBITED_BINDINGS.filter(({ pattern }) => pattern.test(configText)).map(
+    ({ description }) => description,
+  );
+
+  return [...missing, ...prohibited];
 }
 
 const REQUIRED_BINDINGS = [
@@ -12,6 +17,17 @@ const REQUIRED_BINDINGS = [
   {
     description: 'r2_buckets binding PACKAGE_ARTIFACTS',
     pattern: /"r2_buckets"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"PACKAGE_ARTIFACTS"/,
+  },
+  {
+    description: 'd1_databases binding DB',
+    pattern: /"d1_databases"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"DB"/,
+  },
+] as const;
+
+const PROHIBITED_BINDINGS = [
+  {
+    description: 'legacy hyperdrive binding HYPERDRIVE',
+    pattern: /"hyperdrive"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"HYPERDRIVE"/,
   },
 ] as const;
 
@@ -26,5 +42,5 @@ if (import.meta.main) {
     );
   }
 
-  console.log('Worker config keeps LOADER and PACKAGE_ARTIFACTS bindings wired.');
+  console.log('Worker config keeps DB, LOADER, and PACKAGE_ARTIFACTS bindings wired.');
 }
