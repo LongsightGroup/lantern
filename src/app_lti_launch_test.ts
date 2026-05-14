@@ -17,7 +17,7 @@ import {
   getTestToolPrivateJwkEnvValue,
   signCanvasIdToken,
 } from './test_helpers/lti.ts';
-import { withFetchStub } from './app_test_support.ts';
+import { EXAMPLE_SNAPSHOT_ROOT, withFetchStub } from './app_test_support.ts';
 
 Deno.test('POST /lti/launch validates the signed launch and redirects to a runtime-session handoff with a signed runtime bootstrap', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -28,6 +28,12 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
         reviewNotes: 'Ready for pilot.',
         reviewedAt: '2026-03-23T18:05:00Z',
         runtimeContractSignature: 'test-reviewed-runtime-contract-signature',
+        artifact: {
+          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+          manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+          digest: 'sha256:chapter-4-asteroids-0.1.0',
+        },
       }),
     ],
     deployments: [
