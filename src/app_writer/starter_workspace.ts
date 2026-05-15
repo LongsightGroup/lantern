@@ -59,9 +59,12 @@ export function applyWorkspaceFileEdits(input: {
   const files = new Map(input.baseFiles.map((file) => [file.path, file]));
 
   for (const file of input.fileEdits) {
+    const existingFile = files.get(file.path);
+    const role = file.role ?? existingFile?.role;
     files.set(file.path, {
       path: file.path,
       contents: file.contents,
+      ...(role === undefined ? {} : { role }),
     });
   }
 

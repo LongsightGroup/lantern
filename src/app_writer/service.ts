@@ -18,6 +18,7 @@ import type {
   AppPackagePreviewer,
   AppPackageSourceCompiler,
   AppWriterAuthoringMode,
+  AppWriterWorkspaceFile,
 } from './types.ts';
 import { hasTypeScriptAuthoringSource } from './source_compiler.ts';
 import { APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS } from './recipe.ts';
@@ -36,6 +37,8 @@ import type { PackageSource } from '../package_review/package_source.ts';
 import { createMemoryPackageSource } from '../package_review/package_source.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type { AuditEventStatus, PackageVersionRecord } from '../package_review/types.ts';
+
+const TYPESCRIPT_AUTHORING_SOURCE_PATHS = new Set(['source/app.ts', 'source/content_model.ts']);
 
 export interface RunAppPackageGenerationInput {
   repository: Pick<
@@ -1066,15 +1069,30 @@ async function finishGeneratedPackage(input: {
       now: run.updatedAt,
       diagnosticCount: run.validationFindings.length,
     });
-    generation = await resolveWorkspaceRunner(input.input).repair({
-      ...input.generatorInput,
-      repairAttempt,
-      previousResult: generation,
-      validationFindings: run.validationFindings,
-      currentWorkspace: await input.input.repository.getAppGenerationWorkspaceByGenerationId(
-        run.generationId,
-      ),
-    });
+    try {
+      generation = await resolveWorkspaceRunner(input.input).repair({
+        ...input.generatorInput,
+        repairAttempt,
+        previousResult: generation,
+        validationFindings: run.validationFindings,
+        currentWorkspace: await input.input.repository.getAppGenerationWorkspaceByGenerationId(
+          run.generationId,
+        ),
+      });
+    } catch (error) {
+      const failedRun = await failRepairingGenerationRun({
+        repository: input.input.repository,
+        run,
+        generation,
+        error,
+        now: input.now,
+      });
+
+      throw new AppPackageGenerationFailedError(
+        error instanceof Error ? error.message : 'App package generation failed.',
+        failedRun,
+      );
+    }
     await updateGenerationPlanStepInWorkspace({
       repository: input.input.repository,
       run,
@@ -1341,12 +1359,13 @@ async function compileTypeScriptSourceIfNeeded(input: {
   contextSelection: AppWriterContextSelection;
 }) {
   const compiler = input.input.sourceCompiler;
-  const packageFiles = selectPackageWorkspaceFiles(input.generation.files);
-  const nonPackageFiles = selectNonPackageWorkspaceFiles(input.generation.files);
 
   if (compiler === undefined) {
     return {
-      files: input.generation.files,
+      files: projectTypeScriptAuthoringWorkspaceFiles({
+        baseFiles: input.generation.files,
+        compiledFiles: input.generation.files,
+      }),
       notes: [],
       validationFindings: [buildTypeScriptCompilerMissingFinding()],
     };
@@ -1357,12 +1376,105 @@ async function compileTypeScriptSourceIfNeeded(input: {
       generationId: input.input.generationId,
       appPlan: input.generation.appPlan,
       selectedStarterId: input.contextSelection.starterId,
-      files: packageFiles,
+      files: selectTypeScriptCompilerInputFiles(input.generation.files),
     })
     .then((compiled) => ({
       ...compiled,
-      files: mergeWorkspaceFiles(nonPackageFiles, compiled.files),
+      files: projectTypeScriptAuthoringWorkspaceFiles({
+        baseFiles: input.generation.files,
+        compiledFiles: compiled.files,
+      }),
     }));
+}
+
+async function failRepairingGenerationRun(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    | 'updateAppGenerationRun'
+    | 'recordAuditEvent'
+    | 'saveAppGenerationWorkspace'
+    | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  run: AppGenerationRunRecord;
+  generation: AppPackageGenerationResult;
+  error: unknown;
+  now: () => string;
+}): Promise<AppGenerationRunRecord> {
+  const failedFinding = buildGenerationFailedFinding(input.error);
+  const failedRun = await input.repository.updateAppGenerationRun({
+    ...input.run,
+    status: 'failed',
+    validationFindings: [...input.run.validationFindings, failedFinding],
+    updatedAt: input.now(),
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.repository,
+    run: failedRun,
+    id: 'repair_if_needed',
+    status: 'failed',
+    now: failedRun.updatedAt,
+    diagnosticCount: failedRun.validationFindings.length,
+  });
+  await saveGenerationWorkspaceSnapshot({
+    repository: input.repository,
+    run: failedRun,
+    generation: input.generation,
+    validationFindings: failedRun.validationFindings,
+  });
+  await recordGenerationActivity({
+    repository: input.repository,
+    run: failedRun,
+    eventType: 'app_generation.failed',
+    status: 'failed',
+    summary: 'App package generation failed before a package could be saved.',
+  });
+
+  return failedRun;
+}
+
+function selectTypeScriptCompilerInputFiles(
+  files: readonly AppWriterWorkspaceFile[],
+): AppWriterWorkspaceFile[] {
+  const selectedFiles = new Map<string, AppWriterWorkspaceFile>();
+
+  for (const file of selectPackageWorkspaceFiles(files)) {
+    selectedFiles.set(file.path, file);
+  }
+
+  for (const file of files) {
+    if (isTypeScriptAuthoringSourcePath(file.path)) {
+      selectedFiles.set(file.path, {
+        ...file,
+        role: 'package',
+      });
+    }
+  }
+
+  return [...selectedFiles.values()];
+}
+
+function projectTypeScriptAuthoringWorkspaceFiles(input: {
+  baseFiles: readonly AppWriterWorkspaceFile[];
+  compiledFiles: readonly AppWriterWorkspaceFile[];
+}): AppWriterWorkspaceFile[] {
+  const nonPackageFiles = selectNonPackageWorkspaceFiles(input.baseFiles);
+  const authoringSourceFiles = [...input.baseFiles, ...input.compiledFiles]
+    .filter((file) => isTypeScriptAuthoringSourcePath(file.path))
+    .map(
+      (file): AppWriterWorkspaceFile => ({
+        ...file,
+        role: 'evidence',
+      }),
+    );
+  const packageFiles = input.compiledFiles.filter(
+    (file) => !isTypeScriptAuthoringSourcePath(file.path),
+  );
+
+  return mergeWorkspaceFiles([...nonPackageFiles, ...authoringSourceFiles], packageFiles);
+}
+
+function isTypeScriptAuthoringSourcePath(path: string): boolean {
+  return TYPESCRIPT_AUTHORING_SOURCE_PATHS.has(path);
 }
 
 async function previewGeneratedPackage(input: {
@@ -1637,6 +1749,7 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
   const message = error instanceof Error ? error.message : 'App package generation failed.';
   const isTimeout = isGenerationTimeoutMessage(message);
   const isModelOutputContractError = isModelOutputContractMessage(message);
+  const isProviderInternalError = isGenerationProviderInternalErrorMessage(message);
 
   return {
     code: isTimeout ? 'generation_model_timeout' : 'generation_failed',
@@ -1648,12 +1761,16 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
       ? 'Retry generation. Lantern runs generation in durable staged background work; repeated timeouts point to model/provider latency for the current stage.'
       : isModelOutputContractError
         ? 'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.'
-        : 'Check the model configuration or retry generation.',
+        : isProviderInternalError
+          ? 'Retry generation. The model provider returned an internal error during the current app writer stage.'
+          : 'Check the model configuration or retry generation.',
     detail: isTimeout
       ? { providerError: 'timeout' }
       : isModelOutputContractError
         ? { providerError: 'model_output_contract' }
-        : {},
+        : isProviderInternalError
+          ? { providerError: 'internal_server_error' }
+          : {},
   };
 }
 
@@ -1674,6 +1791,12 @@ function isModelOutputContractMessage(message: string): boolean {
     normalized.includes('selectedstarterid') ||
     normalized.includes('progressupdates')
   );
+}
+
+function isGenerationProviderInternalErrorMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+
+  return normalized.includes('internal server error') || normalized.includes('8008');
 }
 
 function buildPreviewNotConfiguredFinding(): AppGenerationValidationFinding {

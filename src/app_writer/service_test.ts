@@ -440,6 +440,66 @@ Deno.test('app writer service repairs a generated package once and persists the 
   );
 });
 
+Deno.test('app writer service preserves validation findings when repair provider fails', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const invalidPackage = buildGenerationResult({
+    files: [
+      ...buildValidSimpleActivityFiles(),
+      {
+        path: 'server/worker.ts',
+        contents: 'export default {};\n',
+      },
+    ],
+  });
+  const generator: AppPackageGenerator = {
+    generate(_input) {
+      return Promise.resolve(structuredClone(invalidPackage));
+    },
+    repair(_input) {
+      return Promise.reject(new Error('8008: Internal server error'));
+    },
+  };
+
+  const error = await assertRejects(
+    () =>
+      runAppPackageGeneration({
+        repository,
+        generator,
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics matching game.',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+          '2026-05-14T12:00:03.000Z',
+          '2026-05-14T12:00:04.000Z',
+          '2026-05-14T12:00:05.000Z',
+        ]),
+      }),
+    AppPackageGenerationFailedError,
+    '8008: Internal server error',
+  );
+
+  assertEquals(error.run.status, 'failed');
+  assertEquals(
+    error.run.validationFindings.some((finding) => finding.code === 'file_path_not_allowed'),
+    true,
+  );
+  assertEquals(error.run.validationFindings.at(-1)?.code, 'generation_failed');
+  assertEquals(error.run.validationFindings.at(-1)?.detail, {
+    providerError: 'internal_server_error',
+  });
+
+  const persisted = await repository.getAppGenerationRunById('generation-1');
+  const workspace = await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
+  const repairStep = workspace?.generationPlan.find((step) => step.id === 'repair_if_needed');
+
+  assertEquals(persisted?.validationFindings, error.run.validationFindings);
+  assertEquals(workspace?.validationFindings, error.run.validationFindings);
+  assertEquals(repairStep?.status, 'failed');
+});
+
 Deno.test('app writer service compiles TypeScript authoring source before validation', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const result = await runAppPackageGeneration({
@@ -462,8 +522,10 @@ Deno.test('app writer service compiles TypeScript authoring source before valida
 
   assertEquals(result.run.status, 'validating');
   assertEquals(
-    result.generation.files.some((file) => file.path === 'source/app.ts'),
-    false,
+    result.generation.files.some(
+      (file) => file.path === 'source/app.ts' && file.role === 'evidence',
+    ),
+    true,
   );
   assertEquals(
     result.generation.files
@@ -478,6 +540,50 @@ Deno.test('app writer service compiles TypeScript authoring source before valida
     true,
   );
   assertEquals(result.run.selectedContext.authoringMode, 'typescript');
+});
+
+Deno.test('app writer service keeps TypeScript authoring files out of package validation findings', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const error = await assertRejects(
+    () =>
+      runAppPackageGeneration({
+        repository,
+        generator: createFakeAppPackageGenerator(
+          buildGenerationResult({
+            files: buildTypeScriptAuthoringPackageFiles({
+              appSource:
+                'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("missing gateway");\n  await gateway.writeLocalState({ done: true });\n}\nvoid start();\n',
+            }),
+          }),
+        ),
+        sourceCompiler: createTypeScriptAppPackageSourceCompiler(),
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics matching game.',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+          '2026-05-14T12:00:03.000Z',
+          '2026-05-14T12:00:04.000Z',
+        ]),
+      }),
+    AppPackageGenerationFailedError,
+    'Generated package failed validation.',
+  );
+
+  assertEquals(
+    error.run.validationFindings.some((finding) => finding.code === 'typescript_diagnostic'),
+    true,
+  );
+  assertEquals(
+    error.run.validationFindings.some(
+      (finding) =>
+        finding.code === 'file_path_not_allowed' &&
+        (finding.file === 'source/app.ts' || finding.file === 'source/content_model.ts'),
+    ),
+    false,
+  );
 });
 
 Deno.test('app writer service stops after exhausted package repair attempts', async () => {
@@ -794,7 +900,11 @@ function createStagedAppPackageGenerator(): AppPackageGenerator {
   };
 }
 
-function buildTypeScriptAuthoringPackageFiles(): AppPackageGenerationResult['files'] {
+function buildTypeScriptAuthoringPackageFiles(
+  input: {
+    appSource?: string;
+  } = {},
+): AppPackageGenerationResult['files'] {
   return [
     ...buildValidSimpleActivityFiles().filter((file) => file.path !== 'dist/app.js'),
     {
@@ -804,6 +914,7 @@ function buildTypeScriptAuthoringPackageFiles(): AppPackageGenerationResult['fil
     {
       path: 'source/app.ts',
       contents:
+        input.appSource ??
         'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern preview injects window.GatewayApp.");\n  const content = await gateway.getActivityContent<ActivityContent>();\n  document.body.dataset.title = content.title;\n  await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });\n  await gateway.finalizeAttempt({ completionState: "completed" });\n}\nvoid start();\n',
     },
   ];

@@ -676,7 +676,7 @@ function describeWorkspaceFilePurpose(input: {
 }): string {
   switch (input.path) {
     case 'manifest.json':
-      return 'Declare package metadata, capabilities, grading, content files, and preview files exactly matching the validated app plan.';
+      return 'Declare package metadata, capabilities, grading, content files, and preview files exactly matching the validated app plan. Manifest capabilities must use the exact appPlan capability strings.';
     case 'content/activity.json':
       return 'Store the complete instructor-requested learning content and any data the browser app needs to render the activity.';
     case 'source/content_model.ts':
@@ -1310,8 +1310,14 @@ function buildRawFileOutputNote(input: {
     input.authoringMode === 'typescript'
       ? 'In TypeScript mode, put typed browser app logic in source/app.ts and content interfaces in source/content_model.ts. Do not return dist/app.js; Lantern compiles source/app.ts into reviewed browser JavaScript. Do not use imports, package installs, module exports, or remote code.'
       : 'In JavaScript mode, return browser-ready JavaScript only when the requested target is dist/app.js. Do not rely on a build step, package imports, TypeScript compilation, or source files.';
+  const gatewayContractRule =
+    'Use exact manifest capability strings from appPlan. The SDK method is emitAttemptEvent(), but the manifest capability is submit_attempt_event; never write emit_attempt_event. Attempt events use camelCase SDK fields: type, questionId, answer, checkpoint, value, and timestamp. Do not use event_type or question_id. finalizeAttempt accepts completionState, not score or completed fields.';
+  const strictTypeScriptRule =
+    input.authoringMode === 'typescript'
+      ? 'TypeScript is strict: narrow nulls from readLocalState before helpers capture state, and assign a non-null typed state object before reading or mutating nested fields.'
+      : '';
 
-  return `${input.target.purpose} Keep this file consistent with already-written workspace files and the validated app plan. Return a full replacement file, not a diff. ${typeScriptRule}`;
+  return `${input.target.purpose} Keep this file consistent with already-written workspace files and the validated app plan. Return a full replacement file, not a diff. ${typeScriptRule} ${gatewayContractRule} ${strictTypeScriptRule}`;
 }
 
 const PLANNING_CONTRACT_REPAIR_RULES = [

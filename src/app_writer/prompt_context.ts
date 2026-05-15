@@ -102,7 +102,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
     source: 'sdk/app-sdk.ts#GatewayAppClient',
     required: true,
     content:
-      'Use window.GatewayApp as the only runtime API. Available methods are getLaunchContext(), getActivityContent<T>(), readLocalState<T>(), writeLocalState<T>(value), emitAttemptEvent(event), submitEvidenceArtifact(input), submitScoreProposal(input), runBrowserGrader(), and finalizeAttempt(input). Manifest capabilities must be the minimum set that matches the SDK calls.',
+      'Use window.GatewayApp as the only runtime API. Available methods are getLaunchContext(), getActivityContent<T>(), readLocalState<T>(), writeLocalState<T>(value), emitAttemptEvent(event), submitEvidenceArtifact(input), submitScoreProposal(input), runBrowserGrader(), and finalizeAttempt(input). Manifest capabilities must be the minimum exact capability strings that match SDK calls. The emitAttemptEvent() method requires manifest capability submit_attempt_event; never write emit_attempt_event.',
   },
   {
     id: 'runtime-source-authoring',
@@ -130,7 +130,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
       'usage',
     ],
     content:
-      'For per-student usage or progress, do not invent a database or browser storage. Use readLocalState() and writeLocalState() for resumable per-attempt UI state. Use emitAttemptEvent() for durable reportable facts: answer events with stable questionId values, progress events with stable checkpoint names and numeric values, and complete events. Lantern aggregates events and finalized attempts for instructor reports.',
+      'For per-student usage or progress, do not invent a database or browser storage. Use readLocalState() and writeLocalState() for resumable per-attempt UI state. Use emitAttemptEvent() for durable reportable facts: answer events with stable questionId values, progress events with stable checkpoint names and numeric values, and complete events. Attempt events use camelCase fields such as type, questionId, answer, checkpoint, value, and timestamp. Lantern aggregates events and finalized attempts for instructor reports.',
   },
   {
     id: 'simple-activity-starter',

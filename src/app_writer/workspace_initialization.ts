@@ -3,6 +3,8 @@ import { createInitializedGenerationPlan } from './generation_plan.ts';
 import { buildAppWriterStarterWorkspace } from './starter_workspace.ts';
 import type { AppGenerationWorkspaceRecord, AppWriterWorkspaceFile } from './types.ts';
 
+const TYPESCRIPT_AUTHORING_SOURCE_PATHS = new Set(['source/app.ts', 'source/content_model.ts']);
+
 export function buildInitializedAppWriterWorkspace(input: {
   generationId: string;
   contextSelection: AppWriterContextSelection;
@@ -15,7 +17,7 @@ export function buildInitializedAppWriterWorkspace(input: {
   const packageFiles = starter.files.map(
     (file): AppWriterWorkspaceFile => ({
       ...file,
-      role: 'package',
+      role: isTypeScriptAuthoringSourcePath(file.path) ? 'evidence' : 'package',
     }),
   );
   const instructionFiles = buildInstructionFiles({
@@ -43,6 +45,10 @@ export function buildInitializedAppWriterWorkspace(input: {
     repairAttemptCount: 0,
     updatedAt: input.initializedAt,
   };
+}
+
+function isTypeScriptAuthoringSourcePath(path: string): boolean {
+  return TYPESCRIPT_AUTHORING_SOURCE_PATHS.has(path);
 }
 
 function buildInstructionFiles(input: {
