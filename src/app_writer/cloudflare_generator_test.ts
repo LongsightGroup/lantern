@@ -265,6 +265,60 @@ Deno.test('Cloudflare app package generator times out hanging model streams', as
   );
 });
 
+Deno.test('Cloudflare app package generator retries transient provider capacity errors', async () => {
+  const calls: string[] = [];
+  let manifestFailures = 0;
+  const generator = createCloudflareAppPackageGenerator({
+    model: '@cf/test/model',
+    modelTransientErrorRetryDelaysMs: [0],
+    ai: {
+      run(_model, input) {
+        const payload = JSON.parse(input.messages.at(-1)?.content ?? '{}') as {
+          task?: string;
+          authoringMode?: unknown;
+          targetFile?: { path?: string };
+        };
+        const targetPath = payload.targetFile?.path ?? '';
+        calls.push(`${payload.task ?? ''}:${targetPath}`);
+
+        if (
+          payload.task === 'write_lantern_app_workspace_file' &&
+          targetPath === 'manifest.json' &&
+          manifestFailures === 0
+        ) {
+          manifestFailures += 1;
+          return Promise.reject(
+            new Error('3040: Capacity temporarily exceeded, please try again.'),
+          );
+        }
+
+        return Promise.resolve({
+          requestId: 'cf-request-1',
+          response: buildModelTextForPayload(payload),
+        });
+      },
+    },
+  });
+
+  const result = await generator.generate({
+    generationId: 'generation-1',
+    ownerId: 'instructor-1',
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: 'phonics-match',
+    selectedStarterId: 'simple-activity',
+    selectedContext: {},
+    authoringMode: 'javascript',
+    createdAt: '2026-05-14T12:00:00.000Z',
+  });
+
+  assertEquals(result.appPlan.appId, 'phonics-match');
+  assertEquals(manifestFailures, 1);
+  assertEquals(
+    calls.filter((call) => call === 'write_lantern_app_workspace_file:manifest.json').length,
+    2,
+  );
+});
+
 Deno.test('Cloudflare app package generator reads JSON-line streaming raw fragments', async () => {
   let firstFileText = '';
   const generator = createCloudflareAppPackageGenerator({

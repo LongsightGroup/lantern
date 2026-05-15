@@ -200,6 +200,50 @@ Deno.test('app writer service supports explicit Workflow generation stages', asy
   );
 });
 
+Deno.test('app writer service records authoring provider capacity failures on the plan', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const stagedGenerator = createStagedAppPackageGenerator();
+  const generator: AppPackageGenerator = {
+    ...stagedGenerator,
+    generateFiles(_input) {
+      return Promise.reject(new Error('3040: Capacity temporarily exceeded, please try again.'));
+    },
+  };
+
+  const error = await assertRejects(
+    () =>
+      runAppPackageGeneration({
+        repository,
+        generator,
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics matching game.',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+          '2026-05-14T12:00:03.000Z',
+          '2026-05-14T12:00:04.000Z',
+          '2026-05-14T12:00:05.000Z',
+        ]),
+      }),
+    AppPackageGenerationFailedError,
+    '3040: Capacity temporarily exceeded',
+  );
+
+  assertEquals(error.run.status, 'failed');
+  assertEquals(error.run.validationFindings[0]?.code, 'generation_model_capacity_exceeded');
+  assertEquals(error.run.validationFindings[0]?.detail, {
+    providerError: 'capacity_exceeded',
+  });
+
+  const workspace = await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
+  const authorStep = workspace?.generationPlan.find((step) => step.id === 'author_workspace');
+
+  assertEquals(authorStep?.status, 'failed');
+  assertEquals(workspace?.validationFindings, error.run.validationFindings);
+});
+
 Deno.test('app writer service records failed generator runs before rejecting', async () => {
   const repository = createInMemoryPackageReviewRepository();
 

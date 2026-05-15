@@ -43,15 +43,19 @@ export function createCloudflareAppPackageGenerator(input: {
   model: string;
   maxResponseCharacters?: number;
   modelRequestTimeoutMs?: number;
+  modelTransientErrorRetryDelaysMs?: readonly number[];
 }): AppPackageGenerator {
   const maxResponseCharacters = input.maxResponseCharacters ?? DEFAULT_MAX_RESPONSE_CHARACTERS;
   const modelRequestTimeoutMs = input.modelRequestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
+  const modelTransientErrorRetryDelaysMs =
+    input.modelTransientErrorRetryDelaysMs ?? DEFAULT_MODEL_TRANSIENT_ERROR_RETRY_DELAYS_MS;
   const plan = (generationInput: AppPackageGenerationInput) =>
     runCloudflarePlanningRequest({
       ai: input.ai,
       model: input.model,
       maxResponseCharacters,
       modelRequestTimeoutMs,
+      modelTransientErrorRetryDelaysMs,
       generationInput,
     });
   const generateFiles = (fileInput: AppPackageFileGenerationInput) =>
@@ -60,6 +64,7 @@ export function createCloudflareAppPackageGenerator(input: {
       model: input.model,
       maxResponseCharacters,
       modelRequestTimeoutMs,
+      modelTransientErrorRetryDelaysMs,
       fileInput,
     });
 
@@ -83,6 +88,7 @@ export function createCloudflareAppPackageGenerator(input: {
         model: input.model,
         maxResponseCharacters,
         modelRequestTimeoutMs,
+        modelTransientErrorRetryDelaysMs,
         repairInput,
       });
     },
@@ -229,6 +235,7 @@ async function runCloudflarePlanningRequest(input: {
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
+  modelTransientErrorRetryDelaysMs: readonly number[];
   generationInput: AppPackageGenerationInput;
 }): Promise<AppGenerationPlanningResult> {
   const planningAttempt = await runCloudflareParsedRequest({
@@ -236,6 +243,7 @@ async function runCloudflarePlanningRequest(input: {
     model: input.model,
     maxResponseCharacters: input.maxResponseCharacters,
     modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+    modelTransientErrorRetryDelaysMs: input.modelTransientErrorRetryDelaysMs,
     messages: buildPlanningMessages(input.generationInput),
     parse: parseAppGenerationPlanningResultJson,
     repairContract: PLANNING_OUTPUT_CONTRACT,
@@ -253,6 +261,7 @@ async function runCloudflareFileGenerationRequest(input: {
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
+  modelTransientErrorRetryDelaysMs: readonly number[];
   fileInput: AppPackageFileGenerationInput;
 }): Promise<AppPackageFileGenerationResult> {
   const starterWorkspace = buildAppWriterStarterWorkspace(
@@ -275,6 +284,7 @@ async function runCloudflareFileGenerationRequest(input: {
       model: input.model,
       maxResponseCharacters: input.maxResponseCharacters,
       modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+      modelTransientErrorRetryDelaysMs: input.modelTransientErrorRetryDelaysMs,
       messages: buildSingleFileGenerationMessages({
         generationInput: input.fileInput,
         planning: input.fileInput.planning,
@@ -343,6 +353,7 @@ async function runCloudflareRepairRequest(input: {
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
+  modelTransientErrorRetryDelaysMs: readonly number[];
   repairInput: AppPackageRepairInput;
 }): Promise<AppPackageGenerationResult> {
   let currentFiles = input.repairInput.previousResult.files;
@@ -356,6 +367,7 @@ async function runCloudflareRepairRequest(input: {
       model: input.model,
       maxResponseCharacters: input.maxResponseCharacters,
       modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+      modelTransientErrorRetryDelaysMs: input.modelTransientErrorRetryDelaysMs,
       messages: buildSingleFileRepairMessages({
         repairInput: input.repairInput,
         currentFiles,
@@ -389,6 +401,7 @@ async function runCloudflareSingleFileRequest(input: {
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
+  modelTransientErrorRetryDelaysMs: readonly number[];
   messages: CloudflareAiMessage[];
   targetPath: string;
   progressStage: 'building_package' | 'repairing_package';
@@ -403,6 +416,7 @@ async function runCloudflareSingleFileRequest(input: {
     model: input.model,
     maxResponseCharacters: input.maxResponseCharacters,
     modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+    modelTransientErrorRetryDelaysMs: input.modelTransientErrorRetryDelaysMs,
     messages: input.messages,
   });
   const contents = normalizeRawModelFileContents(fileAttempt.responseText);
@@ -429,6 +443,7 @@ async function runCloudflareRawFileRequest(input: {
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
+  modelTransientErrorRetryDelaysMs: readonly number[];
   messages: CloudflareAiMessage[];
 }): Promise<{
   response: unknown;
@@ -440,6 +455,7 @@ async function runCloudflareRawFileRequest(input: {
     model: input.model,
     maxResponseCharacters: input.maxResponseCharacters,
     modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+    modelTransientErrorRetryDelaysMs: input.modelTransientErrorRetryDelaysMs,
     messages: input.messages,
     responseFormat: 'text',
   });
@@ -491,6 +507,7 @@ async function runCloudflareParsedRequest<T>(input: {
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
+  modelTransientErrorRetryDelaysMs: readonly number[];
   messages: CloudflareAiMessage[];
   parse: (text: string) => T;
   repairContract: unknown;
@@ -501,6 +518,7 @@ async function runCloudflareParsedRequest<T>(input: {
     model: input.model,
     maxResponseCharacters: input.maxResponseCharacters,
     modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+    modelTransientErrorRetryDelaysMs: input.modelTransientErrorRetryDelaysMs,
     messages: input.messages,
     responseFormat: 'json',
   });
@@ -517,6 +535,7 @@ async function runCloudflareParsedRequest<T>(input: {
       model: input.model,
       maxResponseCharacters: input.maxResponseCharacters,
       modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+      modelTransientErrorRetryDelaysMs: input.modelTransientErrorRetryDelaysMs,
       messages: buildContractRepairMessages({
         originalMessages: input.messages,
         previousOutput: firstAttempt.responseText,
@@ -788,40 +807,84 @@ async function runCloudflareModelTextRequest(input: {
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
+  modelTransientErrorRetryDelaysMs: readonly number[];
   messages: CloudflareAiMessage[];
   responseFormat: 'json' | 'text';
 }): Promise<{ response: unknown; responseText: string; durationMs: number }> {
   const startedAt = performance.now();
   const deadline = Date.now() + input.modelRequestTimeoutMs;
-  const response = await withModelRequestDeadline(
-    input.ai.run(
-      input.model,
-      input.responseFormat === 'json'
-        ? {
-            messages: input.messages,
-            response_format: { type: 'json_object' },
-            stream: true,
-          }
-        : {
-            messages: input.messages,
-            stream: true,
-          },
-    ),
-    deadline,
-  );
-  const responseText = await readModelResponseText(response, deadline);
+  let retryIndex = 0;
 
-  if (responseText.length > input.maxResponseCharacters) {
-    throw new Error(
-      `Cloudflare AI response exceeded the app writer size limit of ${input.maxResponseCharacters} characters.`,
-    );
+  while (true) {
+    try {
+      const response = await withModelRequestDeadline(
+        input.ai.run(
+          input.model,
+          input.responseFormat === 'json'
+            ? {
+                messages: input.messages,
+                response_format: { type: 'json_object' },
+                stream: true,
+              }
+            : {
+                messages: input.messages,
+                stream: true,
+              },
+        ),
+        deadline,
+      );
+      const responseText = await readModelResponseText(response, deadline);
+
+      if (responseText.length > input.maxResponseCharacters) {
+        throw new Error(
+          `Cloudflare AI response exceeded the app writer size limit of ${input.maxResponseCharacters} characters.`,
+        );
+      }
+
+      return {
+        response,
+        responseText,
+        durationMs: Math.round(performance.now() - startedAt),
+      };
+    } catch (error) {
+      const retryDelayMs = input.modelTransientErrorRetryDelaysMs[retryIndex];
+
+      if (
+        retryDelayMs === undefined ||
+        !isTransientCloudflareModelError(error) ||
+        Date.now() + retryDelayMs >= deadline
+      ) {
+        throw error;
+      }
+
+      retryIndex += 1;
+      await delayBeforeModelRetry(retryDelayMs, deadline);
+    }
+  }
+}
+
+async function delayBeforeModelRetry(delayMs: number, deadline: number): Promise<void> {
+  const boundedDelayMs = Math.min(delayMs, Math.max(0, deadline - Date.now()));
+
+  if (boundedDelayMs <= 0) {
+    return;
   }
 
-  return {
-    response,
-    responseText,
-    durationMs: Math.round(performance.now() - startedAt),
-  };
+  await new Promise((resolve) => {
+    setTimeout(resolve, boundedDelayMs);
+  });
+}
+
+function isTransientCloudflareModelError(error: unknown): boolean {
+  const normalized =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+
+  return (
+    normalized.includes('3040') ||
+    normalized.includes('capacity temporarily exceeded') ||
+    normalized.includes('temporarily overloaded') ||
+    normalized.includes('please try again')
+  );
 }
 
 async function withModelRequestDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
@@ -1165,6 +1228,7 @@ const RAW_FILE_SYSTEM_PROMPT =
 
 const DEFAULT_MAX_RESPONSE_CHARACTERS = 250_000;
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 600_000;
+const DEFAULT_MODEL_TRANSIENT_ERROR_RETRY_DELAYS_MS = [1_000, 4_000, 10_000] as const;
 
 const PROMPT_CONTEXT_RULES = [
   'Treat promptContext as the authoritative Lantern contract context for this request.',

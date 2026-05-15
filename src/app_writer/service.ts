@@ -749,11 +749,26 @@ async function generateInitialPackageFiles(input: {
     now: run.updatedAt,
   });
 
-  const fileGeneration = await input.workspaceRunner.author({
-    ...input.generatorInput,
-    planning: input.planning,
-    initializedWorkspace: input.initializedWorkspace,
-  });
+  let fileGeneration: AppPackageFileGenerationResult;
+  try {
+    fileGeneration = await input.workspaceRunner.author({
+      ...input.generatorInput,
+      planning: input.planning,
+      initializedWorkspace: input.initializedWorkspace,
+    });
+  } catch (error) {
+    const failedRun = await failAuthoringGenerationRun({
+      repository: input.repository,
+      run,
+      error,
+      now: input.now,
+    });
+
+    throw new AppPackageGenerationFailedError(
+      error instanceof Error ? error.message : 'App package generation failed.',
+      failedRun,
+    );
+  }
   const generation = assembleGenerationFromStages(input.planning, fileGeneration);
   await updateGenerationPlanStepInWorkspace({
     repository: input.repository,
@@ -1432,6 +1447,73 @@ async function failRepairingGenerationRun(input: {
   return failedRun;
 }
 
+async function failAuthoringGenerationRun(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    | 'updateAppGenerationRun'
+    | 'recordAuditEvent'
+    | 'saveAppGenerationWorkspace'
+    | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  run: AppGenerationRunRecord;
+  error: unknown;
+  now: () => string;
+}): Promise<AppGenerationRunRecord> {
+  const failedFinding = buildGenerationFailedFinding(input.error);
+  const failedRun = await input.repository.updateAppGenerationRun({
+    ...input.run,
+    status: 'failed',
+    validationFindings: [...input.run.validationFindings, failedFinding],
+    updatedAt: input.now(),
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.repository,
+    run: failedRun,
+    id: 'author_workspace',
+    status: 'failed',
+    now: failedRun.updatedAt,
+    diagnosticCount: failedRun.validationFindings.length,
+  });
+  await saveGenerationWorkspaceFindings({
+    repository: input.repository,
+    run: failedRun,
+    validationFindings: failedRun.validationFindings,
+  });
+  await recordGenerationActivity({
+    repository: input.repository,
+    run: failedRun,
+    eventType: 'app_generation.failed',
+    status: 'failed',
+    summary: 'App package generation failed before a package could be saved.',
+  });
+
+  return failedRun;
+}
+
+async function saveGenerationWorkspaceFindings(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    'saveAppGenerationWorkspace' | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  run: AppGenerationRunRecord;
+  validationFindings: AppGenerationValidationFinding[];
+}): Promise<AppGenerationWorkspaceRecord | null> {
+  const workspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
+    input.run.generationId,
+  );
+
+  if (workspace === null) {
+    return null;
+  }
+
+  return await input.repository.saveAppGenerationWorkspace({
+    ...workspace,
+    validationFindings: input.validationFindings,
+    repairAttemptCount: input.run.repairAttemptCount,
+    updatedAt: input.run.updatedAt,
+  });
+}
+
 function selectTypeScriptCompilerInputFiles(
   files: readonly AppWriterWorkspaceFile[],
 ): AppWriterWorkspaceFile[] {
@@ -1750,9 +1832,14 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
   const isTimeout = isGenerationTimeoutMessage(message);
   const isModelOutputContractError = isModelOutputContractMessage(message);
   const isProviderInternalError = isGenerationProviderInternalErrorMessage(message);
+  const isProviderCapacityError = isGenerationProviderCapacityErrorMessage(message);
 
   return {
-    code: isTimeout ? 'generation_model_timeout' : 'generation_failed',
+    code: isTimeout
+      ? 'generation_model_timeout'
+      : isProviderCapacityError
+        ? 'generation_model_capacity_exceeded'
+        : 'generation_failed',
     severity: 'error',
     message,
     file: null,
@@ -1763,14 +1850,18 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
         ? 'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.'
         : isProviderInternalError
           ? 'Retry generation. The model provider returned an internal error during the current app writer stage.'
-          : 'Check the model configuration or retry generation.',
+          : isProviderCapacityError
+            ? 'Retry generation. The model provider reported temporary capacity exhaustion after Lantern used its bounded retry attempts.'
+            : 'Check the model configuration or retry generation.',
     detail: isTimeout
       ? { providerError: 'timeout' }
       : isModelOutputContractError
         ? { providerError: 'model_output_contract' }
         : isProviderInternalError
           ? { providerError: 'internal_server_error' }
-          : {},
+          : isProviderCapacityError
+            ? { providerError: 'capacity_exceeded' }
+            : {},
   };
 }
 
@@ -1797,6 +1888,16 @@ function isGenerationProviderInternalErrorMessage(message: string): boolean {
   const normalized = message.toLowerCase();
 
   return normalized.includes('internal server error') || normalized.includes('8008');
+}
+
+function isGenerationProviderCapacityErrorMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes('3040') ||
+    normalized.includes('capacity temporarily exceeded') ||
+    normalized.includes('temporarily overloaded')
+  );
 }
 
 function buildPreviewNotConfiguredFinding(): AppGenerationValidationFinding {
