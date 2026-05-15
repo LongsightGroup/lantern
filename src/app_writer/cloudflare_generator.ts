@@ -27,8 +27,10 @@ export function createCloudflareAppPackageGenerator(input: {
   ai: CloudflareAiBinding;
   model: string;
   maxResponseCharacters?: number;
+  modelRequestTimeoutMs?: number;
 }): AppPackageGenerator {
   const maxResponseCharacters = input.maxResponseCharacters ?? DEFAULT_MAX_RESPONSE_CHARACTERS;
+  const modelRequestTimeoutMs = input.modelRequestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
 
   return {
     async generate(generationInput) {
@@ -36,6 +38,7 @@ export function createCloudflareAppPackageGenerator(input: {
         ai: input.ai,
         model: input.model,
         maxResponseCharacters,
+        modelRequestTimeoutMs,
         messages: buildGenerationMessages(generationInput),
       });
     },
@@ -44,6 +47,7 @@ export function createCloudflareAppPackageGenerator(input: {
         ai: input.ai,
         model: input.model,
         maxResponseCharacters,
+        modelRequestTimeoutMs,
         messages: buildRepairMessages(repairInput),
       });
     },
@@ -111,12 +115,14 @@ async function runCloudflareGenerationRequest(input: {
   ai: CloudflareAiBinding;
   model: string;
   maxResponseCharacters: number;
+  modelRequestTimeoutMs: number;
   messages: CloudflareAiMessage[];
 }): Promise<AppPackageGenerationResult> {
   const firstAttempt = await runCloudflareModelTextRequest({
     ai: input.ai,
     model: input.model,
     maxResponseCharacters: input.maxResponseCharacters,
+    modelRequestTimeoutMs: input.modelRequestTimeoutMs,
     messages: input.messages,
   });
   const attempts = [firstAttempt];
@@ -129,6 +135,7 @@ async function runCloudflareGenerationRequest(input: {
       ai: input.ai,
       model: input.model,
       maxResponseCharacters: input.maxResponseCharacters,
+      modelRequestTimeoutMs: input.modelRequestTimeoutMs,
       messages: buildContractRepairMessages({
         originalMessages: input.messages,
         previousOutput: firstAttempt.responseText,
@@ -156,15 +163,20 @@ async function runCloudflareModelTextRequest(input: {
   ai: CloudflareAiBinding;
   model: string;
   maxResponseCharacters: number;
+  modelRequestTimeoutMs: number;
   messages: CloudflareAiMessage[];
 }): Promise<{ response: unknown; responseText: string; durationMs: number }> {
   const startedAt = performance.now();
-  const response = await input.ai.run(input.model, {
-    messages: input.messages,
-    response_format: { type: 'json_object' },
-    stream: true,
-  });
-  const responseText = await readModelResponseText(response);
+  const deadline = Date.now() + input.modelRequestTimeoutMs;
+  const response = await withModelRequestDeadline(
+    input.ai.run(input.model, {
+      messages: input.messages,
+      response_format: { type: 'json_object' },
+      stream: true,
+    }),
+    deadline,
+  );
+  const responseText = await readModelResponseText(response, deadline);
 
   if (responseText.length > input.maxResponseCharacters) {
     throw new Error(
@@ -177,6 +189,33 @@ async function runCloudflareModelTextRequest(input: {
     responseText,
     durationMs: Math.round(performance.now() - startedAt),
   };
+}
+
+async function withModelRequestDeadline<T>(promise: Promise<T>, deadline: number): Promise<T> {
+  const timeoutMs = deadline - Date.now();
+
+  if (timeoutMs <= 0) {
+    throw new Error('Cloudflare AI model request timed out before returning app package JSON.');
+  }
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(
+            new Error('Cloudflare AI model request timed out before returning app package JSON.'),
+          );
+        }, timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 function buildContractRepairMessages(input: {
@@ -206,9 +245,9 @@ function buildContractRepairMessages(input: {
   ];
 }
 
-function readModelResponseText(value: unknown): Promise<string> {
+function readModelResponseText(value: unknown, deadline: number): Promise<string> {
   if (isReadableStream(value)) {
-    return readModelResponseTextFromStream(value);
+    return readModelResponseTextFromStream(value, deadline);
   }
 
   if (typeof value === 'string') {
@@ -247,19 +286,22 @@ function readModelResponseText(value: unknown): Promise<string> {
   throw new Error('Cloudflare AI response did not include JSON text.');
 }
 
-async function readModelResponseTextFromStream(stream: ReadableStream<unknown>): Promise<string> {
-  const eventStreamText = await readStreamText(stream);
+async function readModelResponseTextFromStream(
+  stream: ReadableStream<unknown>,
+  deadline: number,
+): Promise<string> {
+  const eventStreamText = await readStreamText(stream, deadline);
 
   return readEventStreamModelText(eventStreamText);
 }
 
-async function readStreamText(stream: ReadableStream<unknown>): Promise<string> {
+async function readStreamText(stream: ReadableStream<unknown>, deadline: number): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
   let text = '';
 
   while (true) {
-    const result = await reader.read();
+    const result = await readStreamChunkWithDeadline(reader, deadline);
 
     if (result.done) {
       break;
@@ -284,6 +326,18 @@ async function readStreamText(stream: ReadableStream<unknown>): Promise<string> 
   text += decoder.decode();
 
   return text;
+}
+
+async function readStreamChunkWithDeadline(
+  reader: ReadableStreamDefaultReader<unknown>,
+  deadline: number,
+): Promise<ReadableStreamReadResult<unknown>> {
+  try {
+    return await withModelRequestDeadline(reader.read(), deadline);
+  } catch (error) {
+    await cancelStreamReader(reader);
+    throw error;
+  }
 }
 
 async function cancelStreamReader(reader: ReadableStreamDefaultReader<unknown>): Promise<void> {
@@ -469,6 +523,7 @@ const SYSTEM_PROMPT =
   'You generate Lantern learning app packages. Return only one JSON object whose top-level keys are exactly normalizedRequest, appPlan, selectedStarterId, files, progressUpdates, and notes. Use exact camelCase key names, not snake_case. Never return markdown. Never wrap the package in response, result, output, package, or content. Never request or use LMS tokens, Cloudflare bindings, external network access, package imports, localStorage, sessionStorage, or direct grade passback. The app must use reviewed package files and window.GatewayApp only. Progress updates must be short user-safe status text, never hidden reasoning or implementation details.';
 
 const DEFAULT_MAX_RESPONSE_CHARACTERS = 250_000;
+const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 180_000;
 
 const PROMPT_CONTEXT_RULES = [
   'Treat promptContext as the authoritative Lantern contract context for this request.',

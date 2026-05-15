@@ -82,6 +82,7 @@ Deno.test('Cloudflare app package generator stops streaming at the done marker',
   let streamCanceled = false;
   const generator = createCloudflareAppPackageGenerator({
     model: '@cf/test/model',
+    modelRequestTimeoutMs: 1_000,
     ai: {
       run(_model, input) {
         assertEquals(input.stream, true);
@@ -114,6 +115,35 @@ Deno.test('Cloudflare app package generator stops streaming at the done marker',
 
   assertEquals(result.appPlan.appId, 'phonics-match');
   assertEquals(streamCanceled, true);
+});
+
+Deno.test('Cloudflare app package generator times out hanging model streams', async () => {
+  const generator = createCloudflareAppPackageGenerator({
+    model: '@cf/test/model',
+    modelRequestTimeoutMs: 5,
+    ai: {
+      run(_model, input) {
+        assertEquals(input.stream, true);
+
+        return Promise.resolve(createHangingTextStream(toEventStreamData('{"partial":'), () => {}));
+      },
+    },
+  });
+
+  await assertRejects(
+    () =>
+      generator.generate({
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics matching game.',
+        requestedAppId: 'phonics-match',
+        selectedStarterId: 'simple-activity',
+        selectedContext: {},
+        createdAt: '2026-05-14T12:00:00.000Z',
+      }),
+    Error,
+    'timed out',
+  );
 });
 
 Deno.test('Cloudflare app package generator reads JSON-line streaming fragments', async () => {
