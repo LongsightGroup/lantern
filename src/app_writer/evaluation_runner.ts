@@ -26,6 +26,9 @@ export async function runAppWriterEvaluationPrompt(input: {
     | 'updateAppGenerationRun'
     | 'registerPackageVersion'
     | 'recordAuditEvent'
+    | 'saveAppGenerationWorkspace'
+    | 'getAppGenerationWorkspaceByGenerationId'
+    | 'getAppGenerationRunById'
   >;
   generator: AppPackageGenerator;
   previewer: AppPackagePreviewer;

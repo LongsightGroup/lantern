@@ -14,6 +14,7 @@ export function createUnavailableAppPackageSourceCompiler(
   message = APP_PACKAGE_SOURCE_COMPILER_UNAVAILABLE_MESSAGE,
 ): AppPackageSourceCompiler {
   return {
+    supportsTypeScriptAuthoring: false,
     compile(_input) {
       return Promise.resolve({
         files: [],

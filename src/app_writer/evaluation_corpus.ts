@@ -23,6 +23,13 @@ export const APP_WRITER_EVALUATION_PROMPTS: readonly AppWriterEvaluationPrompt[]
     requiredSignals: ['flashcards', 'read activity content', 'attempt events'],
   },
   {
+    id: 'phonics-flashcards-progress-report',
+    promptText:
+      'Create a phonics flashcard app for first graders from a 100 word list. Track which cards each student practices, store their confidence choices, and give the instructor a simple usage report by student.',
+    expectedStarterId: 'simple-activity',
+    requiredSignals: ['flashcards', 'local state', 'attempt events', 'instructor report'],
+  },
+  {
     id: 'matching-activity',
     promptText:
       'Create a matching activity where students pair historical events with dates and get completion credit.',
@@ -42,6 +49,20 @@ export const APP_WRITER_EVALUATION_PROMPTS: readonly AppWriterEvaluationPrompt[]
       'Create a short simulation that lets students adjust force and mass, observe acceleration, and answer a reflection prompt.',
     expectedStarterId: 'simple-activity',
     requiredSignals: ['simulation', 'interactive controls', 'reflection'],
+  },
+  {
+    id: 'fractions-adaptive-practice',
+    promptText:
+      'Create a fractions practice app where fourth graders compare fractions, get immediate feedback, and see a short review set based on the questions they missed.',
+    expectedStarterId: 'simple-activity',
+    requiredSignals: ['adaptive practice', 'feedback', 'local state', 'attempt events'],
+  },
+  {
+    id: 'lab-safety-scenario',
+    promptText:
+      'Create a lab safety scenario app for middle school science. Students make choices during a virtual lab setup, see consequences, and finish with a short reflection.',
+    expectedStarterId: 'simple-activity',
+    requiredSignals: ['branching scenario', 'reflection', 'completion grading'],
   },
   {
     id: 'browser-autograder-repair',

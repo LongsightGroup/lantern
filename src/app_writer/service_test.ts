@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import {
+  type AppPackageGenerator,
   createFakeAppPackageGenerator,
   createFakeRepairingAppPackageGenerator,
   createUnavailableAppPackageGenerator,
@@ -7,12 +8,18 @@ import {
 import {
   AppPackageGenerationFailedError,
   continueAppPackageGenerationRun,
+  finishGeneratedAppPackageRun,
+  generateAppPackageFilesForPlannedRun,
+  planAppPackageGenerationRun,
   runAppPackageGeneration,
   startAppPackageGenerationRun,
 } from './service.ts';
 import { createTypeScriptAppPackageSourceCompiler } from './typescript_source_compiler.ts';
+import { APP_WRITER_RECIPE_ID, APP_WRITER_RECIPE_VERSION } from './recipe.ts';
 import type {
+  AppGenerationPlanningResult,
   AppGenerationValidationFinding,
+  AppPackageFileGenerationResult,
   AppPackageGenerationResult,
   AppPackagePreviewer,
 } from './types.ts';
@@ -64,6 +71,12 @@ Deno.test('app writer service creates a durable run and records generated artifa
     'chapter-4-asteroids',
     'examples/starters/simple-activity',
   ]);
+  const persistedRecipe = persisted?.selectedContext.recipe as
+    | { recipeId?: unknown; recipeVersion?: unknown }
+    | undefined;
+
+  assertEquals(persistedRecipe?.recipeId, APP_WRITER_RECIPE_ID);
+  assertEquals(persistedRecipe?.recipeVersion, APP_WRITER_RECIPE_VERSION);
   assertEquals(persisted?.modelRequestMetadata[0]?.provider, 'cloudflare');
 
   const generatingEvents = await repository.listAuditEventsByEventType('app_generation.generating');
@@ -78,6 +91,113 @@ Deno.test('app writer service creates a durable run and records generated artifa
   assertEquals(validationEvents.length, 1);
   assertEquals(validationEvents[0]?.detail.generationId, 'generation-1');
   assertEquals(validationEvents[0]?.summary, 'Generated package passed Lantern validation.');
+});
+
+Deno.test('app writer service records staged planning before scaffold file generation', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const result = await runAppPackageGeneration({
+    repository,
+    generator: createStagedAppPackageGenerator(),
+    generationId: 'generation-1',
+    ownerId: 'instructor-1',
+    promptText: 'Create a phonics matching game for 100 words.',
+    requestedAppId: 'phonics-match',
+    now: createClock([
+      '2026-05-14T12:00:00.000Z',
+      '2026-05-14T12:00:01.000Z',
+      '2026-05-14T12:00:02.000Z',
+      '2026-05-14T12:00:03.000Z',
+      '2026-05-14T12:00:04.000Z',
+    ]),
+  });
+
+  assertEquals(result.run.status, 'validating');
+  assertEquals(
+    result.run.modelRequestMetadata.map((metadata) => metadata.requestId),
+    ['request-plan', 'request-files'],
+  );
+  assertEquals(result.run.generationNotes, ['Planned from staged generator.', 'Wrote files.']);
+
+  const planningEvents = await repository.listAuditEventsByEventType('app_generation.planning');
+  const generatingEvents = await repository.listAuditEventsByEventType('app_generation.generating');
+
+  assertEquals(
+    planningEvents.map((event) => event.summary),
+    [
+      'Asked the app package generator for a Lantern app plan.',
+      'Planning the Lantern app before editing scaffold files.',
+    ],
+  );
+  assertEquals(
+    generatingEvents.map((event) => event.summary),
+    [
+      'Asked the app package generator for scaffold file edits.',
+      'Editing the Lantern starter workspace.',
+    ],
+  );
+});
+
+Deno.test('app writer service supports explicit Workflow generation stages', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const generator = createStagedAppPackageGenerator();
+
+  await startAppPackageGenerationRun({
+    repository,
+    generator,
+    generationId: 'generation-1',
+    ownerId: 'instructor-1',
+    promptText: 'Create a phonics matching game for 100 words.',
+    requestedAppId: 'phonics-match',
+    now: createClock(['2026-05-14T12:00:00.000Z']),
+  });
+
+  const planned = await planAppPackageGenerationRun({
+    repository,
+    generator,
+    generationId: 'generation-1',
+    now: createClock(['2026-05-14T12:00:01.000Z', '2026-05-14T12:00:02.000Z']),
+  });
+  const generated = await generateAppPackageFilesForPlannedRun({
+    repository,
+    generator,
+    planned,
+    now: createClock(['2026-05-14T12:00:03.000Z']),
+  });
+  const workspaceAfterFiles =
+    await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
+  const result = await finishGeneratedAppPackageRun({
+    repository,
+    generator,
+    generated,
+    now: createClock(['2026-05-14T12:00:04.000Z']),
+  });
+  const workspaceAfterFinish =
+    await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
+
+  assertEquals(planned.run.status, 'planning');
+  assertEquals(generated.run.status, 'generating_package');
+  assertEquals(result.run.status, 'validating');
+  assertEquals(
+    workspaceAfterFiles?.files.some(
+      (file) => file.path === 'manifest.json' && file.role === 'package',
+    ),
+    true,
+  );
+  assertEquals(
+    workspaceAfterFiles?.files.some(
+      (file) => file.path === 'AGENTS.md' && file.role === 'instruction',
+    ),
+    true,
+  );
+  assertEquals(
+    workspaceAfterFiles?.generationPlan.find((step) => step.id === 'initialize_workspace')?.status,
+    'succeeded',
+  );
+  assertEquals(workspaceAfterFinish?.validationFindings, []);
+  assertEquals(
+    result.run.modelRequestMetadata.map((metadata) => metadata.requestId),
+    ['request-plan', 'request-files'],
+  );
 });
 
 Deno.test('app writer service records failed generator runs before rejecting', async () => {
@@ -192,7 +312,7 @@ Deno.test('app writer service explains invalid JSON model output clearly', async
   });
   assertEquals(
     error.run.validationFindings[0]?.fix,
-    'Retry generation. Lantern rejects model output unless it contains one valid JSON app package object.',
+    'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.',
   );
 });
 
@@ -224,7 +344,7 @@ Deno.test('app writer service explains invalid model package shape clearly', asy
   });
   assertEquals(
     error.run.validationFindings[0]?.fix,
-    'Retry generation. Lantern rejects model output unless it contains one valid JSON app package object.',
+    'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.',
   );
 });
 
@@ -306,9 +426,18 @@ Deno.test('app writer service repairs a generated package once and persists the 
   assertEquals(result.run.validationFindings, []);
 
   const persisted = await repository.getAppGenerationRunById('generation-1');
+  const workspace = await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
 
   assertEquals(persisted?.repairAttemptCount, 1);
   assertEquals(persisted?.validationFindings, []);
+  assertEquals(
+    workspace?.files.some((file) => file.path === 'server/worker.ts'),
+    false,
+  );
+  assertEquals(
+    workspace?.files.some((file) => file.path === 'AGENTS.md' && file.role === 'instruction'),
+    true,
+  );
 });
 
 Deno.test('app writer service compiles TypeScript authoring source before validation', async () => {
@@ -348,6 +477,7 @@ Deno.test('app writer service compiles TypeScript authoring source before valida
     ),
     true,
   );
+  assertEquals(result.run.selectedContext.authoringMode, 'typescript');
 });
 
 Deno.test('app writer service stops after exhausted package repair attempts', async () => {
@@ -604,6 +734,66 @@ function buildGenerationResult(
   };
 }
 
+function createStagedAppPackageGenerator(): AppPackageGenerator {
+  return {
+    generate(_input) {
+      return Promise.reject(new Error('Staged generator should not use one-shot generation.'));
+    },
+    plan(_input) {
+      const generation = buildGenerationResult();
+      const planning: AppGenerationPlanningResult = {
+        normalizedRequest: generation.normalizedRequest,
+        appPlan: generation.appPlan,
+        selectedStarterId: generation.selectedStarterId,
+        progressUpdates: [
+          {
+            stage: 'planning_app',
+            message: 'Planning the Lantern app before editing scaffold files.',
+          },
+        ],
+        notes: ['Planned from staged generator.'],
+        modelRequestMetadata: [
+          {
+            provider: 'cloudflare',
+            model: '@cf/test/model',
+            requestId: 'request-plan',
+            durationMs: 20,
+            responseCharacters: 1024,
+          },
+        ],
+      };
+
+      return Promise.resolve(planning);
+    },
+    generateFiles(input) {
+      const fileGeneration: AppPackageFileGenerationResult = {
+        files: buildValidSimpleActivityFiles(),
+        progressUpdates: [
+          {
+            stage: 'building_package',
+            message: 'Editing the Lantern starter workspace.',
+          },
+        ],
+        notes: ['Wrote files.'],
+        validationFindings: [],
+        modelRequestMetadata: [
+          {
+            provider: 'cloudflare',
+            model: '@cf/test/model',
+            requestId: 'request-files',
+            durationMs: 40,
+            responseCharacters: 4096,
+          },
+        ],
+      };
+
+      assertEquals(input.planning.appPlan.appId, 'phonics-match');
+
+      return Promise.resolve(fileGeneration);
+    },
+  };
+}
+
 function buildTypeScriptAuthoringPackageFiles(): AppPackageGenerationResult['files'] {
   return [
     ...buildValidSimpleActivityFiles().filter((file) => file.path !== 'dist/app.js'),
@@ -643,14 +833,17 @@ function createSequencePreviewer(results: AppGenerationValidationFinding[][]): A
 
 function createClock(times: string[]): () => string {
   const remaining = [...times];
+  let lastTimestamp = times.at(-1) ?? '2026-05-14T12:00:00.000Z';
 
   return () => {
     const next = remaining.shift();
 
-    if (!next) {
-      throw new Error('Test clock ran out of timestamps.');
+    if (next !== undefined) {
+      lastTimestamp = next;
+      return next;
     }
 
-    return next;
+    lastTimestamp = new Date(Date.parse(lastTimestamp) + 1000).toISOString();
+    return lastTimestamp;
   };
 }

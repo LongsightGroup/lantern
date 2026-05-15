@@ -1,5 +1,9 @@
 import { assertEquals } from '@std/assert';
-import { validateGeneratedAppPackage } from './validation.ts';
+import {
+  validateGeneratedAppPackage,
+  validateGeneratedAppPackagePlanAlignment,
+} from './validation.ts';
+import type { AppGenerationPlan } from './types.ts';
 import {
   buildValidBrowserAutograderFiles,
   buildValidSimpleActivityFiles,
@@ -30,6 +34,27 @@ Deno.test('generated app validation rejects files outside the starter allowlist'
     findings.some((finding) => finding.code === 'file_path_not_allowed'),
     true,
   );
+});
+
+Deno.test('generated app validation ignores non-package workspace files', async () => {
+  const findings = await validateGeneratedAppPackage({
+    selectedStarterId: 'simple-activity',
+    files: [
+      ...buildValidSimpleActivityFiles(),
+      {
+        path: 'AGENTS.md',
+        role: 'instruction',
+        contents: 'Use Lantern SDK APIs only.\n',
+      },
+      {
+        path: '.lantern/contracts/sdk.d.ts',
+        role: 'contract',
+        contents: 'declare global { interface Window {} }\n',
+      },
+    ],
+  });
+
+  assertEquals(findings, []);
 });
 
 Deno.test('generated app validation rejects external network and storage fallbacks', async () => {
@@ -76,6 +101,36 @@ Deno.test('generated app validation rejects SDK capability mismatches', async ()
   );
 });
 
+Deno.test('generated app validation rejects manifest drift from the app plan', () => {
+  const files = buildValidSimpleActivityFiles().map((file) =>
+    file.path === 'manifest.json'
+      ? {
+          ...file,
+          contents: file.contents
+            .replace('"app_id": "phonics-match"', '"app_id": "starter-simple-activity"')
+            .replace('"finalize_attempt"', '"write_local_state"'),
+        }
+      : file,
+  );
+  const findings = validateGeneratedAppPackagePlanAlignment({
+    appPlan: buildPlan(),
+    files,
+  });
+
+  assertEquals(
+    findings.some((finding) => finding.code === 'manifest_plan_app_id_mismatch'),
+    true,
+  );
+  assertEquals(
+    findings.some((finding) => finding.code === 'manifest_plan_capability_missing'),
+    true,
+  );
+  assertEquals(
+    findings.some((finding) => finding.code === 'manifest_plan_capability_extra'),
+    true,
+  );
+});
+
 Deno.test('generated app validation accepts a browser autograder package shape', async () => {
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'browser-autograder',
@@ -84,3 +139,34 @@ Deno.test('generated app validation accepts a browser autograder package shape',
 
   assertEquals(findings, []);
 });
+
+function buildPlan(): AppGenerationPlan {
+  return {
+    appId: 'phonics-match',
+    title: 'Phonics Match',
+    description: 'A small matching game for phonics practice.',
+    learningGoal: 'Practice phonics patterns.',
+    audience: 'Grade 1',
+    activityType: 'matching',
+    learnerFlow: ['Read the sound.', 'Pick the matching word.', 'Complete all cards.'],
+    contentModel: {
+      wordCount: 100,
+    },
+    capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+    grading: {
+      mode: 'completion',
+      maxScore: 100,
+      scoringSummary: 'Completion credit after all cards are answered.',
+    },
+    attemptEvents: [
+      {
+        when: 'after each answer',
+        eventType: 'answer',
+        questionIdPattern: 'word-*',
+      },
+    ],
+    previewTests: ['renders the title'],
+    accessibilityNotes: ['Use buttons for answer choices.'],
+    riskNotes: [],
+  };
+}

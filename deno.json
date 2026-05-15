@@ -15,6 +15,8 @@
     "local:bootstrap": "deno task local:migrate",
     "local:start": "npx wrangler dev",
     "local:dev": "npx wrangler dev",
+    "build:app-writer-platform": "deno run --allow-read --allow-write --allow-run tools/build_app_writer_platform_bundle.ts",
+    "deploy:app-writer-platform": "npx wrangler deploy --config wrangler.app-writer-platform.jsonc",
     "build:worker": "deno run --allow-read --allow-write --allow-run tools/build_worker_bundle.ts",
     "check:worker": "deno task build:worker && deno run --allow-read tools/check_worker_bundle.ts && deno run --allow-read tools/check_worker_config.ts",
     "fmt": "deno run -A npm:oxfmt@0.43.0 --write .",

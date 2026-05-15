@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import { resolveWorkerServices } from './app_worker_services.ts';
+import type { AppGenerationPlan } from './app_writer/types.ts';
 import type { D1Database } from './db/d1.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import { getReferencePackageBucketSourceRoot } from './package_review/intake.ts';
@@ -303,12 +304,132 @@ Deno.test('worker services schedule app generation through APP_GENERATION_WORKFL
   ]);
 });
 
+Deno.test('worker services use a platform source compiler binding when configured', async () => {
+  const compileRequests: Request[] = [];
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+  const services = resolveWorkerServices(
+    {
+      APP_WRITER_SOURCE_COMPILER: {
+        fetch(request: Request) {
+          compileRequests.push(request.clone());
+
+          return Promise.resolve(
+            Response.json({
+              files: [
+                {
+                  path: 'dist/app.js',
+                  contents: 'console.log("compiled");\n',
+                },
+              ],
+              validationFindings: [],
+              notes: ['Compiled by platform source compiler service.'],
+            }),
+          );
+        },
+      },
+    },
+    env,
+  );
+
+  const result = await services.appPackageSourceCompiler.compile({
+    generationId: 'generation-1',
+    appPlan: buildAppGenerationPlan(),
+    selectedStarterId: 'simple-activity',
+    files: [
+      {
+        path: 'source/app.ts',
+        contents: 'document.body.textContent = "compiled";\n',
+      },
+    ],
+  });
+  const requestBody = (await compileRequests[0]?.json()) as { generationId?: unknown };
+
+  assertEquals(services.appPackageSourceCompiler.supportsTypeScriptAuthoring, true);
+  assertEquals(requestBody.generationId, 'generation-1');
+  assertEquals(result.files[0]?.path, 'dist/app.js');
+  assertEquals(result.notes, ['Compiled by platform source compiler service.']);
+});
+
+Deno.test('worker services use a platform app previewer binding when configured', async () => {
+  const previewRequests: Request[] = [];
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+  const services = resolveWorkerServices(
+    {
+      APP_WRITER_PREVIEWER: {
+        fetch(request: Request) {
+          previewRequests.push(request.clone());
+
+          return Promise.resolve(
+            Response.json({
+              validationFindings: [
+                {
+                  code: 'preview_assertion_failed',
+                  severity: 'error',
+                  message: 'The main action is missing.',
+                  file: 'preview/tests.json',
+                  field: null,
+                  fix: 'Render the expected learner action.',
+                  detail: {
+                    name: 'main action',
+                  },
+                },
+              ],
+            }),
+          );
+        },
+      },
+    },
+    env,
+  );
+
+  const findings = await services.appPackagePreviewer.preview({
+    generationId: 'generation-1',
+    selectedStarterId: 'simple-activity',
+    files: [
+      {
+        path: 'dist/index.html',
+        contents: '<!doctype html><body>Preview</body>',
+      },
+    ],
+  });
+  const requestBody = (await previewRequests[0]?.json()) as { generationId?: unknown };
+
+  assertEquals(requestBody.generationId, 'generation-1');
+  assertEquals(findings[0]?.code, 'preview_assertion_failed');
+});
+
 Deno.test('worker services fail clearly when app generation Workflow is not bound', async () => {
   const env = createObjectEnvReader({
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const services = resolveWorkerServices({}, env);
 
+  assertEquals(services.appPackageSourceCompiler.supportsTypeScriptAuthoring, true);
+  await assertRejects(
+    () =>
+      services.appPackageSourceCompiler.compile({
+        generationId: 'generation-1',
+        appPlan: buildAppGenerationPlan(),
+        selectedStarterId: 'simple-activity',
+        files: [],
+      }),
+    Error,
+    'Cloudflare Workers app writer requires a platform source compiler service binding named APP_WRITER_SOURCE_COMPILER.',
+  );
+  await assertRejects(
+    () =>
+      services.appPackagePreviewer.preview({
+        generationId: 'generation-1',
+        selectedStarterId: 'simple-activity',
+        files: [],
+      }),
+    Error,
+    'Cloudflare Workers generated app preview requires a platform previewer service binding named APP_WRITER_PREVIEWER.',
+  );
   await assertRejects(
     () =>
       services.appGenerationRunScheduler.schedule({
@@ -318,6 +439,29 @@ Deno.test('worker services fail clearly when app generation Workflow is not boun
     'Cloudflare Workers app generation requires a Workflows binding named APP_GENERATION_WORKFLOW.',
   );
 });
+
+function buildAppGenerationPlan(): AppGenerationPlan {
+  return {
+    appId: 'phonics-match',
+    title: 'Phonics Match',
+    description: 'A phonics matching activity.',
+    learningGoal: 'Practice phonics patterns.',
+    audience: 'Grade 1',
+    activityType: 'matching',
+    learnerFlow: ['Read the word.', 'Choose the match.'],
+    contentModel: {},
+    capabilities: ['read_activity_content'],
+    grading: {
+      mode: 'completion',
+      maxScore: 100,
+      scoringSummary: 'Completion credit.',
+    },
+    attemptEvents: [],
+    previewTests: [],
+    accessibilityNotes: [],
+    riskNotes: [],
+  };
+}
 
 function createSeededArtifactBucket(
   bucketRoot: string,

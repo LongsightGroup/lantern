@@ -6,7 +6,14 @@ import type {
 } from './app_writer/types.ts';
 import { buildValidSimpleActivityFiles } from './test_helpers/app_writer_generated_package.ts';
 import {
+  buildAppGenerationRunRecord,
+  buildAppGenerationWorkspaceRecord,
+} from './test_helpers/package_review_in_memory_app_generation.ts';
+import {
+  buildAdminPreviewSessionRecord,
   buildImportedPackageVersion,
+  buildPackageVersionRecord,
+  buildPreviewEvidenceRecord,
   buildReviewedPlacementRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
@@ -126,6 +133,7 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   assertStringIncludes(detailBody, 'saved pending version');
   assertStringIncludes(detailBody, 'Open pending version');
   assertStringIncludes(detailBody, 'Generation request details');
+  assertStringIncludes(detailBody, 'Recipe lantern-learning-app-writer@0.1.0');
   assertStringIncludes(detailBody, 'Grade 1 readers');
   assertStringIncludes(detailBody, 'Generated files');
   assertStringIncludes(detailBody, 'Review before test launch');
@@ -243,6 +251,114 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
 
   assertEquals(events.at(-1)?.detail.backgroundRunner, 'workflow');
   assertEquals(events.at(-1)?.detail.workflowInstanceId, 'workflow-1');
+});
+
+Deno.test('GET /admin/app-writer/runs/:generationId shows captured workspace before package save', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    appGenerationRuns: [
+      buildAppGenerationRunRecord({
+        status: 'failed',
+        validationFindings: [
+          {
+            code: 'manifest_plan_mismatch',
+            severity: 'error',
+            message: 'Generated manifest did not match the approved plan.',
+            file: 'manifest.json',
+            field: '/app_id',
+            fix: 'Make manifest.json match the app plan.',
+            detail: {},
+          },
+        ],
+      }),
+    ],
+    appGenerationWorkspaces: [
+      buildAppGenerationWorkspaceRecord({
+        files: buildValidSimpleActivityFiles(),
+        validationFindings: [
+          {
+            code: 'manifest_plan_mismatch',
+            severity: 'error',
+            message: 'Generated manifest did not match the approved plan.',
+            file: 'manifest.json',
+            field: '/app_id',
+            fix: 'Make manifest.json match the app plan.',
+            detail: {},
+          },
+        ],
+      }),
+    ],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request('https://lantern.example/admin/app-writer/runs/generation-1');
+  const body = await response.text();
+
+  assertEquals(response.status, 200);
+  assertStringIncludes(body, 'Generated files');
+  assertStringIncludes(body, 'manifest.json');
+  assertStringIncludes(body, 'dist/app.js');
+  assertStringIncludes(body, 'validation or preview findings currently attached');
+  assertStringIncludes(body, 'No immutable package version has been saved yet.');
+});
+
+Deno.test('GET /admin/app-writer/runs/:generationId shows generated package runtime log', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 7,
+        appId: 'phonics-match',
+        version: '0.1.0',
+        title: 'Phonics Match',
+        approvalStatus: 'approved',
+      }),
+    ],
+    appGenerationRuns: [
+      buildAppGenerationRunRecord({
+        status: 'saved_pending_version',
+        generatedAppId: 'phonics-match',
+        generatedVersion: '0.1.0',
+        packageVersionId: 7,
+      }),
+    ],
+    previewSessions: [
+      buildAdminPreviewSessionRecord({
+        sessionId: 'preview-generated-1',
+        packageVersionId: 7,
+        appId: 'phonics-match',
+        packageVersion: '0.1.0',
+        packageTitle: 'Phonics Match',
+        launch: {
+          userId: 'preview-user-123',
+          userRole: 'learner',
+          courseId: 'reading-101',
+          assignmentId: 'phonics-week-1',
+          activityId: 'phonics-match',
+        },
+      }),
+    ],
+    previewEvidence: [
+      buildPreviewEvidenceRecord({
+        previewSessionId: 'preview-generated-1',
+        eventType: 'preview.attempt_event',
+        capability: 'submit_attempt_event',
+        summary: 'Recorded a phonics card answer in the preview runtime.',
+      }),
+    ],
+  });
+
+  const response = await createApp({
+    getRepository: () => repository,
+  }).request('https://lantern.example/admin/app-writer/runs/generation-1');
+  const body = await response.text();
+
+  assertEquals(response.status, 200);
+  assertStringIncludes(body, 'Runtime log');
+  assertStringIncludes(body, 'preview-generated-1');
+  assertStringIncludes(body, 'preview.attempt_event');
+  assertStringIncludes(body, 'submit_attempt_event');
+  assertStringIncludes(body, 'Recorded a phonics card answer in the preview runtime.');
+  assertStringIncludes(body, 'Open full test launch log');
 });
 
 async function waitForGenerationToStart(readResolver: () => (() => void) | null): Promise<void> {

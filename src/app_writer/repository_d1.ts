@@ -3,14 +3,20 @@ import type { D1Database } from '../db/d1.ts';
 import { queryD1First, runD1 } from '../db/d1.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import {
+  APP_GENERATION_PLAN_STEP_IDS,
+  APP_GENERATION_PLAN_STEP_STATUSES,
   APP_GENERATION_STATUSES,
   APP_WRITER_STARTER_IDS,
+  APP_WRITER_WORKSPACE_FILE_ROLES,
   type AppGenerationAttemptEventPlan,
   type AppGenerationModelRequestMetadata,
   type AppGenerationNormalizedRequest,
   type AppGenerationPlan,
+  type AppGenerationPlanStep,
   type AppGenerationRunRecord,
   type AppGenerationValidationFinding,
+  type AppGenerationWorkspaceRecord,
+  type AppWriterWorkspaceFile,
 } from './types.ts';
 
 const APP_GENERATION_ACTIVITY_TYPES = [
@@ -39,7 +45,11 @@ export function createD1AppGenerationRepositoryMethods(
   db: D1Database,
 ): Pick<
   PackageReviewRepository,
-  'createAppGenerationRun' | 'getAppGenerationRunById' | 'updateAppGenerationRun'
+  | 'createAppGenerationRun'
+  | 'getAppGenerationRunById'
+  | 'updateAppGenerationRun'
+  | 'saveAppGenerationWorkspace'
+  | 'getAppGenerationWorkspaceByGenerationId'
 > {
   return {
     async createAppGenerationRun(record) {
@@ -119,6 +129,39 @@ export function createD1AppGenerationRepositoryMethods(
 
       return await requireAppGenerationRun(db, record.generationId);
     },
+
+    async saveAppGenerationWorkspace(record) {
+      await runD1(
+        db,
+        `
+          INSERT INTO app_generation_workspaces (
+            generation_id,
+            selected_starter_id,
+            files_json,
+            generation_plan_json,
+            validation_findings_json,
+            repair_attempt_count,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(generation_id) DO UPDATE SET
+            selected_starter_id = excluded.selected_starter_id,
+            files_json = excluded.files_json,
+            generation_plan_json = excluded.generation_plan_json,
+            validation_findings_json = excluded.validation_findings_json,
+            repair_attempt_count = excluded.repair_attempt_count,
+            updated_at = excluded.updated_at
+        `,
+        serializeAppGenerationWorkspace(record),
+      );
+
+      return await requireAppGenerationWorkspace(db, record.generationId);
+    },
+
+    async getAppGenerationWorkspaceByGenerationId(generationId) {
+      const row = await queryAppGenerationWorkspaceRow(db, generationId);
+
+      return row === null ? null : mapD1AppGenerationWorkspaceFields(row);
+    },
   };
 }
 
@@ -166,6 +209,28 @@ interface D1AppGenerationRunRow extends Record<string, unknown> {
   updatedAt: unknown;
 }
 
+const D1_APP_GENERATION_WORKSPACE_SELECT = `
+  SELECT
+    generation_id AS generationId,
+    selected_starter_id AS selectedStarterId,
+    files_json AS filesJson,
+    generation_plan_json AS generationPlanJson,
+    validation_findings_json AS validationFindingsJson,
+    repair_attempt_count AS repairAttemptCount,
+    updated_at AS updatedAt
+  FROM app_generation_workspaces
+`;
+
+interface D1AppGenerationWorkspaceRow extends Record<string, unknown> {
+  generationId: unknown;
+  selectedStarterId: unknown;
+  filesJson: unknown;
+  generationPlanJson: unknown;
+  validationFindingsJson: unknown;
+  repairAttemptCount: unknown;
+  updatedAt: unknown;
+}
+
 async function queryAppGenerationRunRow(
   db: D1Database,
   generationId: string,
@@ -188,6 +253,30 @@ async function requireAppGenerationRun(
   }
 
   return mapD1AppGenerationRunFields(row);
+}
+
+async function queryAppGenerationWorkspaceRow(
+  db: D1Database,
+  generationId: string,
+): Promise<D1AppGenerationWorkspaceRow | null> {
+  return await queryD1First<D1AppGenerationWorkspaceRow>(
+    db,
+    `${D1_APP_GENERATION_WORKSPACE_SELECT} WHERE generation_id = ?`,
+    [generationId],
+  );
+}
+
+async function requireAppGenerationWorkspace(
+  db: D1Database,
+  generationId: string,
+): Promise<AppGenerationWorkspaceRecord> {
+  const row = await queryAppGenerationWorkspaceRow(db, generationId);
+
+  if (row === null) {
+    throw new Error(`App generation workspace ${generationId} was not found.`);
+  }
+
+  return mapD1AppGenerationWorkspaceFields(row);
 }
 
 function serializeAppGenerationRun(record: AppGenerationRunRecord): unknown[] {
@@ -246,6 +335,39 @@ function mapD1AppGenerationRunFields(row: D1AppGenerationRunRow): AppGenerationR
     ),
     repairAttemptCount: expectNumber(row.repairAttemptCount, 'repairAttemptCount'),
     createdAt: expectString(row.createdAt, 'createdAt'),
+    updatedAt: expectString(row.updatedAt, 'updatedAt'),
+  };
+}
+
+function serializeAppGenerationWorkspace(record: AppGenerationWorkspaceRecord): unknown[] {
+  return [
+    record.generationId,
+    record.selectedStarterId,
+    record.files,
+    record.generationPlan,
+    record.validationFindings,
+    record.repairAttemptCount,
+    record.updatedAt,
+  ];
+}
+
+function mapD1AppGenerationWorkspaceFields(
+  row: D1AppGenerationWorkspaceRow,
+): AppGenerationWorkspaceRecord {
+  return {
+    generationId: expectString(row.generationId, 'generationId'),
+    selectedStarterId: expectStringLiteral(
+      row.selectedStarterId,
+      'selectedStarterId',
+      APP_WRITER_STARTER_IDS,
+    ),
+    files: parseWorkspaceFilesField(row.filesJson, 'filesJson'),
+    generationPlan: parseGenerationPlanField(row.generationPlanJson, 'generationPlanJson'),
+    validationFindings: parseValidationFindingsField(
+      row.validationFindingsJson,
+      'validationFindingsJson',
+    ),
+    repairAttemptCount: expectNumber(row.repairAttemptCount, 'repairAttemptCount'),
     updatedAt: expectString(row.updatedAt, 'updatedAt'),
   };
 }
@@ -322,6 +444,60 @@ function parseAttemptEventPlans(value: unknown): AppGenerationAttemptEventPlan[]
       questionIdPattern: expectString(
         record.questionIdPattern,
         `appPlan.attemptEvents[${index}].questionIdPattern`,
+      ),
+    };
+  });
+}
+
+function parseWorkspaceFilesField(value: unknown, fieldName: string): AppWriterWorkspaceFile[] {
+  const parsed = parseJsonField(value, fieldName);
+
+  if (!Array.isArray(parsed)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return parsed.map((item, index) => {
+    const record = expectRecord(item, `${fieldName}[${index}]`);
+
+    return {
+      path: expectString(record.path, `${fieldName}[${index}].path`),
+      contents: expectString(record.contents, `${fieldName}[${index}].contents`),
+      role:
+        record.role === undefined
+          ? 'package'
+          : expectStringLiteral(
+              record.role,
+              `${fieldName}[${index}].role`,
+              APP_WRITER_WORKSPACE_FILE_ROLES,
+            ),
+    };
+  });
+}
+
+function parseGenerationPlanField(value: unknown, fieldName: string): AppGenerationPlanStep[] {
+  const parsed = parseJsonField(value, fieldName);
+
+  if (!Array.isArray(parsed)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return parsed.map((item, index) => {
+    const record = expectRecord(item, `${fieldName}[${index}]`);
+
+    return {
+      id: expectStringLiteral(record.id, `${fieldName}[${index}].id`, APP_GENERATION_PLAN_STEP_IDS),
+      status: expectStringLiteral(
+        record.status,
+        `${fieldName}[${index}].status`,
+        APP_GENERATION_PLAN_STEP_STATUSES,
+      ),
+      startedAt: expectNullableString(record.startedAt, `${fieldName}[${index}].startedAt`),
+      completedAt: expectNullableString(record.completedAt, `${fieldName}[${index}].completedAt`),
+      summary: expectString(record.summary, `${fieldName}[${index}].summary`),
+      result: expectRecord(record.result, `${fieldName}[${index}].result`),
+      diagnosticCount: expectNumber(
+        record.diagnosticCount,
+        `${fieldName}[${index}].diagnosticCount`,
       ),
     };
   });

@@ -347,6 +347,10 @@
       "integrity": "sha512-It4dO0K5v//JtTXuPkfEOaI3uUN87iYPnqo/ZzqCoG3g8uhA66QUMs/SrM0YK7/NAu+r4LMh/9dq2A7k+rHs+w=="
     }
   },
+  "remote": {
+    "https://esm.sh/typescript@5.9.3/denonext/typescript.bundle.mjs": "8e8078208b51693ef0295f2dc2ddb2c23f2a7943c0bc16ea95c8406d43eef67f",
+    "https://esm.sh/typescript@5.9.3?bundle": "dbf135878d2e24ee6c9eaa29a6a92f1971767e8a5aef2da5e9c41766afc005e1"
+  },
   "workspace": {
     "dependencies": [
       "jsr:@hono/hono@^4.12.18",

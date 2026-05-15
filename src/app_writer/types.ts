@@ -3,6 +3,7 @@ import type { GradingMode } from '../package_review/types.ts';
 
 export const APP_GENERATION_STATUSES = [
   'started',
+  'initializing',
   'normalizing',
   'planning',
   'generating_package',
@@ -15,9 +16,36 @@ export const APP_GENERATION_STATUSES = [
 
 export type AppGenerationStatus = (typeof APP_GENERATION_STATUSES)[number];
 
+export const APP_GENERATION_PLAN_STEP_IDS = [
+  'initialize_workspace',
+  'create_app_plan',
+  'author_workspace',
+  'typecheck_source',
+  'validate_package',
+  'preview_runtime',
+  'repair_if_needed',
+  'save_pending_version',
+] as const;
+
+export type AppGenerationPlanStepId = (typeof APP_GENERATION_PLAN_STEP_IDS)[number];
+
+export const APP_GENERATION_PLAN_STEP_STATUSES = [
+  'pending',
+  'running',
+  'succeeded',
+  'failed',
+  'skipped',
+] as const;
+
+export type AppGenerationPlanStepStatus = (typeof APP_GENERATION_PLAN_STEP_STATUSES)[number];
+
 export const APP_WRITER_STARTER_IDS = ['simple-activity', 'browser-autograder'] as const;
 
 export type AppWriterStarterId = (typeof APP_WRITER_STARTER_IDS)[number];
+
+export const APP_WRITER_AUTHORING_MODES = ['javascript', 'typescript'] as const;
+
+export type AppWriterAuthoringMode = (typeof APP_WRITER_AUTHORING_MODES)[number];
 
 export const APP_GENERATION_PROGRESS_STAGES = [
   'understanding_request',
@@ -28,6 +56,15 @@ export const APP_GENERATION_PROGRESS_STAGES = [
 ] as const;
 
 export type AppGenerationProgressStage = (typeof APP_GENERATION_PROGRESS_STAGES)[number];
+
+export const APP_WRITER_WORKSPACE_FILE_ROLES = [
+  'package',
+  'instruction',
+  'contract',
+  'evidence',
+] as const;
+
+export type AppWriterWorkspaceFileRole = (typeof APP_WRITER_WORKSPACE_FILE_ROLES)[number];
 
 export type AppGenerationActivityType =
   | 'quiz'
@@ -92,6 +129,17 @@ export interface AppGenerationProgressUpdate {
 export interface AppWriterWorkspaceFile {
   path: string;
   contents: string;
+  role?: AppWriterWorkspaceFileRole;
+}
+
+export interface AppGenerationPlanStep {
+  id: AppGenerationPlanStepId;
+  status: AppGenerationPlanStepStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  summary: string;
+  result: Record<string, unknown>;
+  diagnosticCount: number;
 }
 
 export interface AppGenerationValidationFinding {
@@ -125,6 +173,16 @@ export interface AppGenerationRunRecord {
   updatedAt: string;
 }
 
+export interface AppGenerationWorkspaceRecord {
+  generationId: string;
+  selectedStarterId: AppWriterStarterId;
+  files: AppWriterWorkspaceFile[];
+  generationPlan: AppGenerationPlanStep[];
+  validationFindings: AppGenerationValidationFinding[];
+  repairAttemptCount: number;
+  updatedAt: string;
+}
+
 export interface AppGenerationModelRequestMetadata {
   provider: string;
   model: string | null;
@@ -140,6 +198,7 @@ export interface AppPackageGenerationInput {
   requestedAppId: string | null;
   selectedStarterId: AppWriterStarterId;
   selectedContext: Record<string, unknown>;
+  authoringMode: AppWriterAuthoringMode;
   createdAt: string;
 }
 
@@ -173,7 +232,35 @@ export interface AppPackageSourceCompileResult {
 }
 
 export interface AppPackageSourceCompiler {
+  supportsTypeScriptAuthoring: boolean;
   compile(input: AppPackageSourceCompileInput): Promise<AppPackageSourceCompileResult>;
+}
+
+export interface AppGenerationPlanningResult {
+  normalizedRequest: AppGenerationNormalizedRequest;
+  appPlan: AppGenerationPlan;
+  selectedStarterId: AppWriterStarterId;
+  progressUpdates: AppGenerationProgressUpdate[];
+  notes: string[];
+  modelRequestMetadata?: AppGenerationModelRequestMetadata[];
+}
+
+export interface AppPackageFileGenerationInput extends AppPackageGenerationInput {
+  planning: AppGenerationPlanningResult;
+}
+
+export interface AppPackageFileGenerationResult {
+  files: AppWriterWorkspaceFile[];
+  progressUpdates: AppGenerationProgressUpdate[];
+  notes: string[];
+  validationFindings: AppGenerationValidationFinding[];
+  modelRequestMetadata?: AppGenerationModelRequestMetadata[];
+}
+
+export interface AppWorkspaceFileEditResult {
+  fileEdits: AppWriterWorkspaceFile[];
+  progressUpdates: AppGenerationProgressUpdate[];
+  notes: string[];
 }
 
 export interface AppPackageGenerationResult {

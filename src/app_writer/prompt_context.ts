@@ -86,7 +86,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
     source: 'APP_PACKAGE_SPEC.md#Package Layout',
     required: true,
     content:
-      'Generate a reviewed Lantern app package, not a Cloudflare Worker, LMS tool, or backend service. The app-writer baseline output is manifest.json, dist/index.html, dist/app.js, content/activity.json, preview/fixtures.json, and preview/tests.json. Return browser-ready JavaScript in dist/app.js.',
+      'Generate a reviewed Lantern app package, not a Cloudflare Worker, LMS tool, or backend service. Published packages contain manifest.json, dist/index.html, dist/app.js, content/activity.json, preview/fixtures.json, and preview/tests.json. In TypeScript authoring mode, return source/app.ts and source/content_model.ts; Lantern compiles source/app.ts into dist/app.js.',
   },
   {
     id: 'runtime-boundary',
@@ -105,12 +105,12 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
       'Use window.GatewayApp as the only runtime API. Available methods are getLaunchContext(), getActivityContent<T>(), readLocalState<T>(), writeLocalState<T>(value), emitAttemptEvent(event), submitEvidenceArtifact(input), submitScoreProposal(input), runBrowserGrader(), and finalizeAttempt(input). Manifest capabilities must be the minimum set that matches the SDK calls.',
   },
   {
-    id: 'typescript-authoring',
+    id: 'runtime-source-authoring',
     title: 'Browser runtime source',
     source: 'AUTHORING_FOR_LLMS.md#Required Output',
     required: true,
     content:
-      'Write plain browser JavaScript in dist/app.js. Do not use imports, external packages, build steps, TypeScript-only syntax, any, eval, Function, or module exports. Keep content data in content/activity.json with stable IDs for learner-facing items. dist/app.js should render the app, call GatewayApp methods, and handle denied mutation results clearly.',
+      'Follow the requested authoringMode. In javascript mode, write plain browser JavaScript in dist/app.js. In typescript mode, write source/app.ts plus source/content_model.ts and do not hand-write dist/app.js. Do not use imports, external packages, any, eval, Function, or module exports. Keep content data in content/activity.json with stable IDs for learner-facing items.',
   },
   {
     id: 'state-progress-reporting',

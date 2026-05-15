@@ -1,4 +1,7 @@
 import type {
+  AppGenerationPlanningResult,
+  AppPackageFileGenerationInput,
+  AppPackageFileGenerationResult,
   AppPackageGenerationInput,
   AppPackageGenerationResult,
   AppPackageRepairInput,
@@ -7,6 +10,8 @@ import type {
 export interface AppPackageGenerator {
   generate(input: AppPackageGenerationInput): Promise<AppPackageGenerationResult>;
   repair?(input: AppPackageRepairInput): Promise<AppPackageGenerationResult>;
+  plan?(input: AppPackageGenerationInput): Promise<AppGenerationPlanningResult>;
+  generateFiles?(input: AppPackageFileGenerationInput): Promise<AppPackageFileGenerationResult>;
 }
 
 export function createFakeAppPackageGenerator(

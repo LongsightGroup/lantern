@@ -1,10 +1,14 @@
 import type { PackageReviewRepository } from '../package_review/repository.ts';
-import type { AppGenerationRunRecord } from '../app_writer/types.ts';
+import type { AppGenerationRunRecord, AppGenerationWorkspaceRecord } from '../app_writer/types.ts';
 import { cloneRecord, type InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
 
 type AppGenerationRepository = Pick<
   PackageReviewRepository,
-  'createAppGenerationRun' | 'getAppGenerationRunById' | 'updateAppGenerationRun'
+  | 'createAppGenerationRun'
+  | 'getAppGenerationRunById'
+  | 'updateAppGenerationRun'
+  | 'saveAppGenerationWorkspace'
+  | 'getAppGenerationWorkspaceByGenerationId'
 >;
 
 export function createInMemoryAppGenerationRepository(
@@ -50,6 +54,29 @@ export function createInMemoryAppGenerationRepository(
 
       return Promise.resolve(cloneRecord(record));
     },
+
+    saveAppGenerationWorkspace(record) {
+      const index = state.appGenerationWorkspaces.findIndex(
+        (candidate) => candidate.generationId === record.generationId,
+      );
+      const clone = cloneRecord(record);
+
+      if (index < 0) {
+        state.appGenerationWorkspaces.push(clone);
+      } else {
+        state.appGenerationWorkspaces.splice(index, 1, clone);
+      }
+
+      return Promise.resolve(cloneRecord(record));
+    },
+
+    getAppGenerationWorkspaceByGenerationId(generationId) {
+      const record = state.appGenerationWorkspaces.find(
+        (candidate) => candidate.generationId === generationId,
+      );
+
+      return Promise.resolve(record ? cloneRecord(record) : null);
+    },
   };
 }
 
@@ -74,6 +101,21 @@ export function buildAppGenerationRunRecord(
     validationFindings: [],
     repairAttemptCount: 0,
     createdAt: '2026-05-14T12:00:00.000Z',
+    updatedAt: '2026-05-14T12:00:00.000Z',
+    ...overrides,
+  };
+}
+
+export function buildAppGenerationWorkspaceRecord(
+  overrides: Partial<AppGenerationWorkspaceRecord> = {},
+): AppGenerationWorkspaceRecord {
+  return {
+    generationId: 'generation-1',
+    selectedStarterId: 'simple-activity',
+    files: [],
+    generationPlan: [],
+    validationFindings: [],
+    repairAttemptCount: 0,
     updatedAt: '2026-05-14T12:00:00.000Z',
     ...overrides,
   };

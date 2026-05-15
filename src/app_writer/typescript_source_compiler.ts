@@ -1,4 +1,4 @@
-import ts from 'npm:typescript@5.9.3';
+import ts from 'https://esm.sh/typescript@5.9.3?bundle';
 import type {
   AppGenerationPlan,
   AppGenerationValidationFinding,
@@ -10,23 +10,29 @@ const SOURCE_APP_PATH = 'source/app.ts';
 const SOURCE_CONTENT_MODEL_PATH = 'source/content_model.ts';
 const GENERATED_SDK_DECLARATION_PATH = 'source/lantern-sdk.d.ts';
 const DIST_APP_PATH = 'dist/app.js';
+const TYPESCRIPT_LIBRARY_BASE_URL = 'https://esm.sh/typescript@5.9.3/lib/';
+const TYPESCRIPT_ROOT_LIBRARY_FILES = ['lib.es2022.d.ts', 'lib.dom.d.ts'] as const;
+const TYPESCRIPT_LIBRARY_REFERENCE_PATTERN = /\/\/\/\s*<reference\s+lib="([^"]+)"/g;
+
+let compilerLibraryFilesPromise: Promise<ReadonlyMap<string, string>> | null = null;
 
 export function createTypeScriptAppPackageSourceCompiler(): AppPackageSourceCompiler {
   return {
-    compile(input) {
-      return Promise.resolve(compileTypeScriptWorkspace(input.appPlan, input.files));
+    supportsTypeScriptAuthoring: true,
+    async compile(input) {
+      return await compileTypeScriptWorkspace(input.appPlan, input.files);
     },
   };
 }
 
-function compileTypeScriptWorkspace(
+async function compileTypeScriptWorkspace(
   appPlan: AppGenerationPlan,
   files: readonly AppWriterWorkspaceFile[],
-): {
+): Promise<{
   files: AppWriterWorkspaceFile[];
   validationFindings: AppGenerationValidationFinding[];
   notes: string[];
-} {
+}> {
   const normalizedFiles = new Map(
     files.map((file) => [
       normalizeWorkspacePath(file.path),
@@ -60,7 +66,7 @@ function compileTypeScriptWorkspace(
     [SOURCE_CONTENT_MODEL_PATH, contentModel.contents],
     [GENERATED_SDK_DECLARATION_PATH, buildSdkDeclaration(appPlan)],
   ]);
-  const diagnostics = collectTypeScriptDiagnostics(sourceFiles);
+  const diagnostics = collectTypeScriptDiagnostics(sourceFiles, await loadCompilerLibraryFiles());
 
   if (diagnostics.length > 0) {
     return {
@@ -94,15 +100,24 @@ function compileTypeScriptWorkspace(
 
 function collectTypeScriptDiagnostics(
   sourceFiles: ReadonlyMap<string, string>,
+  libraryFiles: ReadonlyMap<string, string>,
 ): AppGenerationValidationFinding[] {
   const defaultHost = ts.createCompilerHost(compilerOptions(), true);
   const host: ts.CompilerHost = {
     ...defaultHost,
     fileExists(fileName) {
-      return sourceFiles.has(normalizeWorkspacePath(fileName)) || defaultHost.fileExists(fileName);
+      return (
+        sourceFiles.has(normalizeWorkspacePath(fileName)) ||
+        libraryFiles.has(normalizeLibraryPath(fileName)) ||
+        defaultHost.fileExists(fileName)
+      );
     },
     readFile(fileName) {
-      return sourceFiles.get(normalizeWorkspacePath(fileName)) ?? defaultHost.readFile(fileName);
+      return (
+        sourceFiles.get(normalizeWorkspacePath(fileName)) ??
+        libraryFiles.get(normalizeLibraryPath(fileName)) ??
+        defaultHost.readFile(fileName)
+      );
     },
     getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile) {
       const normalized = normalizeWorkspacePath(fileName);
@@ -112,12 +127,21 @@ function collectTypeScriptDiagnostics(
         return ts.createSourceFile(fileName, sourceText, languageVersion, true);
       }
 
+      const libraryText = libraryFiles.get(normalizeLibraryPath(fileName));
+
+      if (libraryText !== undefined) {
+        return ts.createSourceFile(fileName, libraryText, languageVersion, true);
+      }
+
       return defaultHost.getSourceFile(
         fileName,
         languageVersion,
         onError,
         shouldCreateNewSourceFile,
       );
+    },
+    getDefaultLibLocation() {
+      return '/';
     },
     writeFile() {},
   };
@@ -131,6 +155,56 @@ function collectTypeScriptDiagnostics(
     .getPreEmitDiagnostics(program)
     .filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error)
     .map(mapDiagnosticToFinding);
+}
+
+async function loadCompilerLibraryFiles(): Promise<ReadonlyMap<string, string>> {
+  if (compilerLibraryFilesPromise === null) {
+    compilerLibraryFilesPromise = fetchCompilerLibraryFiles();
+  }
+
+  return await compilerLibraryFilesPromise;
+}
+
+async function fetchCompilerLibraryFiles(): Promise<ReadonlyMap<string, string>> {
+  const files = new Map<string, string>();
+  const pending: string[] = [...TYPESCRIPT_ROOT_LIBRARY_FILES];
+
+  for (let index = 0; index < pending.length; index += 1) {
+    const fileName = pending[index];
+
+    if (fileName === undefined || files.has(fileName)) {
+      continue;
+    }
+
+    const contents = await fetchCompilerLibraryFile(fileName);
+    files.set(fileName, contents);
+
+    for (const referencedFile of listReferencedLibraryFiles(contents)) {
+      if (!files.has(referencedFile) && !pending.includes(referencedFile)) {
+        pending.push(referencedFile);
+      }
+    }
+  }
+
+  return files;
+}
+
+async function fetchCompilerLibraryFile(fileName: string): Promise<string> {
+  const response = await fetch(`${TYPESCRIPT_LIBRARY_BASE_URL}${fileName}`);
+
+  if (!response.ok) {
+    throw new Error(
+      `Lantern TypeScript compiler could not load ${fileName}: ${response.status} ${response.statusText}.`,
+    );
+  }
+
+  return await response.text();
+}
+
+function listReferencedLibraryFiles(contents: string): string[] {
+  return [...contents.matchAll(TYPESCRIPT_LIBRARY_REFERENCE_PATTERN)].map(
+    (match) => `lib.${match[1]}.d.ts`,
+  );
 }
 
 function mapDiagnosticToFinding(diagnostic: ts.Diagnostic): AppGenerationValidationFinding {
@@ -279,4 +353,8 @@ function normalizeWorkspacePath(path: string): string {
     .trim()
     .replaceAll(/^\/+|\/+$/g, '')
     .replaceAll(/\/+/g, '/');
+}
+
+function normalizeLibraryPath(path: string): string {
+  return normalizeWorkspacePath(path).split('/').at(-1) ?? '';
 }

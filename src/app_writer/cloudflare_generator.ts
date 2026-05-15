@@ -1,10 +1,25 @@
 import type { AppPackageGenerator } from './package_generator.ts';
-import { parseAppPackageGenerationResultJson } from './model_output.ts';
+import { parseAppGenerationPlanningResultJson } from './model_output.ts';
+import {
+  APP_WRITER_BASELINE_PACKAGE_FILES,
+  APP_WRITER_TYPESCRIPT_AUTHORING_FILES,
+  applyWorkspaceFileEdits,
+  buildAppWriterStarterWorkspace,
+  validateBaselineFileEdits,
+} from './starter_workspace.ts';
 import type {
   AppGenerationModelRequestMetadata,
+  AppGenerationPlanningResult,
+  AppGenerationProgressUpdate,
+  AppGenerationValidationFinding,
+  AppPackageFileGenerationInput,
+  AppPackageFileGenerationResult,
   AppPackageGenerationInput,
   AppPackageGenerationResult,
   AppPackageRepairInput,
+  AppWriterAuthoringMode,
+  AppWriterStarterId,
+  AppWriterWorkspaceFile,
 } from './types.ts';
 
 export interface CloudflareAiMessage {
@@ -17,7 +32,7 @@ export interface CloudflareAiBinding {
     model: string,
     input: {
       messages: CloudflareAiMessage[];
-      response_format: { type: 'json_object' };
+      response_format?: { type: 'json_object' };
       stream: true;
     },
   ): Promise<unknown>;
@@ -31,26 +46,48 @@ export function createCloudflareAppPackageGenerator(input: {
 }): AppPackageGenerator {
   const maxResponseCharacters = input.maxResponseCharacters ?? DEFAULT_MAX_RESPONSE_CHARACTERS;
   const modelRequestTimeoutMs = input.modelRequestTimeoutMs ?? DEFAULT_MODEL_REQUEST_TIMEOUT_MS;
+  const plan = (generationInput: AppPackageGenerationInput) =>
+    runCloudflarePlanningRequest({
+      ai: input.ai,
+      model: input.model,
+      maxResponseCharacters,
+      modelRequestTimeoutMs,
+      generationInput,
+    });
+  const generateFiles = (fileInput: AppPackageFileGenerationInput) =>
+    runCloudflareFileGenerationRequest({
+      ai: input.ai,
+      model: input.model,
+      maxResponseCharacters,
+      modelRequestTimeoutMs,
+      fileInput,
+    });
 
   return {
     async generate(generationInput) {
-      return await runCloudflareGenerationRequest({
-        ai: input.ai,
-        model: input.model,
-        maxResponseCharacters,
-        modelRequestTimeoutMs,
-        messages: buildGenerationMessages(generationInput),
+      const planning = await plan(generationInput);
+      const fileGeneration = await generateFiles({
+        ...generationInput,
+        planning,
+      });
+
+      return assembleGenerationResult({
+        planning,
+        fileGeneration,
+        includePlanningProgress: true,
       });
     },
     async repair(repairInput) {
-      return await runCloudflareGenerationRequest({
+      return await runCloudflareRepairRequest({
         ai: input.ai,
         model: input.model,
         maxResponseCharacters,
         modelRequestTimeoutMs,
-        messages: buildRepairMessages(repairInput),
+        repairInput,
       });
     },
+    plan,
+    generateFiles,
   };
 }
 
@@ -62,7 +99,7 @@ export function isCloudflareAiBinding(value: unknown): value is CloudflareAiBind
   );
 }
 
-function buildGenerationMessages(input: AppPackageGenerationInput): CloudflareAiMessage[] {
+function buildPlanningMessages(input: AppPackageGenerationInput): CloudflareAiMessage[] {
   return [
     {
       role: 'system',
@@ -71,65 +108,409 @@ function buildGenerationMessages(input: AppPackageGenerationInput): CloudflareAi
     {
       role: 'user',
       content: JSON.stringify({
-        task: 'generate_lantern_app_package',
+        task: 'plan_lantern_app_package',
         generationId: input.generationId,
         ownerId: input.ownerId,
         requestedAppId: input.requestedAppId,
         selectedStarterId: input.selectedStarterId,
+        authoringMode: input.authoringMode,
         selectedContext: input.selectedContext,
+        appWriterRecipe: readAppWriterRecipe(input.selectedContext),
         promptContext: readPromptContextExcerpts(input.selectedContext),
         promptContextRules: PROMPT_CONTEXT_RULES,
         instructorPrompt: input.promptText,
-        outputContract: OUTPUT_CONTRACT,
+        outputContract: PLANNING_OUTPUT_CONTRACT,
       }),
     },
   ];
 }
 
-function buildRepairMessages(input: AppPackageRepairInput): CloudflareAiMessage[] {
+interface WorkspaceFileGenerationTarget {
+  path: string;
+  purpose: string;
+}
+
+function buildSingleFileGenerationMessages(input: {
+  generationInput: AppPackageGenerationInput;
+  planning: AppGenerationPlanningResult;
+  starterWorkspace: ReturnType<typeof buildAppWriterStarterWorkspace>;
+  currentFiles: readonly AppWriterWorkspaceFile[];
+  target: WorkspaceFileGenerationTarget;
+}): CloudflareAiMessage[] {
   return [
     {
       role: 'system',
-      content: SYSTEM_PROMPT,
+      content: RAW_FILE_SYSTEM_PROMPT,
     },
     {
       role: 'user',
       content: JSON.stringify({
-        task: 'repair_lantern_app_package',
-        generationId: input.generationId,
-        repairAttempt: input.repairAttempt,
-        selectedStarterId: input.selectedStarterId,
-        selectedContext: input.selectedContext,
-        promptContext: readPromptContextExcerpts(input.selectedContext),
+        task: 'write_lantern_app_workspace_file',
+        generationId: input.generationInput.generationId,
+        selectedStarterId: input.generationInput.selectedStarterId,
+        authoringMode: input.generationInput.authoringMode,
+        selectedContext: input.generationInput.selectedContext,
+        appWriterRecipe: readAppWriterRecipe(input.generationInput.selectedContext),
+        promptContext: readPromptContextExcerpts(input.generationInput.selectedContext),
         promptContextRules: PROMPT_CONTEXT_RULES,
-        instructorPrompt: input.promptText,
-        previousResult: input.previousResult,
-        validationFindings: input.validationFindings,
-        outputContract: OUTPUT_CONTRACT,
+        instructorPrompt: input.generationInput.promptText,
+        normalizedRequest: input.planning.normalizedRequest,
+        appPlan: input.planning.appPlan,
+        starterWorkspace: {
+          starterId: input.starterWorkspace.starterId,
+          instructions: input.starterWorkspace.instructions,
+          availablePaths: input.currentFiles.map((file) => file.path),
+        },
+        targetFile: input.target,
+        relatedWorkspaceFiles: selectRelatedWorkspaceFiles({
+          files: input.currentFiles,
+          targetPath: input.target.path,
+        }),
+        outputContract: buildRawFileOutputContract({
+          authoringMode: input.generationInput.authoringMode,
+          target: input.target,
+        }),
       }),
     },
   ];
 }
 
-async function runCloudflareGenerationRequest(input: {
+function buildSingleFileRepairMessages(input: {
+  repairInput: AppPackageRepairInput;
+  currentFiles: readonly AppWriterWorkspaceFile[];
+  target: WorkspaceFileGenerationTarget;
+}): CloudflareAiMessage[] {
+  const starterWorkspace = buildAppWriterStarterWorkspace(
+    input.repairInput.selectedStarterId,
+    input.repairInput.authoringMode,
+  );
+
+  return [
+    {
+      role: 'system',
+      content: RAW_FILE_SYSTEM_PROMPT,
+    },
+    {
+      role: 'user',
+      content: JSON.stringify({
+        task: 'repair_lantern_app_workspace_file',
+        generationId: input.repairInput.generationId,
+        repairAttempt: input.repairInput.repairAttempt,
+        selectedStarterId: input.repairInput.selectedStarterId,
+        authoringMode: input.repairInput.authoringMode,
+        selectedContext: input.repairInput.selectedContext,
+        appWriterRecipe: readAppWriterRecipe(input.repairInput.selectedContext),
+        promptContext: readPromptContextExcerpts(input.repairInput.selectedContext),
+        promptContextRules: PROMPT_CONTEXT_RULES,
+        instructorPrompt: input.repairInput.promptText,
+        normalizedRequest: input.repairInput.previousResult.normalizedRequest,
+        appPlan: input.repairInput.previousResult.appPlan,
+        starterWorkspaceInstructions: starterWorkspace.instructions,
+        targetFile: input.target,
+        relatedWorkspaceFiles: selectRelatedWorkspaceFiles({
+          files: input.currentFiles,
+          targetPath: input.target.path,
+        }),
+        validationFindings: filterRepairFindingsForTarget(
+          input.repairInput.validationFindings,
+          input.target.path,
+        ),
+        outputContract: buildRawFileOutputContract({
+          authoringMode: input.repairInput.authoringMode,
+          target: input.target,
+        }),
+      }),
+    },
+  ];
+}
+
+async function runCloudflarePlanningRequest(input: {
+  ai: CloudflareAiBinding;
+  model: string;
+  maxResponseCharacters: number;
+  modelRequestTimeoutMs: number;
+  generationInput: AppPackageGenerationInput;
+}): Promise<AppGenerationPlanningResult> {
+  const planningAttempt = await runCloudflareParsedRequest({
+    ai: input.ai,
+    model: input.model,
+    maxResponseCharacters: input.maxResponseCharacters,
+    modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+    messages: buildPlanningMessages(input.generationInput),
+    parse: parseAppGenerationPlanningResultJson,
+    repairContract: PLANNING_OUTPUT_CONTRACT,
+    repairRules: PLANNING_CONTRACT_REPAIR_RULES,
+  });
+
+  return {
+    ...planningAttempt.parsed,
+    modelRequestMetadata: planningAttempt.metadata,
+  };
+}
+
+async function runCloudflareFileGenerationRequest(input: {
+  ai: CloudflareAiBinding;
+  model: string;
+  maxResponseCharacters: number;
+  modelRequestTimeoutMs: number;
+  fileInput: AppPackageFileGenerationInput;
+}): Promise<AppPackageFileGenerationResult> {
+  const starterWorkspace = buildAppWriterStarterWorkspace(
+    input.fileInput.selectedStarterId,
+    input.fileInput.authoringMode,
+  );
+  const fileEdits: AppWriterWorkspaceFile[] = [];
+  const progressUpdates: AppGenerationProgressUpdate[] = [];
+  const notes: string[] = [];
+  let currentFiles = starterWorkspace.files;
+  let modelRequestMetadata: AppGenerationModelRequestMetadata[] = [];
+
+  for (const target of buildWorkspaceFileGenerationTargets({
+    starterId: input.fileInput.selectedStarterId,
+    authoringMode: input.fileInput.authoringMode,
+    starterFiles: starterWorkspace.files,
+  })) {
+    const fileAttempt = await runCloudflareSingleFileRequest({
+      ai: input.ai,
+      model: input.model,
+      maxResponseCharacters: input.maxResponseCharacters,
+      modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+      messages: buildSingleFileGenerationMessages({
+        generationInput: input.fileInput,
+        planning: input.fileInput.planning,
+        starterWorkspace,
+        currentFiles,
+        target,
+      }),
+      targetPath: target.path,
+      progressStage: 'building_package',
+    });
+
+    fileEdits.push(fileAttempt.file);
+    progressUpdates.push(...fileAttempt.progressUpdates);
+    notes.push(...fileAttempt.notes);
+    modelRequestMetadata = [...modelRequestMetadata, ...fileAttempt.modelRequestMetadata];
+    currentFiles = applyWorkspaceFileEdits({
+      baseFiles: currentFiles,
+      fileEdits: [fileAttempt.file],
+    });
+  }
+  const missingBaselineEdits = validateBaselineFileEdits(fileEdits, input.fileInput.authoringMode);
+
+  if (missingBaselineEdits.length > 0) {
+    throw new Error(
+      `App package file writer omitted required scaffold edits: ${missingBaselineEdits.join(
+        ', ',
+      )}.`,
+    );
+  }
+
+  return {
+    files: currentFiles,
+    progressUpdates: selectModelProgressUpdates(progressUpdates),
+    notes,
+    validationFindings: [],
+    modelRequestMetadata,
+  };
+}
+
+function assembleGenerationResult(input: {
+  planning: AppGenerationPlanningResult;
+  fileGeneration: AppPackageFileGenerationResult;
+  includePlanningProgress: boolean;
+}): AppPackageGenerationResult {
+  return {
+    normalizedRequest: input.planning.normalizedRequest,
+    appPlan: input.planning.appPlan,
+    selectedStarterId: input.planning.selectedStarterId,
+    files: input.fileGeneration.files,
+    progressUpdates: mergeProgressUpdates(
+      input.includePlanningProgress
+        ? [...input.planning.progressUpdates, ...input.fileGeneration.progressUpdates]
+        : input.fileGeneration.progressUpdates,
+    ),
+    notes: [...input.planning.notes, ...input.fileGeneration.notes],
+    validationFindings: input.fileGeneration.validationFindings,
+    modelRequestMetadata: [
+      ...(input.planning.modelRequestMetadata ?? []),
+      ...(input.fileGeneration.modelRequestMetadata ?? []),
+    ],
+  };
+}
+
+async function runCloudflareRepairRequest(input: {
+  ai: CloudflareAiBinding;
+  model: string;
+  maxResponseCharacters: number;
+  modelRequestTimeoutMs: number;
+  repairInput: AppPackageRepairInput;
+}): Promise<AppPackageGenerationResult> {
+  let currentFiles = input.repairInput.previousResult.files;
+  const progressUpdates: AppGenerationProgressUpdate[] = [];
+  const notes: string[] = [];
+  let modelRequestMetadata: AppGenerationModelRequestMetadata[] = [];
+
+  for (const target of buildRepairFileGenerationTargets(input.repairInput)) {
+    const fileAttempt = await runCloudflareSingleFileRequest({
+      ai: input.ai,
+      model: input.model,
+      maxResponseCharacters: input.maxResponseCharacters,
+      modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+      messages: buildSingleFileRepairMessages({
+        repairInput: input.repairInput,
+        currentFiles,
+        target,
+      }),
+      targetPath: target.path,
+      progressStage: 'repairing_package',
+    });
+
+    progressUpdates.push(...fileAttempt.progressUpdates);
+    notes.push(...fileAttempt.notes);
+    modelRequestMetadata = [...modelRequestMetadata, ...fileAttempt.modelRequestMetadata];
+    currentFiles = applyWorkspaceFileEdits({
+      baseFiles: currentFiles,
+      fileEdits: [fileAttempt.file],
+    });
+  }
+
+  return {
+    ...input.repairInput.previousResult,
+    files: currentFiles,
+    progressUpdates: selectModelProgressUpdates(progressUpdates),
+    notes: [...input.repairInput.previousResult.notes, ...notes],
+    validationFindings: [],
+    modelRequestMetadata,
+  };
+}
+
+async function runCloudflareSingleFileRequest(input: {
   ai: CloudflareAiBinding;
   model: string;
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
   messages: CloudflareAiMessage[];
-}): Promise<AppPackageGenerationResult> {
-  const firstAttempt = await runCloudflareModelTextRequest({
+  targetPath: string;
+  progressStage: 'building_package' | 'repairing_package';
+}): Promise<{
+  file: AppWriterWorkspaceFile;
+  progressUpdates: AppGenerationProgressUpdate[];
+  notes: string[];
+  modelRequestMetadata: AppGenerationModelRequestMetadata[];
+}> {
+  const fileAttempt = await runCloudflareRawFileRequest({
     ai: input.ai,
     model: input.model,
     maxResponseCharacters: input.maxResponseCharacters,
     modelRequestTimeoutMs: input.modelRequestTimeoutMs,
     messages: input.messages,
   });
+  const contents = normalizeRawModelFileContents(fileAttempt.responseText);
+  const file = {
+    path: input.targetPath,
+    contents,
+  };
+
+  return {
+    file,
+    progressUpdates: [
+      {
+        stage: input.progressStage,
+        message: formatFileProgressMessage(input.targetPath, input.progressStage),
+      },
+    ],
+    notes: [`Wrote ${input.targetPath} from raw model file output.`],
+    modelRequestMetadata: [fileAttempt.metadata],
+  };
+}
+
+async function runCloudflareRawFileRequest(input: {
+  ai: CloudflareAiBinding;
+  model: string;
+  maxResponseCharacters: number;
+  modelRequestTimeoutMs: number;
+  messages: CloudflareAiMessage[];
+}): Promise<{
+  response: unknown;
+  responseText: string;
+  metadata: AppGenerationModelRequestMetadata;
+}> {
+  const attempt = await runCloudflareModelTextRequest({
+    ai: input.ai,
+    model: input.model,
+    maxResponseCharacters: input.maxResponseCharacters,
+    modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+    messages: input.messages,
+    responseFormat: 'text',
+  });
+
+  return {
+    response: attempt.response,
+    responseText: attempt.responseText,
+    metadata: buildModelRequestMetadata({
+      model: input.model,
+      response: attempt.response,
+      responseCharacters: attempt.responseText.length,
+      durationMs: attempt.durationMs,
+    }),
+  };
+}
+
+function normalizeRawModelFileContents(text: string): string {
+  const contents = stripMarkdownCodeFence(text);
+
+  if (contents.trim() === '') {
+    throw new Error('App package file writer returned empty file contents.');
+  }
+
+  return contents;
+}
+
+function stripMarkdownCodeFence(text: string): string {
+  const trimmed = text.trim();
+  const fenced = trimmed.match(/^```(?:[a-z0-9_-]+)?\s*\n?([\s\S]*?)\n?```$/i);
+
+  if (fenced === null) {
+    return text;
+  }
+
+  return fenced[1] ?? '';
+}
+
+function formatFileProgressMessage(
+  targetPath: string,
+  stage: 'building_package' | 'repairing_package',
+): string {
+  const verb = stage === 'repairing_package' ? 'Repairing' : 'Writing';
+
+  return `${verb} ${targetPath} in the Lantern starter workspace.`;
+}
+
+async function runCloudflareParsedRequest<T>(input: {
+  ai: CloudflareAiBinding;
+  model: string;
+  maxResponseCharacters: number;
+  modelRequestTimeoutMs: number;
+  messages: CloudflareAiMessage[];
+  parse: (text: string) => T;
+  repairContract: unknown;
+  repairRules: readonly string[];
+}): Promise<{ parsed: T; metadata: AppGenerationModelRequestMetadata[] }> {
+  const firstAttempt = await runCloudflareModelTextRequest({
+    ai: input.ai,
+    model: input.model,
+    maxResponseCharacters: input.maxResponseCharacters,
+    modelRequestTimeoutMs: input.modelRequestTimeoutMs,
+    messages: input.messages,
+    responseFormat: 'json',
+  });
   const attempts = [firstAttempt];
-  let parsed: AppPackageGenerationResult;
 
   try {
-    parsed = parseAppPackageGenerationResultJson(firstAttempt.responseText);
+    return {
+      parsed: input.parse(firstAttempt.responseText),
+      metadata: buildModelRequestMetadataList(input.model, attempts),
+    };
   } catch (error) {
     const repairAttempt = await runCloudflareModelTextRequest({
       ai: input.ai,
@@ -140,23 +521,266 @@ async function runCloudflareGenerationRequest(input: {
         originalMessages: input.messages,
         previousOutput: firstAttempt.responseText,
         error,
+        outputContract: input.repairContract,
+        repairRules: input.repairRules,
       }),
+      responseFormat: 'json',
     });
     attempts.push(repairAttempt);
-    parsed = parseAppPackageGenerationResultJson(repairAttempt.responseText);
+
+    return {
+      parsed: input.parse(repairAttempt.responseText),
+      metadata: buildModelRequestMetadataList(input.model, attempts),
+    };
+  }
+}
+
+function buildModelRequestMetadataList(
+  model: string,
+  attempts: readonly {
+    response: unknown;
+    responseText: string;
+    durationMs: number;
+  }[],
+): AppGenerationModelRequestMetadata[] {
+  return attempts.map((attempt) =>
+    buildModelRequestMetadata({
+      model,
+      response: attempt.response,
+      responseCharacters: attempt.responseText.length,
+      durationMs: attempt.durationMs,
+    }),
+  );
+}
+
+function buildWorkspaceFileGenerationTargets(input: {
+  starterId: AppWriterStarterId;
+  authoringMode: AppWriterAuthoringMode;
+  starterFiles: readonly AppWriterWorkspaceFile[];
+}): WorkspaceFileGenerationTarget[] {
+  const requiredPaths =
+    input.authoringMode === 'typescript'
+      ? APP_WRITER_TYPESCRIPT_AUTHORING_FILES
+      : APP_WRITER_BASELINE_PACKAGE_FILES;
+  const paths = new Set<string>(requiredPaths);
+
+  for (const file of input.starterFiles) {
+    if (input.authoringMode === 'typescript' && file.path === 'dist/app.js') {
+      continue;
+    }
+
+    paths.add(file.path);
   }
 
-  return {
-    ...parsed,
-    modelRequestMetadata: attempts.map((attempt) =>
-      buildModelRequestMetadata({
-        model: input.model,
-        response: attempt.response,
-        responseCharacters: attempt.responseText.length,
-        durationMs: attempt.durationMs,
+  return [...paths].sort(compareWorkspaceFileGenerationPaths).map((path) => ({
+    path,
+    purpose: describeWorkspaceFilePurpose({
+      path,
+      starterId: input.starterId,
+      authoringMode: input.authoringMode,
+    }),
+  }));
+}
+
+function buildRepairFileGenerationTargets(
+  input: AppPackageRepairInput,
+): WorkspaceFileGenerationTarget[] {
+  const existingPaths = new Set(input.previousResult.files.map((file) => file.path));
+  const targetPaths = new Set<string>();
+  let needsBroadRepair = false;
+
+  for (const finding of input.validationFindings) {
+    const path = typeof finding.file === 'string' ? finding.file.trim() : '';
+
+    if (path === '') {
+      needsBroadRepair = true;
+      continue;
+    }
+
+    targetPaths.add(path);
+
+    if (finding.code === 'sdk_capability_missing') {
+      targetPaths.add('manifest.json');
+    }
+  }
+
+  if (needsBroadRepair || targetPaths.size === 0) {
+    for (const path of input.authoringMode === 'typescript'
+      ? APP_WRITER_TYPESCRIPT_AUTHORING_FILES
+      : APP_WRITER_BASELINE_PACKAGE_FILES) {
+      targetPaths.add(path);
+    }
+  }
+
+  return [...targetPaths]
+    .filter((path) => existingPaths.has(path) || isRequiredAuthoringPath(path, input.authoringMode))
+    .sort(compareWorkspaceFileGenerationPaths)
+    .map((path) => ({
+      path,
+      purpose: describeWorkspaceFilePurpose({
+        path,
+        starterId: input.selectedStarterId,
+        authoringMode: input.authoringMode,
       }),
-    ),
-  };
+    }));
+}
+
+function isRequiredAuthoringPath(path: string, authoringMode: AppWriterAuthoringMode): boolean {
+  const requiredPaths: readonly string[] =
+    authoringMode === 'typescript'
+      ? APP_WRITER_TYPESCRIPT_AUTHORING_FILES
+      : APP_WRITER_BASELINE_PACKAGE_FILES;
+
+  return requiredPaths.includes(path);
+}
+
+function compareWorkspaceFileGenerationPaths(left: string, right: string): number {
+  const leftOrder = workspaceFileGenerationOrder(left);
+  const rightOrder = workspaceFileGenerationOrder(right);
+
+  return leftOrder === rightOrder ? left.localeCompare(right) : leftOrder - rightOrder;
+}
+
+function workspaceFileGenerationOrder(path: string): number {
+  switch (path) {
+    case 'manifest.json':
+      return 10;
+    case 'content/activity.json':
+      return 20;
+    case 'source/content_model.ts':
+      return 30;
+    case 'dist/index.html':
+      return 40;
+    case 'source/app.ts':
+    case 'dist/app.js':
+      return 50;
+    case 'dist/app.css':
+      return 60;
+    case 'preview/fixtures.json':
+      return 70;
+    case 'preview/tests.json':
+      return 80;
+    case 'scoring/rubric.json':
+      return 85;
+    case 'evidence/example-output.json':
+      return 95;
+    default:
+      return path.startsWith('grading/specs/') ? 90 : 100;
+  }
+}
+
+function describeWorkspaceFilePurpose(input: {
+  path: string;
+  starterId: AppWriterStarterId;
+  authoringMode: AppWriterAuthoringMode;
+}): string {
+  switch (input.path) {
+    case 'manifest.json':
+      return 'Declare package metadata, capabilities, grading, content files, and preview files exactly matching the validated app plan.';
+    case 'content/activity.json':
+      return 'Store the complete instructor-requested learning content and any data the browser app needs to render the activity.';
+    case 'source/content_model.ts':
+      return 'Define strict global TypeScript interfaces matching content/activity.json. Do not import or export modules.';
+    case 'source/app.ts':
+      return 'Implement the typed browser learner experience using only window.GatewayApp methods allowed by the plan.';
+    case 'dist/index.html':
+      return 'Provide the minimal browser shell with a stable app root, local CSS references, and the local app script.';
+    case 'dist/app.js':
+      return 'Implement the browser learner experience using only window.GatewayApp methods allowed by the plan.';
+    case 'dist/app.css':
+      return 'Style the generated learning activity with accessible, quiet, responsive CSS without external assets.';
+    case 'preview/fixtures.json':
+      return 'Provide deterministic Lantern preview launch, attempt, and local-state fixture data for this app.';
+    case 'preview/tests.json':
+      return 'Provide deterministic preview assertions that prove the generated app renders and exposes its main learner action.';
+    case 'scoring/rubric.json':
+      return 'Define deterministic scoring rubric data only when the selected grading plan needs a rubric file.';
+    case 'evidence/example-output.json':
+      return 'Provide a safe example evidence artifact shape for the browser-autograder starter.';
+    default:
+      if (input.path.startsWith('grading/specs/')) {
+        return 'Define deterministic browser grading checks for the browser-autograder starter.';
+      }
+
+      return `${input.starterId} ${input.authoringMode} workspace file. Keep it consistent with the validated app plan.`;
+  }
+}
+
+function selectRelatedWorkspaceFiles(input: {
+  files: readonly AppWriterWorkspaceFile[];
+  targetPath: string;
+}): AppWriterWorkspaceFile[] {
+  const relatedPaths = new Set<string>([
+    input.targetPath,
+    'manifest.json',
+    'content/activity.json',
+  ]);
+
+  if (
+    input.targetPath === 'source/app.ts' ||
+    input.targetPath === 'dist/app.js' ||
+    input.targetPath.startsWith('preview/') ||
+    input.targetPath.startsWith('grading/specs/')
+  ) {
+    relatedPaths.add('dist/index.html');
+    relatedPaths.add('source/content_model.ts');
+    relatedPaths.add('source/app.ts');
+    relatedPaths.add('dist/app.js');
+  }
+
+  if (input.targetPath === 'dist/app.css') {
+    relatedPaths.add('dist/index.html');
+    relatedPaths.add('source/app.ts');
+    relatedPaths.add('dist/app.js');
+  }
+
+  if (input.targetPath === 'source/content_model.ts') {
+    relatedPaths.add('content/activity.json');
+  }
+
+  return input.files.filter((file) => relatedPaths.has(file.path));
+}
+
+function filterRepairFindingsForTarget(
+  findings: readonly AppGenerationValidationFinding[],
+  targetPath: string,
+): AppGenerationValidationFinding[] {
+  return findings.filter((finding) => {
+    if (finding.file === null) {
+      return true;
+    }
+
+    if (finding.file === targetPath) {
+      return true;
+    }
+
+    return targetPath === 'manifest.json' && finding.code === 'sdk_capability_missing';
+  });
+}
+
+function selectModelProgressUpdates(
+  updates: readonly AppGenerationProgressUpdate[],
+): AppGenerationProgressUpdate[] {
+  if (updates.length === 0) {
+    return [
+      {
+        stage: 'building_package',
+        message: 'Writing the Lantern app workspace files.',
+      },
+    ];
+  }
+
+  return updates.slice(0, 4);
+}
+
+function mergeProgressUpdates(
+  updates: readonly AppGenerationProgressUpdate[],
+): AppGenerationProgressUpdate[] {
+  if (updates.length === 0) {
+    throw new Error('App package generator progress updates must contain 1 to 4 total items.');
+  }
+
+  return updates.slice(0, 4);
 }
 
 async function runCloudflareModelTextRequest(input: {
@@ -165,15 +789,24 @@ async function runCloudflareModelTextRequest(input: {
   maxResponseCharacters: number;
   modelRequestTimeoutMs: number;
   messages: CloudflareAiMessage[];
+  responseFormat: 'json' | 'text';
 }): Promise<{ response: unknown; responseText: string; durationMs: number }> {
   const startedAt = performance.now();
   const deadline = Date.now() + input.modelRequestTimeoutMs;
   const response = await withModelRequestDeadline(
-    input.ai.run(input.model, {
-      messages: input.messages,
-      response_format: { type: 'json_object' },
-      stream: true,
-    }),
+    input.ai.run(
+      input.model,
+      input.responseFormat === 'json'
+        ? {
+            messages: input.messages,
+            response_format: { type: 'json_object' },
+            stream: true,
+          }
+        : {
+            messages: input.messages,
+            stream: true,
+          },
+    ),
     deadline,
   );
   const responseText = await readModelResponseText(response, deadline);
@@ -195,7 +828,9 @@ async function withModelRequestDeadline<T>(promise: Promise<T>, deadline: number
   const timeoutMs = deadline - Date.now();
 
   if (timeoutMs <= 0) {
-    throw new Error('Cloudflare AI model request timed out before returning app package JSON.');
+    throw new Error(
+      'Cloudflare AI model request timed out before returning output for the current app writer stage.',
+    );
   }
 
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -206,7 +841,9 @@ async function withModelRequestDeadline<T>(promise: Promise<T>, deadline: number
       new Promise<never>((_resolve, reject) => {
         timeoutId = setTimeout(() => {
           reject(
-            new Error('Cloudflare AI model request timed out before returning app package JSON.'),
+            new Error(
+              'Cloudflare AI model request timed out before returning output for the current app writer stage.',
+            ),
           );
         }, timeoutMs);
       }),
@@ -222,6 +859,8 @@ function buildContractRepairMessages(input: {
   originalMessages: CloudflareAiMessage[];
   previousOutput: string;
   error: unknown;
+  outputContract: unknown;
+  repairRules: readonly string[];
 }): CloudflareAiMessage[] {
   const errorMessage = input.error instanceof Error ? input.error.message : String(input.error);
 
@@ -233,13 +872,8 @@ function buildContractRepairMessages(input: {
         task: 'repair_lantern_app_package_json_contract',
         error: errorMessage,
         previousOutput: input.previousOutput,
-        repairRules: [
-          'Return one complete Lantern app package JSON object directly at the root.',
-          'Use exact camelCase key names from outputContract.',
-          'Fill every required field with a non-empty value that matches the instructor prompt.',
-          'Do not wrap the package in response, result, output, package, content, or markdown.',
-        ],
-        outputContract: OUTPUT_CONTRACT,
+        repairRules: input.repairRules,
+        outputContract: input.outputContract,
       }),
     },
   ];
@@ -283,7 +917,7 @@ function readModelResponseText(value: unknown, deadline: number): Promise<string
     return Promise.resolve(content);
   }
 
-  throw new Error('Cloudflare AI response did not include JSON text.');
+  throw new Error('Cloudflare AI response did not include text output.');
 }
 
 async function readModelResponseTextFromStream(
@@ -388,7 +1022,7 @@ function readEventStreamModelText(eventStreamText: string): string {
   }
 
   if (text === '') {
-    throw new Error('Cloudflare AI stream did not include JSON text.');
+    throw new Error('Cloudflare AI stream did not include text output.');
   }
 
   return text;
@@ -519,8 +1153,15 @@ function readPromptContextExcerpts(selectedContext: Record<string, unknown>): un
   return Array.isArray(excerpts) ? excerpts : [];
 }
 
+function readAppWriterRecipe(selectedContext: Record<string, unknown>): unknown {
+  return readRecord(selectedContext.recipe);
+}
+
 const SYSTEM_PROMPT =
-  'You generate Lantern learning app packages. Return only one JSON object whose top-level keys are exactly normalizedRequest, appPlan, selectedStarterId, files, progressUpdates, and notes. Use exact camelCase key names, not snake_case. Never return markdown. Never wrap the package in response, result, output, package, or content. Never request or use LMS tokens, Cloudflare bindings, external network access, package imports, localStorage, sessionStorage, or direct grade passback. The app must use reviewed package files and window.GatewayApp only. Progress updates must be short user-safe status text, never hidden reasoning or implementation details.';
+  'You generate Lantern learning apps inside a constrained starter workspace. Follow the task-specific outputContract exactly and return only one JSON object. Use exact camelCase key names, not snake_case. Never return markdown. Never wrap the JSON in response, result, output, package, or content. Never request or use LMS tokens, Cloudflare bindings, external network access, package imports, localStorage, sessionStorage, direct grade passback, or backend code. The app must use reviewed package files and window.GatewayApp only. Progress updates must be short user-safe status text, never hidden reasoning or implementation details.';
+
+const RAW_FILE_SYSTEM_PROMPT =
+  'You write exactly one Lantern workspace file. Return only the raw file contents for the requested target path. Do not return JSON. Do not return markdown. Do not wrap the file in a code fence. Do not include the file path, explanation, progress text, or notes. Never request or use LMS tokens, Cloudflare bindings, external network access, package imports, localStorage, sessionStorage, direct grade passback, or backend code. The file must fit the reviewed Lantern package contract and use window.GatewayApp only when app code needs runtime APIs.';
 
 const DEFAULT_MAX_RESPONSE_CHARACTERS = 250_000;
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 180_000;
@@ -529,19 +1170,36 @@ const PROMPT_CONTEXT_RULES = [
   'Treat promptContext as the authoritative Lantern contract context for this request.',
   'Use GatewayApp local state and attempt events for progress tracking; do not invent storage primitives.',
   'When validation diagnostics conflict with previous files, repair the files to satisfy Lantern diagnostics.',
+  'A generated app is done only after strict TypeScript checks, package validation, Lantern preview/runtime assertions, and policy checks have zero error findings.',
 ] as const;
 
-const OUTPUT_CONTRACT = {
+const PLANNING_OUTPUT_CONTRACT = {
   requiredTopLevelKeys: [
     'normalizedRequest',
     'appPlan',
     'selectedStarterId',
-    'files',
     'progressUpdates',
     'notes',
   ],
   topLevelRule:
-    'Return the app package directly at the JSON root. Do not wrap it in response, result, output, package, appPackage, content, data, or any other envelope. Use exact camelCase key names.',
+    'Return only the plan JSON directly at the root. Do not include files. Do not wrap it in response, result, output, package, appPackage, content, data, or any other envelope. Use exact camelCase key names.',
+  normalizedRequest: {
+    shape: {
+      learningGoal: 'non-empty string',
+      audience: 'non-empty string',
+      contentSummary: 'non-empty string',
+      requestedActivity: 'non-empty string',
+      constraints: 'string[]',
+      missingInformation: 'string[]',
+      safeToGenerate: 'boolean',
+    },
+  },
+  appPlan: {
+    required:
+      'appId, title, description, learningGoal, audience, activityType, learnerFlow, contentModel, capabilities, grading, attemptEvents, previewTests, accessibilityNotes, riskNotes',
+    rules:
+      'Plan only a browser-only Lantern activity that can be implemented with the selected starter and allowed GatewayApp methods.',
+  },
   progressUpdates: {
     shape: {
       stage:
@@ -552,17 +1210,48 @@ const OUTPUT_CONTRACT = {
     rules:
       'Do not include chain-of-thought, secrets, system prompts, Cloudflare/D1/R2/Worker details, tokens, or other private implementation details.',
   },
-  files: {
-    shape: { path: 'relative package path', contents: 'utf-8 text contents' },
-    required: [
-      'manifest.json',
-      'dist/index.html',
-      'dist/app.js',
-      'content/activity.json',
-      'preview/fixtures.json',
-      'preview/tests.json',
-    ],
-    note: 'Return browser-ready JavaScript in dist/app.js. Do not rely on a build step, package imports, TypeScript compilation, or source files.',
-  },
+  files: 'Do not include files in this planning stage.',
   validationFindings: 'Do not include. Lantern computes validation findings.',
 } as const;
+
+function buildRawFileOutputContract(input: {
+  authoringMode: AppWriterAuthoringMode;
+  target: WorkspaceFileGenerationTarget;
+}) {
+  return {
+    outputKind: 'raw_file_contents',
+    topLevelRule:
+      'Return only the raw contents of the requested file. Do not return JSON, markdown, a code fence, the file path, notes, or progress updates.',
+    authoringMode: input.authoringMode,
+    targetFile: input.target,
+    fileContents: {
+      required: `Return the complete replacement contents for ${input.target.path}.`,
+      note: buildRawFileOutputNote(input),
+    },
+    normalizedRequest: 'Do not include. Lantern already has the validated normalized request.',
+    appPlan: 'Do not include. Lantern already has the validated app plan.',
+    progressUpdates: 'Do not include. Lantern records deterministic progress for this file.',
+    notes: 'Do not include. Lantern records deterministic notes for this file.',
+    validationFindings: 'Do not include. Lantern computes validation findings.',
+  } as const;
+}
+
+function buildRawFileOutputNote(input: {
+  authoringMode: AppWriterAuthoringMode;
+  target: WorkspaceFileGenerationTarget;
+}): string {
+  const typeScriptRule =
+    input.authoringMode === 'typescript'
+      ? 'In TypeScript mode, put typed browser app logic in source/app.ts and content interfaces in source/content_model.ts. Do not return dist/app.js; Lantern compiles source/app.ts into reviewed browser JavaScript. Do not use imports, package installs, module exports, or remote code.'
+      : 'In JavaScript mode, return browser-ready JavaScript only when the requested target is dist/app.js. Do not rely on a build step, package imports, TypeScript compilation, or source files.';
+
+  return `${input.target.purpose} Keep this file consistent with already-written workspace files and the validated app plan. Return a full replacement file, not a diff. ${typeScriptRule}`;
+}
+
+const PLANNING_CONTRACT_REPAIR_RULES = [
+  'Return one complete Lantern planning JSON object directly at the root.',
+  'Use exact camelCase key names from outputContract.',
+  'Fill every required planning field with a non-empty value that matches the instructor prompt.',
+  'Do not include package files in this stage.',
+  'Do not wrap the object in response, result, output, package, content, markdown, or any other envelope.',
+] as const;

@@ -1,15 +1,36 @@
 import type { AppPackageGenerator } from './package_generator.ts';
 import { type AppWriterContextSelection, selectAppWriterContext } from './context.ts';
-import { validateGeneratedAppPackage } from './validation.ts';
+import {
+  validateGeneratedAppPackage,
+  validateGeneratedAppPackagePlanAlignment,
+} from './validation.ts';
 import type {
+  AppGenerationPlanningResult,
+  AppGenerationPlanStepId,
+  AppGenerationPlanStepStatus,
   AppGenerationProgressUpdate,
   AppGenerationRunRecord,
   AppGenerationValidationFinding,
+  AppGenerationWorkspaceRecord,
+  AppPackageFileGenerationResult,
+  AppPackageGenerationInput,
   AppPackageGenerationResult,
   AppPackagePreviewer,
   AppPackageSourceCompiler,
+  AppWriterAuthoringMode,
 } from './types.ts';
 import { hasTypeScriptAuthoringSource } from './source_compiler.ts';
+import { APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS } from './recipe.ts';
+import { normalizeGenerationPlan, updateGenerationPlanStep } from './generation_plan.ts';
+import {
+  type AppWriterWorkspaceRunner,
+  createAppPackageGeneratorWorkspaceRunner,
+} from './workspace_runner.ts';
+import {
+  mergeWorkspaceFiles,
+  selectNonPackageWorkspaceFiles,
+  selectPackageWorkspaceFiles,
+} from './workspace_files.ts';
 import type { ImportedPackageVersion } from '../package_review/intake.ts';
 import type { PackageSource } from '../package_review/package_source.ts';
 import { createMemoryPackageSource } from '../package_review/package_source.ts';
@@ -23,8 +44,12 @@ export interface RunAppPackageGenerationInput {
     | 'updateAppGenerationRun'
     | 'registerPackageVersion'
     | 'recordAuditEvent'
+    | 'saveAppGenerationWorkspace'
+    | 'getAppGenerationWorkspaceByGenerationId'
+    | 'getAppGenerationRunById'
   >;
   generator: AppPackageGenerator;
+  workspaceRunner?: AppWriterWorkspaceRunner;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: {
@@ -38,6 +63,7 @@ export interface RunAppPackageGenerationInput {
   ownerId: string;
   promptText: string;
   requestedAppId?: string | null;
+  authoringMode?: AppWriterAuthoringMode;
   maxRepairAttempts?: number;
   now?: () => string;
 }
@@ -46,6 +72,29 @@ export interface RunAppPackageGenerationResult {
   run: AppGenerationRunRecord;
   generation: AppPackageGenerationResult;
   packageVersion: PackageVersionRecord | null;
+}
+
+export interface PlannedAppPackageGenerationRun {
+  run: AppGenerationRunRecord;
+  generatorInput: AppPackageGenerationInput;
+  contextSelection: AppWriterContextSelection;
+  initializedWorkspace: AppGenerationWorkspaceRecord;
+  planning: AppGenerationPlanningResult;
+}
+
+export interface InitializedAppPackageGenerationRun {
+  run: AppGenerationRunRecord;
+  generatorInput: AppPackageGenerationInput;
+  contextSelection: AppWriterContextSelection;
+  initializedWorkspace: AppGenerationWorkspaceRecord;
+}
+
+export interface GeneratedAppPackageFilesRun {
+  run: AppGenerationRunRecord;
+  generatorInput: AppPackageGenerationInput;
+  contextSelection: AppWriterContextSelection;
+  initializedWorkspace: AppGenerationWorkspaceRecord;
+  generation: AppPackageGenerationResult;
 }
 
 export interface StartedAppPackageGenerationRun {
@@ -57,6 +106,7 @@ export interface ContinueAppPackageGenerationRunInput {
   repository: RunAppPackageGenerationInput['repository'] &
     Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
   generator: AppPackageGenerator;
+  workspaceRunner?: AppWriterWorkspaceRunner;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: RunAppPackageGenerationInput['savePackage'];
@@ -65,10 +115,10 @@ export interface ContinueAppPackageGenerationRunInput {
   now?: () => string;
 }
 
-const DEFAULT_MAX_REPAIR_ATTEMPTS = 1;
-
 export const APP_GENERATION_AUDIT_EVENT_TYPES = [
   'app_generation.started',
+  'app_generation.initializing',
+  'app_generation.planning',
   'app_generation.generating',
   'app_generation.validating',
   'app_generation.repairing',
@@ -77,15 +127,27 @@ export const APP_GENERATION_AUDIT_EVENT_TYPES = [
   'app_generation.failed',
 ] as const;
 
+function resolveWorkspaceRunner(input: {
+  generator: AppPackageGenerator;
+  workspaceRunner?: AppWriterWorkspaceRunner;
+}): AppWriterWorkspaceRunner {
+  return input.workspaceRunner ?? createAppPackageGeneratorWorkspaceRunner(input.generator);
+}
+
 export async function startAppPackageGenerationRun(
   input: RunAppPackageGenerationInput,
 ): Promise<StartedAppPackageGenerationRun> {
   const now = input.now ?? (() => new Date().toISOString());
   const createdAt = now();
   const requestedAppId = input.requestedAppId ?? null;
+  const maxRepairAttempts = input.maxRepairAttempts ?? APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS;
+  const authoringMode =
+    input.authoringMode ?? selectAuthoringModeForGeneration(input.sourceCompiler);
   const contextSelection = selectAppWriterContext({
     promptText: input.promptText,
     requestedAppId,
+    authoringMode,
+    maxRepairAttempts,
   });
   const run = await input.repository.createAppGenerationRun(
     buildInitialGenerationRun({
@@ -119,6 +181,60 @@ export async function startAppPackageGenerationRun(
   };
 }
 
+export async function initializeAppPackageGenerationRun(
+  input: ContinueAppPackageGenerationRunInput,
+): Promise<InitializedAppPackageGenerationRun> {
+  const existingRun = await input.repository.getAppGenerationRunById(input.generationId);
+
+  if (existingRun === null) {
+    throw new Error(`App generation run ${input.generationId} was not found.`);
+  }
+
+  const now = input.now ?? (() => new Date().toISOString());
+  const contextSelection = buildContextSelectionFromRun(existingRun);
+  const generatorInput = buildGeneratorInputFromRun(existingRun, contextSelection);
+  const workspaceRunner = resolveWorkspaceRunner(input);
+  const existingWorkspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
+    existingRun.generationId,
+  );
+
+  if (existingWorkspace !== null && existingRun.status !== 'started') {
+    return {
+      run: existingRun,
+      generatorInput,
+      contextSelection,
+      initializedWorkspace: existingWorkspace,
+    };
+  }
+
+  const run = await input.repository.updateAppGenerationRun({
+    ...existingRun,
+    status: 'initializing',
+    updatedAt: now(),
+  });
+  await recordGenerationActivity({
+    repository: input.repository,
+    run,
+    eventType: 'app_generation.initializing',
+    status: 'accepted',
+    summary: 'Prepared Lantern app writer recipe, starter workspace, and validation contract.',
+  });
+
+  const initializedWorkspace = await workspaceRunner.initialize({
+    generationId: run.generationId,
+    contextSelection,
+    initializedAt: run.updatedAt,
+  });
+  const savedWorkspace = await input.repository.saveAppGenerationWorkspace(initializedWorkspace);
+
+  return {
+    run,
+    generatorInput,
+    contextSelection,
+    initializedWorkspace: savedWorkspace,
+  };
+}
+
 export async function runAppPackageGeneration(
   input: RunAppPackageGenerationInput,
 ): Promise<RunAppPackageGenerationResult> {
@@ -136,7 +252,7 @@ export async function continueAppPackageGenerationRun(
     throw new Error(`App generation run ${input.generationId} was not found.`);
   }
 
-  if (run.status !== 'started') {
+  if (run.status !== 'started' && run.status !== 'initializing') {
     throw new Error(
       `App generation run ${input.generationId} cannot continue from status ${run.status}.`,
     );
@@ -154,6 +270,7 @@ export async function continueAppPackageGenerationRun(
   const continuationInput: RunAppPackageGenerationInput = {
     repository: input.repository,
     generator: input.generator,
+    ...(input.workspaceRunner === undefined ? {} : { workspaceRunner: input.workspaceRunner }),
     generationId: run.generationId,
     ownerId: run.ownerId,
     promptText: run.promptText,
@@ -177,6 +294,149 @@ export async function continueAppPackageGenerationRun(
   });
 }
 
+export async function planAppPackageGenerationRun(
+  input: ContinueAppPackageGenerationRunInput,
+): Promise<PlannedAppPackageGenerationRun> {
+  const now = input.now ?? (() => new Date().toISOString());
+  const initialized = await initializeAppPackageGenerationRun({
+    ...input,
+    now,
+  });
+  const workspaceRunner = resolveWorkspaceRunner(input);
+
+  try {
+    const planned = await planInitialPackage({
+      repository: input.repository,
+      workspaceRunner,
+      run: initialized.run,
+      generatorInput: initialized.generatorInput,
+      contextSelection: initialized.contextSelection,
+      now,
+    });
+
+    return {
+      ...planned,
+      generatorInput: initialized.generatorInput,
+      contextSelection: initialized.contextSelection,
+      initializedWorkspace: initialized.initializedWorkspace,
+    };
+  } catch (error) {
+    if (error instanceof AppPackageGenerationFailedError) {
+      throw error;
+    }
+
+    throw await failGenerationRun({
+      repository: input.repository,
+      run: initialized.run,
+      error,
+      now,
+    });
+  }
+}
+
+export async function generateAppPackageFilesForPlannedRun(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    | 'updateAppGenerationRun'
+    | 'recordAuditEvent'
+    | 'saveAppGenerationWorkspace'
+    | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  generator: AppPackageGenerator;
+  workspaceRunner?: AppWriterWorkspaceRunner;
+  planned: PlannedAppPackageGenerationRun;
+  now?: () => string;
+}): Promise<GeneratedAppPackageFilesRun> {
+  const now = input.now ?? (() => new Date().toISOString());
+  const workspaceRunner = resolveWorkspaceRunner(input);
+
+  try {
+    const generated = await generateInitialPackageFiles({
+      repository: input.repository,
+      workspaceRunner,
+      run: input.planned.run,
+      generatorInput: input.planned.generatorInput,
+      planning: input.planned.planning,
+      initializedWorkspace: input.planned.initializedWorkspace,
+      now,
+    });
+
+    return {
+      ...generated,
+      generatorInput: input.planned.generatorInput,
+      contextSelection: input.planned.contextSelection,
+      initializedWorkspace: input.planned.initializedWorkspace,
+    };
+  } catch (error) {
+    if (error instanceof AppPackageGenerationFailedError) {
+      throw error;
+    }
+
+    throw await failGenerationRun({
+      repository: input.repository,
+      run: input.planned.run,
+      error,
+      now,
+    });
+  }
+}
+
+export async function finishGeneratedAppPackageRun(input: {
+  repository: RunAppPackageGenerationInput['repository'] &
+    Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
+  generator: AppPackageGenerator;
+  workspaceRunner?: AppWriterWorkspaceRunner;
+  previewer?: AppPackagePreviewer;
+  sourceCompiler?: AppPackageSourceCompiler;
+  savePackage?: RunAppPackageGenerationInput['savePackage'];
+  generated: GeneratedAppPackageFilesRun;
+  maxRepairAttempts?: number;
+  now?: () => string;
+}): Promise<RunAppPackageGenerationResult> {
+  const now = input.now ?? (() => new Date().toISOString());
+  const run =
+    (await input.repository.getAppGenerationRunById(input.generated.run.generationId)) ??
+    input.generated.run;
+
+  try {
+    return await finishGeneratedPackage({
+      input: {
+        repository: input.repository,
+        generator: input.generator,
+        ...(input.workspaceRunner === undefined ? {} : { workspaceRunner: input.workspaceRunner }),
+        generationId: input.generated.generatorInput.generationId,
+        ownerId: input.generated.generatorInput.ownerId,
+        promptText: input.generated.generatorInput.promptText,
+        requestedAppId: input.generated.generatorInput.requestedAppId,
+        ...(input.previewer === undefined ? {} : { previewer: input.previewer }),
+        ...(input.sourceCompiler === undefined ? {} : { sourceCompiler: input.sourceCompiler }),
+        ...(input.savePackage === undefined ? {} : { savePackage: input.savePackage }),
+        ...(input.maxRepairAttempts === undefined
+          ? {}
+          : { maxRepairAttempts: input.maxRepairAttempts }),
+        now,
+      },
+      now,
+      generatorInput: input.generated.generatorInput,
+      contextSelection: input.generated.contextSelection,
+      run,
+      generation: input.generated.generation,
+      repairAttempt: 0,
+    });
+  } catch (error) {
+    if (error instanceof AppPackageGenerationFailedError) {
+      throw error;
+    }
+
+    throw await failGenerationRun({
+      repository: input.repository,
+      run,
+      error,
+      now,
+    });
+  }
+}
+
 async function continueStartedAppPackageGeneration(continuation: {
   input: RunAppPackageGenerationInput;
   now: () => string;
@@ -192,100 +452,377 @@ async function continueStartedAppPackageGeneration(continuation: {
   const contextSelection = continuation.contextSelection;
   let run = continuation.run;
 
-  run = await input.repository.updateAppGenerationRun({
-    ...run,
+  try {
+    const initialized = await initializeAppPackageGenerationRun({
+      repository: input.repository,
+      generator: input.generator,
+      ...(input.workspaceRunner === undefined ? {} : { workspaceRunner: input.workspaceRunner }),
+      ...(input.previewer === undefined ? {} : { previewer: input.previewer }),
+      ...(input.sourceCompiler === undefined ? {} : { sourceCompiler: input.sourceCompiler }),
+      ...(input.savePackage === undefined ? {} : { savePackage: input.savePackage }),
+      generationId: run.generationId,
+      ...(input.maxRepairAttempts === undefined
+        ? {}
+        : { maxRepairAttempts: input.maxRepairAttempts }),
+      now,
+    });
+    const generatorInput = buildGeneratorInputFromRun(
+      {
+        ...initialized.run,
+        ownerId: input.ownerId,
+        promptText: input.promptText,
+        requestedAppId,
+        createdAt,
+      },
+      contextSelection,
+    );
+    const initialGeneration = await generateInitialPackage({
+      input,
+      run: initialized.run,
+      generatorInput,
+      contextSelection,
+      initializedWorkspace: initialized.initializedWorkspace,
+      now,
+    });
+    run = initialGeneration.run;
+
+    return await finishGeneratedPackage({
+      input,
+      now,
+      generatorInput,
+      contextSelection,
+      run,
+      generation: initialGeneration.generation,
+      repairAttempt: 0,
+    });
+  } catch (error) {
+    if (error instanceof AppPackageGenerationFailedError) {
+      throw error;
+    }
+
+    throw await failGenerationRun({
+      repository: input.repository,
+      run,
+      error,
+      now,
+    });
+  }
+}
+
+async function generateInitialPackage(input: {
+  input: RunAppPackageGenerationInput;
+  run: AppGenerationRunRecord;
+  generatorInput: AppPackageGenerationInput;
+  contextSelection: AppWriterContextSelection;
+  initializedWorkspace: AppGenerationWorkspaceRecord;
+  now: () => string;
+}): Promise<{ run: AppGenerationRunRecord; generation: AppPackageGenerationResult }> {
+  const workspaceRunner = resolveWorkspaceRunner(input.input);
+
+  if (
+    input.input.workspaceRunner !== undefined ||
+    supportsStagedPackageGeneration(input.input.generator)
+  ) {
+    const planned = await planInitialPackage({
+      repository: input.input.repository,
+      workspaceRunner,
+      run: input.run,
+      generatorInput: input.generatorInput,
+      contextSelection: input.contextSelection,
+      now: input.now,
+    });
+    const generated = await generateInitialPackageFiles({
+      repository: input.input.repository,
+      workspaceRunner,
+      run: planned.run,
+      generatorInput: input.generatorInput,
+      planning: planned.planning,
+      initializedWorkspace: input.initializedWorkspace,
+      now: input.now,
+    });
+
+    return {
+      run: generated.run,
+      generation: generated.generation,
+    };
+  }
+
+  const run = await input.input.repository.updateAppGenerationRun({
+    ...input.run,
     status: 'generating_package',
-    updatedAt: now(),
+    updatedAt: input.now(),
   });
   await recordGenerationActivity({
-    repository: input.repository,
+    repository: input.input.repository,
     run,
     eventType: 'app_generation.generating',
     status: 'accepted',
     summary: 'Asked the app package generator for package files.',
   });
 
-  try {
-    const generatorInput = {
-      generationId: input.generationId,
-      ownerId: input.ownerId,
-      promptText: input.promptText,
-      requestedAppId,
-      selectedStarterId: contextSelection.starterId,
-      selectedContext: contextSelection.selectedContext,
-      createdAt,
-    };
-    const maxRepairAttempts = input.maxRepairAttempts ?? DEFAULT_MAX_REPAIR_ATTEMPTS;
-    let generation = await input.generator.generate(generatorInput);
-    let repairAttempt = 0;
+  const generation = await input.input.generator.generate(input.generatorInput);
+  await saveGenerationWorkspaceSnapshot({
+    repository: input.input.repository,
+    run,
+    generation,
+    validationFindings: generation.validationFindings,
+  });
 
-    while (true) {
-      const starterFinding = buildStarterMismatchFinding({
-        expectedStarterId: contextSelection.starterId,
-        actualStarterId: generation.selectedStarterId,
-      });
+  return {
+    run,
+    generation,
+  };
+}
 
-      if (starterFinding !== null) {
-        const failedRun = await input.repository.updateAppGenerationRun({
-          ...run,
-          status: 'failed',
-          normalizedRequest: generation.normalizedRequest,
-          appPlan: generation.appPlan,
-          selectedStarterId: generation.selectedStarterId,
-          generatedAppId: generation.appPlan.appId,
-          generatedVersion: '0.1.0',
-          modelRequestMetadata: appendModelRequestMetadata(run, generation),
-          generationNotes: [...generation.notes],
-          validationFindings: [starterFinding, ...generation.validationFindings],
-          repairAttemptCount: repairAttempt,
-          updatedAt: now(),
-        });
-        await recordGenerationActivity({
-          repository: input.repository,
-          run: failedRun,
-          eventType: 'app_generation.failed',
-          status: 'failed',
-          summary: 'Generated package selected the wrong Lantern starter.',
-        });
+async function planInitialPackage(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    | 'updateAppGenerationRun'
+    | 'recordAuditEvent'
+    | 'saveAppGenerationWorkspace'
+    | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  workspaceRunner: AppWriterWorkspaceRunner;
+  run: AppGenerationRunRecord;
+  generatorInput: AppPackageGenerationInput;
+  contextSelection: AppWriterContextSelection;
+  now: () => string;
+}): Promise<{ run: AppGenerationRunRecord; planning: AppGenerationPlanningResult }> {
+  if (input.run.status !== 'started' && input.run.status !== 'initializing') {
+    const existingPlanning = readPlanningFromRun(input.run);
 
-        throw new AppPackageGenerationFailedError(
-          `Generated package starter ${generation.selectedStarterId} did not match selected starter ${contextSelection.starterId}.`,
-          failedRun,
-        );
-      }
+    if (existingPlanning !== null) {
+      return {
+        run: input.run,
+        planning: existingPlanning,
+      };
+    }
 
-      await recordGenerationProgressUpdates({
-        repository: input.repository,
-        run,
-        eventType: repairAttempt === 0 ? 'app_generation.generating' : 'app_generation.repairing',
-        updates: generation.progressUpdates,
-      });
+    throw new Error(
+      `App generation run ${input.run.generationId} cannot plan from status ${input.run.status}.`,
+    );
+  }
 
-      if (hasTypeScriptAuthoringSource(generation.files)) {
-        const compiled = await compileTypeScriptSourceIfNeeded({
-          input,
-          generation,
-          contextSelection,
-        });
-        generation = {
-          ...generation,
-          files: compiled.files,
-          notes: [...generation.notes, ...compiled.notes],
-          validationFindings: [...generation.validationFindings, ...compiled.validationFindings],
-        };
-      }
+  let run = await input.repository.updateAppGenerationRun({
+    ...input.run,
+    status: 'planning',
+    updatedAt: input.now(),
+  });
+  await recordGenerationActivity({
+    repository: input.repository,
+    run,
+    eventType: 'app_generation.planning',
+    status: 'accepted',
+    summary: 'Asked the app package generator for a Lantern app plan.',
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.repository,
+    run,
+    id: 'create_app_plan',
+    status: 'running',
+    now: run.updatedAt,
+  });
 
-      const validationFindings = [
-        ...generation.validationFindings,
-        ...(await validateGeneratedAppPackage({
-          selectedStarterId: contextSelection.starterId,
-          files: generation.files,
-        })),
-      ];
+  const planning = await input.workspaceRunner.plan(input.generatorInput);
+  const starterFinding = buildStarterMismatchFinding({
+    expectedStarterId: input.contextSelection.starterId,
+    actualStarterId: planning.selectedStarterId,
+  });
 
-      run = await input.repository.updateAppGenerationRun({
+  if (starterFinding !== null) {
+    const failedRun = await input.repository.updateAppGenerationRun({
+      ...run,
+      status: 'failed',
+      normalizedRequest: planning.normalizedRequest,
+      appPlan: planning.appPlan,
+      selectedStarterId: planning.selectedStarterId,
+      generatedAppId: planning.appPlan.appId,
+      generatedVersion: '0.1.0',
+      modelRequestMetadata: [...run.modelRequestMetadata, ...(planning.modelRequestMetadata ?? [])],
+      generationNotes: [...planning.notes],
+      validationFindings: [starterFinding],
+      updatedAt: input.now(),
+    });
+    await recordGenerationActivity({
+      repository: input.repository,
+      run: failedRun,
+      eventType: 'app_generation.failed',
+      status: 'failed',
+      summary: 'Generated package plan selected the wrong Lantern starter.',
+    });
+    await updateGenerationPlanStepInWorkspace({
+      repository: input.repository,
+      run: failedRun,
+      id: 'create_app_plan',
+      status: 'failed',
+      now: failedRun.updatedAt,
+      diagnosticCount: 1,
+      result: {
+        expectedStarterId: input.contextSelection.starterId,
+        actualStarterId: planning.selectedStarterId,
+      },
+    });
+
+    throw new AppPackageGenerationFailedError(
+      `Generated package starter ${planning.selectedStarterId} did not match selected starter ${input.contextSelection.starterId}.`,
+      failedRun,
+    );
+  }
+
+  run = await input.repository.updateAppGenerationRun({
+    ...run,
+    status: 'planning',
+    normalizedRequest: planning.normalizedRequest,
+    appPlan: planning.appPlan,
+    selectedStarterId: planning.selectedStarterId,
+    generatedAppId: planning.appPlan.appId,
+    generatedVersion: '0.1.0',
+    modelRequestMetadata: [...run.modelRequestMetadata, ...(planning.modelRequestMetadata ?? [])],
+    generationNotes: [...planning.notes],
+    updatedAt: input.now(),
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.repository,
+    run,
+    id: 'create_app_plan',
+    status: 'succeeded',
+    now: run.updatedAt,
+    result: {
+      appId: planning.appPlan.appId,
+      starterId: planning.selectedStarterId,
+    },
+  });
+  await recordGenerationProgressUpdates({
+    repository: input.repository,
+    run,
+    eventType: 'app_generation.planning',
+    updates: planning.progressUpdates,
+  });
+
+  return {
+    run,
+    planning,
+  };
+}
+
+async function generateInitialPackageFiles(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    | 'updateAppGenerationRun'
+    | 'recordAuditEvent'
+    | 'saveAppGenerationWorkspace'
+    | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  workspaceRunner: AppWriterWorkspaceRunner;
+  run: AppGenerationRunRecord;
+  generatorInput: AppPackageGenerationInput;
+  planning: AppGenerationPlanningResult;
+  initializedWorkspace: AppGenerationWorkspaceRecord;
+  now: () => string;
+}): Promise<{ run: AppGenerationRunRecord; generation: AppPackageGenerationResult }> {
+  const run = await input.repository.updateAppGenerationRun({
+    ...input.run,
+    status: 'generating_package',
+    updatedAt: input.now(),
+  });
+  await recordGenerationActivity({
+    repository: input.repository,
+    run,
+    eventType: 'app_generation.generating',
+    status: 'accepted',
+    summary: 'Asked the app package generator for scaffold file edits.',
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.repository,
+    run,
+    id: 'author_workspace',
+    status: 'running',
+    now: run.updatedAt,
+  });
+
+  const fileGeneration = await input.workspaceRunner.author({
+    ...input.generatorInput,
+    planning: input.planning,
+    initializedWorkspace: input.initializedWorkspace,
+  });
+  const generation = assembleGenerationFromStages(input.planning, fileGeneration);
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.repository,
+    run,
+    id: 'author_workspace',
+    status: fileGeneration.validationFindings.some((finding) => finding.severity === 'error')
+      ? 'failed'
+      : 'succeeded',
+    now: run.updatedAt,
+    result: {
+      fileCount: fileGeneration.files.length,
+    },
+    diagnosticCount: fileGeneration.validationFindings.length,
+  });
+  await saveGenerationWorkspaceSnapshot({
+    repository: input.repository,
+    run,
+    generation,
+    validationFindings: generation.validationFindings,
+  });
+
+  return {
+    run,
+    generation,
+  };
+}
+
+function assembleGenerationFromStages(
+  planning: AppGenerationPlanningResult,
+  fileGeneration: AppPackageFileGenerationResult,
+): AppPackageGenerationResult {
+  return {
+    normalizedRequest: planning.normalizedRequest,
+    appPlan: planning.appPlan,
+    selectedStarterId: planning.selectedStarterId,
+    files: fileGeneration.files,
+    progressUpdates: fileGeneration.progressUpdates,
+    notes: [...planning.notes, ...fileGeneration.notes],
+    validationFindings: fileGeneration.validationFindings,
+    ...(fileGeneration.modelRequestMetadata === undefined
+      ? {}
+      : { modelRequestMetadata: fileGeneration.modelRequestMetadata }),
+  };
+}
+
+function supportsStagedPackageGeneration(
+  generator: AppPackageGenerator,
+): generator is AppPackageGenerator & {
+  plan: NonNullable<AppPackageGenerator['plan']>;
+  generateFiles: NonNullable<AppPackageGenerator['generateFiles']>;
+} {
+  return typeof generator.plan === 'function' && typeof generator.generateFiles === 'function';
+}
+
+async function finishGeneratedPackage(input: {
+  input: RunAppPackageGenerationInput;
+  now: () => string;
+  generatorInput: AppPackageGenerationInput;
+  contextSelection: AppWriterContextSelection;
+  run: AppGenerationRunRecord;
+  generation: AppPackageGenerationResult;
+  repairAttempt: number;
+}): Promise<RunAppPackageGenerationResult> {
+  const maxRepairAttempts = input.input.maxRepairAttempts ?? APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS;
+  let run = input.run;
+  let generation = input.generation;
+  let repairAttempt = input.repairAttempt;
+
+  while (true) {
+    const starterFinding = buildStarterMismatchFinding({
+      expectedStarterId: input.contextSelection.starterId,
+      actualStarterId: generation.selectedStarterId,
+    });
+
+    if (starterFinding !== null) {
+      const failedRun = await input.input.repository.updateAppGenerationRun({
         ...run,
-        status: 'validating',
+        status: 'failed',
         normalizedRequest: generation.normalizedRequest,
         appPlan: generation.appPlan,
         selectedStarterId: generation.selectedStarterId,
@@ -293,129 +830,366 @@ async function continueStartedAppPackageGeneration(continuation: {
         generatedVersion: '0.1.0',
         modelRequestMetadata: appendModelRequestMetadata(run, generation),
         generationNotes: [...generation.notes],
-        validationFindings,
+        validationFindings: [starterFinding, ...generation.validationFindings],
         repairAttemptCount: repairAttempt,
-        updatedAt: now(),
+        updatedAt: input.now(),
       });
       await recordGenerationActivity({
-        repository: input.repository,
-        run,
-        eventType: 'app_generation.validating',
-        status: validationFindings.some((finding) => finding.severity === 'error')
-          ? 'failed'
-          : 'succeeded',
-        summary: validationFindings.some((finding) => finding.severity === 'error')
-          ? 'Generated package failed Lantern validation.'
-          : 'Generated package passed Lantern validation.',
+        repository: input.input.repository,
+        run: failedRun,
+        eventType: 'app_generation.failed',
+        status: 'failed',
+        summary: 'Generated package selected the wrong Lantern starter.',
+      });
+      await saveGenerationWorkspaceSnapshot({
+        repository: input.input.repository,
+        run: failedRun,
+        generation,
+        validationFindings: [starterFinding, ...generation.validationFindings],
       });
 
-      if (!validationFindings.some((finding) => finding.severity === 'error')) {
-        const previewed = await previewGeneratedPackage({
-          input,
-          contextSelection,
+      throw new AppPackageGenerationFailedError(
+        `Generated package starter ${generation.selectedStarterId} did not match selected starter ${input.contextSelection.starterId}.`,
+        failedRun,
+      );
+    }
+
+    await recordGenerationProgressUpdates({
+      repository: input.input.repository,
+      run,
+      eventType: repairAttempt === 0 ? 'app_generation.generating' : 'app_generation.repairing',
+      updates: generation.progressUpdates,
+    });
+
+    if (hasTypeScriptAuthoringSource(generation.files)) {
+      await updateGenerationPlanStepInWorkspace({
+        repository: input.input.repository,
+        run,
+        id: 'typecheck_source',
+        status: 'running',
+        now: run.updatedAt,
+      });
+      const compiled = await compileTypeScriptSourceIfNeeded({
+        input: input.input,
+        generation,
+        contextSelection: input.contextSelection,
+      });
+      generation = {
+        ...generation,
+        files: compiled.files,
+        notes: [...generation.notes, ...compiled.notes],
+        validationFindings: [...generation.validationFindings, ...compiled.validationFindings],
+      };
+      await updateGenerationPlanStepInWorkspace({
+        repository: input.input.repository,
+        run,
+        id: 'typecheck_source',
+        status: compiled.validationFindings.some((finding) => finding.severity === 'error')
+          ? 'failed'
+          : 'succeeded',
+        now: run.updatedAt,
+        diagnosticCount: compiled.validationFindings.length,
+      });
+    } else {
+      await updateGenerationPlanStepInWorkspace({
+        repository: input.input.repository,
+        run,
+        id: 'typecheck_source',
+        status: 'skipped',
+        now: run.updatedAt,
+        summary: 'No TypeScript source files were present for compilation.',
+      });
+    }
+    await saveGenerationWorkspaceSnapshot({
+      repository: input.input.repository,
+      run,
+      generation,
+      validationFindings: generation.validationFindings,
+    });
+
+    const validationFindings = [
+      ...generation.validationFindings,
+      ...validateGeneratedAppPackagePlanAlignment({
+        appPlan: generation.appPlan,
+        files: generation.files,
+      }),
+      ...(await validateGeneratedAppPackage({
+        selectedStarterId: input.contextSelection.starterId,
+        files: generation.files,
+      })),
+    ];
+    await updateGenerationPlanStepInWorkspace({
+      repository: input.input.repository,
+      run,
+      id: 'validate_package',
+      status: validationFindings.some((finding) => finding.severity === 'error')
+        ? 'failed'
+        : 'succeeded',
+      now: run.updatedAt,
+      diagnosticCount: validationFindings.length,
+    });
+
+    run = await input.input.repository.updateAppGenerationRun({
+      ...run,
+      status: 'validating',
+      normalizedRequest: generation.normalizedRequest,
+      appPlan: generation.appPlan,
+      selectedStarterId: generation.selectedStarterId,
+      generatedAppId: generation.appPlan.appId,
+      generatedVersion: '0.1.0',
+      modelRequestMetadata: appendModelRequestMetadata(run, generation),
+      generationNotes: [...generation.notes],
+      validationFindings,
+      repairAttemptCount: repairAttempt,
+      updatedAt: input.now(),
+    });
+    await recordGenerationActivity({
+      repository: input.input.repository,
+      run,
+      eventType: 'app_generation.validating',
+      status: validationFindings.some((finding) => finding.severity === 'error')
+        ? 'failed'
+        : 'succeeded',
+      summary: validationFindings.some((finding) => finding.severity === 'error')
+        ? 'Generated package failed Lantern validation.'
+        : 'Generated package passed Lantern validation.',
+    });
+    await saveGenerationWorkspaceSnapshot({
+      repository: input.input.repository,
+      run,
+      generation,
+      validationFindings,
+    });
+
+    if (!validationFindings.some((finding) => finding.severity === 'error')) {
+      const previewed = await previewGeneratedPackage({
+        input: input.input,
+        contextSelection: input.contextSelection,
+        generation,
+        run,
+        validationFindings,
+        now: input.now,
+      });
+      run = previewed.run;
+      await saveGenerationWorkspaceSnapshot({
+        repository: input.input.repository,
+        run,
+        generation,
+        validationFindings: previewed.findings,
+      });
+
+      if (!previewed.findings.some((finding) => finding.severity === 'error')) {
+        const saved = await saveGeneratedPackageIfRequested({
+          input: input.input,
           generation,
           run,
-          validationFindings,
-          now,
+          now: input.now,
         });
-        run = previewed.run;
 
-        if (!previewed.findings.some((finding) => finding.severity === 'error')) {
-          const saved = await saveGeneratedPackageIfRequested({
-            input,
-            generation,
+        return (
+          saved ?? {
             run,
-            now,
-          });
-
-          return (
-            saved ?? {
-              run,
-              generation,
-              packageVersion: null,
-            }
-          );
-        }
-
-        run = {
-          ...run,
-          validationFindings: previewed.findings,
-        };
-      }
-
-      if (!run.validationFindings.some((finding) => finding.severity === 'error')) {
-        return {
-          run,
-          generation,
-          packageVersion: null,
-        };
-      }
-
-      if (repairAttempt >= maxRepairAttempts || typeof input.generator.repair !== 'function') {
-        const failedRun = await input.repository.updateAppGenerationRun({
-          ...run,
-          status: 'failed',
-          updatedAt: now(),
-        });
-        await recordGenerationActivity({
-          repository: input.repository,
-          run: failedRun,
-          eventType: 'app_generation.failed',
-          status: 'failed',
-          summary: 'Generated package failed after repair attempts were exhausted.',
-        });
-
-        throw new AppPackageGenerationFailedError(
-          'Generated package failed validation.',
-          failedRun,
+            generation,
+            packageVersion: null,
+          }
         );
       }
 
-      repairAttempt += 1;
-      run = await input.repository.updateAppGenerationRun({
+      run = {
         ...run,
-        status: 'repairing',
-        repairAttemptCount: repairAttempt,
-        updatedAt: now(),
+        validationFindings: previewed.findings,
+      };
+    }
+
+    if (!run.validationFindings.some((finding) => finding.severity === 'error')) {
+      return {
+        run,
+        generation,
+        packageVersion: null,
+      };
+    }
+
+    if (
+      repairAttempt >= maxRepairAttempts ||
+      (input.input.workspaceRunner === undefined &&
+        typeof input.input.generator.repair !== 'function')
+    ) {
+      const failedRun = await input.input.repository.updateAppGenerationRun({
+        ...run,
+        status: 'failed',
+        updatedAt: input.now(),
       });
       await recordGenerationActivity({
-        repository: input.repository,
-        run,
-        eventType: 'app_generation.repairing',
-        status: 'accepted',
-        summary: 'Asked the app package generator to repair validation or preview findings.',
+        repository: input.input.repository,
+        run: failedRun,
+        eventType: 'app_generation.failed',
+        status: 'failed',
+        summary: 'Generated package failed after repair attempts were exhausted.',
       });
-      generation = await input.generator.repair({
-        ...generatorInput,
-        repairAttempt,
-        previousResult: generation,
-        validationFindings: run.validationFindings,
+      await updateGenerationPlanStepInWorkspace({
+        repository: input.input.repository,
+        run: failedRun,
+        id: 'repair_if_needed',
+        status: 'failed',
+        now: failedRun.updatedAt,
+        diagnosticCount: failedRun.validationFindings.length,
       });
-    }
-  } catch (error) {
-    if (error instanceof AppPackageGenerationFailedError) {
-      throw error;
+
+      throw new AppPackageGenerationFailedError('Generated package failed validation.', failedRun);
     }
 
-    const failedRun = await input.repository.updateAppGenerationRun({
+    repairAttempt += 1;
+    run = await input.input.repository.updateAppGenerationRun({
       ...run,
-      status: 'failed',
-      validationFindings: [...run.validationFindings, buildGenerationFailedFinding(error)],
-      updatedAt: now(),
+      status: 'repairing',
+      repairAttemptCount: repairAttempt,
+      updatedAt: input.now(),
     });
     await recordGenerationActivity({
-      repository: input.repository,
-      run: failedRun,
-      eventType: 'app_generation.failed',
-      status: 'failed',
-      summary: 'App package generation failed before a package could be saved.',
+      repository: input.input.repository,
+      run,
+      eventType: 'app_generation.repairing',
+      status: 'accepted',
+      summary: 'Asked the app package generator to repair validation or preview findings.',
     });
-
-    throw new AppPackageGenerationFailedError(
-      error instanceof Error ? error.message : 'App package generation failed.',
-      failedRun,
-    );
+    await updateGenerationPlanStepInWorkspace({
+      repository: input.input.repository,
+      run,
+      id: 'repair_if_needed',
+      status: 'running',
+      now: run.updatedAt,
+      diagnosticCount: run.validationFindings.length,
+    });
+    generation = await resolveWorkspaceRunner(input.input).repair({
+      ...input.generatorInput,
+      repairAttempt,
+      previousResult: generation,
+      validationFindings: run.validationFindings,
+      currentWorkspace: await input.input.repository.getAppGenerationWorkspaceByGenerationId(
+        run.generationId,
+      ),
+    });
+    await updateGenerationPlanStepInWorkspace({
+      repository: input.input.repository,
+      run,
+      id: 'repair_if_needed',
+      status: generation.validationFindings.some((finding) => finding.severity === 'error')
+        ? 'failed'
+        : 'succeeded',
+      now: run.updatedAt,
+      diagnosticCount: generation.validationFindings.length,
+    });
+    await saveGenerationWorkspaceSnapshot({
+      repository: input.input.repository,
+      run,
+      generation,
+      validationFindings: generation.validationFindings,
+    });
   }
+}
+
+function buildContextSelectionFromRun(run: AppGenerationRunRecord): AppWriterContextSelection {
+  if (run.selectedStarterId === null) {
+    throw new Error(`App generation run ${run.generationId} has no selected starter.`);
+  }
+
+  return {
+    starterId: run.selectedStarterId,
+    selectedContext: {
+      ...(run.selectedContext as AppWriterContextSelection['selectedContext']),
+      authoringMode: readAuthoringModeFromContext(run.selectedContext),
+    },
+  };
+}
+
+function buildGeneratorInputFromRun(
+  run: Pick<
+    AppGenerationRunRecord,
+    | 'generationId'
+    | 'ownerId'
+    | 'promptText'
+    | 'requestedAppId'
+    | 'selectedStarterId'
+    | 'selectedContext'
+    | 'createdAt'
+  >,
+  contextSelection: AppWriterContextSelection,
+): AppPackageGenerationInput {
+  return {
+    generationId: run.generationId,
+    ownerId: run.ownerId,
+    promptText: run.promptText,
+    requestedAppId: run.requestedAppId,
+    selectedStarterId: contextSelection.starterId,
+    selectedContext: contextSelection.selectedContext,
+    authoringMode: contextSelection.selectedContext.authoringMode,
+    createdAt: run.createdAt,
+  };
+}
+
+function selectAuthoringModeForGeneration(
+  sourceCompiler: AppPackageSourceCompiler | undefined,
+): AppWriterAuthoringMode {
+  return sourceCompiler?.supportsTypeScriptAuthoring === true ? 'typescript' : 'javascript';
+}
+
+function readAuthoringModeFromContext(
+  selectedContext: Record<string, unknown>,
+): AppWriterAuthoringMode {
+  return selectedContext.authoringMode === 'typescript' ? 'typescript' : 'javascript';
+}
+
+function readPlanningFromRun(run: AppGenerationRunRecord): AppGenerationPlanningResult | null {
+  if (
+    run.normalizedRequest === null ||
+    run.appPlan === null ||
+    run.selectedStarterId === null ||
+    run.status === 'failed'
+  ) {
+    return null;
+  }
+
+  return {
+    normalizedRequest: run.normalizedRequest,
+    appPlan: run.appPlan,
+    selectedStarterId: run.selectedStarterId,
+    progressUpdates: [
+      {
+        stage: 'planning_app',
+        message: 'Using the existing Lantern app plan.',
+      },
+    ],
+    notes: [...run.generationNotes],
+  };
+}
+
+async function failGenerationRun(input: {
+  repository: Pick<PackageReviewRepository, 'updateAppGenerationRun' | 'recordAuditEvent'>;
+  run: AppGenerationRunRecord;
+  error: unknown;
+  now: () => string;
+}): Promise<AppPackageGenerationFailedError> {
+  const failedRun = await input.repository.updateAppGenerationRun({
+    ...input.run,
+    status: 'failed',
+    validationFindings: [
+      ...input.run.validationFindings,
+      buildGenerationFailedFinding(input.error),
+    ],
+    updatedAt: input.now(),
+  });
+  await recordGenerationActivity({
+    repository: input.repository,
+    run: failedRun,
+    eventType: 'app_generation.failed',
+    status: 'failed',
+    summary: 'App package generation failed before a package could be saved.',
+  });
+
+  return new AppPackageGenerationFailedError(
+    input.error instanceof Error ? input.error.message : 'App package generation failed.',
+    failedRun,
+  );
 }
 
 async function recordGenerationActivity(input: {
@@ -472,6 +1246,73 @@ async function recordGenerationProgressUpdates(input: {
   }
 }
 
+async function saveGenerationWorkspaceSnapshot(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    'saveAppGenerationWorkspace' | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  run: AppGenerationRunRecord;
+  generation: AppPackageGenerationResult;
+  validationFindings: AppGenerationValidationFinding[];
+  generationPlan?: AppGenerationWorkspaceRecord['generationPlan'];
+}): Promise<AppGenerationWorkspaceRecord> {
+  const existing = await input.repository.getAppGenerationWorkspaceByGenerationId(
+    input.run.generationId,
+  );
+
+  return await input.repository.saveAppGenerationWorkspace({
+    generationId: input.run.generationId,
+    selectedStarterId: input.generation.selectedStarterId,
+    files:
+      existing === null
+        ? input.generation.files
+        : mergeWorkspaceFiles(
+            selectNonPackageWorkspaceFiles(existing.files),
+            input.generation.files,
+          ),
+    generationPlan: input.generationPlan ?? existing?.generationPlan ?? [],
+    validationFindings: input.validationFindings,
+    repairAttemptCount: input.run.repairAttemptCount,
+    updatedAt: input.run.updatedAt,
+  });
+}
+
+async function updateGenerationPlanStepInWorkspace(input: {
+  repository: Pick<
+    PackageReviewRepository,
+    'saveAppGenerationWorkspace' | 'getAppGenerationWorkspaceByGenerationId'
+  >;
+  run: AppGenerationRunRecord;
+  id: AppGenerationPlanStepId;
+  status: AppGenerationPlanStepStatus;
+  now: string;
+  summary?: string;
+  result?: Record<string, unknown>;
+  diagnosticCount?: number;
+}): Promise<AppGenerationWorkspaceRecord | null> {
+  const workspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
+    input.run.generationId,
+  );
+
+  if (workspace === null) {
+    return null;
+  }
+
+  return await input.repository.saveAppGenerationWorkspace({
+    ...workspace,
+    generationPlan: updateGenerationPlanStep({
+      plan: normalizeGenerationPlan(workspace.generationPlan),
+      id: input.id,
+      status: input.status,
+      now: input.now,
+      ...(input.summary === undefined ? {} : { summary: input.summary }),
+      ...(input.result === undefined ? {} : { result: input.result }),
+      ...(input.diagnosticCount === undefined ? {} : { diagnosticCount: input.diagnosticCount }),
+    }),
+    updatedAt: input.run.updatedAt,
+  });
+}
+
 async function runPreviewIfConfigured(
   input: RunAppPackageGenerationInput,
   contextSelection: AppWriterContextSelection,
@@ -494,6 +1335,8 @@ async function compileTypeScriptSourceIfNeeded(input: {
   contextSelection: AppWriterContextSelection;
 }) {
   const compiler = input.input.sourceCompiler;
+  const packageFiles = selectPackageWorkspaceFiles(input.generation.files);
+  const nonPackageFiles = selectNonPackageWorkspaceFiles(input.generation.files);
 
   if (compiler === undefined) {
     return {
@@ -503,12 +1346,17 @@ async function compileTypeScriptSourceIfNeeded(input: {
     };
   }
 
-  return await compiler.compile({
-    generationId: input.input.generationId,
-    appPlan: input.generation.appPlan,
-    selectedStarterId: input.contextSelection.starterId,
-    files: input.generation.files,
-  });
+  return await compiler
+    .compile({
+      generationId: input.input.generationId,
+      appPlan: input.generation.appPlan,
+      selectedStarterId: input.contextSelection.starterId,
+      files: packageFiles,
+    })
+    .then((compiled) => ({
+      ...compiled,
+      files: mergeWorkspaceFiles(nonPackageFiles, compiled.files),
+    }));
 }
 
 async function previewGeneratedPackage(input: {
@@ -523,6 +1371,14 @@ async function previewGeneratedPackage(input: {
   findings: AppGenerationValidationFinding[];
 }> {
   if (input.input.previewer === undefined) {
+    await updateGenerationPlanStepInWorkspace({
+      repository: input.input.repository,
+      run: input.run,
+      id: 'preview_runtime',
+      status: 'skipped',
+      now: input.run.updatedAt,
+      summary: 'Preview is not configured for this generation run.',
+    });
     return {
       run: input.run,
       findings: input.validationFindings,
@@ -533,6 +1389,13 @@ async function previewGeneratedPackage(input: {
     ...input.run,
     status: 'previewing',
     updatedAt: input.now(),
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.input.repository,
+    run,
+    id: 'preview_runtime',
+    status: 'running',
+    now: run.updatedAt,
   });
   await recordGenerationActivity({
     repository: input.input.repository,
@@ -562,6 +1425,14 @@ async function previewGeneratedPackage(input: {
       status: 'failed',
       summary: 'Generated package failed Lantern preview checks.',
     });
+    await updateGenerationPlanStepInWorkspace({
+      repository: input.input.repository,
+      run,
+      id: 'preview_runtime',
+      status: 'failed',
+      now: run.updatedAt,
+      diagnosticCount: previewFindings.length,
+    });
 
     return { run, findings };
   }
@@ -572,6 +1443,13 @@ async function previewGeneratedPackage(input: {
     eventType: 'app_generation.previewing',
     status: 'succeeded',
     summary: 'Generated package passed Lantern preview checks.',
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.input.repository,
+    run,
+    id: 'preview_runtime',
+    status: 'succeeded',
+    now: run.updatedAt,
   });
 
   return { run, findings };
@@ -584,6 +1462,14 @@ async function saveGeneratedPackageIfRequested(input: {
   now: () => string;
 }): Promise<RunAppPackageGenerationResult | null> {
   if (input.input.savePackage === undefined) {
+    await updateGenerationPlanStepInWorkspace({
+      repository: input.input.repository,
+      run: input.run,
+      id: 'save_pending_version',
+      status: 'skipped',
+      now: input.run.updatedAt,
+      summary: 'Saving a pending package version is not configured for this generation run.',
+    });
     return null;
   }
 
@@ -615,6 +1501,18 @@ async function saveGeneratedPackageIfRequested(input: {
     ...(input.input.savePackage.storageRoot === undefined
       ? {}
       : { storageRoot: input.input.savePackage.storageRoot }),
+  });
+  await updateGenerationPlanStepInWorkspace({
+    repository: input.input.repository,
+    run: input.run,
+    id: 'save_pending_version',
+    status: 'succeeded',
+    now: input.run.updatedAt,
+    result: {
+      packageVersionId: packageVersion.id,
+      appId: packageVersion.appId,
+      version: packageVersion.version,
+    },
   });
   const run = await input.input.repository.updateAppGenerationRun({
     ...input.run,
@@ -649,7 +1547,7 @@ async function savePendingGeneratedPackageVersion(input: {
 }): Promise<PackageVersionRecord> {
   const imported = await input.importPackageFromSource(
     createMemoryPackageSource(
-      input.generation.files.map((file) => ({
+      selectPackageWorkspaceFiles(input.generation.files).map((file) => ({
         relativePath: file.path,
         bytes: file.contents,
       })),
@@ -741,9 +1639,9 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
     file: null,
     field: null,
     fix: isTimeout
-      ? 'Retry generation or move this run onto durable staged background generation.'
+      ? 'Retry generation. Lantern runs generation in durable staged background work; repeated timeouts point to model/provider latency for the current stage.'
       : isModelOutputContractError
-        ? 'Retry generation. Lantern rejects model output unless it contains one valid JSON app package object.'
+        ? 'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.'
         : 'Check the model configuration or retry generation.',
     detail: isTimeout
       ? { providerError: 'timeout' }
@@ -766,6 +1664,7 @@ function isModelOutputContractMessage(message: string): boolean {
     normalized.includes('invalid json') ||
     normalized.includes('normalizedrequest') ||
     normalized.includes('appplan') ||
+    normalized.includes('fileedits') ||
     normalized.includes('selectedstarterid') ||
     normalized.includes('progressupdates')
   );

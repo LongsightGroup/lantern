@@ -8,9 +8,12 @@ Deno.test('app writer evaluation corpus covers the planned prompt families', () 
     [
       'phonics-game',
       'flashcards',
+      'phonics-flashcards-progress-report',
       'matching-activity',
       'sorting-activity',
       'short-simulation',
+      'fractions-adaptive-practice',
+      'lab-safety-scenario',
       'browser-autograder-repair',
     ],
   );

@@ -3,8 +3,10 @@ import type {
   AppGenerationActivityType,
   AppGenerationAttemptEventType,
   AppGenerationGradingMode,
+  AppGenerationPlanningResult,
   AppGenerationProgressStage,
   AppPackageGenerationResult,
+  AppWorkspaceFileEditResult,
   AppWriterStarterId,
 } from './types.ts';
 import { APP_GENERATION_PROGRESS_STAGES } from './types.ts';
@@ -319,6 +321,140 @@ export function parseAppPackageGenerationResult(value: unknown): AppPackageGener
     progressUpdates: parseProgressUpdates(record.progressUpdates),
     notes: requireStringArray(record.notes, 'notes'),
     validationFindings: [],
+  };
+}
+
+export function parseAppGenerationPlanningResultJson(
+  jsonText: string,
+): AppGenerationPlanningResult {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(extractModelJsonObjectText(jsonText));
+  } catch {
+    throw new Error('App package planner returned invalid JSON.');
+  }
+
+  return parseAppGenerationPlanningResult(normalizeModelOutputRoot(parsed));
+}
+
+export function parseAppWorkspaceFileEditResultJson(jsonText: string): AppWorkspaceFileEditResult {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(extractModelJsonObjectText(jsonText));
+  } catch {
+    throw new Error('App package file writer returned invalid JSON.');
+  }
+
+  return parseAppWorkspaceFileEditResult(normalizeFileEditOutputRoot(parsed));
+}
+
+export function parseAppGenerationPlanningResult(value: unknown): AppGenerationPlanningResult {
+  const record = requireRecord(value, 'App package planner output must be a JSON object.');
+  const normalizedRequest = requireRecord(
+    normalizeNormalizedRequestAliases(record.normalizedRequest),
+    'normalizedRequest',
+  );
+
+  return {
+    normalizedRequest: {
+      learningGoal: requireString(normalizedRequest.learningGoal, 'normalizedRequest.learningGoal'),
+      audience: requireString(normalizedRequest.audience, 'normalizedRequest.audience'),
+      contentSummary: requireString(
+        normalizedRequest.contentSummary,
+        'normalizedRequest.contentSummary',
+      ),
+      requestedActivity: requireString(
+        normalizedRequest.requestedActivity,
+        'normalizedRequest.requestedActivity',
+      ),
+      constraints: requireStringArray(
+        normalizedRequest.constraints,
+        'normalizedRequest.constraints',
+      ),
+      missingInformation: requireStringArray(
+        normalizedRequest.missingInformation,
+        'normalizedRequest.missingInformation',
+      ),
+      safeToGenerate: requireBoolean(
+        normalizedRequest.safeToGenerate,
+        'normalizedRequest.safeToGenerate',
+      ),
+    },
+    appPlan: parseAppPlan(record.appPlan),
+    selectedStarterId: requireEnum(record.selectedStarterId, STARTER_IDS, 'selectedStarterId'),
+    progressUpdates: parseProgressUpdates(record.progressUpdates),
+    notes: requireStringArray(record.notes, 'notes'),
+  };
+}
+
+export function parseAppWorkspaceFileEditResult(value: unknown): AppWorkspaceFileEditResult {
+  const record = requireRecord(value, 'App package file writer output must be a JSON object.');
+  const fileEdits = requireArray(record.fileEdits, 'fileEdits').map((file, index) => {
+    const fileRecord = requireRecord(file, `fileEdits[${index}]`);
+
+    return {
+      path: requireString(fileRecord.path, `fileEdits[${index}].path`),
+      contents: requireString(fileRecord.contents, `fileEdits[${index}].contents`),
+    };
+  });
+
+  if (fileEdits.length === 0) {
+    throw new Error('fileEdits must contain at least one workspace file edit.');
+  }
+
+  return {
+    fileEdits,
+    progressUpdates: parseProgressUpdates(record.progressUpdates),
+    notes: requireStringArray(record.notes, 'notes'),
+  };
+}
+
+function normalizeFileEditOutputRoot(value: unknown): unknown {
+  const record = readRecord(value);
+
+  if (record === null || record.fileEdits !== undefined || record.file_edits !== undefined) {
+    return normalizeFileEditAliases(value);
+  }
+
+  const contentText = readModelEnvelopeText(record);
+
+  if (contentText !== null) {
+    try {
+      return normalizeFileEditOutputRoot(JSON.parse(extractModelJsonObjectText(contentText)));
+    } catch {
+      return value;
+    }
+  }
+
+  const candidateKeys = ['workspaceEdits', 'workspace_edits', 'fileEdits', 'files', 'result'];
+
+  for (const key of candidateKeys) {
+    const candidate = readRecord(record[key]);
+
+    if (
+      candidate !== null &&
+      (candidate.fileEdits !== undefined || candidate.files !== undefined)
+    ) {
+      return normalizeFileEditOutputRoot(candidate);
+    }
+  }
+
+  return normalizeFileEditAliases(value);
+}
+
+function normalizeFileEditAliases(value: unknown): unknown {
+  const record = readRecord(value);
+
+  if (record === null) {
+    return value;
+  }
+
+  return {
+    ...record,
+    fileEdits: record.fileEdits ?? record.file_edits ?? record.files,
+    progressUpdates: record.progressUpdates ?? record.progress_updates,
   };
 }
 

@@ -33,7 +33,7 @@ Deno.test('app writer evaluation runner tracks harness outcomes across the promp
 
   assertEquals(
     results.map((result) => result.status),
-    ['passed', 'passed', 'passed', 'passed', 'passed', 'passed'],
+    APP_WRITER_EVALUATION_PROMPTS.map(() => 'passed'),
   );
   assertEquals(
     results.map((result) => result.selectedStarterId),

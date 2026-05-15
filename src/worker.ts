@@ -2,7 +2,10 @@ import type { ExecutionContext } from '@hono/hono';
 import { buildApp } from './app_core.ts';
 import {
   type AppGenerationWorkflowParams,
-  runAppGenerationWorkflow,
+  runAppGenerationFileWorkflowStep,
+  runAppGenerationFinishWorkflowStep,
+  runAppGenerationInitializationWorkflowStep,
+  runAppGenerationPlanningWorkflowStep,
 } from './app_writer/workflow_runner.ts';
 import { resolveWorkerServices, type WorkerBindings } from './app_worker_services.ts';
 import { createObjectEnvReader } from './platform/env.ts';
@@ -64,8 +67,71 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
     event: WorkflowEvent<AppGenerationWorkflowParams>,
     step: WorkflowStep,
   ): Promise<unknown> {
+    const initialized = await step.do(
+      'initialize app writer workspace',
+      {
+        retries: {
+          limit: 1,
+          delay: '30 seconds',
+          backoff: 'exponential',
+        },
+        timeout: '2 minutes',
+      },
+      () =>
+        runAppGenerationInitializationWorkflowStep({
+          bindings: this.env,
+          params: event.payload,
+        }),
+    );
+
+    if (!initialized.ok) {
+      return initialized.result;
+    }
+
+    const planned = await step.do(
+      'plan app writer generation',
+      {
+        retries: {
+          limit: 1,
+          delay: '30 seconds',
+          backoff: 'exponential',
+        },
+        timeout: '5 minutes',
+      },
+      () =>
+        runAppGenerationPlanningWorkflowStep({
+          bindings: this.env,
+          initialized: initialized.value,
+        }),
+    );
+
+    if (!planned.ok) {
+      return planned.result;
+    }
+
+    const generated = await step.do(
+      'write app writer scaffold files',
+      {
+        retries: {
+          limit: 1,
+          delay: '30 seconds',
+          backoff: 'exponential',
+        },
+        timeout: '25 minutes',
+      },
+      () =>
+        runAppGenerationFileWorkflowStep({
+          bindings: this.env,
+          planned: planned.value,
+        }),
+    );
+
+    if (!generated.ok) {
+      return generated.result;
+    }
+
     return await step.do(
-      'continue app writer generation',
+      'validate repair and save app writer package',
       {
         retries: {
           limit: 1,
@@ -75,9 +141,9 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         timeout: '15 minutes',
       },
       () =>
-        runAppGenerationWorkflow({
+        runAppGenerationFinishWorkflowStep({
           bindings: this.env,
-          params: event.payload,
+          generated: generated.value,
         }),
     );
   }

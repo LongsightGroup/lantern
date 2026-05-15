@@ -7,6 +7,7 @@ import {
 import type { RunAppPackageGenerationResult } from './app_writer/service.ts';
 import { renderAppGenerationRunPage, renderAppWriterPage } from './admin/app_writer_page.ts';
 import { createErrorNotice } from './app_notice_support.ts';
+import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
 import { formValueAsString, requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
@@ -119,12 +120,23 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
         run.packageVersionId === null
           ? null
           : await repository.getPackageVersionById(run.packageVersionId);
+      const workspace = await repository.getAppGenerationWorkspaceByGenerationId(generationId);
       const activityEvents = await listGenerationActivityEvents(repository, generationId);
+      const runtimeLog =
+        packageVersion === null
+          ? { session: null, evidence: [] }
+          : await loadPreviewCapabilityLog({
+              repository,
+              packageVersionId: packageVersion.id,
+            });
 
       return context.html(
         renderAppGenerationRunPage({
           run,
+          workspace,
           packageVersion,
+          latestPreviewSession: runtimeLog.session,
+          previewEvidence: runtimeLog.evidence,
           activityEvents,
         }),
       );

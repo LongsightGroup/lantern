@@ -1,5 +1,14 @@
-import type { AppGenerationRunRecord, AppGenerationStatus } from '../app_writer/types.ts';
-import type { AuditEventRecord, PackageVersionRecord } from '../package_review/types.ts';
+import type {
+  AppGenerationRunRecord,
+  AppGenerationStatus,
+  AppGenerationWorkspaceRecord,
+} from '../app_writer/types.ts';
+import type {
+  AuditEventRecord,
+  PackageVersionRecord,
+  PreviewEvidenceRecord,
+  PreviewSessionRecord,
+} from '../package_review/types.ts';
 import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 
 export function renderAppWriterPage(
@@ -111,12 +120,18 @@ function renderGradingOption(value: string, label: string, selectedValue: string
 
 export function renderAppGenerationRunPage(input: {
   run: AppGenerationRunRecord;
+  workspace?: AppGenerationWorkspaceRecord | null;
   packageVersion?: PackageVersionRecord | null;
+  latestPreviewSession?: PreviewSessionRecord | null;
+  previewEvidence?: PreviewEvidenceRecord[];
   activityEvents?: AuditEventRecord[];
   notice?: AdminNotice | null;
 }): string {
   const run = input.run;
+  const workspace = input.workspace ?? null;
   const packageVersion = input.packageVersion ?? null;
+  const latestPreviewSession = input.latestPreviewSession ?? null;
+  const previewEvidence = input.previewEvidence ?? [];
   const refreshWhileRunning = isActiveGenerationStatus(run.status);
 
   return renderAdminLayout({
@@ -238,7 +253,13 @@ export function renderAppGenerationRunPage(input: {
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Generated files</p>
-        ${renderGeneratedFilesSummary(packageVersion)}
+        ${renderGeneratedFilesSummary({ workspace, packageVersion })}
+      </div>
+    </section>
+    <section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Generation plan</p>
+        ${renderGenerationPlan(workspace)}
       </div>
     </section>
     <section class="panel">
@@ -253,6 +274,11 @@ export function renderAppGenerationRunPage(input: {
         ${renderActivity(run, input.activityEvents ?? [])}
       </div>
     </section>
+    ${renderGeneratedPackageRuntimeLog({
+      packageVersion,
+      latestPreviewSession,
+      previewEvidence,
+    })}
     ${refreshWhileRunning ? renderGenerationRefreshScript() : ''}`,
   });
 }
@@ -263,6 +289,8 @@ function renderGenerationProgress(status: AppGenerationStatus): string {
     label: string;
   }> = [
     { status: 'started', label: 'Started' },
+    { status: 'initializing', label: 'Initializing' },
+    { status: 'planning', label: 'Planning' },
     { status: 'generating_package', label: 'Generating' },
     { status: 'validating', label: 'Validating' },
     { status: 'previewing', label: 'Previewing' },
@@ -298,6 +326,7 @@ function renderGenerationRefreshScript(): string {
 function isActiveGenerationStatus(status: AppGenerationStatus): boolean {
   return (
     status === 'started' ||
+    status === 'initializing' ||
     status === 'normalizing' ||
     status === 'planning' ||
     status === 'generating_package' ||
@@ -312,16 +341,18 @@ function progressIndexForStatus(status: AppGenerationStatus): number {
     return -1;
   }
 
-  if (status === 'normalizing' || status === 'planning') {
-    return 0;
+  if (status === 'normalizing') {
+    return 2;
   }
 
   if (status === 'repairing') {
-    return 2;
+    return 4;
   }
 
   const ordered: AppGenerationStatus[] = [
     'started',
+    'initializing',
+    'planning',
     'generating_package',
     'validating',
     'previewing',
@@ -331,23 +362,60 @@ function progressIndexForStatus(status: AppGenerationStatus): number {
   return ordered.indexOf(status);
 }
 
-function renderGeneratedFilesSummary(packageVersion: PackageVersionRecord | null): string {
-  if (packageVersion === null) {
-    return '<p class="line-copy">No package files were saved.</p>';
+function renderGeneratedFilesSummary(input: {
+  workspace: AppGenerationWorkspaceRecord | null;
+  packageVersion: PackageVersionRecord | null;
+}): string {
+  if (input.workspace !== null) {
+    const fileRows = input.workspace.files.map((file) => ({
+      label: file.path,
+      path: `${formatWorkspaceFileRole(file.role)} · ${file.contents.length} characters`,
+    }));
+
+    return `<div class="line-list">
+      ${fileRows
+        .map(
+          (row) =>
+            `<article class="line-item">
+            <p class="line-title">${escapeHtml(row.label)}</p>
+            <p class="line-copy">${escapeHtml(row.path)}</p>
+          </article>`,
+        )
+        .join('')}
+    </div>
+    <p class="micro muted">Workspace captured after repair attempt ${escapeHtml(
+      String(input.workspace.repairAttemptCount),
+    )}; ${escapeHtml(
+      String(input.workspace.validationFindings.length),
+    )} validation or preview findings currently attached.</p>
+    ${
+      input.packageVersion === null
+        ? '<p class="micro muted">No immutable package version has been saved yet.</p>'
+        : `<p class="micro muted">Saved package checksum ${escapeHtml(
+            input.packageVersion.artifact.digest,
+          )}.</p>`
+    }`;
   }
 
-  const contentFiles = readManifestStringArray(packageVersion.manifestJson, 'content_files');
-  const preview = readManifestRecord(packageVersion.manifestJson, 'preview');
+  if (input.packageVersion === null) {
+    return '<p class="line-copy">No generated workspace files were recorded yet.</p>';
+  }
+
+  const contentFiles = readManifestStringArray(input.packageVersion.manifestJson, 'content_files');
+  const preview = readManifestRecord(input.packageVersion.manifestJson, 'preview');
   const previewFiles = [
     readManifestString(preview, 'fixtures_file'),
     readManifestString(preview, 'tests_file'),
   ].filter((path): path is string => path !== null);
   const fileRows: Array<{ label: string; path: string }> = [
-    { label: 'Manifest', path: packageVersion.artifact.manifestPath },
-    { label: 'Entrypoint', path: packageVersion.entrypoint },
+    { label: 'Manifest', path: input.packageVersion.artifact.manifestPath },
+    { label: 'Entrypoint', path: input.packageVersion.entrypoint },
     ...contentFiles.map((path) => ({ label: 'Content', path })),
     ...previewFiles.map((path) => ({ label: 'Preview', path })),
-    { label: 'Artifact root', path: packageVersion.artifact.snapshotRoot },
+    {
+      label: 'Artifact root',
+      path: input.packageVersion.artifact.snapshotRoot,
+    },
   ];
 
   return `<div class="line-list">
@@ -361,7 +429,32 @@ function renderGeneratedFilesSummary(packageVersion: PackageVersionRecord | null
       )
       .join('')}
   </div>
-  <p class="micro muted">Checksum ${escapeHtml(packageVersion.artifact.digest)}.</p>`;
+  <p class="micro muted">Checksum ${escapeHtml(input.packageVersion.artifact.digest)}.</p>`;
+}
+
+function renderGenerationPlan(workspace: AppGenerationWorkspaceRecord | null): string {
+  if (workspace === null || workspace.generationPlan.length === 0) {
+    return '<p class="line-copy">No generation plan has been recorded yet.</p>';
+  }
+
+  return `<div class="line-list">
+    ${workspace.generationPlan
+      .map(
+        (step) =>
+          `<article class="line-item">
+          <p class="line-title">${escapeHtml(
+            formatProgressStage(step.id),
+          )} <span class="status-badge status-pending">${escapeHtml(step.status)}</span></p>
+          <p class="line-copy">${escapeHtml(step.summary)}</p>
+          <p class="micro muted">${escapeHtml(String(step.diagnosticCount))} diagnostics.</p>
+        </article>`,
+      )
+      .join('')}
+  </div>`;
+}
+
+function formatWorkspaceFileRole(role: string | undefined): string {
+  return role ?? 'package';
 }
 
 function renderModelRequestMetadata(run: AppGenerationRunRecord): string {
@@ -465,9 +558,70 @@ function renderActivityEvent(event: AuditEventRecord): string {
           formatProgressStage(progressStage),
         )}</span>`;
 
-  return `<strong>${escapeHtml(formatDateTime(event.occurredAt))}</strong>${progressLabel} ${escapeHtml(
-    event.summary,
-  )}`;
+  return `<strong>${escapeHtml(
+    formatDateTime(event.occurredAt),
+  )}</strong>${progressLabel} ${escapeHtml(event.summary)}`;
+}
+
+function renderGeneratedPackageRuntimeLog(input: {
+  packageVersion: PackageVersionRecord | null;
+  latestPreviewSession: PreviewSessionRecord | null;
+  previewEvidence: PreviewEvidenceRecord[];
+}): string {
+  if (input.packageVersion === null) {
+    return '';
+  }
+
+  const previewHref = `/admin/packages/${escapeHtml(
+    input.packageVersion.appId,
+  )}/versions/${escapeHtml(input.packageVersion.version)}/preview`;
+
+  return `<section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Runtime log</p>
+        ${
+          input.latestPreviewSession === null
+            ? `<p class="line-copy">No runtime preview session has been recorded for this generated package yet.</p>
+              <div class="button-row">
+                <a class="button-secondary" href="${previewHref}">Open test launch</a>
+              </div>`
+            : `<p class="line-copy">Latest test launch <strong>${escapeHtml(
+                input.latestPreviewSession.sessionId,
+              )}</strong> ran as ${escapeHtml(
+                input.latestPreviewSession.launch.userRole,
+              )} in course <span class="inline-code">${escapeHtml(
+                input.latestPreviewSession.launch.courseId,
+              )}</span>.</p>
+              ${renderPreviewEvidence(input.previewEvidence)}
+              <div class="button-row">
+                <a class="button-secondary" href="${previewHref}">Open full test launch log</a>
+              </div>`
+        }
+      </div>
+    </section>`;
+}
+
+function renderPreviewEvidence(records: PreviewEvidenceRecord[]): string {
+  if (records.length === 0) {
+    return '<p class="muted">No runtime gateway events have been recorded for this test launch yet.</p>';
+  }
+
+  return `<div class="line-list">
+    ${records
+      .map(
+        (record) =>
+          `<article class="line-item">
+          <p class="line-title">${escapeHtml(record.eventType)}${
+            record.capability === null
+              ? ''
+              : ` <span class="inline-code">${escapeHtml(record.capability)}</span>`
+          }</p>
+          <p class="micro muted">${escapeHtml(formatDateTime(record.occurredAt))}</p>
+          <p class="line-copy">${escapeHtml(record.summary)}</p>
+        </article>`,
+      )
+      .join('')}
+  </div>`;
 }
 
 function readAuditString(record: Record<string, unknown>, key: string): string | null {
@@ -484,8 +638,35 @@ function formatSelectedContext(context: Record<string, unknown>): string {
   const references = Array.isArray(context.referenceAppIds)
     ? context.referenceAppIds.filter((item): item is string => typeof item === 'string')
     : [];
+  const recipe = formatAppWriterRecipe(context);
+  const parts = [
+    ...(recipe === null ? [] : [recipe]),
+    references.length === 0 ? 'No references recorded.' : `References: ${references.join(', ')}`,
+  ];
 
-  return references.length === 0 ? 'No references recorded.' : references.join(', ');
+  return parts.join(' · ');
+}
+
+function formatAppWriterRecipe(context: Record<string, unknown>): string | null {
+  const recipe = readUnknownRecord(context.recipe);
+  const recipeId = readUnknownString(recipe?.recipeId);
+  const recipeVersion = readUnknownString(recipe?.recipeVersion);
+
+  if (recipeId === null || recipeVersion === null) {
+    return null;
+  }
+
+  return `Recipe ${recipeId}@${recipeVersion}`;
+}
+
+function readUnknownRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function readUnknownString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
 }
 
 function formatStatus(status: AppGenerationRunRecord['status']): string {

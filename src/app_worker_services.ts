@@ -6,7 +6,15 @@ import {
 } from './app_writer/cloudflare_generator.ts';
 import { createUnavailableAppPackageGenerator } from './app_writer/package_generator.ts';
 import { createUnavailableAppPackagePreviewer } from './app_writer/preview.ts';
-import { createUnavailableAppPackageSourceCompiler } from './app_writer/source_compiler.ts';
+import {
+  createBoundAppPackagePreviewer,
+  isAppPackagePreviewerBinding,
+} from './app_writer/preview_binding.ts';
+import {
+  createBoundAppPackageSourceCompiler,
+  isAppPackageSourceCompilerBinding,
+} from './app_writer/source_compiler_binding.ts';
+import type { AppPackageSourceCompiler } from './app_writer/types.ts';
 import {
   createCloudflareWorkflowAppGenerationRunScheduler,
   isAppGenerationWorkflowBinding,
@@ -60,6 +68,10 @@ const WORKER_AUTHORING_DRAFT_PREVIEW_MESSAGE =
   'Cloudflare Workers do not materialize draft preview snapshots from the local filesystem. Use the local Deno authoring preview flow instead.';
 const WORKER_APP_GENERATION_WORKFLOW_MESSAGE =
   'Cloudflare Workers app generation requires a Workflows binding named APP_GENERATION_WORKFLOW.';
+const WORKER_APP_SOURCE_COMPILER_MESSAGE =
+  'Cloudflare Workers app writer requires a platform source compiler service binding named APP_WRITER_SOURCE_COMPILER.';
+const WORKER_APP_PREVIEWER_MESSAGE =
+  'Cloudflare Workers generated app preview requires a platform previewer service binding named APP_WRITER_PREVIEWER.';
 
 export interface WorkerBindings extends Record<string, unknown> {
   DB?: D1Database;
@@ -67,6 +79,8 @@ export interface WorkerBindings extends Record<string, unknown> {
   LOADER?: DynamicWorkerLoader;
   AI?: unknown;
   APP_GENERATION_WORKFLOW?: unknown;
+  APP_WRITER_SOURCE_COMPILER?: unknown;
+  APP_WRITER_PREVIEWER?: unknown;
 }
 
 export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader): AppServices {
@@ -90,10 +104,8 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
   return {
     env,
     appPackageGenerator: resolveWorkerAppPackageGenerator(bindings, env),
-    appPackagePreviewer: createUnavailableAppPackagePreviewer(),
-    appPackageSourceCompiler: createUnavailableAppPackageSourceCompiler(
-      'Cloudflare Worker app writer does not compile TypeScript source in-process yet. Generate reviewed browser assets or bind a platform compiler.',
-    ),
+    appPackagePreviewer: resolveWorkerAppPackagePreviewer(bindings),
+    appPackageSourceCompiler: resolveWorkerAppPackageSourceCompiler(bindings),
     appGenerationRunScheduler: resolveWorkerAppGenerationRunScheduler(bindings),
     browserAutograderDraftGenerator: createUnavailableBrowserAutograderDraftGenerator(),
     runtimeArtifactStore: snapshotStore,
@@ -113,6 +125,27 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
       importPackageFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
     loadReferencePackageSnapshot: (appId, options = {}) =>
       loadPackageSnapshotFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
+  };
+}
+
+function resolveWorkerAppPackagePreviewer(bindings: WorkerBindings) {
+  if (isAppPackagePreviewerBinding(bindings.APP_WRITER_PREVIEWER)) {
+    return createBoundAppPackagePreviewer(bindings.APP_WRITER_PREVIEWER);
+  }
+
+  return createUnavailableAppPackagePreviewer(WORKER_APP_PREVIEWER_MESSAGE);
+}
+
+function resolveWorkerAppPackageSourceCompiler(bindings: WorkerBindings): AppPackageSourceCompiler {
+  if (isAppPackageSourceCompilerBinding(bindings.APP_WRITER_SOURCE_COMPILER)) {
+    return createBoundAppPackageSourceCompiler(bindings.APP_WRITER_SOURCE_COMPILER);
+  }
+
+  return {
+    supportsTypeScriptAuthoring: true,
+    compile(_input) {
+      return Promise.reject(new Error(WORKER_APP_SOURCE_COMPILER_MESSAGE));
+    },
   };
 }
 

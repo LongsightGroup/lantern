@@ -18,6 +18,7 @@ Deno.test('fake app package generator returns deterministic cloned results', asy
     requestedAppId: null,
     selectedStarterId: 'simple-activity',
     selectedContext: {},
+    authoringMode: 'javascript',
     createdAt: '2026-05-14T12:00:00.000Z',
   });
   first.notes.push('mutated');
@@ -29,6 +30,7 @@ Deno.test('fake app package generator returns deterministic cloned results', asy
     requestedAppId: null,
     selectedStarterId: 'simple-activity',
     selectedContext: {},
+    authoringMode: 'javascript',
     createdAt: '2026-05-14T12:05:00.000Z',
   });
 
@@ -50,6 +52,7 @@ Deno.test('fake repairing app package generator returns queued repair results', 
     requestedAppId: null,
     selectedStarterId: 'simple-activity',
     selectedContext: {},
+    authoringMode: 'javascript',
     createdAt: '2026-05-14T12:00:00.000Z',
   });
   const repaired = await generator.repair?.({
@@ -59,6 +62,7 @@ Deno.test('fake repairing app package generator returns queued repair results', 
     requestedAppId: null,
     selectedStarterId: 'simple-activity',
     selectedContext: {},
+    authoringMode: 'javascript',
     createdAt: '2026-05-14T12:00:00.000Z',
     repairAttempt: 1,
     previousResult: initial,
@@ -80,6 +84,7 @@ Deno.test('unavailable app package generator fails clearly', async () => {
         requestedAppId: null,
         selectedStarterId: 'simple-activity',
         selectedContext: {},
+        authoringMode: 'javascript',
         createdAt: '2026-05-14T12:00:00.000Z',
       }),
     Error,

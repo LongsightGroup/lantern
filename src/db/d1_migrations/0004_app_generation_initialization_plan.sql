@@ -1,4 +1,6 @@
-CREATE TABLE IF NOT EXISTS app_generation_runs (
+PRAGMA foreign_keys = off;
+
+CREATE TABLE app_generation_runs_new (
   generation_id TEXT PRIMARY KEY,
   owner_id TEXT NOT NULL,
   status TEXT NOT NULL CHECK (
@@ -36,9 +38,58 @@ CREATE TABLE IF NOT EXISTS app_generation_runs (
   updated_at TEXT NOT NULL
 );
 
+INSERT INTO app_generation_runs_new (
+  generation_id,
+  owner_id,
+  status,
+  requested_app_id,
+  generated_app_id,
+  generated_version,
+  package_version_id,
+  prompt_text,
+  normalized_request_json,
+  app_plan_json,
+  selected_starter_id,
+  selected_context_json,
+  model_request_metadata_json,
+  generation_notes_json,
+  validation_findings_json,
+  repair_attempt_count,
+  created_at,
+  updated_at
+)
+SELECT
+  generation_id,
+  owner_id,
+  status,
+  requested_app_id,
+  generated_app_id,
+  generated_version,
+  package_version_id,
+  prompt_text,
+  normalized_request_json,
+  app_plan_json,
+  selected_starter_id,
+  selected_context_json,
+  model_request_metadata_json,
+  generation_notes_json,
+  validation_findings_json,
+  repair_attempt_count,
+  created_at,
+  updated_at
+FROM app_generation_runs;
+
+DROP TABLE app_generation_runs;
+ALTER TABLE app_generation_runs_new RENAME TO app_generation_runs;
+
 CREATE INDEX IF NOT EXISTS app_generation_runs_owner_updated_idx
   ON app_generation_runs (owner_id, updated_at DESC, generation_id DESC);
 
 CREATE INDEX IF NOT EXISTS app_generation_runs_package_version_idx
   ON app_generation_runs (package_version_id)
   WHERE package_version_id IS NOT NULL;
+
+ALTER TABLE app_generation_workspaces
+  ADD COLUMN generation_plan_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(generation_plan_json));
+
+PRAGMA foreign_keys = on;

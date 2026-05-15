@@ -27,7 +27,7 @@ import type {
   RuntimeSessionRecord,
 } from '../lti/types.ts';
 import type { LtiProfileId } from '../lti/profile.ts';
-import type { AppGenerationRunRecord } from '../app_writer/types.ts';
+import type { AppGenerationRunRecord, AppGenerationWorkspaceRecord } from '../app_writer/types.ts';
 
 export interface PackageReviewRepository {
   registerPackageVersion(input: ImportedPackageVersion): Promise<PackageVersionRecord>;
@@ -127,6 +127,12 @@ export interface PackageReviewRepository {
   createAppGenerationRun(record: AppGenerationRunRecord): Promise<AppGenerationRunRecord>;
   getAppGenerationRunById(generationId: string): Promise<AppGenerationRunRecord | null>;
   updateAppGenerationRun(record: AppGenerationRunRecord): Promise<AppGenerationRunRecord>;
+  saveAppGenerationWorkspace(
+    record: AppGenerationWorkspaceRecord,
+  ): Promise<AppGenerationWorkspaceRecord>;
+  getAppGenerationWorkspaceByGenerationId(
+    generationId: string,
+  ): Promise<AppGenerationWorkspaceRecord | null>;
   appendPreviewEvidence(input: {
     previewSessionId: string;
     eventType: string;

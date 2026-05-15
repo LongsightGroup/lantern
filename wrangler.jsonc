@@ -30,6 +30,16 @@
       "class_name": "AppGenerationWorkflow",
     },
   ],
+  "services": [
+    {
+      "binding": "APP_WRITER_SOURCE_COMPILER",
+      "service": "lantern-app-writer-platform-services",
+    },
+    {
+      "binding": "APP_WRITER_PREVIEWER",
+      "service": "lantern-app-writer-platform-services",
+    },
+  ],
   "worker_loaders": [
     {
       "binding": "LOADER",
@@ -39,7 +49,7 @@
     {
       "binding": "DB",
       "database_name": "lantern",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "3ed3e887-c7c3-458e-8549-51974a9e9ac6",
       "migrations_dir": "src/db/d1_migrations",
     },
   ],
@@ -50,7 +60,7 @@
       // reference package sources under reference-packages/<app-id>/source/...
       // after bucket creation run:
       // deno task reference:sync --bucket=<bucket_name>
-      "bucket_name": "replace-with-package-artifact-bucket",
+      "bucket_name": "lantern-prod-artifacts",
     },
   ],
 }

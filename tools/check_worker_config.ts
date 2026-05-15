@@ -30,6 +30,14 @@ const REQUIRED_BINDINGS = [
     description: 'workflows class AppGenerationWorkflow',
     pattern: /"workflows"\s*:\s*\[[\s\S]*?"class_name"\s*:\s*"AppGenerationWorkflow"/,
   },
+  {
+    description: 'services binding APP_WRITER_SOURCE_COMPILER',
+    pattern: /"services"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"APP_WRITER_SOURCE_COMPILER"/,
+  },
+  {
+    description: 'services binding APP_WRITER_PREVIEWER',
+    pattern: /"services"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"APP_WRITER_PREVIEWER"/,
+  },
 ] as const;
 
 const PROHIBITED_BINDINGS = [
@@ -51,6 +59,6 @@ if (import.meta.main) {
   }
 
   console.log(
-    'Worker config keeps DB, LOADER, PACKAGE_ARTIFACTS, and APP_GENERATION_WORKFLOW bindings wired.',
+    'Worker config keeps DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, and app-writer service bindings wired.',
   );
 }

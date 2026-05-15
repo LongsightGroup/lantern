@@ -1,12 +1,20 @@
-import type { AppWriterStarterId } from './types.ts';
+import type { AppWriterAuthoringMode, AppWriterStarterId } from './types.ts';
 import {
   type AppWriterPromptContextExcerpt,
   selectPromptContextExcerpts,
 } from './prompt_context.ts';
+import {
+  type AppWriterRecipe,
+  APP_WRITER_PROMPT_CONTEXT_VERSION,
+  APP_WRITER_PUBLIC_CONTRACT_SOURCES,
+  buildAppWriterRecipe,
+} from './recipe.ts';
 
 export interface AppWriterContextSelectionInput {
   promptText: string;
   requestedAppId: string | null;
+  authoringMode?: AppWriterAuthoringMode;
+  maxRepairAttempts?: number;
 }
 
 export interface AppWriterContextSelection {
@@ -16,17 +24,12 @@ export interface AppWriterContextSelection {
     referenceAppIds: string[];
     publicContractSources: string[];
     promptContextVersion: number;
+    authoringMode: AppWriterAuthoringMode;
+    recipe: AppWriterRecipe;
     promptContextExcerpts: AppWriterPromptContextExcerpt[];
     selectionReason: string;
   };
 }
-
-const PUBLIC_CONTRACT_SOURCES = [
-  'APP_PACKAGE_SPEC.md',
-  'AUTHORING_FOR_LLMS.md',
-  'schemas/app-manifest.schema.json',
-  'sdk/app-sdk.ts',
-] as const;
 
 export function selectAppWriterContext(
   input: AppWriterContextSelectionInput,
@@ -36,6 +39,8 @@ export function selectAppWriterContext(
   if (mentionsBrowserAutograder(prompt)) {
     return buildSelection({
       promptText: input.promptText,
+      authoringMode: input.authoringMode ?? 'javascript',
+      maxRepairAttempts: input.maxRepairAttempts,
       starterId: 'browser-autograder',
       referenceAppIds: ['template', 'web-checkup', 'typescript-ladder-game'],
       selectionReason: 'The request appears to need reviewed browser checks or evidence artifacts.',
@@ -45,6 +50,8 @@ export function selectAppWriterContext(
   if (mentionsFlashcards(prompt)) {
     return buildSelection({
       promptText: input.promptText,
+      authoringMode: input.authoringMode ?? 'javascript',
+      maxRepairAttempts: input.maxRepairAttempts,
       starterId: 'simple-activity',
       referenceAppIds: ['quick-study', 'examples/starters/simple-activity'],
       selectionReason: 'The request appears to fit a retrieval-practice activity.',
@@ -54,6 +61,8 @@ export function selectAppWriterContext(
   if (mentionsGame(prompt)) {
     return buildSelection({
       promptText: input.promptText,
+      authoringMode: input.authoringMode ?? 'javascript',
+      maxRepairAttempts: input.maxRepairAttempts,
       starterId: 'simple-activity',
       referenceAppIds: ['chapter-4-asteroids', 'examples/starters/simple-activity'],
       selectionReason: 'The request appears to fit a game-like browser activity.',
@@ -62,6 +71,8 @@ export function selectAppWriterContext(
 
   return buildSelection({
     promptText: input.promptText,
+    authoringMode: input.authoringMode ?? 'javascript',
+    maxRepairAttempts: input.maxRepairAttempts,
     starterId: 'simple-activity',
     referenceAppIds: ['examples/starters/simple-activity'],
     selectionReason:
@@ -73,6 +84,8 @@ export function selectAppWriterContext(
 
 function buildSelection(input: {
   promptText: string;
+  authoringMode: AppWriterAuthoringMode;
+  maxRepairAttempts: number | undefined;
   starterId: AppWriterStarterId;
   referenceAppIds: string[];
   selectionReason: string;
@@ -88,8 +101,13 @@ function buildSelection(input: {
     selectedContext: {
       starterId: input.starterId,
       referenceAppIds: input.referenceAppIds,
-      publicContractSources: [...PUBLIC_CONTRACT_SOURCES],
-      promptContextVersion: 1,
+      publicContractSources: [...APP_WRITER_PUBLIC_CONTRACT_SOURCES],
+      promptContextVersion: APP_WRITER_PROMPT_CONTEXT_VERSION,
+      authoringMode: input.authoringMode,
+      recipe: buildAppWriterRecipe({
+        authoringMode: input.authoringMode,
+        maxRepairAttempts: input.maxRepairAttempts,
+      }),
       promptContextExcerpts,
       selectionReason: input.selectionReason,
     },
