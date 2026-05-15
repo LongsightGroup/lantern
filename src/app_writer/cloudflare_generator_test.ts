@@ -77,6 +77,45 @@ Deno.test('Cloudflare app package generator reads streaming JSON model responses
   assertEquals(result.modelRequestMetadata?.[0]?.responseCharacters, generationJson.length);
 });
 
+Deno.test('Cloudflare app package generator stops streaming at the done marker', async () => {
+  const generationJson = JSON.stringify(buildGenerationResult());
+  let streamCanceled = false;
+  const generator = createCloudflareAppPackageGenerator({
+    model: '@cf/test/model',
+    ai: {
+      run(_model, input) {
+        assertEquals(input.stream, true);
+
+        return Promise.resolve(
+          createHangingTextStream(
+            [
+              toEventStreamData(generationJson.slice(0, 80)),
+              toEventStreamData(generationJson.slice(80)),
+              'data: [DONE]\n\n',
+            ].join(''),
+            () => {
+              streamCanceled = true;
+            },
+          ),
+        );
+      },
+    },
+  });
+
+  const result = await generator.generate({
+    generationId: 'generation-1',
+    ownerId: 'instructor-1',
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: 'phonics-match',
+    selectedStarterId: 'simple-activity',
+    selectedContext: {},
+    createdAt: '2026-05-14T12:00:00.000Z',
+  });
+
+  assertEquals(result.appPlan.appId, 'phonics-match');
+  assertEquals(streamCanceled, true);
+});
+
 Deno.test('Cloudflare app package generator reads JSON-line streaming fragments', async () => {
   const generationJson = JSON.stringify(buildGenerationResult());
   const generator = createCloudflareAppPackageGenerator({
@@ -367,6 +406,17 @@ function createTextStream(text: string): ReadableStream<Uint8Array> {
     start(controller) {
       controller.enqueue(new TextEncoder().encode(text));
       controller.close();
+    },
+  });
+}
+
+function createHangingTextStream(text: string, onCancel: () => void): ReadableStream<Uint8Array> {
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(text));
+    },
+    cancel() {
+      onCancel();
     },
   });
 }

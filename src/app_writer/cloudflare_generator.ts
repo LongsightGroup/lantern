@@ -274,11 +274,34 @@ async function readStreamText(stream: ReadableStream<unknown>): Promise<string> 
     } else {
       throw new TypeError('Cloudflare AI stream returned an unsupported chunk type.');
     }
+
+    if (hasModelStreamDoneMarker(text)) {
+      await cancelStreamReader(reader);
+      break;
+    }
   }
 
   text += decoder.decode();
 
   return text;
+}
+
+async function cancelStreamReader(reader: ReadableStreamDefaultReader<unknown>): Promise<void> {
+  try {
+    await reader.cancel();
+  } catch {
+    // The response text is already complete once the provider sends [DONE].
+  }
+}
+
+function hasModelStreamDoneMarker(text: string): boolean {
+  const normalized = text.replaceAll('\r\n', '\n');
+
+  return normalized.split('\n').some((line) => {
+    const trimmed = line.trim();
+
+    return trimmed === '[DONE]' || trimmed === 'data: [DONE]';
+  });
 }
 
 function readEventStreamModelText(eventStreamText: string): string {
