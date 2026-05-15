@@ -118,7 +118,7 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
           delay: '30 seconds',
           backoff: 'exponential',
         },
-        timeout: '25 minutes',
+        timeout: '45 minutes',
       },
       () =>
         runAppGenerationFileWorkflowStep({

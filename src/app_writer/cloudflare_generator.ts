@@ -1164,7 +1164,7 @@ const RAW_FILE_SYSTEM_PROMPT =
   'You write exactly one Lantern workspace file. Return only the raw file contents for the requested target path. Do not return JSON. Do not return markdown. Do not wrap the file in a code fence. Do not include the file path, explanation, progress text, or notes. Never request or use LMS tokens, Cloudflare bindings, external network access, package imports, localStorage, sessionStorage, direct grade passback, or backend code. The file must fit the reviewed Lantern package contract and use window.GatewayApp only when app code needs runtime APIs.';
 
 const DEFAULT_MAX_RESPONSE_CHARACTERS = 250_000;
-const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 180_000;
+const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 600_000;
 
 const PROMPT_CONTEXT_RULES = [
   'Treat promptContext as the authoritative Lantern contract context for this request.',
