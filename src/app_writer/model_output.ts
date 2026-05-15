@@ -613,7 +613,7 @@ function requireBoolean(value: unknown, field: string): boolean {
 
 function requireEnum<T extends string>(value: unknown, allowed: ReadonlySet<T>, field: string): T {
   if (typeof value !== 'string' || !allowed.has(value as T)) {
-    throw new Error(`${field} must use a supported value.`);
+    throw new Error(`${field} must use one of: ${Array.from(allowed).join(', ')}.`);
   }
 
   return value as T;

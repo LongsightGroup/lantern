@@ -1173,6 +1173,29 @@ const PROMPT_CONTEXT_RULES = [
   'A generated app is done only after strict TypeScript checks, package validation, Lantern preview/runtime assertions, and policy checks have zero error findings.',
 ] as const;
 
+const PLANNING_CAPABILITY_VALUES = [
+  'read_launch_context',
+  'read_activity_content',
+  'read_local_state',
+  'write_local_state',
+  'submit_attempt_event',
+  'submit_evidence_artifact',
+  'finalize_attempt',
+] as const;
+
+const PLANNING_ACTIVITY_TYPE_VALUES = [
+  'quiz',
+  'sorting',
+  'matching',
+  'flashcards',
+  'simulation',
+  'game',
+  'practice',
+] as const;
+
+const PLANNING_GRADING_MODE_VALUES = ['completion', 'declarative', 'browser'] as const;
+const PLANNING_ATTEMPT_EVENT_TYPE_VALUES = ['answer', 'progress', 'complete'] as const;
+
 const PLANNING_OUTPUT_CONTRACT = {
   requiredTopLevelKeys: [
     'normalizedRequest',
@@ -1197,8 +1220,51 @@ const PLANNING_OUTPUT_CONTRACT = {
   appPlan: {
     required:
       'appId, title, description, learningGoal, audience, activityType, learnerFlow, contentModel, capabilities, grading, attemptEvents, previewTests, accessibilityNotes, riskNotes',
+    shape: {
+      appId:
+        'non-empty slug string, preferably requestedAppId when it is provided and safe; use lowercase letters, digits, and hyphens',
+      title: 'non-empty instructor-facing app title',
+      description: 'non-empty one-sentence app description',
+      learningGoal: 'non-empty learning objective',
+      audience: 'non-empty learner audience',
+      activityType: 'one allowed activity type',
+      learnerFlow: 'non-empty string[] describing the learner steps',
+      contentModel: 'JSON object describing the reviewed content structure',
+      capabilities: 'non-empty Capability[] using only allowedValues',
+      grading: {
+        mode: 'one allowed grading mode',
+        maxScore: 'finite number',
+        scoringSummary:
+          'non-empty sentence explaining how Lantern should score or complete the activity',
+      },
+      attemptEvents:
+        'non-empty array of events Lantern should record, each with non-empty when, allowed eventType, and non-empty questionIdPattern',
+      previewTests: 'non-empty string[] of visible preview assertions',
+      accessibilityNotes: 'string[]',
+      riskNotes: 'string[]',
+    },
     rules:
-      'Plan only a browser-only Lantern activity that can be implemented with the selected starter and allowed GatewayApp methods.',
+      'Plan only a browser-only Lantern activity that can be implemented with the selected starter and allowed GatewayApp methods. Never leave required strings empty; choose concise values from the instructor prompt when details are sparse.',
+    activityType: {
+      allowedValues: PLANNING_ACTIVITY_TYPE_VALUES,
+    },
+    capabilities: {
+      shape: 'Capability[]',
+      allowedValues: PLANNING_CAPABILITY_VALUES,
+      rules: [
+        'Use only these exact strings. Do not invent capability names for usage tracking, reports, storage, analytics, LMS calls, or instructor dashboards.',
+        'Use read_activity_content when the app reads content/activity.json.',
+        'Use read_local_state and write_local_state for resumable per-learner progress.',
+        'Use submit_attempt_event for usage, progress, answer, and completion events Lantern should log.',
+        'Use finalize_attempt only when the app should mark the learner attempt complete or submit a final score through Lantern.',
+      ],
+    },
+    grading: {
+      modeAllowedValues: PLANNING_GRADING_MODE_VALUES,
+    },
+    attemptEvents: {
+      eventTypeAllowedValues: PLANNING_ATTEMPT_EVENT_TYPE_VALUES,
+    },
   },
   progressUpdates: {
     shape: {
@@ -1252,6 +1318,11 @@ const PLANNING_CONTRACT_REPAIR_RULES = [
   'Return one complete Lantern planning JSON object directly at the root.',
   'Use exact camelCase key names from outputContract.',
   'Fill every required planning field with a non-empty value that matches the instructor prompt.',
+  'Never return empty strings for required appPlan fields; use concise instructor-facing text when a detail is not explicit.',
+  `For appPlan.capabilities, use only these exact strings: ${PLANNING_CAPABILITY_VALUES.join(
+    ', ',
+  )}.`,
+  'For student usage tracking or instructor reports, plan read_local_state, write_local_state, and submit_attempt_event as needed; do not invent new capability names.',
   'Do not include package files in this stage.',
   'Do not wrap the object in response, result, output, package, content, markdown, or any other envelope.',
 ] as const;

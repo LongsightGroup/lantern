@@ -504,6 +504,42 @@ Deno.test('Cloudflare app package generator sends selected prompt context to gen
     starterWorkspace?: { instructions?: string };
   };
   assert(filePayload.starterWorkspace?.instructions?.includes('Generated App Workspace'));
+
+  const planningPayload = capturedPayloads[0] as {
+    outputContract?: {
+      appPlan?: {
+        shape?: {
+          grading?: {
+            scoringSummary?: string;
+          };
+        };
+        capabilities?: {
+          allowedValues?: string[];
+          rules?: string[];
+        };
+      };
+    };
+  };
+  assert(
+    planningPayload.outputContract?.appPlan?.capabilities?.allowedValues?.includes(
+      'read_local_state',
+    ),
+  );
+  assert(
+    planningPayload.outputContract?.appPlan?.capabilities?.allowedValues?.includes(
+      'write_local_state',
+    ),
+  );
+  assert(
+    JSON.stringify(planningPayload.outputContract?.appPlan?.capabilities?.rules).includes(
+      'Do not invent capability names',
+    ),
+  );
+  assert(
+    planningPayload.outputContract?.appPlan?.shape?.grading?.scoringSummary?.includes(
+      'non-empty sentence',
+    ),
+  );
 });
 
 Deno.test('Cloudflare app package generator strips full markdown fences from raw file output', async () => {
