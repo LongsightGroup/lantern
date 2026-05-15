@@ -1,10 +1,21 @@
 import type { JSONWebKeySet } from 'jose';
 import {
-  type AuthoringAiWriter,
-  type AuthoringReferenceExample,
-  createUnavailableAuthoringAiWriter,
-} from './authoring/ai_writer.ts';
-import { loadAuthoringReferenceExamples } from './authoring/example_context.ts';
+  type AppPackageGenerator,
+  createUnavailableAppPackageGenerator,
+} from './app_writer/package_generator.ts';
+import { createLocalAppPackagePreviewer } from './app_writer/preview.ts';
+import { createTypeScriptAppPackageSourceCompiler } from './app_writer/typescript_source_compiler.ts';
+import type { AppPackagePreviewer, AppPackageSourceCompiler } from './app_writer/types.ts';
+import {
+  type AppGenerationRunScheduler,
+  createUnavailableAppGenerationRunScheduler,
+} from './app_writer/workflow_scheduler.ts';
+import {
+  type BrowserAutograderDraftGenerator,
+  type BrowserAutograderDraftReferenceExample,
+  createUnavailableBrowserAutograderDraftGenerator,
+} from './authoring/browser_autograder_draft_generator.ts';
+import { loadBrowserAutograderDraftReferenceExamples } from './authoring/example_context.ts';
 import { materializeDraftPreviewPackageVersion } from './authoring/draft_snapshot.ts';
 import { type EnvReader, getDefaultEnvReader } from './platform/env.ts';
 import {
@@ -32,8 +43,14 @@ export interface AppServices {
   runtimeArtifactStore: RuntimeArtifactStore;
   runtimeDelivery: RuntimeDelivery;
   evidenceArtifactStore: EvidenceArtifactStore;
-  authoringAiWriter: AuthoringAiWriter;
-  loadAuthoringReferenceExamples: () => Promise<AuthoringReferenceExample[]>;
+  appPackageGenerator: AppPackageGenerator;
+  appPackagePreviewer: AppPackagePreviewer;
+  appPackageSourceCompiler: AppPackageSourceCompiler;
+  appGenerationRunScheduler: AppGenerationRunScheduler;
+  browserAutograderDraftGenerator: BrowserAutograderDraftGenerator;
+  loadBrowserAutograderDraftReferenceExamples: () => Promise<
+    BrowserAutograderDraftReferenceExample[]
+  >;
   materializeDraftPreviewPackageVersion: (input: {
     draft: AuthoringDraftRecord;
     packageVersion: PackageVersionRecord;
@@ -95,12 +112,21 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
 
   return {
     env,
-    authoringAiWriter: services.authoringAiWriter ?? createUnavailableAuthoringAiWriter(),
+    appPackageGenerator: services.appPackageGenerator ?? createUnavailableAppPackageGenerator(),
+    appPackagePreviewer: services.appPackagePreviewer ?? createLocalAppPackagePreviewer(),
+    appPackageSourceCompiler:
+      services.appPackageSourceCompiler ?? createTypeScriptAppPackageSourceCompiler(),
+    appGenerationRunScheduler:
+      services.appGenerationRunScheduler ?? createUnavailableAppGenerationRunScheduler(),
+    browserAutograderDraftGenerator:
+      services.browserAutograderDraftGenerator ??
+      createUnavailableBrowserAutograderDraftGenerator(),
     runtimeArtifactStore,
     runtimeDelivery: services.runtimeDelivery ?? createDirectRuntimeDelivery(runtimeArtifactStore),
     evidenceArtifactStore: services.evidenceArtifactStore ?? getDefaultEvidenceArtifactStore(),
-    loadAuthoringReferenceExamples:
-      services.loadAuthoringReferenceExamples ?? loadAuthoringReferenceExamples,
+    loadBrowserAutograderDraftReferenceExamples:
+      services.loadBrowserAutograderDraftReferenceExamples ??
+      loadBrowserAutograderDraftReferenceExamples,
     materializeDraftPreviewPackageVersion:
       services.materializeDraftPreviewPackageVersion ?? materializeDraftPreviewPackageVersion,
     getRepository,

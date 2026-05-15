@@ -27,6 +27,7 @@ import type {
   RuntimeSessionRecord,
 } from '../lti/types.ts';
 import type { LtiProfileId } from '../lti/profile.ts';
+import type { AppGenerationRunRecord } from '../app_writer/types.ts';
 
 export interface PackageReviewRepository {
   registerPackageVersion(input: ImportedPackageVersion): Promise<PackageVersionRecord>;
@@ -89,6 +90,9 @@ export interface PackageReviewRepository {
   ): Promise<DeepLinkingResourceOption[]>;
   createReviewedPlacement(record: ReviewedPlacementRecord): Promise<ReviewedPlacementRecord>;
   getReviewedPlacementById(placementId: string): Promise<ReviewedPlacementRecord | null>;
+  listReviewedPlacementsByPackageVersion(
+    packageVersionId: number,
+  ): Promise<ReviewedPlacementRecord[]>;
   getPlacementAuditSnapshotById(placementId: string): Promise<PlacementAuditSnapshot | null>;
   requirePlacementAuditSnapshotById(placementId: string): Promise<PlacementAuditSnapshot>;
   bindReviewedPlacementResourceLink(input: {
@@ -120,6 +124,9 @@ export interface PackageReviewRepository {
     draftId: string;
     previewedAt: string;
   }): Promise<AuthoringDraftRecord>;
+  createAppGenerationRun(record: AppGenerationRunRecord): Promise<AppGenerationRunRecord>;
+  getAppGenerationRunById(generationId: string): Promise<AppGenerationRunRecord | null>;
+  updateAppGenerationRun(record: AppGenerationRunRecord): Promise<AppGenerationRunRecord>;
   appendPreviewEvidence(input: {
     previewSessionId: string;
     eventType: string;

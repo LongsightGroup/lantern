@@ -9,7 +9,11 @@ import {
   summarizeRoles,
   summarizeValidation,
 } from '../package_review/summary.ts';
-import type { PackageVersionRecord } from '../package_review/types.ts';
+import type {
+  AuditEventRecord,
+  PackageVersionRecord,
+  ReviewedPlacementRecord,
+} from '../package_review/types.ts';
 import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 import { renderDecisionSection, renderHistoryRow } from './package_detail_sections.ts';
@@ -17,6 +21,8 @@ import { renderDecisionSection, renderHistoryRow } from './package_detail_sectio
 export function renderPackageDetailPage(input: {
   packageVersion: PackageVersionRecord;
   history: PackageVersionRecord[];
+  generationActivityEvents?: AuditEventRecord[];
+  reviewedPlacements?: ReviewedPlacementRecord[];
   notice?: AdminNotice | null;
 }): string {
   const packageVersion = input.packageVersion;
@@ -211,6 +217,8 @@ export function renderPackageDetailPage(input: {
       </div>
     </section>
     ${renderDecisionSection(packageVersion)}
+    ${renderGenerationActivitySection(input.generationActivityEvents ?? [])}
+    ${renderReviewedPlacementsSection(input.reviewedPlacements ?? [])}
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Other versions</p>
@@ -220,6 +228,57 @@ export function renderPackageDetailPage(input: {
       </div>
     </section>`,
   });
+}
+
+function renderReviewedPlacementsSection(placements: ReviewedPlacementRecord[]): string {
+  if (placements.length === 0) {
+    return '';
+  }
+
+  return `<section class="panel">
+    <div class="panel-body stack">
+      <p class="section-label">LMS placements using this version</p>
+      <div class="line-list">
+        ${placements
+          .map(
+            (placement) => `<article class="line-item">
+              <p class="line-title">${escapeHtml(placement.deploymentSlug)} · ${escapeHtml(
+                placement.placementId,
+              )}</p>
+              <p class="line-copy">${escapeHtml(
+                placement.contentTitle ?? placement.contentPath,
+              )}</p>
+              <p class="micro muted">Context ${escapeHtml(
+                placement.contextTitle ?? placement.contextId ?? 'Not recorded',
+              )}; resource link ${escapeHtml(placement.resourceLinkId ?? 'not bound yet')}.</p>
+            </article>`,
+          )
+          .join('')}
+      </div>
+    </div>
+  </section>`;
+}
+
+function renderGenerationActivitySection(events: AuditEventRecord[]): string {
+  if (events.length === 0) {
+    return '';
+  }
+
+  return `<section class="panel">
+    <div class="panel-body stack">
+      <p class="section-label">Generated package activity</p>
+      <div class="line-list">
+        ${events
+          .map(
+            (event) => `<article class="line-item">
+              <p class="line-title">${escapeHtml(event.summary)}</p>
+              <p class="line-copy">${escapeHtml(formatDateTime(event.occurredAt))}</p>
+            </article>`,
+          )
+          .join('')}
+      </div>
+    </div>
+  </section>`;
 }
 
 function formatInstallScope(scope: PackageVersionRecord['installScope']): string {

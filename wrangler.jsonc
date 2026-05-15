@@ -16,6 +16,19 @@
   "placement": {
     "mode": "smart",
   },
+  "vars": {
+    "APP_WRITER_MODEL": "@cf/moonshotai/kimi-k2.6",
+  },
+  "ai": {
+    "binding": "AI",
+  },
+  "workflows": [
+    {
+      "name": "lantern-app-generation",
+      "binding": "APP_GENERATION_WORKFLOW",
+      "class_name": "AppGenerationWorkflow",
+    },
+  ],
   "worker_loaders": [
     {
       "binding": "LOADER",

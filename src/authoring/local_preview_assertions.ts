@@ -174,6 +174,7 @@ async function loadPreviewRuntime(
 
     const runtimeErrors: string[] = [];
     attachRuntimeErrorCapture(frame.window, runtimeErrors);
+    installControlledScriptLoader(frame.window, entrypointUrl);
     const pendingFetches = trackWindowFetch(frame.window);
 
     await executePreviewScripts(frame.window, entrypointUrl);
@@ -199,6 +200,97 @@ async function loadPreviewRuntime(
     await server.shutdown();
     throw error;
   }
+}
+
+function installControlledScriptLoader(window: BrowserWindow, entrypointUrl: string): void {
+  const allowedOrigin = new URL(entrypointUrl).origin;
+  const originalAppendChild = window.Node.prototype.appendChild;
+
+  window.Node.prototype.appendChild = function (
+    this: InstanceType<BrowserWindow['Node']>,
+    node: InstanceType<BrowserWindow['Node']>,
+  ): InstanceType<BrowserWindow['Node']> {
+    if (isWindowScriptElement(window, node) && node.src.trim() !== '') {
+      void loadControlledScript(window, node, allowedOrigin);
+
+      return node;
+    }
+
+    return originalAppendChild.call(this, node) as InstanceType<BrowserWindow['Node']>;
+  };
+}
+
+async function loadControlledScript(
+  window: BrowserWindow,
+  element: InstanceType<BrowserWindow['HTMLScriptElement']>,
+  allowedOrigin: string,
+): Promise<void> {
+  try {
+    const scriptUrl = new URL(element.src, window.location.href);
+
+    if (scriptUrl.origin !== allowedOrigin) {
+      throw new Error(
+        `Preview dynamic script ${scriptUrl.toString()} is outside the preview origin.`,
+      );
+    }
+
+    const response = await fetch(scriptUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        `Preview dynamic script request failed for ${scriptUrl.toString()} with status ${response.status}.`,
+      );
+    }
+
+    const source = await response.text();
+
+    evaluateDynamicScript(window, element, source, scriptUrl.toString());
+    element.dispatchEvent(new window.Event('load'));
+  } catch {
+    element.dispatchEvent(new window.Event('error'));
+  }
+}
+
+function evaluateDynamicScript(
+  window: BrowserWindow,
+  element: InstanceType<BrowserWindow['HTMLScriptElement']>,
+  source: string,
+  sourceUrl: string,
+): void {
+  const originalCurrentScript = Object.getOwnPropertyDescriptor(window.document, 'currentScript');
+  const windowRecord = window as unknown as Record<string, unknown>;
+  const originalLanternCurrentScript = windowRecord.__LanternCurrentScript;
+
+  Object.defineProperty(window.document, 'currentScript', {
+    configurable: true,
+    get() {
+      return element;
+    },
+  });
+  windowRecord.__LanternCurrentScript = element;
+
+  try {
+    window.eval(`${source}\n//# sourceURL=${sourceUrl}`);
+  } finally {
+    if (originalLanternCurrentScript === undefined) {
+      delete windowRecord.__LanternCurrentScript;
+    } else {
+      windowRecord.__LanternCurrentScript = originalLanternCurrentScript;
+    }
+
+    if (originalCurrentScript === undefined) {
+      delete (window.document as unknown as Record<string, unknown>).currentScript;
+    } else {
+      Object.defineProperty(window.document, 'currentScript', originalCurrentScript);
+    }
+  }
+}
+
+function isWindowScriptElement(
+  window: BrowserWindow,
+  value: unknown,
+): value is InstanceType<BrowserWindow['HTMLScriptElement']> {
+  return value instanceof window.HTMLScriptElement;
 }
 
 function attachRuntimeErrorCapture(window: BrowserWindow, runtimeErrors: string[]): void {

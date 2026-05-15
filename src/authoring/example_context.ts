@@ -2,27 +2,31 @@ import { getReferencePackageSourceRoot } from '../package_review/intake.ts';
 import { createFileSystemPackageSource } from '../package_review/package_source_fs.ts';
 import { readBrowserAutograderContract } from '../package_review/repository_authoring_contract.ts';
 import { trimLeadingSlash } from '../package_review/snapshot_path.ts';
-import type { AuthoringReferenceExample } from './ai_writer.ts';
+import type { BrowserAutograderDraftReferenceExample } from './browser_autograder_draft_generator.ts';
 
-const AUTHORING_REFERENCE_APP_IDS = [
+const BROWSER_AUTOGRADER_DRAFT_REFERENCE_APP_IDS = [
   'template-app',
   'web-checkup',
   'typescript-ladder-game',
 ] as const;
 
-export async function loadAuthoringReferenceExamples(): Promise<AuthoringReferenceExample[]> {
+export async function loadBrowserAutograderDraftReferenceExamples(): Promise<
+  BrowserAutograderDraftReferenceExample[]
+> {
   return await Promise.all(
-    AUTHORING_REFERENCE_APP_IDS.map((appId) => loadAuthoringReferenceExample(appId)),
+    BROWSER_AUTOGRADER_DRAFT_REFERENCE_APP_IDS.map((appId) =>
+      loadBrowserAutograderDraftReferenceExample(appId),
+    ),
   );
 }
 
-async function loadAuthoringReferenceExample(
-  appId: (typeof AUTHORING_REFERENCE_APP_IDS)[number],
-): Promise<AuthoringReferenceExample> {
+async function loadBrowserAutograderDraftReferenceExample(
+  appId: (typeof BROWSER_AUTOGRADER_DRAFT_REFERENCE_APP_IDS)[number],
+): Promise<BrowserAutograderDraftReferenceExample> {
   const source = createFileSystemPackageSource(getReferencePackageSourceRoot(appId));
   const manifest = await readReferenceManifest(source, appId);
   const contract = readBrowserAutograderContract(manifest);
-  const files: AuthoringReferenceExample['files'] = [];
+  const files: BrowserAutograderDraftReferenceExample['files'] = [];
 
   for (const path of contract.paths) {
     const contents = await source.readText(trimLeadingSlash(path));

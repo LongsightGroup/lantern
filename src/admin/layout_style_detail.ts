@@ -142,6 +142,119 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         align-items: flex-start;
       }
 
+      .app-writer-submit-button {
+        min-width: 126px;
+      }
+
+      .app-writer-submit-busy-label {
+        display: none;
+      }
+
+      .app-writer-form.is-submitting .app-writer-submit-label {
+        display: none;
+      }
+
+      .app-writer-form.is-submitting .app-writer-submit-busy-label {
+        display: inline;
+      }
+
+      .app-writer-submit-button[aria-busy="true"] {
+        cursor: wait;
+      }
+
+      .app-writer-submit-button[aria-busy="true"]::before {
+        content: "";
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 2px solid color-mix(in srgb, var(--accent-soft) 74%, var(--surface));
+        border-top-color: currentColor;
+        animation: app-writer-spin 800ms linear infinite;
+      }
+
+      .app-writer-submit-status {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin: 0;
+        color: var(--secondary);
+        font-size: 13.5px;
+      }
+
+      .app-writer-submit-status[hidden] {
+        display: none;
+      }
+
+      .app-writer-submit-status::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: var(--warning);
+        box-shadow: 0 0 0 4px var(--warning-soft);
+        flex: none;
+      }
+
+      .generation-progress {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .generation-progress li {
+        display: grid;
+        gap: 6px;
+        min-width: 0;
+        color: var(--muted);
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+
+      .generation-progress-marker {
+        display: block;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--line);
+      }
+
+      .generation-progress li.is-complete {
+        color: var(--secondary);
+      }
+
+      .generation-progress li.is-complete .generation-progress-marker {
+        background: var(--success);
+      }
+
+      .generation-progress li.is-current {
+        color: var(--ink);
+      }
+
+      .generation-progress li.is-current .generation-progress-marker {
+        background: var(--accent);
+        box-shadow: 0 0 0 4px var(--accent-soft);
+      }
+
+      @keyframes app-writer-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .app-writer-submit-button[aria-busy="true"]::before {
+          animation: none;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .generation-progress {
+          grid-template-columns: 1fr;
+        }
+      }
+
       .inline-flash {
         margin: 0;
       }

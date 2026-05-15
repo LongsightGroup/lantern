@@ -62,6 +62,12 @@ export function defaultNav(activePath?: string): NavItem[] {
       active: activePath?.startsWith('/admin/packages') ?? false,
     },
     {
+      label: 'App Writer',
+      href: '/admin/app-writer',
+      icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.2L18 9.1l-4.1 1.7L12 15l-1.9-4.2L6 9.1l4.1-1.9L12 3z"/><path d="M5 14l.9 2.1L8 17l-2.1.9L5 20l-.9-2.1L2 17l2.1-.9L5 14z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/></svg>`,
+      active: activePath?.startsWith('/admin/app-writer') ?? false,
+    },
+    {
       label: 'Connections',
       href: '/admin/deployments',
       icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="7" y1="17" x2="7.01" y2="17"/><line x1="11" y1="7" x2="17" y2="7"/><line x1="11" y1="17" x2="17" y2="17"/></svg>`,

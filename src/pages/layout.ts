@@ -43,10 +43,7 @@ export function renderLayout(title: string, body: string): string {
         color: var(--ink);
         font: 16px/1.6 var(--font);
         -webkit-font-smoothing: antialiased;
-        background:
-          radial-gradient(circle at 10% 10%, rgba(21, 58, 97, 0.08), transparent 45%),
-          radial-gradient(circle at 90% 0%, rgba(199, 119, 29, 0.08), transparent 35%),
-          #f5f8fb;
+        background: linear-gradient(180deg, #f7fafc 0%, #eef3f7 100%);
       }
 
       .home {
@@ -56,12 +53,9 @@ export function renderLayout(title: string, body: string): string {
       }
 
       .home-hero {
-        background: linear-gradient(165deg, #fcfdff 0%, #f3f7fa 100%);
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        padding: clamp(24px, 4vw, 40px);
-        box-shadow: 0 8px 28px rgba(10, 37, 64, 0.08);
+        padding: 20px 0 34px;
         margin-bottom: 20px;
+        border-bottom: 1px solid var(--line);
       }
 
       .eyebrow {
@@ -74,9 +68,9 @@ export function renderLayout(title: string, body: string): string {
       }
 
       h1 {
-        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        font-size: 2.75rem;
         line-height: 1.2;
-        letter-spacing: -0.02em;
+        letter-spacing: 0;
         margin-bottom: 14px;
       }
 
@@ -94,9 +88,9 @@ export function renderLayout(title: string, body: string): string {
       .home-card {
         background: var(--surface);
         border: 1px solid var(--line);
-        border-radius: 14px;
+        border-radius: 8px;
         padding: 18px 18px 16px;
-        box-shadow: 0 2px 10px rgba(10, 37, 64, 0.06);
+        box-shadow: 0 2px 8px rgba(10, 37, 64, 0.05);
       }
 
       h2 {
@@ -141,6 +135,10 @@ export function renderLayout(title: string, body: string): string {
         .home {
           width: min(1080px, 100% - 28px);
           padding-top: 32px;
+        }
+
+        h1 {
+          font-size: 2rem;
         }
       }
     </style>

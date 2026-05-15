@@ -1,5 +1,6 @@
 import { createInMemoryAttemptRepository } from './package_review_in_memory_attempts.ts';
 import { createInMemoryAuthoringRepository } from './package_review_in_memory_authoring.ts';
+import { createInMemoryAppGenerationRepository } from './package_review_in_memory_app_generation.ts';
 import { createInMemoryDeploymentRepository } from './package_review_in_memory_deployments.ts';
 import { createInMemoryOpsRepositorySection } from './package_review_in_memory_ops.ts';
 import { createInMemoryPlacementRepository } from './package_review_in_memory_placements.ts';
@@ -23,6 +24,7 @@ export function createInMemoryPackageReviewRepository(
     ...createInMemorySessionRepository(state),
     ...createInMemoryPlacementRepository(state),
     ...createInMemoryAuthoringRepository(state),
+    ...createInMemoryAppGenerationRepository(state),
     ...createInMemoryPreviewRepository(state),
     ...createInMemoryAttemptRepository(state),
     ...createInMemoryOpsRepositorySection(state),

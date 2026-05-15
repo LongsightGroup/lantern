@@ -1,6 +1,19 @@
 import type { JSONWebKeySet } from 'jose';
-import type { AuthoringReferenceExample } from './authoring/ai_writer.ts';
-import { createUnavailableAuthoringAiWriter } from './authoring/ai_writer.ts';
+import {
+  createCloudflareAppPackageGenerator,
+  type CloudflareAiBinding,
+  isCloudflareAiBinding,
+} from './app_writer/cloudflare_generator.ts';
+import { createUnavailableAppPackageGenerator } from './app_writer/package_generator.ts';
+import { createUnavailableAppPackagePreviewer } from './app_writer/preview.ts';
+import { createUnavailableAppPackageSourceCompiler } from './app_writer/source_compiler.ts';
+import {
+  createCloudflareWorkflowAppGenerationRunScheduler,
+  isAppGenerationWorkflowBinding,
+  type AppGenerationRunScheduler,
+} from './app_writer/workflow_scheduler.ts';
+import type { BrowserAutograderDraftReferenceExample } from './authoring/browser_autograder_draft_generator.ts';
+import { createUnavailableBrowserAutograderDraftGenerator } from './authoring/browser_autograder_draft_generator.ts';
 import type { AppServices } from './app_services.ts';
 import { type D1Database, isD1Database } from './db/d1.ts';
 import type { OpsRepository } from './ops/repository.ts';
@@ -41,15 +54,19 @@ const WORKER_REFERENCE_PACKAGE_MESSAGE =
   'Curated reference packages must be stored in PACKAGE_ARTIFACTS under reference-packages/<app-id>/source before Workers can import or inspect them. Run `deno task reference:sync --bucket=<bucket-name>` during Worker bootstrap or release.';
 const WORKER_RUNTIME_DELIVERY_MESSAGE =
   'Cloudflare Workers reviewed runtime delivery requires a Worker Loader binding named LOADER. Bind the Dynamic Worker loader before serving immutable reviewed runtime bytes from Workers.';
-const WORKER_AUTHORING_REFERENCE_MESSAGE =
-  'Cloudflare Workers do not load local authoring reference examples. Use the local Deno authoring flow for AI example scaffolding.';
+const WORKER_BROWSER_AUTOGRADER_DRAFT_REFERENCE_MESSAGE =
+  'Cloudflare Workers do not load local browser-autograder draft reference examples. Use the local Deno authoring flow for draft example scaffolding.';
 const WORKER_AUTHORING_DRAFT_PREVIEW_MESSAGE =
   'Cloudflare Workers do not materialize draft preview snapshots from the local filesystem. Use the local Deno authoring preview flow instead.';
+const WORKER_APP_GENERATION_WORKFLOW_MESSAGE =
+  'Cloudflare Workers app generation requires a Workflows binding named APP_GENERATION_WORKFLOW.';
 
 export interface WorkerBindings extends Record<string, unknown> {
   DB?: D1Database;
   PACKAGE_ARTIFACTS?: RuntimeArtifactBucket;
   LOADER?: DynamicWorkerLoader;
+  AI?: unknown;
+  APP_GENERATION_WORKFLOW?: unknown;
 }
 
 export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader): AppServices {
@@ -72,11 +89,18 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
 
   return {
     env,
-    authoringAiWriter: createUnavailableAuthoringAiWriter(),
+    appPackageGenerator: resolveWorkerAppPackageGenerator(bindings, env),
+    appPackagePreviewer: createUnavailableAppPackagePreviewer(),
+    appPackageSourceCompiler: createUnavailableAppPackageSourceCompiler(
+      'Cloudflare Worker app writer does not compile TypeScript source in-process yet. Generate reviewed browser assets or bind a platform compiler.',
+    ),
+    appGenerationRunScheduler: resolveWorkerAppGenerationRunScheduler(bindings),
+    browserAutograderDraftGenerator: createUnavailableBrowserAutograderDraftGenerator(),
     runtimeArtifactStore: snapshotStore,
     runtimeDelivery: resolveWorkerRuntimeDelivery(bindings, snapshotStore),
     evidenceArtifactStore: resolveWorkerEvidenceArtifactStore(bindings),
-    loadAuthoringReferenceExamples: createUnsupportedAuthoringReferenceLoader(),
+    loadBrowserAutograderDraftReferenceExamples:
+      createUnsupportedBrowserAutograderDraftReferenceLoader(),
     materializeDraftPreviewPackageVersion: createUnsupportedDraftPreviewMaterializer(),
     getRepository: () => repositories.repository,
     getOpsRepository: () => repositories.opsRepository,
@@ -90,6 +114,41 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
     loadReferencePackageSnapshot: (appId, options = {}) =>
       loadPackageSnapshotFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
   };
+}
+
+function resolveWorkerAppGenerationRunScheduler(
+  bindings: WorkerBindings,
+): AppGenerationRunScheduler {
+  if (isAppGenerationWorkflowBinding(bindings.APP_GENERATION_WORKFLOW)) {
+    return createCloudflareWorkflowAppGenerationRunScheduler(bindings.APP_GENERATION_WORKFLOW);
+  }
+
+  return {
+    schedule(_input) {
+      return Promise.reject(new Error(WORKER_APP_GENERATION_WORKFLOW_MESSAGE));
+    },
+  };
+}
+
+function resolveWorkerAppPackageGenerator(bindings: WorkerBindings, env: EnvReader) {
+  if (!isCloudflareAiBinding(bindings.AI)) {
+    return createUnavailableAppPackageGenerator(
+      'Cloudflare Workers app package generation requires a Workers AI binding named AI.',
+    );
+  }
+
+  const model = env.get('APP_WRITER_MODEL')?.trim();
+
+  if (!model) {
+    return createUnavailableAppPackageGenerator(
+      'Cloudflare Workers app package generation requires APP_WRITER_MODEL.',
+    );
+  }
+
+  return createCloudflareAppPackageGenerator({
+    ai: bindings.AI as CloudflareAiBinding,
+    model,
+  });
 }
 
 function resolveWorkerRuntimeDelivery(
@@ -164,9 +223,9 @@ function resolveWorkerReferencePackageSource(
   return createUnsupportedPackageSource(WORKER_REFERENCE_PACKAGE_MESSAGE);
 }
 
-function createUnsupportedAuthoringReferenceLoader() {
-  return (): Promise<AuthoringReferenceExample[]> => {
-    throw new Error(WORKER_AUTHORING_REFERENCE_MESSAGE);
+function createUnsupportedBrowserAutograderDraftReferenceLoader() {
+  return (): Promise<BrowserAutograderDraftReferenceExample[]> => {
+    throw new Error(WORKER_BROWSER_AUTOGRADER_DRAFT_REFERENCE_MESSAGE);
   };
 }
 

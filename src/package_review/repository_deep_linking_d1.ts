@@ -34,6 +34,7 @@ export function createD1DeepLinkingRepositoryMethods(
   | 'listDeepLinkingResourceOptions'
   | 'createReviewedPlacement'
   | 'getReviewedPlacementById'
+  | 'listReviewedPlacementsByPackageVersion'
   | 'getPlacementAuditSnapshotById'
   | 'requirePlacementAuditSnapshotById'
   | 'bindReviewedPlacementResourceLink'
@@ -47,6 +48,7 @@ export function createD1DeepLinkingRepositoryMethods(
     | 'listDeepLinkingResourceOptions'
     | 'createReviewedPlacement'
     | 'getReviewedPlacementById'
+    | 'listReviewedPlacementsByPackageVersion'
     | 'getPlacementAuditSnapshotById'
     | 'requirePlacementAuditSnapshotById'
     | 'bindReviewedPlacementResourceLink'
@@ -275,6 +277,16 @@ export function createD1DeepLinkingRepositoryMethods(
       return mapOptionalReviewedPlacement(
         row === null ? undefined : mapD1ReviewedPlacementFields(row),
       );
+    },
+
+    async listReviewedPlacementsByPackageVersion(packageVersionId) {
+      const rows = await queryD1Objects<D1ReviewedPlacementRow>(
+        db,
+        `${D1_REVIEWED_PLACEMENT_SELECT} WHERE package_version_id = ? ORDER BY created_at DESC, placement_id ASC`,
+        [packageVersionId],
+      );
+
+      return rows.map((row) => mapReviewedPlacementRow(mapD1ReviewedPlacementFields(row)));
     },
 
     async getPlacementAuditSnapshotById(placementId) {

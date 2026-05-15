@@ -1,9 +1,11 @@
 # Lantern
 
-Lantern runs small learning apps through one LMS integration.
+Lantern runs untrusted and semi-trusted learning apps through one governed LMS
+integration boundary.
 
-It handles LTI login and launch, Deep Linking, grade publishing, and admin tools
-so the app package itself can stay simple.
+It handles LTI login and launch, Deep Linking, reviewed runtime delivery, grade
+publishing, evidence, and admin tools so app packages never need raw LMS
+credentials, direct database access, or direct grade-write power.
 
 ## Try A Browser Autograder In 2 Minutes
 
@@ -76,9 +78,10 @@ Use `--starter=browser-autograder` when the reviewed package needs
 
 ## What Lantern Is Good For
 
-- running small learner-facing apps through one LMS integration
+- running untrusted or semi-trusted learner-facing apps through one LMS boundary
 - packaging browser-first learning activities as signed, versioned app packages
 - keeping LMS credentials and service calls in Lantern instead of in app code
+- serving reviewed browser assets through a read-only Dynamic Worker envelope
 - supporting Deep Linking without ad hoc placement setup
 - publishing grades and roster checks from the server
 - giving admins one place to inspect deployments, retries, and audit records
@@ -89,7 +92,31 @@ Use `--starter=browser-autograder` when the reviewed package needs
 - an LMS replacement
 - a pile of compatibility shims for every LMS quirk
 - a way to hand raw LMS tokens or D1 database access to generated apps
+- a way to let generated apps write grades or call arbitrary outbound services
 - a backend framework for arbitrary server code inside app packages
+
+## Security Model
+
+Lantern's answer to institution-built and AI-built learning tools is not to
+give every tool its own LMS integration. App code runs as reviewed, browser-first
+packages behind Lantern's gateway. Lantern owns the LTI boundary, runtime
+session, storage bridge, grading flow, evidence trail, and audit record.
+
+On Cloudflare, that model maps to one narrow platform path:
+
+- Cloudflare Workers validate launches, create runtime sessions, broker
+  capabilities, and publish grades.
+- Cloudflare D1 stores trusted product state such as reviewed packages,
+  placements, attempts, runtime sessions, and audit records.
+- Cloudflare R2 stores immutable reviewed package artifacts and evidence bytes.
+- Worker Loader / Dynamic Workers serve approved browser assets from a reviewed
+  package identity without receiving LMS tokens, a D1 binding, or generic
+  outbound capability.
+
+This keeps the blast radius of app code small: reviewed packages can render the
+learner experience and request only the capabilities Lantern exposes, while
+credentials, persistence, grade writes, and durable audit evidence stay inside
+the trusted platform boundary.
 
 ## How It Works
 

@@ -13,7 +13,7 @@ Deno.test('GET / serves the public capability story page from renderHomePage', a
 
   const body = await response.text();
   assertEquals(body, renderHomePage());
-  assertStringIncludes(body, 'Governed capabilities');
+  assertStringIncludes(body, 'Least privilege by default');
 });
 
 Deno.test('GET /health responds with ok', async () => {

@@ -6,6 +6,7 @@ type PlacementRepository = Pick<
   PackageReviewRepository,
   | 'createReviewedPlacement'
   | 'getReviewedPlacementById'
+  | 'listReviewedPlacementsByPackageVersion'
   | 'getPlacementAuditSnapshotById'
   | 'requirePlacementAuditSnapshotById'
   | 'bindReviewedPlacementResourceLink'
@@ -35,6 +36,19 @@ export function createInMemoryPlacementRepository(
         (candidate) => candidate.placementId === placementId,
       );
       return Promise.resolve(record ? cloneRecord(record) : null);
+    },
+
+    listReviewedPlacementsByPackageVersion(packageVersionId) {
+      return Promise.resolve(
+        state.reviewedPlacements
+          .filter((candidate) => candidate.packageVersionId === packageVersionId)
+          .sort((left, right) => {
+            const timeOrder = Date.parse(right.createdAt) - Date.parse(left.createdAt);
+
+            return timeOrder === 0 ? left.placementId.localeCompare(right.placementId) : timeOrder;
+          })
+          .map(cloneRecord),
+      );
     },
 
     getPlacementAuditSnapshotById(placementId) {

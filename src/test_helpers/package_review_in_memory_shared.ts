@@ -39,6 +39,7 @@ import type {
   PreviewSessionRecord,
   ReviewedPlacementRecord,
 } from '../package_review/types.ts';
+import type { AppGenerationRunRecord } from '../app_writer/types.ts';
 import { type AccessibilityReview, parseAccessibilityReview } from '../package_review/types.ts';
 import { DEFAULT_REVIEWED_AT } from './package_review_test_defaults.ts';
 
@@ -115,6 +116,7 @@ export type InMemoryPackageReviewRepositoryOptions = {
   reviewedPlacements?: ReviewedPlacementRecord[];
   authoringDrafts?: AuthoringDraftRecord[];
   authoringDraftFiles?: AuthoringDraftFileRecord[];
+  appGenerationRuns?: AppGenerationRunRecord[];
   previewSessions?: PreviewSessionRecord[];
   previewEvidence?: PreviewEvidenceRecord[];
   controlPlaneDeployments?: ControlPlaneDeploymentInventoryRow[];
@@ -153,6 +155,7 @@ export function createState(
     reviewedPlacements: cloneRecord(options.reviewedPlacements ?? []),
     authoringDrafts: cloneRecord(options.authoringDrafts ?? []),
     authoringDraftFiles: cloneRecord(options.authoringDraftFiles ?? []),
+    appGenerationRuns: cloneRecord(options.appGenerationRuns ?? []),
     previewSessions: cloneRecord(options.previewSessions ?? []),
     previewEvidence: cloneRecord(options.previewEvidence ?? []),
     controlPlaneDeployments: cloneRecord(options.controlPlaneDeployments ?? []),

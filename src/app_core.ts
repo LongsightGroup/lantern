@@ -1,5 +1,6 @@
 import { csrf } from '@hono/hono/csrf';
 import { Hono } from '@hono/hono';
+import { registerAdminAppWriterRoutes } from './app_admin_app_writer_routes.ts';
 import { registerAdminAuthoringRoutes } from './app_admin_authoring_routes.ts';
 import { registerAdminAuthoringPreviewRoutes } from './app_admin_authoring_preview_routes.ts';
 import { registerAdminDeploymentDetailRoutes } from './app_admin_deployment_detail_routes.ts';
@@ -26,6 +27,7 @@ export function buildApp(services: AppServices): Hono {
   registerDeepLinkingRoutes(app, services);
   registerDeepLinkingSubmitRoutes(app, services);
   registerRuntimeRoutes(app, services);
+  registerAdminAppWriterRoutes(app, services);
   registerAdminInventoryRoutes(app, services);
   registerAdminAuthoringRoutes(app, services);
   registerAdminAuthoringPreviewRoutes(app, services);

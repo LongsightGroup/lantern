@@ -1,0 +1,312 @@
+import { assertEquals, assertStringIncludes } from '@std/assert';
+import { createApp } from './app.ts';
+import type {
+  AppGenerationValidationFinding,
+  AppPackageGenerationResult,
+} from './app_writer/types.ts';
+import { buildValidSimpleActivityFiles } from './test_helpers/app_writer_generated_package.ts';
+import {
+  buildImportedPackageVersion,
+  buildReviewedPlacementRecord,
+  createInMemoryPackageReviewRepository,
+} from './test_helpers/package_review.ts';
+
+Deno.test('GET /admin/app-writer renders the app writer prompt form', async () => {
+  const response = await createApp({
+    getRepository: () => createInMemoryPackageReviewRepository(),
+  }).request('http://localhost/admin/app-writer');
+
+  assertEquals(response.status, 200);
+  const body = await response.text();
+
+  assertStringIncludes(body, 'Create app with AI');
+  assertStringIncludes(body, 'name="promptText"');
+  assertStringIncludes(body, 'name="audience"');
+  assertStringIncludes(body, 'name="contentSummary"');
+  assertStringIncludes(body, 'name="gradingMode"');
+  assertStringIncludes(body, 'data-app-writer-form');
+  assertStringIncludes(body, 'data-app-writer-submit');
+  assertStringIncludes(body, 'aria-live="polite"');
+  assertStringIncludes(body, 'Generating app. Lantern is calling the model');
+});
+
+Deno.test('POST /admin/app-writer runs generation and redirects to the run detail page', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const backgroundTasks: Promise<void>[] = [];
+  const generationControl: { complete: (() => void) | null } = {
+    complete: null,
+  };
+  const formData = new FormData();
+  formData.set('promptText', 'Create a phonics matching game for first grade.');
+  formData.set('audience', 'Grade 1 readers');
+  formData.set('contentSummary', 'One hundred CVC and blend words.');
+  formData.set('gradingMode', 'completion');
+  formData.set('requestedAppId', 'phonics-match');
+
+  const app = createApp({
+    getRepository: () => repository,
+    appPackageGenerator: {
+      generate(_input) {
+        return new Promise<AppPackageGenerationResult>((resolve) => {
+          generationControl.complete = () => resolve(structuredClone(buildGenerationResult()));
+        });
+      },
+    },
+    appPackagePreviewer: {
+      preview(_input) {
+        return Promise.resolve([] satisfies AppGenerationValidationFinding[]);
+      },
+    },
+    importPackageFromSource(_source) {
+      return Promise.resolve(
+        buildImportedPackageVersion({
+          appId: 'phonics-match',
+          version: '0.1.0',
+          title: 'Phonics Match',
+          owner: {
+            type: 'user',
+            id: 'instructor-1',
+          },
+          manifestJson: JSON.parse(buildValidSimpleActivityFiles()[0]?.contents ?? '{}') as Record<
+            string,
+            unknown
+          >,
+          capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+          grading: {
+            mode: 'completion',
+            rubricFile: null,
+            maxScore: 100,
+          },
+        }),
+      );
+    },
+  });
+
+  const response = await app.fetch(
+    new Request('https://lantern.example/admin/app-writer', {
+      method: 'POST',
+      headers: { Origin: 'https://lantern.example' },
+      body: formData,
+    }),
+    undefined,
+    {
+      waitUntil(promise) {
+        backgroundTasks.push(promise.then(() => {}));
+      },
+      passThroughOnException() {},
+      props: {},
+    },
+  );
+
+  assertEquals(response.status, 303);
+  const location = response.headers.get('location') ?? '';
+  assertStringIncludes(location, '/admin/app-writer/runs/generation-');
+  assertEquals(backgroundTasks.length, 1);
+
+  const runningDetailResponse = await app.request(new URL(location, 'https://lantern.example'));
+  const runningDetailBody = await runningDetailResponse.text();
+
+  assertEquals(runningDetailResponse.status, 200);
+  assertStringIncludes(runningDetailBody, 'Lantern is still working.');
+  assertStringIncludes(runningDetailBody, 'window.setTimeout');
+  assertStringIncludes(runningDetailBody, 'Generation progress');
+
+  await waitForGenerationToStart(() => generationControl.complete);
+  const completeGeneration = generationControl.complete;
+  if (completeGeneration === null) {
+    throw new Error('App writer background generation did not expose a completion hook.');
+  }
+  completeGeneration();
+  await Promise.all(backgroundTasks);
+
+  const detailResponse = await app.request(new URL(location, 'https://lantern.example'));
+  const detailBody = await detailResponse.text();
+
+  assertEquals(detailResponse.status, 200);
+  assertStringIncludes(detailBody, 'saved pending version');
+  assertStringIncludes(detailBody, 'Open pending version');
+  assertStringIncludes(detailBody, 'Generation request details');
+  assertStringIncludes(detailBody, 'Grade 1 readers');
+  assertStringIncludes(detailBody, 'Generated files');
+  assertStringIncludes(detailBody, 'Review before test launch');
+  assertStringIncludes(detailBody, 'Started an app writer generation run.');
+  assertStringIncludes(detailBody, 'Planning a phonics game with student progress reporting.');
+  assertStringIncludes(detailBody, 'planning app');
+
+  await repository.createReviewedPlacement(
+    buildReviewedPlacementRecord({
+      placementId: 'generated-placement-1',
+      deploymentSlug: 'phonics-match-canvas',
+      appId: 'phonics-match',
+      packageVersionId: 1,
+      packageVersion: '0.1.0',
+      packageTitle: 'Phonics Match',
+      contextTitle: 'Reading 101',
+      resourceLinkId: 'resource-link-generated',
+    }),
+  );
+
+  const packageResponse = await app.request(
+    'https://lantern.example/admin/packages/phonics-match/versions/0.1.0',
+  );
+  const packageBody = await packageResponse.text();
+
+  assertEquals(packageResponse.status, 200);
+  assertStringIncludes(packageBody, 'Generated package activity');
+  assertStringIncludes(packageBody, 'Saved generated package as a pending package version.');
+  assertStringIncludes(packageBody, 'LMS placements using this version');
+  assertStringIncludes(packageBody, 'generated-placement-1');
+  assertStringIncludes(packageBody, 'resource-link-generated');
+});
+
+Deno.test('POST /admin/app-writer redirects even without a Worker execution context', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const formData = new FormData();
+  formData.set('promptText', 'Create a phonics flashcard app.');
+
+  const app = createApp({
+    getRepository: () => repository,
+    appPackageGenerator: {
+      generate(_input) {
+        return new Promise<AppPackageGenerationResult>(() => {});
+      },
+    },
+  });
+
+  const response = await app.request('https://lantern.example/admin/app-writer', {
+    method: 'POST',
+    headers: { Origin: 'https://lantern.example' },
+    body: formData,
+  });
+
+  assertEquals(response.status, 303);
+  const location = response.headers.get('location') ?? '';
+  assertStringIncludes(location, '/admin/app-writer/runs/generation-');
+
+  const detailResponse = await app.request(new URL(location, 'https://lantern.example'));
+  const detailBody = await detailResponse.text();
+
+  assertEquals(detailResponse.status, 200);
+  assertStringIncludes(detailBody, 'Lantern is still working.');
+});
+
+Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is configured', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const scheduledGenerationIds: string[] = [];
+  let generatorCallCount = 0;
+  const formData = new FormData();
+  formData.set('promptText', 'Create a phonics flashcard app.');
+
+  const app = createApp({
+    getRepository: () => repository,
+    appPackageGenerator: {
+      generate(_input) {
+        generatorCallCount += 1;
+        throw new Error('Workflow-scheduled generation must not run in the request thread.');
+      },
+    },
+    appGenerationRunScheduler: {
+      schedule(input) {
+        scheduledGenerationIds.push(input.generationId);
+
+        return Promise.resolve({
+          mode: 'workflow',
+          workflowInstanceId: 'workflow-1',
+        });
+      },
+    },
+  });
+
+  const response = await app.request('https://lantern.example/admin/app-writer', {
+    method: 'POST',
+    headers: { Origin: 'https://lantern.example' },
+    body: formData,
+  });
+
+  assertEquals(response.status, 303);
+  assertEquals(generatorCallCount, 0);
+  assertEquals(scheduledGenerationIds.length, 1);
+  const location = response.headers.get('location') ?? '';
+  assertStringIncludes(location, `/admin/app-writer/runs/${scheduledGenerationIds[0]}`);
+
+  const run = await repository.getAppGenerationRunById(scheduledGenerationIds[0] ?? '');
+
+  assertEquals(run?.status, 'started');
+
+  const detailResponse = await app.request(new URL(location, 'https://lantern.example'));
+  const detailBody = await detailResponse.text();
+
+  assertEquals(detailResponse.status, 200);
+  assertStringIncludes(detailBody, 'Queued app writer generation in Cloudflare Workflow.');
+
+  const events = await repository.listAuditEventsByEventType('app_generation.generating');
+
+  assertEquals(events.at(-1)?.detail.backgroundRunner, 'workflow');
+  assertEquals(events.at(-1)?.detail.workflowInstanceId, 'workflow-1');
+});
+
+async function waitForGenerationToStart(readResolver: () => (() => void) | null): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (readResolver() !== null) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+  }
+
+  throw new Error('App writer background generation did not start.');
+}
+
+function buildGenerationResult(): AppPackageGenerationResult {
+  return {
+    normalizedRequest: {
+      learningGoal: 'Practice phonics patterns.',
+      audience: 'Grade 1',
+      contentSummary: 'One hundred phonics words.',
+      requestedActivity: 'matching game',
+      constraints: [],
+      missingInformation: [],
+      safeToGenerate: true,
+    },
+    appPlan: {
+      appId: 'phonics-match',
+      title: 'Phonics Match',
+      description: 'A small matching game for phonics practice.',
+      learningGoal: 'Practice phonics patterns.',
+      audience: 'Grade 1',
+      activityType: 'matching',
+      learnerFlow: ['Read the sound.', 'Pick the matching word.', 'Complete all cards.'],
+      contentModel: {
+        wordCount: 100,
+      },
+      capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+      grading: {
+        mode: 'completion',
+        maxScore: 100,
+        scoringSummary: 'Completion credit after all cards are answered.',
+      },
+      attemptEvents: [
+        {
+          when: 'after each answer',
+          eventType: 'answer',
+          questionIdPattern: 'word-*',
+        },
+      ],
+      previewTests: ['renders the title'],
+      accessibilityNotes: ['Use buttons for answer choices.'],
+      riskNotes: [],
+    },
+    selectedStarterId: 'simple-activity',
+    files: buildValidSimpleActivityFiles(),
+    progressUpdates: [
+      {
+        stage: 'planning_app',
+        message: 'Planning a phonics game with student progress reporting.',
+      },
+    ],
+    notes: ['Generated from fake app package generator.'],
+    validationFindings: [],
+  };
+}

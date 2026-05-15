@@ -4,9 +4,10 @@ import { renderHomePage } from './home.ts';
 Deno.test('renderHomePage includes the public capability story sections and evaluator next step', () => {
   const html = renderHomePage();
 
-  assertStringIncludes(html, 'Governed capabilities');
-  assertStringIncludes(html, 'Reporting surfaces');
-  assertStringIncludes(html, 'Governance process');
+  assertStringIncludes(html, 'Security-first learning app runtime');
+  assertStringIncludes(html, 'Least privilege by default');
+  assertStringIncludes(html, 'Cloudflare containment');
+  assertStringIncludes(html, 'Review before runtime');
   assertStringIncludes(html, 'Evaluator next step');
   assertStringIncludes(html, 'href="/admin/packages"');
 });

@@ -22,6 +22,14 @@ const REQUIRED_BINDINGS = [
     description: 'd1_databases binding DB',
     pattern: /"d1_databases"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"DB"/,
   },
+  {
+    description: 'workflows binding APP_GENERATION_WORKFLOW',
+    pattern: /"workflows"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"APP_GENERATION_WORKFLOW"/,
+  },
+  {
+    description: 'workflows class AppGenerationWorkflow',
+    pattern: /"workflows"\s*:\s*\[[\s\S]*?"class_name"\s*:\s*"AppGenerationWorkflow"/,
+  },
 ] as const;
 
 const PROHIBITED_BINDINGS = [
@@ -42,5 +50,7 @@ if (import.meta.main) {
     );
   }
 
-  console.log('Worker config keeps DB, LOADER, and PACKAGE_ARTIFACTS bindings wired.');
+  console.log(
+    'Worker config keeps DB, LOADER, PACKAGE_ARTIFACTS, and APP_GENERATION_WORKFLOW bindings wired.',
+  );
 }

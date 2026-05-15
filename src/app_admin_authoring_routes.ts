@@ -6,7 +6,7 @@ import { createErrorNotice } from './app_notice_support.ts';
 import { normalizeOptionalString, requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
-import type { AuthoringDraftFileInput } from './authoring/ai_writer.ts';
+import type { BrowserAutograderDraftFileInput } from './authoring/browser_autograder_draft_generator.ts';
 import { buildDraftDiff } from './authoring/draft_diff.ts';
 import { normalizeAuthoringDraftPath } from './package_review/repository_authoring_contract.ts';
 import { trimLeadingSlash } from './package_review/snapshot_path.ts';
@@ -28,7 +28,7 @@ const textDecoder = new TextDecoder();
 type AuthoringRouteState = {
   packageVersion: PackageVersionRecord;
   draft: AuthoringDraftRecord;
-  currentFiles: AuthoringDraftFileInput[];
+  currentFiles: BrowserAutograderDraftFileInput[];
   latestPreviewSession: PreviewSessionRecord | null;
   previewEvidence: PreviewEvidenceRecord[];
 };
@@ -80,12 +80,12 @@ export function registerAdminAuthoringRoutes(app: Hono, services: AppServices): 
         formData.get('prompt'),
         'Enter a prompt before generating a draft.',
       );
-      const generated = await services.authoringAiWriter.generate({
+      const generated = await services.browserAutograderDraftGenerator.generate({
         appId: state.packageVersion.appId,
         packageVersion: state.packageVersion.version,
         prompt,
         currentFiles: state.currentFiles,
-        referenceExamples: await services.loadAuthoringReferenceExamples(),
+        referenceExamples: await services.loadBrowserAutograderDraftReferenceExamples(),
       });
       const generatedFiles = normalizeGeneratedFiles(
         generated.files,
@@ -218,7 +218,7 @@ async function loadAuthoringRouteState(
 async function loadCurrentDraftFiles(
   draft: AuthoringDraftRecord,
   services: AppServices,
-): Promise<AuthoringDraftFileInput[]> {
+): Promise<BrowserAutograderDraftFileInput[]> {
   const savedByPath = new Map(draft.files.map((file) => [file.relativePath, file.contents]));
 
   return await Promise.all(
@@ -245,7 +245,7 @@ async function loadCurrentDraftFiles(
 function parseGeneratedFiles(
   formData: FormData,
   authoringPaths: string[],
-): AuthoringDraftFileInput[] {
+): BrowserAutograderDraftFileInput[] {
   const paths = readRepeatedFormStrings(
     formData.getAll('generatedPath'),
     'Generated draft files are required before saving.',
@@ -270,12 +270,12 @@ function parseGeneratedFiles(
 }
 
 function normalizeGeneratedFiles(
-  files: AuthoringDraftFileInput[],
+  files: BrowserAutograderDraftFileInput[],
   authoringPaths: string[],
   messagePrefix: string,
-): AuthoringDraftFileInput[] {
+): BrowserAutograderDraftFileInput[] {
   const allowedPaths = new Set(authoringPaths);
-  const normalizedFiles = new Map<string, AuthoringDraftFileInput>();
+  const normalizedFiles = new Map<string, BrowserAutograderDraftFileInput>();
 
   for (const file of files) {
     const path = normalizeAuthoringDraftPath(file.path);

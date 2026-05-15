@@ -174,14 +174,14 @@ export function renderAuthoringPage(input: {
         <p class="section-label">Prompt</p>
         <form method="post" class="stack" action="${pagePath}/generate">
           <div class="field">
-            <label for="authoring-prompt">Describe the browser_autograder change Lantern should draft</label>
+            <label for="authoring-prompt">Describe the browser-autograder draft change Lantern should propose</label>
             <textarea
               id="authoring-prompt"
               name="prompt"
-              placeholder="Example: Write a browser_autograder check for missing alt text."
+              placeholder="Example: Add a browser-autograder check for missing alt text."
             >${escapeHtml(generatedDraft?.prompt ?? input.draft.latestPromptText ?? '')}</textarea>
           </div>
-          <p class="micro muted">Lantern calls the configured AI writer on the server, then shows generation notes and file diffs before anything is saved.</p>
+          <p class="micro muted">Lantern calls the configured browser-autograder draft generator on the server, then shows generation notes and file diffs before anything is saved.</p>
           <div class="button-row">
             <button type="submit" class="button-primary">Generate draft</button>
             <button type="button" class="button-secondary" disabled>Save draft</button>

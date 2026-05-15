@@ -1,4 +1,4 @@
-import type { AuthoringDraftFileInput } from './ai_writer.ts';
+import type { BrowserAutograderDraftFileInput } from './browser_autograder_draft_generator.ts';
 
 export interface DraftDiffLine {
   kind: 'context' | 'removed' | 'added';
@@ -14,8 +14,8 @@ export interface DraftFileDiff {
 }
 
 export function buildDraftDiff(input: {
-  currentFiles: AuthoringDraftFileInput[];
-  generatedFiles: AuthoringDraftFileInput[];
+  currentFiles: BrowserAutograderDraftFileInput[];
+  generatedFiles: BrowserAutograderDraftFileInput[];
 }): DraftFileDiff[] {
   const currentByPath = new Map(input.currentFiles.map((file) => [file.path, file.contents]));
   const generatedByPath = new Map(input.generatedFiles.map((file) => [file.path, file.contents]));

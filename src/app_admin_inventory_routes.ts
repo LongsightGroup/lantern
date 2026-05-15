@@ -205,11 +205,21 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       }
 
       const history = await repository.listPackageVersionsByApp(packageVersion.appId);
+      const generationActivityEvents = await repository.listAuditEventsByEventType(
+        'app_generation.saved_pending_version',
+      );
+      const reviewedPlacements = await repository.listReviewedPlacementsByPackageVersion(
+        packageVersion.id,
+      );
 
       return context.html(
         renderPackageDetailPage({
           packageVersion,
           history,
+          generationActivityEvents: generationActivityEvents.filter(
+            (event) => event.packageVersionId === packageVersion.id,
+          ),
+          reviewedPlacements,
         }),
       );
     } catch (error) {

@@ -11,6 +11,7 @@ import { createD1DeploymentRepositoryMethods } from './repository_deployments_d1
 import { createD1GradingRepositoryMethods } from './repository_grading_d1.ts';
 import { createD1LaunchStateRepositoryMethods } from './repository_launch_state_d1.ts';
 import { createD1PreviewRepositoryMethods } from './repository_preview_d1.ts';
+import { createD1AppGenerationRepositoryMethods } from '../app_writer/repository_d1.ts';
 
 export function createD1PackageReviewRepository(db: D1Database): PackageReviewRepository {
   const portedMethods = {
@@ -21,6 +22,7 @@ export function createD1PackageReviewRepository(db: D1Database): PackageReviewRe
     ...createD1DeepLinkingRepositoryMethods(db),
     ...createD1PreviewRepositoryMethods(db),
     ...createD1AuthoringRepositoryMethods(db),
+    ...createD1AppGenerationRepositoryMethods(db),
   };
 
   return new Proxy(portedMethods, {

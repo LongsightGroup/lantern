@@ -15,7 +15,7 @@
     "local:bootstrap": "deno task local:migrate",
     "local:start": "npx wrangler dev",
     "local:dev": "npx wrangler dev",
-    "build:worker": "deno bundle --platform=browser src/worker.ts -o output/worker.bundle.mjs",
+    "build:worker": "deno run --allow-read --allow-write --allow-run tools/build_worker_bundle.ts",
     "check:worker": "deno task build:worker && deno run --allow-read tools/check_worker_bundle.ts && deno run --allow-read tools/check_worker_config.ts",
     "fmt": "deno run -A npm:oxfmt@0.43.0 --write .",
     "fmt:check": "deno run -A npm:oxfmt@0.43.0 --check .",

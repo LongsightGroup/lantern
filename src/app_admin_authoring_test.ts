@@ -1,6 +1,9 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
-import type { AuthoringDraftFileInput, AuthoringReferenceExample } from './authoring/ai_writer.ts';
+import type {
+  BrowserAutograderDraftFileInput,
+  BrowserAutograderDraftReferenceExample,
+} from './authoring/browser_autograder_draft_generator.ts';
 import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
@@ -48,15 +51,15 @@ Deno.test('POST /authoring/generate returns notes and diffs without saving the d
     appId: string;
     packageVersion: string;
     prompt: string;
-    currentFiles: AuthoringDraftFileInput[];
-    referenceExamples: AuthoringReferenceExample[];
+    currentFiles: BrowserAutograderDraftFileInput[];
+    referenceExamples: BrowserAutograderDraftReferenceExample[];
   }> = [];
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
   const app = createApp({
     getRepository: () => repository,
-    authoringAiWriter: {
+    browserAutograderDraftGenerator: {
       generate(input) {
         capturedInputs.push(input);
 
@@ -102,7 +105,7 @@ Deno.test('POST /authoring/generate returns notes and diffs without saving the d
   const capturedInput = capturedInputs[0];
 
   if (!capturedInput) {
-    throw new Error('Expected fake AI writer input.');
+    throw new Error('Expected fake browser-autograder draft generator input.');
   }
 
   assertEquals(capturedInput.prompt, AUTHORING_PROMPT);

@@ -218,6 +218,13 @@ export function buildBrowserGraderRunnerSource(input: {
     reviewedSpecFiles: specEntries,
     scoreMaximum: input.scoreMaximum,
   })};
+  const runnerScriptElement = document.currentScript || window.__LanternCurrentScript;
+
+  if (!(runnerScriptElement instanceof HTMLScriptElement) || runnerScriptElement.src === '') {
+    throw new Error('Browser grader runner must load from a script URL.');
+  }
+
+  const runnerScriptUrl = runnerScriptElement.src;
 
   window.__LanternBrowserGraderRunner = {
     async run() {
@@ -246,13 +253,7 @@ export function buildBrowserGraderRunnerSource(input: {
   };
 
   function buildReviewedBrowserGraderSpecUrl(index) {
-    const currentScript = document.currentScript;
-
-    if (!(currentScript instanceof HTMLScriptElement) || currentScript.src === '') {
-      throw new Error('Browser grader runner must load from a script URL.');
-    }
-
-    const runnerUrl = new URL(currentScript.src, window.location.href);
+    const runnerUrl = new URL(runnerScriptUrl, window.location.href);
     const reviewedUrl = new URL('./reviewed/' + index + '.js', runnerUrl);
 
     reviewedUrl.search = runnerUrl.search;

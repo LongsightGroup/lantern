@@ -267,6 +267,58 @@ Deno.test('worker services route D1 persistence through ported repository slices
   assertEquals(await services.getOpsRepository().listControlPlaneDeployments(), []);
 });
 
+Deno.test('worker services schedule app generation through APP_GENERATION_WORKFLOW when bound', async () => {
+  const workflowCreateInputs: unknown[] = [];
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+  const services = resolveWorkerServices(
+    {
+      APP_GENERATION_WORKFLOW: {
+        create(input: unknown) {
+          workflowCreateInputs.push(input);
+
+          return Promise.resolve({ id: 'workflow-1' });
+        },
+      },
+    },
+    env,
+  );
+
+  const result = await services.appGenerationRunScheduler.schedule({
+    generationId: 'generation-1',
+  });
+
+  assertEquals(result, {
+    mode: 'workflow',
+    workflowInstanceId: 'workflow-1',
+  });
+  assertEquals(workflowCreateInputs, [
+    {
+      id: 'generation-1',
+      params: {
+        generationId: 'generation-1',
+      },
+    },
+  ]);
+});
+
+Deno.test('worker services fail clearly when app generation Workflow is not bound', async () => {
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+  const services = resolveWorkerServices({}, env);
+
+  await assertRejects(
+    () =>
+      services.appGenerationRunScheduler.schedule({
+        generationId: 'generation-1',
+      }),
+    Error,
+    'Cloudflare Workers app generation requires a Workflows binding named APP_GENERATION_WORKFLOW.',
+  );
+});
+
 function createSeededArtifactBucket(
   bucketRoot: string,
   files: Record<string, string>,

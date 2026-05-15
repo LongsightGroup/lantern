@@ -1,0 +1,124 @@
+import type { AppWriterStarterId } from './types.ts';
+import {
+  type AppWriterPromptContextExcerpt,
+  selectPromptContextExcerpts,
+} from './prompt_context.ts';
+
+export interface AppWriterContextSelectionInput {
+  promptText: string;
+  requestedAppId: string | null;
+}
+
+export interface AppWriterContextSelection {
+  starterId: AppWriterStarterId;
+  selectedContext: {
+    starterId: AppWriterStarterId;
+    referenceAppIds: string[];
+    publicContractSources: string[];
+    promptContextVersion: number;
+    promptContextExcerpts: AppWriterPromptContextExcerpt[];
+    selectionReason: string;
+  };
+}
+
+const PUBLIC_CONTRACT_SOURCES = [
+  'APP_PACKAGE_SPEC.md',
+  'AUTHORING_FOR_LLMS.md',
+  'schemas/app-manifest.schema.json',
+  'sdk/app-sdk.ts',
+] as const;
+
+export function selectAppWriterContext(
+  input: AppWriterContextSelectionInput,
+): AppWriterContextSelection {
+  const prompt = input.promptText.toLowerCase();
+
+  if (mentionsBrowserAutograder(prompt)) {
+    return buildSelection({
+      promptText: input.promptText,
+      starterId: 'browser-autograder',
+      referenceAppIds: ['template', 'web-checkup', 'typescript-ladder-game'],
+      selectionReason: 'The request appears to need reviewed browser checks or evidence artifacts.',
+    });
+  }
+
+  if (mentionsFlashcards(prompt)) {
+    return buildSelection({
+      promptText: input.promptText,
+      starterId: 'simple-activity',
+      referenceAppIds: ['quick-study', 'examples/starters/simple-activity'],
+      selectionReason: 'The request appears to fit a retrieval-practice activity.',
+    });
+  }
+
+  if (mentionsGame(prompt)) {
+    return buildSelection({
+      promptText: input.promptText,
+      starterId: 'simple-activity',
+      referenceAppIds: ['chapter-4-asteroids', 'examples/starters/simple-activity'],
+      selectionReason: 'The request appears to fit a game-like browser activity.',
+    });
+  }
+
+  return buildSelection({
+    promptText: input.promptText,
+    starterId: 'simple-activity',
+    referenceAppIds: ['examples/starters/simple-activity'],
+    selectionReason:
+      input.requestedAppId === null
+        ? 'The request fits the default small activity starter.'
+        : `Requested app id ${input.requestedAppId} fits the default small activity starter.`,
+  });
+}
+
+function buildSelection(input: {
+  promptText: string;
+  starterId: AppWriterStarterId;
+  referenceAppIds: string[];
+  selectionReason: string;
+}): AppWriterContextSelection {
+  const promptContextExcerpts = selectPromptContextExcerpts({
+    promptText: input.promptText,
+    starterId: input.starterId,
+    referenceAppIds: input.referenceAppIds,
+  });
+
+  return {
+    starterId: input.starterId,
+    selectedContext: {
+      starterId: input.starterId,
+      referenceAppIds: input.referenceAppIds,
+      publicContractSources: [...PUBLIC_CONTRACT_SOURCES],
+      promptContextVersion: 1,
+      promptContextExcerpts,
+      selectionReason: input.selectionReason,
+    },
+  };
+}
+
+function mentionsBrowserAutograder(prompt: string): boolean {
+  return [
+    'autograder',
+    'auto-grader',
+    'grade html',
+    'grade css',
+    'grade javascript',
+    'jasmine',
+    'spec',
+    'evidence',
+    'check webpage',
+    'web page repair',
+  ].some((term) => prompt.includes(term));
+}
+
+function mentionsFlashcards(prompt: string): boolean {
+  return ['flashcard', 'flash card', 'study deck', 'retrieval', 'spaced'].some((term) =>
+    prompt.includes(term),
+  );
+}
+
+function mentionsGame(prompt: string): boolean {
+  return ['game', 'arcade', 'asteroid', 'shoot', 'match', 'sorting', 'sort'].some((term) =>
+    prompt.includes(term),
+  );
+}

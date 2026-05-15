@@ -104,6 +104,34 @@ Deno.test('D1 reviewed placement binding rejects conflicting resource links', as
   );
 });
 
+Deno.test('D1 reviewed placement repository lists placements by package version', async () => {
+  const db = createPlannedD1Database({
+    allResults: [
+      [
+        buildReviewedPlacementRow({
+          placementId: 'placement-2',
+          packageVersionId: 42,
+          createdAt: '2026-05-13T12:05:00.000Z',
+        }),
+        buildReviewedPlacementRow({
+          placementId: 'placement-1',
+          packageVersionId: 42,
+          createdAt: '2026-05-13T12:00:00.000Z',
+        }),
+      ],
+    ],
+  });
+  const repository = createD1DeepLinkingRepositoryMethods(db);
+
+  const placements = await repository.listReviewedPlacementsByPackageVersion(42);
+
+  assertEquals(
+    placements.map((placement) => placement.placementId),
+    ['placement-2', 'placement-1'],
+  );
+  assertEquals(db.statements[0]?.parameters, [42]);
+});
+
 Deno.test('D1 reviewed placement audit snapshot maps counts and status', async () => {
   const db = createPlannedD1Database({
     firstResults: [
