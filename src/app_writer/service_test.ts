@@ -188,7 +188,39 @@ Deno.test('app writer service explains invalid JSON model output clearly', async
   assertEquals(error.run.status, 'failed');
   assertEquals(error.run.validationFindings[0]?.code, 'generation_failed');
   assertEquals(error.run.validationFindings[0]?.detail, {
-    providerError: 'invalid_json',
+    providerError: 'model_output_contract',
+  });
+  assertEquals(
+    error.run.validationFindings[0]?.fix,
+    'Retry generation. Lantern rejects model output unless it contains one valid JSON app package object.',
+  );
+});
+
+Deno.test('app writer service explains invalid model package shape clearly', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+
+  const error = await assertRejects(
+    () =>
+      runAppPackageGeneration({
+        repository,
+        generator: createUnavailableAppPackageGenerator('normalizedRequest must be a JSON object.'),
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics flashcard app.',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+        ]),
+      }),
+    AppPackageGenerationFailedError,
+    'normalizedRequest',
+  );
+
+  assertEquals(error.run.status, 'failed');
+  assertEquals(error.run.validationFindings[0]?.code, 'generation_failed');
+  assertEquals(error.run.validationFindings[0]?.detail, {
+    providerError: 'model_output_contract',
   });
   assertEquals(
     error.run.validationFindings[0]?.fix,

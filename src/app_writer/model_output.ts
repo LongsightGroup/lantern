@@ -65,7 +65,7 @@ export function parseAppPackageGenerationResultJson(jsonText: string): AppPackag
     throw new Error('App package generator returned invalid JSON.');
   }
 
-  return parseAppPackageGenerationResult(parsed);
+  return parseAppPackageGenerationResult(normalizeModelOutputRoot(parsed));
 }
 
 function extractModelJsonObjectText(text: string): string {
@@ -129,9 +129,157 @@ function readBalancedJsonObject(text: string, startIndex: number): string | null
   return null;
 }
 
+function normalizeModelOutputRoot(value: unknown): unknown {
+  const record = readRecord(value);
+
+  if (record === null || hasAppPackageKeys(record)) {
+    return normalizeAppPackageKeyAliases(value);
+  }
+
+  const contentText = readModelEnvelopeText(record);
+
+  if (contentText !== null) {
+    try {
+      return normalizeModelOutputRoot(JSON.parse(extractModelJsonObjectText(contentText)));
+    } catch {
+      return value;
+    }
+  }
+
+  const nested = readModelEnvelopeObject(record);
+
+  return nested === null ? normalizeAppPackageKeyAliases(value) : normalizeModelOutputRoot(nested);
+}
+
+function hasAppPackageKeys(record: Record<string, unknown>): boolean {
+  return record.normalizedRequest !== undefined || record.normalized_request !== undefined;
+}
+
+function readModelEnvelopeText(record: Record<string, unknown>): string | null {
+  const response = readString(record.response);
+
+  if (response !== null) {
+    return response;
+  }
+
+  const content = readString(record.content);
+
+  if (content !== null) {
+    return content;
+  }
+
+  const result = readRecord(record.result);
+  const resultResponse = readString(result?.response);
+
+  if (resultResponse !== null) {
+    return resultResponse;
+  }
+
+  const message = readRecord(record.message);
+
+  return readString(message?.content);
+}
+
+function readModelEnvelopeObject(record: Record<string, unknown>): unknown | null {
+  const candidateKeys = [
+    'appPackage',
+    'app_package',
+    'package',
+    'response',
+    'result',
+    'output',
+    'data',
+  ];
+
+  for (const key of candidateKeys) {
+    const candidate = readRecord(record[key]);
+
+    if (candidate !== null && hasAppPackageKeys(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function normalizeAppPackageKeyAliases(value: unknown): unknown {
+  const record = readRecord(value);
+
+  if (record === null) {
+    return value;
+  }
+
+  return {
+    ...record,
+    normalizedRequest: record.normalizedRequest ?? record.normalized_request,
+    appPlan: normalizeAppPlanAliases(record.appPlan ?? record.app_plan),
+    selectedStarterId: record.selectedStarterId ?? record.selected_starter_id,
+    progressUpdates: record.progressUpdates ?? record.progress_updates,
+  };
+}
+
+function normalizeAppPlanAliases(value: unknown): unknown {
+  const record = readRecord(value);
+
+  if (record === null) {
+    return value;
+  }
+
+  return {
+    ...record,
+    appId: record.appId ?? record.app_id,
+    learningGoal: record.learningGoal ?? record.learning_goal,
+    activityType: record.activityType ?? record.activity_type,
+    learnerFlow: record.learnerFlow ?? record.learner_flow,
+    contentModel: record.contentModel ?? record.content_model,
+    grading: normalizeGradingAliases(record.grading),
+    attemptEvents: normalizeAttemptEventAliases(record.attemptEvents ?? record.attempt_events),
+    previewTests: record.previewTests ?? record.preview_tests,
+    accessibilityNotes: record.accessibilityNotes ?? record.accessibility_notes,
+    riskNotes: record.riskNotes ?? record.risk_notes,
+  };
+}
+
+function normalizeGradingAliases(value: unknown): unknown {
+  const record = readRecord(value);
+
+  if (record === null) {
+    return value;
+  }
+
+  return {
+    ...record,
+    maxScore: record.maxScore ?? record.max_score,
+    scoringSummary: record.scoringSummary ?? record.scoring_summary,
+  };
+}
+
+function normalizeAttemptEventAliases(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((item) => {
+    const record = readRecord(item);
+
+    if (record === null) {
+      return item;
+    }
+
+    return {
+      ...record,
+      eventType: record.eventType ?? record.event_type,
+      questionIdPattern: record.questionIdPattern ?? record.question_id_pattern,
+    };
+  });
+}
+
 export function parseAppPackageGenerationResult(value: unknown): AppPackageGenerationResult {
   const record = requireRecord(value, 'App package generator output must be a JSON object.');
-  const normalizedRequest = requireRecord(record.normalizedRequest, 'normalizedRequest');
+  const normalizedRequest = requireRecord(
+    normalizeNormalizedRequestAliases(record.normalizedRequest),
+    'normalizedRequest',
+  );
 
   return {
     normalizedRequest: {
@@ -209,7 +357,7 @@ function requireProgressMessage(value: unknown, field: string): string {
 }
 
 function parseAppPlan(value: unknown): AppPackageGenerationResult['appPlan'] {
-  const record = requireRecord(value, 'appPlan');
+  const record = requireRecord(normalizeAppPlanAliases(value), 'appPlan');
   const grading = requireRecord(record.grading, 'appPlan.grading');
 
   return {
@@ -254,10 +402,31 @@ function parseAppPlan(value: unknown): AppPackageGenerationResult['appPlan'] {
   };
 }
 
+function normalizeNormalizedRequestAliases(value: unknown): unknown {
+  const record = readRecord(value);
+
+  if (record === null) {
+    return value;
+  }
+
+  return {
+    ...record,
+    learningGoal: record.learningGoal ?? record.learning_goal,
+    contentSummary: record.contentSummary ?? record.content_summary,
+    requestedActivity: record.requestedActivity ?? record.requested_activity,
+    missingInformation: record.missingInformation ?? record.missing_information,
+    safeToGenerate: record.safeToGenerate ?? record.safe_to_generate,
+  };
+}
+
 function readRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
 }
 
 function requireRecord(value: unknown, field: string): Record<string, unknown> {

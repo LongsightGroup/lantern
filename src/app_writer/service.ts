@@ -732,7 +732,7 @@ function buildStarterMismatchFinding(input: {
 function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFinding {
   const message = error instanceof Error ? error.message : 'App package generation failed.';
   const isTimeout = isGenerationTimeoutMessage(message);
-  const isInvalidJson = isInvalidModelJsonMessage(message);
+  const isModelOutputContractError = isModelOutputContractMessage(message);
 
   return {
     code: isTimeout ? 'generation_model_timeout' : 'generation_failed',
@@ -742,13 +742,13 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
     field: null,
     fix: isTimeout
       ? 'Retry generation or move this run onto durable staged background generation.'
-      : isInvalidJson
+      : isModelOutputContractError
         ? 'Retry generation. Lantern rejects model output unless it contains one valid JSON app package object.'
         : 'Check the model configuration or retry generation.',
     detail: isTimeout
       ? { providerError: 'timeout' }
-      : isInvalidJson
-        ? { providerError: 'invalid_json' }
+      : isModelOutputContractError
+        ? { providerError: 'model_output_contract' }
         : {},
   };
 }
@@ -759,8 +759,16 @@ function isGenerationTimeoutMessage(message: string): boolean {
   return normalized.includes('timeout') || normalized.includes('timed out');
 }
 
-function isInvalidModelJsonMessage(message: string): boolean {
-  return message.toLowerCase().includes('invalid json');
+function isModelOutputContractMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+
+  return (
+    normalized.includes('invalid json') ||
+    normalized.includes('normalizedrequest') ||
+    normalized.includes('appplan') ||
+    normalized.includes('selectedstarterid') ||
+    normalized.includes('progressupdates')
+  );
 }
 
 function buildPreviewNotConfiguredFinding(): AppGenerationValidationFinding {

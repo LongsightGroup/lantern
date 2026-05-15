@@ -152,6 +152,12 @@ function readModelResponseText(value: unknown): Promise<string> {
   }
 
   const record = readRecord(value);
+  const directContent = readString(record?.content);
+
+  if (directContent !== null) {
+    return Promise.resolve(directContent);
+  }
+
   const response = readString(record?.response);
 
   if (response !== null) {
@@ -295,6 +301,12 @@ function readModelResponseFragment(value: unknown): string | null {
     return directResponse;
   }
 
+  const directContent = readString(record.content);
+
+  if (directContent !== null) {
+    return directContent;
+  }
+
   const result = readRecord(record.result);
   const resultResponse = readString(result?.response);
 
@@ -367,7 +379,7 @@ function readPromptContextExcerpts(selectedContext: Record<string, unknown>): un
 }
 
 const SYSTEM_PROMPT =
-  'You generate Lantern learning app packages. Return only one JSON object. Never return markdown. Never request or use LMS tokens, Cloudflare bindings, external network access, package imports, localStorage, sessionStorage, or direct grade passback. The app must use reviewed package files and window.GatewayApp only. Progress updates must be short user-safe status text, never hidden reasoning or implementation details.';
+  'You generate Lantern learning app packages. Return only one JSON object whose top-level keys are exactly normalizedRequest, appPlan, selectedStarterId, files, progressUpdates, and notes. Use exact camelCase key names, not snake_case. Never return markdown. Never wrap the package in response, result, output, package, or content. Never request or use LMS tokens, Cloudflare bindings, external network access, package imports, localStorage, sessionStorage, or direct grade passback. The app must use reviewed package files and window.GatewayApp only. Progress updates must be short user-safe status text, never hidden reasoning or implementation details.';
 
 const DEFAULT_MAX_RESPONSE_CHARACTERS = 250_000;
 
@@ -386,6 +398,8 @@ const OUTPUT_CONTRACT = {
     'progressUpdates',
     'notes',
   ],
+  topLevelRule:
+    'Return the app package directly at the JSON root. Do not wrap it in response, result, output, package, appPackage, content, data, or any other envelope. Use exact camelCase key names.',
   progressUpdates: {
     shape: {
       stage:
