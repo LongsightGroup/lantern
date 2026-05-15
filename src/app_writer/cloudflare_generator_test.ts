@@ -147,6 +147,53 @@ Deno.test('Cloudflare app package generator reads content streaming fragments', 
   assertEquals(result.modelRequestMetadata?.[0]?.responseCharacters, generationJson.length);
 });
 
+Deno.test('Cloudflare app package generator repairs invalid JSON contract output once', async () => {
+  const capturedTasks: string[] = [];
+  const generator = createCloudflareAppPackageGenerator({
+    model: '@cf/test/model',
+    ai: {
+      run(_model, input) {
+        const payload = JSON.parse(input.messages.at(-1)?.content ?? '{}') as {
+          task?: string;
+        };
+        capturedTasks.push(payload.task ?? '');
+
+        if (capturedTasks.length === 1) {
+          return Promise.resolve({
+            requestId: 'cf-request-1',
+            response: JSON.stringify({ normalizedRequest: {} }),
+          });
+        }
+
+        return Promise.resolve({
+          requestId: 'cf-request-2',
+          response: JSON.stringify(buildGenerationResult()),
+        });
+      },
+    },
+  });
+
+  const result = await generator.generate({
+    generationId: 'generation-1',
+    ownerId: 'instructor-1',
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: 'phonics-match',
+    selectedStarterId: 'simple-activity',
+    selectedContext: {},
+    createdAt: '2026-05-14T12:00:00.000Z',
+  });
+
+  assertEquals(capturedTasks, [
+    'generate_lantern_app_package',
+    'repair_lantern_app_package_json_contract',
+  ]);
+  assertEquals(result.appPlan.appId, 'phonics-match');
+  assertEquals(
+    result.modelRequestMetadata?.map((metadata) => metadata.requestId),
+    ['cf-request-1', 'cf-request-2'],
+  );
+});
+
 Deno.test('Cloudflare app package generator sends selected prompt context to generation and repair', async () => {
   const capturedPayloads: Record<string, unknown>[] = [];
   const generator = createCloudflareAppPackageGenerator({

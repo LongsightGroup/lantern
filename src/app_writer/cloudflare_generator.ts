@@ -113,6 +113,51 @@ async function runCloudflareGenerationRequest(input: {
   maxResponseCharacters: number;
   messages: CloudflareAiMessage[];
 }): Promise<AppPackageGenerationResult> {
+  const firstAttempt = await runCloudflareModelTextRequest({
+    ai: input.ai,
+    model: input.model,
+    maxResponseCharacters: input.maxResponseCharacters,
+    messages: input.messages,
+  });
+  const attempts = [firstAttempt];
+  let parsed: AppPackageGenerationResult;
+
+  try {
+    parsed = parseAppPackageGenerationResultJson(firstAttempt.responseText);
+  } catch (error) {
+    const repairAttempt = await runCloudflareModelTextRequest({
+      ai: input.ai,
+      model: input.model,
+      maxResponseCharacters: input.maxResponseCharacters,
+      messages: buildContractRepairMessages({
+        originalMessages: input.messages,
+        previousOutput: firstAttempt.responseText,
+        error,
+      }),
+    });
+    attempts.push(repairAttempt);
+    parsed = parseAppPackageGenerationResultJson(repairAttempt.responseText);
+  }
+
+  return {
+    ...parsed,
+    modelRequestMetadata: attempts.map((attempt) =>
+      buildModelRequestMetadata({
+        model: input.model,
+        response: attempt.response,
+        responseCharacters: attempt.responseText.length,
+        durationMs: attempt.durationMs,
+      }),
+    ),
+  };
+}
+
+async function runCloudflareModelTextRequest(input: {
+  ai: CloudflareAiBinding;
+  model: string;
+  maxResponseCharacters: number;
+  messages: CloudflareAiMessage[];
+}): Promise<{ response: unknown; responseText: string; durationMs: number }> {
   const startedAt = performance.now();
   const response = await input.ai.run(input.model, {
     messages: input.messages,
@@ -127,19 +172,38 @@ async function runCloudflareGenerationRequest(input: {
     );
   }
 
-  const parsed = parseAppPackageGenerationResultJson(responseText);
-
   return {
-    ...parsed,
-    modelRequestMetadata: [
-      buildModelRequestMetadata({
-        model: input.model,
-        response,
-        responseCharacters: responseText.length,
-        durationMs: Math.round(performance.now() - startedAt),
-      }),
-    ],
+    response,
+    responseText,
+    durationMs: Math.round(performance.now() - startedAt),
   };
+}
+
+function buildContractRepairMessages(input: {
+  originalMessages: CloudflareAiMessage[];
+  previousOutput: string;
+  error: unknown;
+}): CloudflareAiMessage[] {
+  const errorMessage = input.error instanceof Error ? input.error.message : String(input.error);
+
+  return [
+    ...input.originalMessages,
+    {
+      role: 'user',
+      content: JSON.stringify({
+        task: 'repair_lantern_app_package_json_contract',
+        error: errorMessage,
+        previousOutput: input.previousOutput,
+        repairRules: [
+          'Return one complete Lantern app package JSON object directly at the root.',
+          'Use exact camelCase key names from outputContract.',
+          'Fill every required field with a non-empty value that matches the instructor prompt.',
+          'Do not wrap the package in response, result, output, package, content, or markdown.',
+        ],
+        outputContract: OUTPUT_CONTRACT,
+      }),
+    },
+  ];
 }
 
 function readModelResponseText(value: unknown): Promise<string> {
