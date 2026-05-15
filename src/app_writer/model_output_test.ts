@@ -1,5 +1,8 @@
 import { assertEquals, assertThrows } from '@std/assert';
-import { parseAppPackageGenerationResult } from './model_output.ts';
+import {
+  parseAppPackageGenerationResult,
+  parseAppPackageGenerationResultJson,
+} from './model_output.ts';
 
 Deno.test('app writer model output parses bounded progress updates', () => {
   const result = parseAppPackageGenerationResult({
@@ -35,6 +38,29 @@ Deno.test('app writer model output rejects unsafe progress implementation detail
     Error,
     'unsafe implementation detail',
   );
+});
+
+Deno.test('app writer model output parses fenced JSON object text', () => {
+  const result = parseAppPackageGenerationResultJson(
+    `\`\`\`json\n${JSON.stringify(buildModelOutput())}\n\`\`\``,
+  );
+
+  assertEquals(result.appPlan.appId, 'phonics-flashcards');
+});
+
+Deno.test('app writer model output parses wrapped JSON object text', () => {
+  const result = parseAppPackageGenerationResultJson(
+    `Here is the package.\n${JSON.stringify({
+      ...buildModelOutput(),
+      notes: ['Generated with a literal } in a note.'],
+    })}\nDone.`,
+  );
+
+  assertEquals(result.notes, ['Generated with a literal } in a note.']);
+});
+
+Deno.test('app writer model output rejects text without JSON object', () => {
+  assertThrows(() => parseAppPackageGenerationResultJson('not json'), Error, 'invalid JSON');
 });
 
 function buildModelOutput(): Record<string, unknown> {

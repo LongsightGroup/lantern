@@ -77,6 +77,41 @@ Deno.test('Cloudflare app package generator reads streaming JSON model responses
   assertEquals(result.modelRequestMetadata?.[0]?.responseCharacters, generationJson.length);
 });
 
+Deno.test('Cloudflare app package generator reads JSON-line streaming fragments', async () => {
+  const generationJson = JSON.stringify(buildGenerationResult());
+  const generator = createCloudflareAppPackageGenerator({
+    model: '@cf/test/model',
+    ai: {
+      run(_model, input) {
+        assertEquals(input.stream, true);
+
+        return Promise.resolve(
+          createTextStream(
+            [
+              JSON.stringify({ response: generationJson.slice(0, 80) }),
+              JSON.stringify({ response: generationJson.slice(80) }),
+              '[DONE]',
+            ].join('\n'),
+          ),
+        );
+      },
+    },
+  });
+
+  const result = await generator.generate({
+    generationId: 'generation-1',
+    ownerId: 'instructor-1',
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: 'phonics-match',
+    selectedStarterId: 'simple-activity',
+    selectedContext: {},
+    createdAt: '2026-05-14T12:00:00.000Z',
+  });
+
+  assertEquals(result.appPlan.appId, 'phonics-match');
+  assertEquals(result.modelRequestMetadata?.[0]?.responseCharacters, generationJson.length);
+});
+
 Deno.test('Cloudflare app package generator sends selected prompt context to generation and repair', async () => {
   const capturedPayloads: Record<string, unknown>[] = [];
   const generator = createCloudflareAppPackageGenerator({

@@ -237,7 +237,7 @@ function readEventStreamModelText(eventStreamText: string): string {
   }
 
   if (!sawDataLine) {
-    return eventStreamText;
+    return readJsonLineModelText(eventStreamText) ?? eventStreamText;
   }
 
   if (text === '') {
@@ -245,6 +245,29 @@ function readEventStreamModelText(eventStreamText: string): string {
   }
 
   return text;
+}
+
+function readJsonLineModelText(text: string): string | null {
+  const normalized = text.replaceAll('\r\n', '\n');
+  let sawFragment = false;
+  let responseText = '';
+
+  for (const line of normalized.split('\n')) {
+    const data = line.trim();
+
+    if (data === '' || data === '[DONE]') {
+      continue;
+    }
+
+    const fragment = readModelResponseFragment(parseEventStreamData(data));
+
+    if (fragment !== null) {
+      responseText += fragment;
+      sawFragment = true;
+    }
+  }
+
+  return sawFragment ? responseText : null;
 }
 
 function parseEventStreamData(data: string): unknown {

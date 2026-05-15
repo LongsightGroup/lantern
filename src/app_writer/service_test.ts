@@ -7,8 +7,8 @@ import {
 import {
   AppPackageGenerationFailedError,
   continueAppPackageGenerationRun,
-  startAppPackageGenerationRun,
   runAppPackageGeneration,
+  startAppPackageGenerationRun,
 } from './service.ts';
 import { createTypeScriptAppPackageSourceCompiler } from './typescript_source_compiler.ts';
 import type {
@@ -157,7 +157,43 @@ Deno.test('app writer service classifies model request timeouts distinctly', asy
 
   assertEquals(error.run.status, 'failed');
   assertEquals(error.run.validationFindings[0]?.code, 'generation_model_timeout');
-  assertEquals(error.run.validationFindings[0]?.detail, { providerError: 'timeout' });
+  assertEquals(error.run.validationFindings[0]?.detail, {
+    providerError: 'timeout',
+  });
+});
+
+Deno.test('app writer service explains invalid JSON model output clearly', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+
+  const error = await assertRejects(
+    () =>
+      runAppPackageGeneration({
+        repository,
+        generator: createUnavailableAppPackageGenerator(
+          'App package generator returned invalid JSON.',
+        ),
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics flashcard app.',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+        ]),
+      }),
+    AppPackageGenerationFailedError,
+    'invalid JSON',
+  );
+
+  assertEquals(error.run.status, 'failed');
+  assertEquals(error.run.validationFindings[0]?.code, 'generation_failed');
+  assertEquals(error.run.validationFindings[0]?.detail, {
+    providerError: 'invalid_json',
+  });
+  assertEquals(
+    error.run.validationFindings[0]?.fix,
+    'Retry generation. Lantern rejects model output unless it contains one valid JSON app package object.',
+  );
 });
 
 Deno.test('app writer service records package validation failures before rejecting', async () => {

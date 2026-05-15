@@ -1,9 +1,9 @@
 import type { Capability } from '../../sdk/app-sdk.ts';
 import type {
-  AppGenerationProgressStage,
   AppGenerationActivityType,
   AppGenerationAttemptEventType,
   AppGenerationGradingMode,
+  AppGenerationProgressStage,
   AppPackageGenerationResult,
   AppWriterStarterId,
 } from './types.ts';
@@ -60,12 +60,73 @@ export function parseAppPackageGenerationResultJson(jsonText: string): AppPackag
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(jsonText);
+    parsed = JSON.parse(extractModelJsonObjectText(jsonText));
   } catch {
     throw new Error('App package generator returned invalid JSON.');
   }
 
   return parseAppPackageGenerationResult(parsed);
+}
+
+function extractModelJsonObjectText(text: string): string {
+  const trimmed = stripMarkdownJsonFence(text.trim());
+  const firstBrace = trimmed.indexOf('{');
+
+  if (firstBrace < 0) {
+    return trimmed;
+  }
+
+  const objectText = readBalancedJsonObject(trimmed, firstBrace);
+
+  return objectText ?? trimmed;
+}
+
+function stripMarkdownJsonFence(text: string): string {
+  const fenced = text.match(/^```(?:[a-z0-9_-]+)?\s*([\s\S]*?)\s*```$/i);
+
+  return fenced?.[1]?.trim() ?? text;
+}
+
+function readBalancedJsonObject(text: string, startIndex: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = startIndex; index < text.length; index += 1) {
+    const character = text[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === '\\') {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+
+      continue;
+    }
+
+    if (character === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (character === '{') {
+      depth += 1;
+      continue;
+    }
+
+    if (character === '}') {
+      depth -= 1;
+
+      if (depth === 0) {
+        return text.slice(startIndex, index + 1);
+      }
+    }
+  }
+
+  return null;
 }
 
 export function parseAppPackageGenerationResult(value: unknown): AppPackageGenerationResult {
