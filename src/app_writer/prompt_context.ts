@@ -86,7 +86,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
     source: 'APP_PACKAGE_SPEC.md#Package Layout',
     required: true,
     content:
-      'Generate a reviewed Lantern app package, not a Cloudflare Worker, LMS tool, or backend service. The app-writer baseline output is manifest.json, dist/index.html, content/activity.json, preview/fixtures.json, preview/tests.json, source/app.ts, and source/content_model.ts. Lantern compiles source/app.ts into dist/app.js after typechecking.',
+      'Generate a reviewed Lantern app package, not a Cloudflare Worker, LMS tool, or backend service. The app-writer baseline output is manifest.json, dist/index.html, dist/app.js, content/activity.json, preview/fixtures.json, and preview/tests.json. Return browser-ready JavaScript in dist/app.js.',
   },
   {
     id: 'runtime-boundary',
@@ -106,11 +106,11 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
   },
   {
     id: 'typescript-authoring',
-    title: 'Typed authoring source',
+    title: 'Browser runtime source',
     source: 'AUTHORING_FOR_LLMS.md#Required Output',
     required: true,
     content:
-      'Write strict TypeScript in source/app.ts and source/content_model.ts. Do not use any or imports. source/content_model.ts should define the content/activity.json shape with stable IDs for learner-facing items. source/app.ts should render the app, call GatewayApp methods, and handle denied mutation results clearly.',
+      'Write plain browser JavaScript in dist/app.js. Do not use imports, external packages, build steps, TypeScript-only syntax, any, eval, Function, or module exports. Keep content data in content/activity.json with stable IDs for learner-facing items. dist/app.js should render the app, call GatewayApp methods, and handle denied mutation results clearly.',
   },
   {
     id: 'state-progress-reporting',
@@ -139,7 +139,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
     starterIds: ['simple-activity'],
     referenceAppIds: ['examples/starters/simple-activity'],
     content:
-      'Use the simple-activity shape for flashcards, matching, sorting, simulations, games, quizzes, and practice tools. Put lesson data in content/activity.json. Render accessible controls in dist/index.html/source/app.ts. Include preview fixtures with launch, attempt_id, and local_state, plus preview tests that assert stable data-test selectors.',
+      'Use the simple-activity shape for flashcards, matching, sorting, simulations, games, quizzes, and practice tools. Put lesson data in content/activity.json. Render accessible controls from dist/index.html and dist/app.js. Include preview fixtures with launch, attempt_id, and local_state, plus preview tests that assert stable data-test selectors.',
   },
   {
     id: 'browser-autograder-starter',

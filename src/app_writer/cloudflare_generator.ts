@@ -557,13 +557,12 @@ const OUTPUT_CONTRACT = {
     required: [
       'manifest.json',
       'dist/index.html',
+      'dist/app.js',
       'content/activity.json',
       'preview/fixtures.json',
       'preview/tests.json',
-      'source/app.ts',
-      'source/content_model.ts',
     ],
-    note: 'Return TypeScript source as source/app.ts and source/content_model.ts. Lantern typechecks and compiles source/app.ts into dist/app.js before package validation.',
+    note: 'Return browser-ready JavaScript in dist/app.js. Do not rely on a build step, package imports, TypeScript compilation, or source files.',
   },
   validationFindings: 'Do not include. Lantern computes validation findings.',
 } as const;
