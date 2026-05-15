@@ -1,4 +1,11 @@
-import type { AppGenerationValidationFinding, AppWriterWorkspaceFile } from './types.ts';
+import {
+  APP_GENERATION_PROGRESS_STAGES,
+  APP_WRITER_WORKSPACE_FILE_ROLES,
+  type AppGenerationProgressUpdate,
+  type AppGenerationValidationFinding,
+  type AppWriterWorkspaceFile,
+  type AppWriterWorkspaceFileRole,
+} from './types.ts';
 
 export function parseWorkspaceFiles(value: unknown, fieldName: string): AppWriterWorkspaceFile[] {
   if (!Array.isArray(value)) {
@@ -7,10 +14,33 @@ export function parseWorkspaceFiles(value: unknown, fieldName: string): AppWrite
 
   return value.map((item, index) => {
     const record = expectRecord(item, `${fieldName}[${index}]`);
-
-    return {
+    const file: AppWriterWorkspaceFile = {
       path: expectString(record.path, `${fieldName}[${index}].path`),
       contents: expectString(record.contents, `${fieldName}[${index}].contents`),
+    };
+
+    if (record.role !== undefined) {
+      file.role = expectWorkspaceFileRole(record.role, `${fieldName}[${index}].role`);
+    }
+
+    return file;
+  });
+}
+
+export function parseProgressUpdates(
+  value: unknown,
+  fieldName: string,
+): AppGenerationProgressUpdate[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return value.map((item, index) => {
+    const record = expectRecord(item, `${fieldName}[${index}]`);
+
+    return {
+      stage: expectProgressStage(record.stage, `${fieldName}[${index}].stage`),
+      message: expectString(record.message, `${fieldName}[${index}].message`),
     };
   });
 }
@@ -79,4 +109,27 @@ function expectValidationSeverity(
   }
 
   return value;
+}
+
+function expectWorkspaceFileRole(value: unknown, fieldName: string): AppWriterWorkspaceFileRole {
+  for (const role of APP_WRITER_WORKSPACE_FILE_ROLES) {
+    if (value === role) {
+      return role;
+    }
+  }
+
+  throw new TypeError(`${fieldName} must be a supported workspace file role.`);
+}
+
+function expectProgressStage(
+  value: unknown,
+  fieldName: string,
+): AppGenerationProgressUpdate['stage'] {
+  for (const stage of APP_GENERATION_PROGRESS_STAGES) {
+    if (value === stage) {
+      return stage;
+    }
+  }
+
+  throw new TypeError(`${fieldName} must be a supported generation progress stage.`);
 }

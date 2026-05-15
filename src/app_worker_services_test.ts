@@ -304,6 +304,43 @@ Deno.test('worker services schedule app generation through APP_GENERATION_WORKFL
   ]);
 });
 
+Deno.test('worker services route app writer Agent sessions through APP_WRITER_AGENT when bound', async () => {
+  const observedRequests: Request[] = [];
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+  const services = resolveWorkerServices(
+    {
+      APP_WRITER_AGENT: {
+        idFromName(name: string) {
+          return `agent:${name}`;
+        },
+        get(id: unknown) {
+          assertEquals(id, 'agent:generation-1');
+
+          return {
+            fetch(request: Request) {
+              observedRequests.push(request.clone());
+
+              return Promise.resolve(Response.json({ ok: true }));
+            },
+          };
+        },
+      },
+    },
+    env,
+  );
+
+  await services.appWriterAgentSessions.observe({
+    generationId: 'generation-1',
+    ownerId: 'admin',
+    workflowInstanceId: 'workflow-1',
+    observedAt: '2026-05-15T12:00:00.000Z',
+  });
+
+  assertEquals(new URL(observedRequests[0]?.url ?? '').pathname, '/observe');
+});
+
 Deno.test('worker services use a platform source compiler binding when configured', async () => {
   const compileRequests: Request[] = [];
   const env = createObjectEnvReader({

@@ -31,6 +31,18 @@ const REQUIRED_BINDINGS = [
     pattern: /"workflows"\s*:\s*\[[\s\S]*?"class_name"\s*:\s*"AppGenerationWorkflow"/,
   },
   {
+    description: 'durable_objects binding APP_WRITER_AGENT',
+    pattern: /"durable_objects"\s*:\s*\{[\s\S]*?"name"\s*:\s*"APP_WRITER_AGENT"/,
+  },
+  {
+    description: 'durable_objects class AppWriterAgent',
+    pattern: /"durable_objects"\s*:\s*\{[\s\S]*?"class_name"\s*:\s*"AppWriterAgent"/,
+  },
+  {
+    description: 'durable_objects migration AppWriterAgent',
+    pattern: /"migrations"\s*:\s*\[[\s\S]*?"new_sqlite_classes"\s*:\s*\[[\s\S]*?"AppWriterAgent"/,
+  },
+  {
     description: 'services binding APP_WRITER_SOURCE_COMPILER',
     pattern: /"services"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"APP_WRITER_SOURCE_COMPILER"/,
   },
@@ -59,6 +71,6 @@ if (import.meta.main) {
   }
 
   console.log(
-    'Worker config keeps DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, and app-writer service bindings wired.',
+    'Worker config keeps DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, and app-writer service bindings wired.',
   );
 }

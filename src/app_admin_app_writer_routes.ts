@@ -76,6 +76,14 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
         );
       }
 
+      await services.appWriterAgentSessions.observe({
+        generationId: started.run.generationId,
+        ownerId: started.run.ownerId,
+        workflowInstanceId:
+          scheduleResult.mode === 'workflow' ? scheduleResult.workflowInstanceId : null,
+        observedAt: started.run.updatedAt,
+      });
+
       return context.redirect(`/admin/app-writer/runs/${started.run.generationId}`, 303);
     } catch (error) {
       if (error instanceof AppPackageGenerationFailedError) {
@@ -148,6 +156,13 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
         statusForError(error),
       );
     }
+  });
+
+  app.get('/admin/app-writer/runs/:generationId/events', (context) => {
+    return services.appWriterAgentSessions.fetchEvents(
+      context.req.param('generationId'),
+      context.req.raw,
+    );
   });
 }
 

@@ -30,6 +30,20 @@
       "class_name": "AppGenerationWorkflow",
     },
   ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "APP_WRITER_AGENT",
+        "class_name": "AppWriterAgent",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1_app_writer_agent",
+      "new_sqlite_classes": ["AppWriterAgent"],
+    },
+  ],
   "services": [
     {
       "binding": "APP_WRITER_SOURCE_COMPILER",

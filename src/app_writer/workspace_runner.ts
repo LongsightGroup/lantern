@@ -16,7 +16,7 @@ import type {
 
 export interface AppWriterWorkspaceRunner {
   initialize(input: AppWriterWorkspaceInitializeInput): Promise<AppGenerationWorkspaceRecord>;
-  plan(input: AppPackageGenerationInput): Promise<AppGenerationPlanningResult>;
+  plan(input: AppWriterWorkspacePlanningInput): Promise<AppGenerationPlanningResult>;
   author(input: AppWriterWorkspaceAuthorInput): Promise<AppPackageFileGenerationResult>;
   repair(input: AppWriterWorkspaceRepairInput): Promise<AppPackageGenerationResult>;
 }
@@ -27,6 +27,10 @@ export interface AppWriterWorkspaceInitializeInput {
   initializedAt: string;
 }
 
+export interface AppWriterWorkspacePlanningInput extends AppPackageGenerationInput {
+  initializedWorkspace: AppGenerationWorkspaceRecord;
+}
+
 export interface AppWriterWorkspaceAuthorInput extends AppPackageFileGenerationInput {
   initializedWorkspace: AppGenerationWorkspaceRecord;
 }
@@ -35,18 +39,30 @@ export interface AppWriterWorkspaceRepairInput extends AppPackageRepairInput {
   currentWorkspace: AppGenerationWorkspaceRecord | null;
 }
 
+export interface AppWriterWorkspaceHarnessResult {
+  files: AppGenerationWorkspaceRecord['files'];
+  progressUpdates: AppGenerationProgressUpdate[];
+  notes: string[];
+  validationFindings?: AppGenerationValidationFinding[];
+}
+
 export interface AppWriterWorkspaceHarness {
-  run(input: {
-    generationId: string;
-    promptText: string;
+  plan(input: {
+    generationInput: AppPackageGenerationInput;
     workspace: AppGenerationWorkspaceRecord;
+  }): Promise<AppGenerationPlanningResult>;
+  author(input: {
+    generationInput: AppPackageGenerationInput;
+    planning: AppGenerationPlanningResult;
+    workspace: AppGenerationWorkspaceRecord;
+  }): Promise<AppWriterWorkspaceHarnessResult>;
+  repair(input: {
+    generationInput: AppPackageGenerationInput;
+    previousResult: AppPackageGenerationResult;
     validationFindings: AppGenerationValidationFinding[];
     repairAttempt: number;
-  }): Promise<{
-    files: AppGenerationWorkspaceRecord['files'];
-    progressUpdates: AppGenerationProgressUpdate[];
-    notes: string[];
-  }>;
+    workspace: AppGenerationWorkspaceRecord;
+  }): Promise<AppWriterWorkspaceHarnessResult>;
 }
 
 export function createAppPackageGeneratorWorkspaceRunner(
@@ -124,23 +140,24 @@ export function createHarnessWorkspaceRunner(runnerInput: {
     initialize(workspaceInput) {
       return Promise.resolve(buildInitializedAppWriterWorkspace(workspaceInput));
     },
-    plan(_input) {
-      throw new Error('Harness workspace runner requires a planning implementation.');
+    plan(input) {
+      return runnerInput.harness.plan({
+        generationInput: input,
+        workspace: input.initializedWorkspace,
+      });
     },
     async author(input) {
-      const result = await runnerInput.harness.run({
-        generationId: input.generationId,
-        promptText: input.promptText,
+      const result = await runnerInput.harness.author({
+        generationInput: input,
+        planning: input.planning,
         workspace: input.initializedWorkspace,
-        validationFindings: [],
-        repairAttempt: 0,
       });
 
       return {
         files: result.files,
         progressUpdates: result.progressUpdates,
         notes: result.notes,
-        validationFindings: [],
+        validationFindings: result.validationFindings ?? [],
       };
     },
     async repair(input) {
@@ -150,12 +167,12 @@ export function createHarnessWorkspaceRunner(runnerInput: {
         throw new Error('Harness workspace repair requires a current workspace snapshot.');
       }
 
-      const result = await runnerInput.harness.run({
-        generationId: input.generationId,
-        promptText: input.promptText,
-        workspace,
+      const result = await runnerInput.harness.repair({
+        generationInput: input,
+        previousResult: input.previousResult,
         validationFindings: input.validationFindings,
         repairAttempt: input.repairAttempt,
+        workspace,
       });
 
       return {
@@ -163,7 +180,7 @@ export function createHarnessWorkspaceRunner(runnerInput: {
         files: result.files,
         progressUpdates: result.progressUpdates,
         notes: [...input.previousResult.notes, ...result.notes],
-        validationFindings: [],
+        validationFindings: result.validationFindings ?? [],
       };
     },
   };

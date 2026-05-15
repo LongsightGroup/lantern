@@ -1,5 +1,6 @@
 import type { ExecutionContext } from '@hono/hono';
 import { buildApp } from './app_core.ts';
+export { AppWriterAgent } from './app_writer/agent.ts';
 import {
   type AppGenerationWorkflowParams,
   runAppGenerationFileWorkflowStep,

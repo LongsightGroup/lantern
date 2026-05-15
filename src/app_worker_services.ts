@@ -1,5 +1,10 @@
 import type { JSONWebKeySet } from 'jose';
 import {
+  createCloudflareAppWriterAgentSessionCoordinator,
+  createUnavailableAppWriterAgentSessionCoordinator,
+  isAppWriterAgentNamespace,
+} from './app_writer/agent_session.ts';
+import {
   createCloudflareAppPackageGenerator,
   type CloudflareAiBinding,
   isCloudflareAiBinding,
@@ -72,6 +77,8 @@ const WORKER_APP_SOURCE_COMPILER_MESSAGE =
   'Cloudflare Workers app writer requires a platform source compiler service binding named APP_WRITER_SOURCE_COMPILER.';
 const WORKER_APP_PREVIEWER_MESSAGE =
   'Cloudflare Workers generated app preview requires a platform previewer service binding named APP_WRITER_PREVIEWER.';
+const WORKER_APP_WRITER_AGENT_MESSAGE =
+  'Cloudflare Workers app writer live sessions require a Durable Object binding named APP_WRITER_AGENT.';
 
 export interface WorkerBindings extends Record<string, unknown> {
   DB?: D1Database;
@@ -79,6 +86,7 @@ export interface WorkerBindings extends Record<string, unknown> {
   LOADER?: DynamicWorkerLoader;
   AI?: unknown;
   APP_GENERATION_WORKFLOW?: unknown;
+  APP_WRITER_AGENT?: unknown;
   APP_WRITER_SOURCE_COMPILER?: unknown;
   APP_WRITER_PREVIEWER?: unknown;
 }
@@ -107,6 +115,7 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
     appPackagePreviewer: resolveWorkerAppPackagePreviewer(bindings),
     appPackageSourceCompiler: resolveWorkerAppPackageSourceCompiler(bindings),
     appGenerationRunScheduler: resolveWorkerAppGenerationRunScheduler(bindings),
+    appWriterAgentSessions: resolveWorkerAppWriterAgentSessions(bindings),
     browserAutograderDraftGenerator: createUnavailableBrowserAutograderDraftGenerator(),
     runtimeArtifactStore: snapshotStore,
     runtimeDelivery: resolveWorkerRuntimeDelivery(bindings, snapshotStore),
@@ -126,6 +135,14 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
     loadReferencePackageSnapshot: (appId, options = {}) =>
       loadPackageSnapshotFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
   };
+}
+
+function resolveWorkerAppWriterAgentSessions(bindings: WorkerBindings) {
+  if (isAppWriterAgentNamespace(bindings.APP_WRITER_AGENT)) {
+    return createCloudflareAppWriterAgentSessionCoordinator(bindings.APP_WRITER_AGENT);
+  }
+
+  return createUnavailableAppWriterAgentSessionCoordinator(WORKER_APP_WRITER_AGENT_MESSAGE);
 }
 
 function resolveWorkerAppPackagePreviewer(bindings: WorkerBindings) {

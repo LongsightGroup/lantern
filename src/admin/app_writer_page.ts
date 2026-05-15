@@ -279,7 +279,7 @@ export function renderAppGenerationRunPage(input: {
       latestPreviewSession,
       previewEvidence,
     })}
-    ${refreshWhileRunning ? renderGenerationRefreshScript() : ''}`,
+    ${refreshWhileRunning ? renderGenerationRefreshScript(run.generationId, run.updatedAt) : ''}`,
   });
 }
 
@@ -315,11 +315,43 @@ function renderGenerationProgress(status: AppGenerationStatus): string {
   </ol>`;
 }
 
-function renderGenerationRefreshScript(): string {
+function renderGenerationRefreshScript(generationId: string, updatedAt: string): string {
+  const eventUrl = `/admin/app-writer/runs/${escapeHtml(generationId)}/events`;
+  const currentUpdatedAt = JSON.stringify(updatedAt);
+
   return `<script>
-    window.setTimeout(() => {
+    let reloaded = false;
+    const reloadOnce = () => {
+      if (reloaded) return;
+      reloaded = true;
       window.location.reload();
-    }, 3000);
+    };
+
+    if ('EventSource' in window) {
+      const events = new EventSource('${eventUrl}');
+      events.addEventListener('snapshot', (event) => {
+        try {
+          const snapshot = JSON.parse(event.data);
+          if (snapshot.status === 'failed' || snapshot.status === 'saved_pending_version') {
+            events.close();
+            reloadOnce();
+            return;
+          }
+
+          if (snapshot.updatedAt && snapshot.updatedAt !== ${currentUpdatedAt}) {
+            reloadOnce();
+          }
+        } catch (_error) {
+          reloadOnce();
+        }
+      });
+      events.onerror = () => {
+        events.close();
+        window.setTimeout(reloadOnce, 3000);
+      };
+    } else {
+      window.setTimeout(reloadOnce, 3000);
+    }
   </script>`;
 }
 

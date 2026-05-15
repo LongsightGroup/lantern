@@ -201,6 +201,8 @@ Deno.test('POST /admin/app-writer redirects even without a Worker execution cont
 Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is configured', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const scheduledGenerationIds: string[] = [];
+  const observedAgentSessions: Array<{ generationId: string; workflowInstanceId: string | null }> =
+    [];
   let generatorCallCount = 0;
   const formData = new FormData();
   formData.set('promptText', 'Create a phonics flashcard app.');
@@ -223,6 +225,22 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
         });
       },
     },
+    appWriterAgentSessions: {
+      observe(input) {
+        observedAgentSessions.push({
+          generationId: input.generationId,
+          workflowInstanceId: input.workflowInstanceId,
+        });
+
+        return Promise.resolve();
+      },
+      fetchState(_generationId) {
+        throw new Error('State should not be fetched in this test.');
+      },
+      fetchEvents(_generationId, _request) {
+        throw new Error('Events should not be fetched in this test.');
+      },
+    },
   });
 
   const response = await app.request('https://lantern.example/admin/app-writer', {
@@ -234,6 +252,12 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
   assertEquals(response.status, 303);
   assertEquals(generatorCallCount, 0);
   assertEquals(scheduledGenerationIds.length, 1);
+  assertEquals(observedAgentSessions, [
+    {
+      generationId: scheduledGenerationIds[0] ?? '',
+      workflowInstanceId: 'workflow-1',
+    },
+  ]);
   const location = response.headers.get('location') ?? '';
   assertStringIncludes(location, `/admin/app-writer/runs/${scheduledGenerationIds[0]}`);
 
@@ -300,6 +324,34 @@ Deno.test('GET /admin/app-writer/runs/:generationId shows captured workspace bef
   assertStringIncludes(body, 'dist/app.js');
   assertStringIncludes(body, 'validation or preview findings currently attached');
   assertStringIncludes(body, 'No immutable package version has been saved yet.');
+});
+
+Deno.test('GET /admin/app-writer/runs/:generationId/events streams through the app writer Agent session', async () => {
+  const response = await createApp({
+    getRepository: () => createInMemoryPackageReviewRepository(),
+    appWriterAgentSessions: {
+      observe(_input) {
+        throw new Error('Observe should not run in this test.');
+      },
+      fetchState(_generationId) {
+        throw new Error('State should not run in this test.');
+      },
+      fetchEvents(generationId, _request) {
+        return Promise.resolve(
+          new Response(`event: snapshot\ndata: {"generationId":"${generationId}"}\n\n`, {
+            headers: {
+              'content-type': 'text/event-stream',
+            },
+          }),
+        );
+      },
+    },
+  }).request('https://lantern.example/admin/app-writer/runs/generation-1/events');
+  const body = await response.text();
+
+  assertEquals(response.status, 200);
+  assertEquals(response.headers.get('content-type'), 'text/event-stream');
+  assertStringIncludes(body, '"generationId":"generation-1"');
 });
 
 Deno.test('GET /admin/app-writer/runs/:generationId shows generated package runtime log', async () => {

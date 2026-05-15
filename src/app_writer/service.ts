@@ -311,6 +311,7 @@ export async function planAppPackageGenerationRun(
       run: initialized.run,
       generatorInput: initialized.generatorInput,
       contextSelection: initialized.contextSelection,
+      initializedWorkspace: initialized.initializedWorkspace,
       now,
     });
 
@@ -529,6 +530,7 @@ async function generateInitialPackage(input: {
       run: input.run,
       generatorInput: input.generatorInput,
       contextSelection: input.contextSelection,
+      initializedWorkspace: input.initializedWorkspace,
       now: input.now,
     });
     const generated = await generateInitialPackageFiles({
@@ -586,6 +588,7 @@ async function planInitialPackage(input: {
   run: AppGenerationRunRecord;
   generatorInput: AppPackageGenerationInput;
   contextSelection: AppWriterContextSelection;
+  initializedWorkspace: AppGenerationWorkspaceRecord;
   now: () => string;
 }): Promise<{ run: AppGenerationRunRecord; planning: AppGenerationPlanningResult }> {
   if (input.run.status !== 'started' && input.run.status !== 'initializing') {
@@ -623,7 +626,10 @@ async function planInitialPackage(input: {
     now: run.updatedAt,
   });
 
-  const planning = await input.workspaceRunner.plan(input.generatorInput);
+  const planning = await input.workspaceRunner.plan({
+    ...input.generatorInput,
+    initializedWorkspace: input.initializedWorkspace,
+  });
   const starterFinding = buildStarterMismatchFinding({
     expectedStarterId: input.contextSelection.starterId,
     actualStarterId: planning.selectedStarterId,

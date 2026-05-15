@@ -1,5 +1,9 @@
 import type { JSONWebKeySet } from 'jose';
 import {
+  type AppWriterAgentSessionCoordinator,
+  createNoopAppWriterAgentSessionCoordinator,
+} from './app_writer/agent_session.ts';
+import {
   type AppPackageGenerator,
   createUnavailableAppPackageGenerator,
 } from './app_writer/package_generator.ts';
@@ -47,6 +51,7 @@ export interface AppServices {
   appPackagePreviewer: AppPackagePreviewer;
   appPackageSourceCompiler: AppPackageSourceCompiler;
   appGenerationRunScheduler: AppGenerationRunScheduler;
+  appWriterAgentSessions: AppWriterAgentSessionCoordinator;
   browserAutograderDraftGenerator: BrowserAutograderDraftGenerator;
   loadBrowserAutograderDraftReferenceExamples: () => Promise<
     BrowserAutograderDraftReferenceExample[]
@@ -118,6 +123,8 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
       services.appPackageSourceCompiler ?? createTypeScriptAppPackageSourceCompiler(),
     appGenerationRunScheduler:
       services.appGenerationRunScheduler ?? createUnavailableAppGenerationRunScheduler(),
+    appWriterAgentSessions:
+      services.appWriterAgentSessions ?? createNoopAppWriterAgentSessionCoordinator(),
     browserAutograderDraftGenerator:
       services.browserAutograderDraftGenerator ??
       createUnavailableBrowserAutograderDraftGenerator(),
