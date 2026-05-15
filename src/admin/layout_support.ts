@@ -50,7 +50,14 @@ export function formatDateTime(value: string | null): string {
   return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: readAdminTimeZone(),
   }).format(new Date(value));
+}
+
+function readAdminTimeZone(): string {
+  const configured = readOptionalEnvIdentityValue('APP_ADMIN_TIME_ZONE');
+
+  return configured ?? 'America/New_York';
 }
 
 export function defaultNav(activePath?: string): NavItem[] {

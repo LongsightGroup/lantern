@@ -17,6 +17,7 @@
     "mode": "smart",
   },
   "vars": {
+    "APP_ADMIN_TIME_ZONE": "America/New_York",
     "APP_WRITER_MODEL": "@cf/moonshotai/kimi-k2.6",
   },
   "ai": {
