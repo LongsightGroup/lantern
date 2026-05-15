@@ -6,7 +6,10 @@ Deno.test('Cloudflare worker entrypoint serves health without Deno-only bindings
   const response = await worker.fetch(new Request('https://lantern.example/health'), {}, {});
 
   assertEquals(response.status, 200);
-  assertEquals(await response.json(), { ok: true });
+  assertEquals(await response.json(), {
+    ok: true,
+    appWriterHarness: 'workspace-runner-v1',
+  });
 });
 
 Deno.test('Cloudflare worker entrypoint serves Canvas config from worker env bindings', async () => {

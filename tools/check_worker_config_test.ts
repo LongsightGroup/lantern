@@ -3,6 +3,12 @@ import { validateWorkerConfigBindings } from './check_worker_config.ts';
 
 Deno.test('validateWorkerConfigBindings accepts wrangler config with DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, and app-writer services', () => {
   const config = `{
+    "routes": [
+      {
+        "pattern": "lantern.appboundary.com",
+        "custom_domain": true
+      }
+    ],
     "workflows": [
       {
         "binding": "APP_GENERATION_WORKFLOW",
@@ -57,6 +63,7 @@ Deno.test('validateWorkerConfigBindings reports missing required Worker bindings
   }`;
 
   assertEquals(validateWorkerConfigBindings(config), [
+    'custom domain route lantern.appboundary.com',
     'worker_loaders binding LOADER',
     'r2_buckets binding PACKAGE_ARTIFACTS',
     'd1_databases binding DB',
@@ -72,6 +79,12 @@ Deno.test('validateWorkerConfigBindings reports missing required Worker bindings
 
 Deno.test('validateWorkerConfigBindings rejects legacy Hyperdrive production binding', () => {
   const config = `{
+    "routes": [
+      {
+        "pattern": "lantern.appboundary.com",
+        "custom_domain": true
+      }
+    ],
     "workflows": [
       {
         "binding": "APP_GENERATION_WORKFLOW",

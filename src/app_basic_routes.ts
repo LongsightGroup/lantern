@@ -7,13 +7,15 @@ import { statusForError } from './app_status_support.ts';
 import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 
+const APP_WRITER_HARNESS = 'workspace-runner-v1';
+
 export function registerBasicRoutes(app: Hono, services: AppServices): void {
   app.get('/', (context) => {
     return context.html(renderHomePage());
   });
 
   app.get('/health', (context) => {
-    return context.json({ ok: true });
+    return context.json({ ok: true, appWriterHarness: APP_WRITER_HARNESS });
   });
 
   app.get('/lti/canvas/config.json', async (context) => {

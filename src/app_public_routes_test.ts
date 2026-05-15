@@ -23,5 +23,8 @@ Deno.test('GET /health responds with ok', async () => {
 
   assertEquals(response.status, 200);
   assertEquals(response.headers.get('content-type'), 'application/json');
-  assertEquals(await response.json(), { ok: true });
+  assertEquals(await response.json(), {
+    ok: true,
+    appWriterHarness: 'workspace-runner-v1',
+  });
 });

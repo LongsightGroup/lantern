@@ -16,6 +16,12 @@
   "placement": {
     "mode": "smart",
   },
+  "routes": [
+    {
+      "pattern": "lantern.appboundary.com",
+      "custom_domain": true,
+    },
+  ],
   "vars": {
     "APP_ADMIN_TIME_ZONE": "America/New_York",
     "APP_WRITER_MODEL": "@cf/moonshotai/kimi-k2.6",

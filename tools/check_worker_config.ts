@@ -11,6 +11,11 @@ export function validateWorkerConfigBindings(configText: string): string[] {
 
 const REQUIRED_BINDINGS = [
   {
+    description: 'custom domain route lantern.appboundary.com',
+    pattern:
+      /"routes"\s*:\s*\[[\s\S]*?"pattern"\s*:\s*"lantern\.appboundary\.com"[\s\S]*?"custom_domain"\s*:\s*true/,
+  },
+  {
     description: 'worker_loaders binding LOADER',
     pattern: /"worker_loaders"\s*:\s*\[[\s\S]*?"binding"\s*:\s*"LOADER"/,
   },
@@ -66,11 +71,13 @@ if (import.meta.main) {
 
   if (failures.length > 0) {
     throw new Error(
-      `wrangler.jsonc is missing required Worker bindings:\n${failures.map((failure) => `- ${failure}`).join('\n')}`,
+      `wrangler.jsonc is missing required Worker bindings:\n${failures
+        .map((failure) => `- ${failure}`)
+        .join('\n')}`,
     );
   }
 
   console.log(
-    'Worker config keeps DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, and app-writer service bindings wired.',
+    'Worker config keeps the production custom domain, DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, and app-writer service bindings wired.',
   );
 }
