@@ -6,6 +6,10 @@ import type {
 } from './app_writer/types.ts';
 import { buildValidSimpleActivityFiles } from './test_helpers/app_writer_generated_package.ts';
 import {
+  createStaticAppWriterWorkspaceRunner,
+  createUnavailableAppWriterWorkspaceRunner,
+} from './test_helpers/app_writer_workspace_runner.ts';
+import {
   buildAppGenerationRunRecord,
   buildAppGenerationWorkspaceRecord,
 } from './test_helpers/package_review_in_memory_app_generation.ts';
@@ -52,13 +56,13 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
 
   const app = createApp({
     getRepository: () => repository,
-    appPackageGenerator: {
-      generate(_input) {
-        return new Promise<AppPackageGenerationResult>((resolve) => {
-          generationControl.complete = () => resolve(structuredClone(buildGenerationResult()));
+    appWriterWorkspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult(), {
+      authorDelay() {
+        return new Promise<void>((resolve) => {
+          generationControl.complete = resolve;
         });
       },
-    },
+    }),
     appPackagePreviewer: {
       preview(_input) {
         return Promise.resolve([] satisfies AppGenerationValidationFinding[]);
@@ -174,11 +178,11 @@ Deno.test('POST /admin/app-writer redirects even without a Worker execution cont
 
   const app = createApp({
     getRepository: () => repository,
-    appPackageGenerator: {
-      generate(_input) {
-        return new Promise<AppPackageGenerationResult>(() => {});
+    appWriterWorkspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult(), {
+      authorDelay() {
+        return new Promise<void>(() => {});
       },
-    },
+    }),
   });
 
   const response = await app.request('https://lantern.example/admin/app-writer', {
@@ -203,15 +207,18 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
   const scheduledGenerationIds: string[] = [];
   const observedAgentSessions: Array<{ generationId: string; workflowInstanceId: string | null }> =
     [];
-  let generatorCallCount = 0;
+  let workspaceRunnerCallCount = 0;
   const formData = new FormData();
   formData.set('promptText', 'Create a phonics flashcard app.');
 
   const app = createApp({
     getRepository: () => repository,
-    appPackageGenerator: {
-      generate(_input) {
-        generatorCallCount += 1;
+    appWriterWorkspaceRunner: {
+      ...createUnavailableAppWriterWorkspaceRunner(
+        'Workflow-scheduled generation must not run in the request thread.',
+      ),
+      initialize(_input) {
+        workspaceRunnerCallCount += 1;
         throw new Error('Workflow-scheduled generation must not run in the request thread.');
       },
     },
@@ -250,7 +257,7 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
   });
 
   assertEquals(response.status, 303);
-  assertEquals(generatorCallCount, 0);
+  assertEquals(workspaceRunnerCallCount, 0);
   assertEquals(scheduledGenerationIds.length, 1);
   assertEquals(observedAgentSessions, [
     {
@@ -474,7 +481,7 @@ function buildGenerationResult(): AppPackageGenerationResult {
         message: 'Planning a phonics game with student progress reporting.',
       },
     ],
-    notes: ['Generated from fake app package generator.'],
+    notes: ['Generated from fake app writer workspace harness.'],
     validationFindings: [],
   };
 }

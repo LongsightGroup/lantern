@@ -1,10 +1,9 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import {
-  type AppPackageGenerator,
-  createFakeAppPackageGenerator,
-  createFakeRepairingAppPackageGenerator,
-  createUnavailableAppPackageGenerator,
-} from './package_generator.ts';
+  createStaticAppWriterWorkspaceRunner,
+  createUnavailableAppWriterWorkspaceRunner,
+} from '../test_helpers/app_writer_workspace_runner.ts';
+import type { AppWriterWorkspaceRunner } from './workspace_runner.ts';
 import {
   AppPackageGenerationFailedError,
   continueAppPackageGenerationRun,
@@ -14,6 +13,7 @@ import {
   runAppPackageGeneration,
   startAppPackageGenerationRun,
 } from './service.ts';
+import { buildInitializedAppWriterWorkspace } from './workspace_initialization.ts';
 import { createTypeScriptAppPackageSourceCompiler } from './typescript_source_compiler.ts';
 import { APP_WRITER_RECIPE_ID, APP_WRITER_RECIPE_VERSION } from './recipe.ts';
 import type {
@@ -33,7 +33,7 @@ Deno.test('app writer service creates a durable run and records generated artifa
   const repository = createInMemoryPackageReviewRepository();
   const result = await runAppPackageGeneration({
     repository,
-    generator: createFakeAppPackageGenerator(
+    workspaceRunner: createStaticAppWriterWorkspaceRunner(
       buildGenerationResult({
         modelRequestMetadata: [
           {
@@ -60,7 +60,7 @@ Deno.test('app writer service creates a durable run and records generated artifa
   assertEquals(result.run.status, 'validating');
   assertEquals(result.run.selectedStarterId, 'simple-activity');
   assertEquals(result.run.generatedAppId, 'phonics-match');
-  assertEquals(result.run.generationNotes, ['Generated from fake app package generator.']);
+  assertEquals(result.run.generationNotes, ['Generated from fake app writer workspace harness.']);
   assertEquals(result.run.modelRequestMetadata[0]?.requestId, 'request-1');
   assertEquals(result.generation.files[0]?.path, 'manifest.json');
 
@@ -79,8 +79,8 @@ Deno.test('app writer service creates a durable run and records generated artifa
   assertEquals(persistedRecipe?.recipeVersion, APP_WRITER_RECIPE_VERSION);
   assertEquals(persisted?.modelRequestMetadata[0]?.provider, 'cloudflare');
 
-  const generatingEvents = await repository.listAuditEventsByEventType('app_generation.generating');
-  const progressEvent = generatingEvents.find(
+  const planningEvents = await repository.listAuditEventsByEventType('app_generation.planning');
+  const progressEvent = planningEvents.find(
     (event) => event.detail.modelProgressStage === 'planning_app',
   );
 
@@ -97,7 +97,7 @@ Deno.test('app writer service records staged planning before scaffold file gener
   const repository = createInMemoryPackageReviewRepository();
   const result = await runAppPackageGeneration({
     repository,
-    generator: createStagedAppPackageGenerator(),
+    workspaceRunner: createStagedAppWriterWorkspaceRunner(),
     generationId: 'generation-1',
     ownerId: 'instructor-1',
     promptText: 'Create a phonics matching game for 100 words.',
@@ -116,7 +116,10 @@ Deno.test('app writer service records staged planning before scaffold file gener
     result.run.modelRequestMetadata.map((metadata) => metadata.requestId),
     ['request-plan', 'request-files'],
   );
-  assertEquals(result.run.generationNotes, ['Planned from staged generator.', 'Wrote files.']);
+  assertEquals(result.run.generationNotes, [
+    'Planned from staged workspace harness.',
+    'Wrote files.',
+  ]);
 
   const planningEvents = await repository.listAuditEventsByEventType('app_generation.planning');
   const generatingEvents = await repository.listAuditEventsByEventType('app_generation.generating');
@@ -124,14 +127,14 @@ Deno.test('app writer service records staged planning before scaffold file gener
   assertEquals(
     planningEvents.map((event) => event.summary),
     [
-      'Asked the app package generator for a Lantern app plan.',
+      'Asked the app writer workspace harness for a Lantern app plan.',
       'Planning the Lantern app before editing scaffold files.',
     ],
   );
   assertEquals(
     generatingEvents.map((event) => event.summary),
     [
-      'Asked the app package generator for scaffold file edits.',
+      'Asked the app writer workspace harness to author the scaffold workspace.',
       'Editing the Lantern starter workspace.',
     ],
   );
@@ -139,11 +142,11 @@ Deno.test('app writer service records staged planning before scaffold file gener
 
 Deno.test('app writer service supports explicit Workflow generation stages', async () => {
   const repository = createInMemoryPackageReviewRepository();
-  const generator = createStagedAppPackageGenerator();
+  const workspaceRunner = createStagedAppWriterWorkspaceRunner();
 
   await startAppPackageGenerationRun({
     repository,
-    generator,
+    workspaceRunner,
     generationId: 'generation-1',
     ownerId: 'instructor-1',
     promptText: 'Create a phonics matching game for 100 words.',
@@ -153,13 +156,13 @@ Deno.test('app writer service supports explicit Workflow generation stages', asy
 
   const planned = await planAppPackageGenerationRun({
     repository,
-    generator,
+    workspaceRunner,
     generationId: 'generation-1',
     now: createClock(['2026-05-14T12:00:01.000Z', '2026-05-14T12:00:02.000Z']),
   });
   const generated = await generateAppPackageFilesForPlannedRun({
     repository,
-    generator,
+    workspaceRunner,
     planned,
     now: createClock(['2026-05-14T12:00:03.000Z']),
   });
@@ -167,7 +170,7 @@ Deno.test('app writer service supports explicit Workflow generation stages', asy
     await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
   const result = await finishGeneratedAppPackageRun({
     repository,
-    generator,
+    workspaceRunner,
     generated,
     now: createClock(['2026-05-14T12:00:04.000Z']),
   });
@@ -202,10 +205,10 @@ Deno.test('app writer service supports explicit Workflow generation stages', asy
 
 Deno.test('app writer service records authoring provider capacity failures on the plan', async () => {
   const repository = createInMemoryPackageReviewRepository();
-  const stagedGenerator = createStagedAppPackageGenerator();
-  const generator: AppPackageGenerator = {
-    ...stagedGenerator,
-    generateFiles(_input) {
+  const stagedWorkspaceRunner = createStagedAppWriterWorkspaceRunner();
+  const workspaceRunner: AppWriterWorkspaceRunner = {
+    ...stagedWorkspaceRunner,
+    author(_input) {
       return Promise.reject(new Error('3040: Capacity temporarily exceeded, please try again.'));
     },
   };
@@ -214,7 +217,7 @@ Deno.test('app writer service records authoring provider capacity failures on th
     () =>
       runAppPackageGeneration({
         repository,
-        generator,
+        workspaceRunner,
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics matching game.',
@@ -244,17 +247,18 @@ Deno.test('app writer service records authoring provider capacity failures on th
   assertEquals(workspace?.validationFindings, error.run.validationFindings);
 });
 
-Deno.test('app writer service records failed generator runs before rejecting', async () => {
+Deno.test('app writer service records failed workspaceRunner runs before rejecting', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   const error = await assertRejects(
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createUnavailableAppPackageGenerator('model offline'),
+        workspaceRunner: createUnavailableAppWriterWorkspaceRunner('model offline'),
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics matching game.',
+        maxRepairAttempts: 0,
         now: createClock([
           '2026-05-14T12:00:00.000Z',
           '2026-05-14T12:00:01.000Z',
@@ -279,7 +283,7 @@ Deno.test('app writer service can continue a previously started durable run', as
 
   await startAppPackageGenerationRun({
     repository,
-    generator: createFakeAppPackageGenerator(buildGenerationResult()),
+    workspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult()),
     generationId: 'generation-1',
     ownerId: 'instructor-1',
     promptText: 'Create a phonics flashcard app.',
@@ -288,7 +292,7 @@ Deno.test('app writer service can continue a previously started durable run', as
 
   const result = await continueAppPackageGenerationRun({
     repository,
-    generator: createFakeAppPackageGenerator(buildGenerationResult()),
+    workspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult()),
     generationId: 'generation-1',
     now: createClock(['2026-05-14T12:00:01.000Z', '2026-05-14T12:00:02.000Z']),
   });
@@ -305,7 +309,7 @@ Deno.test('app writer service classifies model request timeouts distinctly', asy
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createUnavailableAppPackageGenerator('3046: Request timeout'),
+        workspaceRunner: createUnavailableAppWriterWorkspaceRunner('3046: Request timeout'),
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics flashcard app.',
@@ -333,8 +337,8 @@ Deno.test('app writer service explains invalid JSON model output clearly', async
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createUnavailableAppPackageGenerator(
-          'App package generator returned invalid JSON.',
+        workspaceRunner: createUnavailableAppWriterWorkspaceRunner(
+          'App writer workspace harness returned invalid JSON.',
         ),
         generationId: 'generation-1',
         ownerId: 'instructor-1',
@@ -367,7 +371,9 @@ Deno.test('app writer service explains invalid model package shape clearly', asy
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createUnavailableAppPackageGenerator('normalizedRequest must be a JSON object.'),
+        workspaceRunner: createUnavailableAppWriterWorkspaceRunner(
+          'normalizedRequest must be a JSON object.',
+        ),
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics flashcard app.',
@@ -408,10 +414,11 @@ Deno.test('app writer service records package validation failures before rejecti
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createFakeAppPackageGenerator(invalidPackage),
+        workspaceRunner: createStaticAppWriterWorkspaceRunner(invalidPackage),
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics matching game.',
+        maxRepairAttempts: 0,
         now: createClock([
           '2026-05-14T12:00:00.000Z',
           '2026-05-14T12:00:01.000Z',
@@ -452,7 +459,9 @@ Deno.test('app writer service repairs a generated package once and persists the 
 
   const result = await runAppPackageGeneration({
     repository,
-    generator: createFakeRepairingAppPackageGenerator(invalidPackage, [buildGenerationResult()]),
+    workspaceRunner: createStaticAppWriterWorkspaceRunner(invalidPackage, [
+      buildGenerationResult(),
+    ]),
     generationId: 'generation-1',
     ownerId: 'instructor-1',
     promptText: 'Create a phonics matching game.',
@@ -495,10 +504,8 @@ Deno.test('app writer service preserves validation findings when repair provider
       },
     ],
   });
-  const generator: AppPackageGenerator = {
-    generate(_input) {
-      return Promise.resolve(structuredClone(invalidPackage));
-    },
+  const workspaceRunner: AppWriterWorkspaceRunner = {
+    ...createStaticAppWriterWorkspaceRunner(invalidPackage),
     repair(_input) {
       return Promise.reject(new Error('3045: Unknown internal error'));
     },
@@ -508,7 +515,7 @@ Deno.test('app writer service preserves validation findings when repair provider
     () =>
       runAppPackageGeneration({
         repository,
-        generator,
+        workspaceRunner,
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics matching game.',
@@ -551,7 +558,7 @@ Deno.test('app writer service compiles TypeScript authoring source before valida
   const repository = createInMemoryPackageReviewRepository();
   const result = await runAppPackageGeneration({
     repository,
-    generator: createFakeAppPackageGenerator(
+    workspaceRunner: createStaticAppWriterWorkspaceRunner(
       buildGenerationResult({
         files: buildTypeScriptAuthoringPackageFiles(),
       }),
@@ -595,7 +602,7 @@ Deno.test('app writer service keeps TypeScript authoring files out of package va
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createFakeAppPackageGenerator(
+        workspaceRunner: createStaticAppWriterWorkspaceRunner(
           buildGenerationResult({
             files: buildTypeScriptAuthoringPackageFiles({
               appSource:
@@ -607,6 +614,7 @@ Deno.test('app writer service keeps TypeScript authoring files out of package va
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics matching game.',
+        maxRepairAttempts: 0,
         now: createClock([
           '2026-05-14T12:00:00.000Z',
           '2026-05-14T12:00:01.000Z',
@@ -649,7 +657,7 @@ Deno.test('app writer service stops after exhausted package repair attempts', as
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createFakeRepairingAppPackageGenerator(invalidPackage, [invalidPackage]),
+        workspaceRunner: createStaticAppWriterWorkspaceRunner(invalidPackage, [invalidPackage]),
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics matching game.',
@@ -694,7 +702,7 @@ Deno.test('app writer service feeds preview failures into the repair loop', asyn
 
   const result = await runAppPackageGeneration({
     repository,
-    generator: createFakeRepairingAppPackageGenerator(buildGenerationResult(), [
+    workspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult(), [
       buildGenerationResult({
         notes: ['Repaired preview assertion failure.'],
       }),
@@ -728,7 +736,7 @@ Deno.test('app writer service refuses to save generated packages without preview
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createFakeAppPackageGenerator(buildGenerationResult()),
+        workspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult()),
         savePackage: {
           importPackageFromSource() {
             throw new Error('Import must not be called without preview.');
@@ -767,7 +775,7 @@ Deno.test({
     try {
       const result = await runAppPackageGeneration({
         repository,
-        generator: createFakeAppPackageGenerator(buildGenerationResult()),
+        workspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult()),
         previewer: createSequencePreviewer([[]]),
         savePackage: {
           importPackageFromSource: (source, options = {}) =>
@@ -814,7 +822,7 @@ Deno.test('app writer service rejects generated starter drift', async () => {
     () =>
       runAppPackageGeneration({
         repository,
-        generator: createFakeAppPackageGenerator(mismatched),
+        workspaceRunner: createStaticAppWriterWorkspaceRunner(mismatched),
         generationId: 'generation-1',
         ownerId: 'instructor-1',
         promptText: 'Create a phonics matching game.',
@@ -881,16 +889,16 @@ function buildGenerationResult(
         message: 'Planning a phonics activity with simple learner progress.',
       },
     ],
-    notes: ['Generated from fake app package generator.'],
+    notes: ['Generated from fake app writer workspace harness.'],
     validationFindings: [],
     ...overrides,
   };
 }
 
-function createStagedAppPackageGenerator(): AppPackageGenerator {
+function createStagedAppWriterWorkspaceRunner(): AppWriterWorkspaceRunner {
   return {
-    generate(_input) {
-      return Promise.reject(new Error('Staged generator should not use one-shot generation.'));
+    initialize(input) {
+      return Promise.resolve(buildInitializedAppWriterWorkspace(input));
     },
     plan(_input) {
       const generation = buildGenerationResult();
@@ -904,7 +912,7 @@ function createStagedAppPackageGenerator(): AppPackageGenerator {
             message: 'Planning the Lantern app before editing scaffold files.',
           },
         ],
-        notes: ['Planned from staged generator.'],
+        notes: ['Planned from staged workspace harness.'],
         modelRequestMetadata: [
           {
             provider: 'cloudflare',
@@ -918,7 +926,7 @@ function createStagedAppPackageGenerator(): AppPackageGenerator {
 
       return Promise.resolve(planning);
     },
-    generateFiles(input) {
+    author(input) {
       const fileGeneration: AppPackageFileGenerationResult = {
         files: buildValidSimpleActivityFiles(),
         progressUpdates: [
@@ -943,6 +951,9 @@ function createStagedAppPackageGenerator(): AppPackageGenerator {
       assertEquals(input.planning.appPlan.appId, 'phonics-match');
 
       return Promise.resolve(fileGeneration);
+    },
+    repair(_input) {
+      return Promise.resolve(buildGenerationResult());
     },
   };
 }

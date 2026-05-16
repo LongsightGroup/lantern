@@ -47,7 +47,7 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
 
       const started = await startAppPackageGenerationRun({
         repository,
-        generator: services.appPackageGenerator,
+        workspaceRunner: services.appWriterWorkspaceRunner,
         previewer: services.appPackagePreviewer,
         sourceCompiler: services.appPackageSourceCompiler,
         savePackage: {

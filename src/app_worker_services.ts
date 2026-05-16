@@ -4,12 +4,7 @@ import {
   createUnavailableAppWriterAgentSessionCoordinator,
   isAppWriterAgentNamespace,
 } from './app_writer/agent_session.ts';
-import {
-  createCloudflareAppPackageGenerator,
-  type CloudflareAiBinding,
-  isCloudflareAiBinding,
-} from './app_writer/cloudflare_generator.ts';
-import { createUnavailableAppPackageGenerator } from './app_writer/package_generator.ts';
+import { createCloudflareAppWriterAgentWorkspaceHarness } from './app_writer/agent_workspace_harness.ts';
 import { createUnavailableAppPackagePreviewer } from './app_writer/preview.ts';
 import {
   createBoundAppPackagePreviewer,
@@ -25,6 +20,10 @@ import {
   isAppGenerationWorkflowBinding,
   type AppGenerationRunScheduler,
 } from './app_writer/workflow_scheduler.ts';
+import {
+  createHarnessWorkspaceRunner,
+  createUnavailableAppWriterWorkspaceRunner,
+} from './app_writer/workspace_runner.ts';
 import type { BrowserAutograderDraftReferenceExample } from './authoring/browser_autograder_draft_generator.ts';
 import { createUnavailableBrowserAutograderDraftGenerator } from './authoring/browser_autograder_draft_generator.ts';
 import type { AppServices } from './app_services.ts';
@@ -111,7 +110,7 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
 
   return {
     env,
-    appPackageGenerator: resolveWorkerAppPackageGenerator(bindings, env),
+    appWriterWorkspaceRunner: resolveWorkerAppWriterWorkspaceRunner(bindings),
     appPackagePreviewer: resolveWorkerAppPackagePreviewer(bindings),
     appPackageSourceCompiler: resolveWorkerAppPackageSourceCompiler(bindings),
     appGenerationRunScheduler: resolveWorkerAppGenerationRunScheduler(bindings),
@@ -180,25 +179,14 @@ function resolveWorkerAppGenerationRunScheduler(
   };
 }
 
-function resolveWorkerAppPackageGenerator(bindings: WorkerBindings, env: EnvReader) {
-  if (!isCloudflareAiBinding(bindings.AI)) {
-    return createUnavailableAppPackageGenerator(
-      'Cloudflare Workers app package generation requires a Workers AI binding named AI.',
-    );
+function resolveWorkerAppWriterWorkspaceRunner(bindings: WorkerBindings) {
+  if (isAppWriterAgentNamespace(bindings.APP_WRITER_AGENT)) {
+    return createHarnessWorkspaceRunner({
+      harness: createCloudflareAppWriterAgentWorkspaceHarness(bindings.APP_WRITER_AGENT),
+    });
   }
 
-  const model = env.get('APP_WRITER_MODEL')?.trim();
-
-  if (!model) {
-    return createUnavailableAppPackageGenerator(
-      'Cloudflare Workers app package generation requires APP_WRITER_MODEL.',
-    );
-  }
-
-  return createCloudflareAppPackageGenerator({
-    ai: bindings.AI as CloudflareAiBinding,
-    model,
-  });
+  return createUnavailableAppWriterWorkspaceRunner(WORKER_APP_WRITER_AGENT_MESSAGE);
 }
 
 function resolveWorkerRuntimeDelivery(

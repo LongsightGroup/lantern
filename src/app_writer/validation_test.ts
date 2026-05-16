@@ -43,13 +43,17 @@ Deno.test('generated app validation ignores non-package workspace files', async 
       ...buildValidSimpleActivityFiles(),
       {
         path: 'AGENTS.md',
-        role: 'instruction',
+        role: 'package',
         contents: 'Use Lantern SDK APIs only.\n',
       },
       {
         path: '.lantern/contracts/sdk.d.ts',
-        role: 'contract',
         contents: 'declare global { interface Window {} }\n',
+      },
+      {
+        path: 'source/app.ts',
+        role: 'package',
+        contents: 'const x: string = "authoring evidence only";\n',
       },
     ],
   });

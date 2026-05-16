@@ -1,4 +1,3 @@
-import type { AppPackageGenerator } from './package_generator.ts';
 import { type AppWriterContextSelection, selectAppWriterContext } from './context.ts';
 import {
   validateGeneratedAppPackage,
@@ -23,10 +22,7 @@ import type {
 import { hasTypeScriptAuthoringSource } from './source_compiler.ts';
 import { APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS } from './recipe.ts';
 import { normalizeGenerationPlan, updateGenerationPlanStep } from './generation_plan.ts';
-import {
-  type AppWriterWorkspaceRunner,
-  createAppPackageGeneratorWorkspaceRunner,
-} from './workspace_runner.ts';
+import type { AppWriterWorkspaceRunner } from './workspace_runner.ts';
 import {
   mergeWorkspaceFiles,
   selectNonPackageWorkspaceFiles,
@@ -51,8 +47,7 @@ export interface RunAppPackageGenerationInput {
     | 'getAppGenerationWorkspaceByGenerationId'
     | 'getAppGenerationRunById'
   >;
-  generator: AppPackageGenerator;
-  workspaceRunner?: AppWriterWorkspaceRunner;
+  workspaceRunner: AppWriterWorkspaceRunner;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: {
@@ -108,8 +103,7 @@ export interface StartedAppPackageGenerationRun {
 export interface ContinueAppPackageGenerationRunInput {
   repository: RunAppPackageGenerationInput['repository'] &
     Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
-  generator: AppPackageGenerator;
-  workspaceRunner?: AppWriterWorkspaceRunner;
+  workspaceRunner: AppWriterWorkspaceRunner;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: RunAppPackageGenerationInput['savePackage'];
@@ -129,13 +123,6 @@ export const APP_GENERATION_AUDIT_EVENT_TYPES = [
   'app_generation.saved_pending_version',
   'app_generation.failed',
 ] as const;
-
-function resolveWorkspaceRunner(input: {
-  generator: AppPackageGenerator;
-  workspaceRunner?: AppWriterWorkspaceRunner;
-}): AppWriterWorkspaceRunner {
-  return input.workspaceRunner ?? createAppPackageGeneratorWorkspaceRunner(input.generator);
-}
 
 export async function startAppPackageGenerationRun(
   input: RunAppPackageGenerationInput,
@@ -196,7 +183,6 @@ export async function initializeAppPackageGenerationRun(
   const now = input.now ?? (() => new Date().toISOString());
   const contextSelection = buildContextSelectionFromRun(existingRun);
   const generatorInput = buildGeneratorInputFromRun(existingRun, contextSelection);
-  const workspaceRunner = resolveWorkspaceRunner(input);
   const existingWorkspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
     existingRun.generationId,
   );
@@ -223,7 +209,7 @@ export async function initializeAppPackageGenerationRun(
     summary: 'Prepared Lantern app writer recipe, starter workspace, and validation contract.',
   });
 
-  const initializedWorkspace = await workspaceRunner.initialize({
+  const initializedWorkspace = await input.workspaceRunner.initialize({
     generationId: run.generationId,
     contextSelection,
     initializedAt: run.updatedAt,
@@ -272,8 +258,7 @@ export async function continueAppPackageGenerationRun(
   };
   const continuationInput: RunAppPackageGenerationInput = {
     repository: input.repository,
-    generator: input.generator,
-    ...(input.workspaceRunner === undefined ? {} : { workspaceRunner: input.workspaceRunner }),
+    workspaceRunner: input.workspaceRunner,
     generationId: run.generationId,
     ownerId: run.ownerId,
     promptText: run.promptText,
@@ -305,12 +290,11 @@ export async function planAppPackageGenerationRun(
     ...input,
     now,
   });
-  const workspaceRunner = resolveWorkspaceRunner(input);
 
   try {
     const planned = await planInitialPackage({
       repository: input.repository,
-      workspaceRunner,
+      workspaceRunner: input.workspaceRunner,
       run: initialized.run,
       generatorInput: initialized.generatorInput,
       contextSelection: initialized.contextSelection,
@@ -345,19 +329,18 @@ export async function generateAppPackageFilesForPlannedRun(input: {
     | 'recordAuditEvent'
     | 'saveAppGenerationWorkspace'
     | 'getAppGenerationWorkspaceByGenerationId'
+    | 'getAppGenerationRunById'
   >;
-  generator: AppPackageGenerator;
-  workspaceRunner?: AppWriterWorkspaceRunner;
+  workspaceRunner: AppWriterWorkspaceRunner;
   planned: PlannedAppPackageGenerationRun;
   now?: () => string;
 }): Promise<GeneratedAppPackageFilesRun> {
   const now = input.now ?? (() => new Date().toISOString());
-  const workspaceRunner = resolveWorkspaceRunner(input);
 
   try {
     const generated = await generateInitialPackageFiles({
       repository: input.repository,
-      workspaceRunner,
+      workspaceRunner: input.workspaceRunner,
       run: input.planned.run,
       generatorInput: input.planned.generatorInput,
       planning: input.planned.planning,
@@ -388,8 +371,7 @@ export async function generateAppPackageFilesForPlannedRun(input: {
 export async function finishGeneratedAppPackageRun(input: {
   repository: RunAppPackageGenerationInput['repository'] &
     Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
-  generator: AppPackageGenerator;
-  workspaceRunner?: AppWriterWorkspaceRunner;
+  workspaceRunner: AppWriterWorkspaceRunner;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: RunAppPackageGenerationInput['savePackage'];
@@ -401,13 +383,25 @@ export async function finishGeneratedAppPackageRun(input: {
   const run =
     (await input.repository.getAppGenerationRunById(input.generated.run.generationId)) ??
     input.generated.run;
+  const workspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
+    run.generationId,
+  );
+  const generation = buildGenerationFromPersistedWorkspace({
+    baseGeneration: input.generated.generation,
+    run,
+    workspace,
+  });
+  const repairAttempt = Math.max(
+    input.generated.run.repairAttemptCount,
+    run.repairAttemptCount,
+    workspace?.repairAttemptCount ?? 0,
+  );
 
   try {
     return await finishGeneratedPackage({
       input: {
         repository: input.repository,
-        generator: input.generator,
-        ...(input.workspaceRunner === undefined ? {} : { workspaceRunner: input.workspaceRunner }),
+        workspaceRunner: input.workspaceRunner,
         generationId: input.generated.generatorInput.generationId,
         ownerId: input.generated.generatorInput.ownerId,
         promptText: input.generated.generatorInput.promptText,
@@ -424,8 +418,8 @@ export async function finishGeneratedAppPackageRun(input: {
       generatorInput: input.generated.generatorInput,
       contextSelection: input.generated.contextSelection,
       run,
-      generation: input.generated.generation,
-      repairAttempt: 0,
+      generation,
+      repairAttempt,
     });
   } catch (error) {
     if (error instanceof AppPackageGenerationFailedError) {
@@ -459,8 +453,7 @@ async function continueStartedAppPackageGeneration(continuation: {
   try {
     const initialized = await initializeAppPackageGenerationRun({
       repository: input.repository,
-      generator: input.generator,
-      ...(input.workspaceRunner === undefined ? {} : { workspaceRunner: input.workspaceRunner }),
+      workspaceRunner: input.workspaceRunner,
       ...(input.previewer === undefined ? {} : { previewer: input.previewer }),
       ...(input.sourceCompiler === undefined ? {} : { sourceCompiler: input.sourceCompiler }),
       ...(input.savePackage === undefined ? {} : { savePackage: input.savePackage }),
@@ -521,61 +514,28 @@ async function generateInitialPackage(input: {
   initializedWorkspace: AppGenerationWorkspaceRecord;
   now: () => string;
 }): Promise<{ run: AppGenerationRunRecord; generation: AppPackageGenerationResult }> {
-  const workspaceRunner = resolveWorkspaceRunner(input.input);
-
-  if (
-    input.input.workspaceRunner !== undefined ||
-    supportsStagedPackageGeneration(input.input.generator)
-  ) {
-    const planned = await planInitialPackage({
-      repository: input.input.repository,
-      workspaceRunner,
-      run: input.run,
-      generatorInput: input.generatorInput,
-      contextSelection: input.contextSelection,
-      initializedWorkspace: input.initializedWorkspace,
-      now: input.now,
-    });
-    const generated = await generateInitialPackageFiles({
-      repository: input.input.repository,
-      workspaceRunner,
-      run: planned.run,
-      generatorInput: input.generatorInput,
-      planning: planned.planning,
-      initializedWorkspace: input.initializedWorkspace,
-      now: input.now,
-    });
-
-    return {
-      run: generated.run,
-      generation: generated.generation,
-    };
-  }
-
-  const run = await input.input.repository.updateAppGenerationRun({
-    ...input.run,
-    status: 'generating_package',
-    updatedAt: input.now(),
-  });
-  await recordGenerationActivity({
+  const planned = await planInitialPackage({
     repository: input.input.repository,
-    run,
-    eventType: 'app_generation.generating',
-    status: 'accepted',
-    summary: 'Asked the app package generator for package files.',
+    workspaceRunner: input.input.workspaceRunner,
+    run: input.run,
+    generatorInput: input.generatorInput,
+    contextSelection: input.contextSelection,
+    initializedWorkspace: input.initializedWorkspace,
+    now: input.now,
   });
-
-  const generation = await input.input.generator.generate(input.generatorInput);
-  await saveGenerationWorkspaceSnapshot({
+  const generated = await generateInitialPackageFiles({
     repository: input.input.repository,
-    run,
-    generation,
-    validationFindings: generation.validationFindings,
+    workspaceRunner: input.input.workspaceRunner,
+    run: planned.run,
+    generatorInput: input.generatorInput,
+    planning: planned.planning,
+    initializedWorkspace: input.initializedWorkspace,
+    now: input.now,
   });
 
   return {
-    run,
-    generation,
+    run: generated.run,
+    generation: generated.generation,
   };
 }
 
@@ -619,7 +579,7 @@ async function planInitialPackage(input: {
     run,
     eventType: 'app_generation.planning',
     status: 'accepted',
-    summary: 'Asked the app package generator for a Lantern app plan.',
+    summary: 'Asked the app writer workspace harness for a Lantern app plan.',
   });
   await updateGenerationPlanStepInWorkspace({
     repository: input.repository,
@@ -721,6 +681,7 @@ async function generateInitialPackageFiles(input: {
     | 'recordAuditEvent'
     | 'saveAppGenerationWorkspace'
     | 'getAppGenerationWorkspaceByGenerationId'
+    | 'getAppGenerationRunById'
   >;
   workspaceRunner: AppWriterWorkspaceRunner;
   run: AppGenerationRunRecord;
@@ -729,6 +690,31 @@ async function generateInitialPackageFiles(input: {
   initializedWorkspace: AppGenerationWorkspaceRecord;
   now: () => string;
 }): Promise<{ run: AppGenerationRunRecord; generation: AppPackageGenerationResult }> {
+  const existingWorkspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
+    input.run.generationId,
+  );
+  const existingAuthorStep = existingWorkspace?.generationPlan.find(
+    (step) => step.id === 'author_workspace',
+  );
+
+  if (
+    existingWorkspace !== undefined &&
+    existingWorkspace !== null &&
+    existingAuthorStep?.status === 'succeeded'
+  ) {
+    const existingRun =
+      (await input.repository.getAppGenerationRunById(input.run.generationId)) ?? input.run;
+
+    return {
+      run: existingRun,
+      generation: buildGenerationFromWorkspaceSnapshot({
+        planning: input.planning,
+        run: existingRun,
+        workspace: existingWorkspace,
+      }),
+    };
+  }
+
   const run = await input.repository.updateAppGenerationRun({
     ...input.run,
     status: 'generating_package',
@@ -739,7 +725,7 @@ async function generateInitialPackageFiles(input: {
     run,
     eventType: 'app_generation.generating',
     status: 'accepted',
-    summary: 'Asked the app package generator for scaffold file edits.',
+    summary: 'Asked the app writer workspace harness to author the scaffold workspace.',
   });
   await updateGenerationPlanStepInWorkspace({
     repository: input.repository,
@@ -814,13 +800,58 @@ function assembleGenerationFromStages(
   };
 }
 
-function supportsStagedPackageGeneration(
-  generator: AppPackageGenerator,
-): generator is AppPackageGenerator & {
-  plan: NonNullable<AppPackageGenerator['plan']>;
-  generateFiles: NonNullable<AppPackageGenerator['generateFiles']>;
-} {
-  return typeof generator.plan === 'function' && typeof generator.generateFiles === 'function';
+function buildGenerationFromWorkspaceSnapshot(input: {
+  planning: AppGenerationPlanningResult;
+  run: AppGenerationRunRecord;
+  workspace: AppGenerationWorkspaceRecord;
+}): AppPackageGenerationResult {
+  return {
+    normalizedRequest: input.run.normalizedRequest ?? input.planning.normalizedRequest,
+    appPlan: input.run.appPlan ?? input.planning.appPlan,
+    selectedStarterId: input.run.selectedStarterId ?? input.workspace.selectedStarterId,
+    files: input.workspace.files,
+    progressUpdates: [],
+    notes: deduplicateStrings([...input.planning.notes, ...input.run.generationNotes]),
+    validationFindings:
+      input.workspace.validationFindings.length > 0
+        ? input.workspace.validationFindings
+        : input.run.validationFindings,
+  };
+}
+
+function buildGenerationFromPersistedWorkspace(input: {
+  baseGeneration: AppPackageGenerationResult;
+  run: AppGenerationRunRecord;
+  workspace: AppGenerationWorkspaceRecord | null;
+}): AppPackageGenerationResult {
+  if (
+    input.workspace === null ||
+    input.run.normalizedRequest === null ||
+    input.run.appPlan === null ||
+    input.run.selectedStarterId === null
+  ) {
+    return input.baseGeneration;
+  }
+
+  return {
+    normalizedRequest: input.run.normalizedRequest,
+    appPlan: input.run.appPlan,
+    selectedStarterId: input.run.selectedStarterId,
+    files: input.workspace.files,
+    progressUpdates: [],
+    notes: deduplicateStrings([...input.run.generationNotes, ...input.baseGeneration.notes]),
+    validationFindings:
+      input.workspace.validationFindings.length > 0
+        ? input.workspace.validationFindings
+        : input.run.validationFindings,
+    ...(input.baseGeneration.modelRequestMetadata === undefined
+      ? {}
+      : { modelRequestMetadata: input.baseGeneration.modelRequestMetadata }),
+  };
+}
+
+function deduplicateStrings(values: readonly string[]): string[] {
+  return [...new Set(values)];
 }
 
 async function finishGeneratedPackage(input: {
@@ -1033,11 +1064,7 @@ async function finishGeneratedPackage(input: {
       };
     }
 
-    if (
-      repairAttempt >= maxRepairAttempts ||
-      (input.input.workspaceRunner === undefined &&
-        typeof input.input.generator.repair !== 'function')
-    ) {
+    if (repairAttempt >= maxRepairAttempts) {
       const failedRun = await input.input.repository.updateAppGenerationRun({
         ...run,
         status: 'failed',
@@ -1074,7 +1101,7 @@ async function finishGeneratedPackage(input: {
       run,
       eventType: 'app_generation.repairing',
       status: 'accepted',
-      summary: 'Asked the app package generator to repair validation or preview findings.',
+      summary: 'Asked the app writer workspace harness to repair validation or preview findings.',
     });
     await updateGenerationPlanStepInWorkspace({
       repository: input.input.repository,
@@ -1085,7 +1112,7 @@ async function finishGeneratedPackage(input: {
       diagnosticCount: run.validationFindings.length,
     });
     try {
-      generation = await resolveWorkspaceRunner(input.input).repair({
+      generation = await input.input.workspaceRunner.repair({
         ...input.generatorInput,
         repairAttempt,
         previousResult: generation,
@@ -1364,7 +1391,7 @@ async function runPreviewIfConfigured(
   return await input.previewer.preview({
     generationId: input.generationId,
     selectedStarterId: contextSelection.starterId,
-    files: generation.files,
+    files: selectPackageWorkspaceFiles(generation.files),
   });
 }
 
@@ -1802,7 +1829,28 @@ function appendModelRequestMetadata(
   run: AppGenerationRunRecord,
   generation: AppPackageGenerationResult,
 ): AppGenerationRunRecord['modelRequestMetadata'] {
-  return [...run.modelRequestMetadata, ...(generation.modelRequestMetadata ?? [])];
+  const metadata = [...run.modelRequestMetadata, ...(generation.modelRequestMetadata ?? [])];
+  const seen = new Set<string>();
+  const deduplicated: AppGenerationRunRecord['modelRequestMetadata'] = [];
+
+  for (const item of metadata) {
+    const key = JSON.stringify([
+      item.provider,
+      item.model,
+      item.requestId,
+      item.durationMs,
+      item.responseCharacters,
+    ]);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    deduplicated.push(item);
+  }
+
+  return deduplicated;
 }
 
 function buildStarterMismatchFinding(input: {

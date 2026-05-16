@@ -1,5 +1,6 @@
 import { assertEquals, assertRejects } from '@std/assert';
 import { resolveWorkerServices } from './app_worker_services.ts';
+import { selectAppWriterContext } from './app_writer/context.ts';
 import type { AppGenerationPlan } from './app_writer/types.ts';
 import type { D1Database } from './db/d1.ts';
 import { createObjectEnvReader } from './platform/env.ts';
@@ -339,6 +340,80 @@ Deno.test('worker services route app writer Agent sessions through APP_WRITER_AG
   });
 
   assertEquals(new URL(observedRequests[0]?.url ?? '').pathname, '/observe');
+});
+
+Deno.test('worker services route app writer workspace harness through APP_WRITER_AGENT when bound', async () => {
+  const observedRequests: Request[] = [];
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+  const services = resolveWorkerServices(
+    {
+      APP_WRITER_AGENT: {
+        idFromName(name: string) {
+          return `agent:${name}`;
+        },
+        get(id: unknown) {
+          assertEquals(id, 'agent:generation-1');
+
+          return {
+            fetch(request: Request) {
+              observedRequests.push(request.clone());
+
+              return Promise.resolve(
+                Response.json({
+                  normalizedRequest: {
+                    learningGoal: 'Practice phonics patterns.',
+                    audience: 'Grade 1',
+                    contentSummary: 'Phonics word list.',
+                    requestedActivity: 'matching game',
+                    constraints: [],
+                    missingInformation: [],
+                    safeToGenerate: true,
+                  },
+                  appPlan: buildAppGenerationPlan(),
+                  selectedStarterId: 'simple-activity',
+                  progressUpdates: [
+                    {
+                      stage: 'planning_app',
+                      message: 'Planning a phonics matching activity.',
+                    },
+                  ],
+                  notes: [],
+                }),
+              );
+            },
+          };
+        },
+      },
+    },
+    env,
+  );
+  const contextSelection = selectAppWriterContext({
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: null,
+    authoringMode: 'typescript',
+  });
+  const initializedWorkspace = await services.appWriterWorkspaceRunner.initialize({
+    generationId: 'generation-1',
+    contextSelection,
+    initializedAt: '2026-05-16T12:00:00.000Z',
+  });
+
+  const result = await services.appWriterWorkspaceRunner.plan({
+    generationId: 'generation-1',
+    ownerId: 'admin',
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: null,
+    selectedStarterId: 'simple-activity',
+    selectedContext: contextSelection.selectedContext,
+    authoringMode: 'typescript',
+    createdAt: '2026-05-16T12:00:00.000Z',
+    initializedWorkspace,
+  });
+
+  assertEquals(new URL(observedRequests[0]?.url ?? '').pathname, '/workspace-harness/plan');
+  assertEquals(result.appPlan.appId, 'phonics-match');
 });
 
 Deno.test('worker services use a platform source compiler binding when configured', async () => {

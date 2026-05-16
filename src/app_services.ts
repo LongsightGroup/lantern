@@ -3,13 +3,13 @@ import {
   type AppWriterAgentSessionCoordinator,
   createNoopAppWriterAgentSessionCoordinator,
 } from './app_writer/agent_session.ts';
-import {
-  type AppPackageGenerator,
-  createUnavailableAppPackageGenerator,
-} from './app_writer/package_generator.ts';
 import { createLocalAppPackagePreviewer } from './app_writer/preview.ts';
 import { createTypeScriptAppPackageSourceCompiler } from './app_writer/typescript_source_compiler.ts';
 import type { AppPackagePreviewer, AppPackageSourceCompiler } from './app_writer/types.ts';
+import {
+  type AppWriterWorkspaceRunner,
+  createUnavailableAppWriterWorkspaceRunner,
+} from './app_writer/workspace_runner.ts';
 import {
   type AppGenerationRunScheduler,
   createUnavailableAppGenerationRunScheduler,
@@ -47,7 +47,7 @@ export interface AppServices {
   runtimeArtifactStore: RuntimeArtifactStore;
   runtimeDelivery: RuntimeDelivery;
   evidenceArtifactStore: EvidenceArtifactStore;
-  appPackageGenerator: AppPackageGenerator;
+  appWriterWorkspaceRunner: AppWriterWorkspaceRunner;
   appPackagePreviewer: AppPackagePreviewer;
   appPackageSourceCompiler: AppPackageSourceCompiler;
   appGenerationRunScheduler: AppGenerationRunScheduler;
@@ -117,7 +117,8 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
 
   return {
     env,
-    appPackageGenerator: services.appPackageGenerator ?? createUnavailableAppPackageGenerator(),
+    appWriterWorkspaceRunner:
+      services.appWriterWorkspaceRunner ?? createUnavailableAppWriterWorkspaceRunner(),
     appPackagePreviewer: services.appPackagePreviewer ?? createLocalAppPackagePreviewer(),
     appPackageSourceCompiler:
       services.appPackageSourceCompiler ?? createTypeScriptAppPackageSourceCompiler(),

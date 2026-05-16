@@ -1,7 +1,7 @@
 import type { AppWriterWorkspaceFile, AppWriterWorkspaceFileRole } from './types.ts';
 
 export function getWorkspaceFileRole(file: AppWriterWorkspaceFile): AppWriterWorkspaceFileRole {
-  return file.role ?? 'package';
+  return inferProtectedWorkspaceFileRole(file.path) ?? file.role ?? 'package';
 }
 
 export function selectPackageWorkspaceFiles(
@@ -37,9 +37,27 @@ function normalizeWorkspaceFile(
   file: AppWriterWorkspaceFile,
   existingFile?: AppWriterWorkspaceFile,
 ): AppWriterWorkspaceFile {
+  const protectedRole = inferProtectedWorkspaceFileRole(file.path);
+
   return {
     path: file.path,
     contents: file.contents,
-    role: file.role ?? existingFile?.role ?? 'package',
+    role: protectedRole ?? file.role ?? existingFile?.role ?? 'package',
   };
+}
+
+function inferProtectedWorkspaceFileRole(path: string): AppWriterWorkspaceFileRole | null {
+  if (path === 'AGENTS.md') {
+    return 'instruction';
+  }
+
+  if (path.startsWith('.lantern/contracts/')) {
+    return 'contract';
+  }
+
+  if (path.startsWith('.lantern/') || path.startsWith('source/')) {
+    return 'evidence';
+  }
+
+  return null;
 }

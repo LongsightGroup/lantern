@@ -1,6 +1,4 @@
-import type { AppPackageGenerator } from './package_generator.ts';
 import { buildInitializedAppWriterWorkspace } from './workspace_initialization.ts';
-import { mergeWorkspaceFiles, selectNonPackageWorkspaceFiles } from './workspace_files.ts';
 import type { AppWriterContextSelection } from './context.ts';
 import type {
   AppGenerationPlanningResult,
@@ -65,73 +63,27 @@ export interface AppWriterWorkspaceHarness {
   }): Promise<AppWriterWorkspaceHarnessResult>;
 }
 
-export function createAppPackageGeneratorWorkspaceRunner(
-  generator: AppPackageGenerator,
+export function createUnavailableAppWriterWorkspaceRunner(
+  message = APP_WRITER_WORKSPACE_RUNNER_UNAVAILABLE_MESSAGE,
 ): AppWriterWorkspaceRunner {
   return {
-    initialize(input) {
-      return Promise.resolve(buildInitializedAppWriterWorkspace(input));
+    initialize(_input) {
+      return Promise.reject(new Error(message));
     },
-    async plan(input) {
-      if (typeof generator.plan !== 'function') {
-        const generation = await generator.generate(input);
-
-        return {
-          normalizedRequest: generation.normalizedRequest,
-          appPlan: generation.appPlan,
-          selectedStarterId: generation.selectedStarterId,
-          progressUpdates: generation.progressUpdates,
-          notes: generation.notes,
-          ...(generation.modelRequestMetadata === undefined
-            ? {}
-            : { modelRequestMetadata: generation.modelRequestMetadata }),
-        };
-      }
-
-      return await generator.plan(input);
+    plan(_input) {
+      return Promise.reject(new Error(message));
     },
-    async author(input) {
-      if (typeof generator.generateFiles !== 'function') {
-        const generation = await generator.generate(input);
-
-        return {
-          files: mergeWorkspaceFiles(input.initializedWorkspace.files, generation.files),
-          progressUpdates: generation.progressUpdates,
-          notes: generation.notes,
-          validationFindings: generation.validationFindings,
-          ...(generation.modelRequestMetadata === undefined
-            ? {}
-            : { modelRequestMetadata: generation.modelRequestMetadata }),
-        };
-      }
-
-      const generated = await generator.generateFiles(input);
-
-      return {
-        ...generated,
-        files: mergeWorkspaceFiles(input.initializedWorkspace.files, generated.files),
-      };
+    author(_input) {
+      return Promise.reject(new Error(message));
     },
-    async repair(input) {
-      if (typeof generator.repair !== 'function') {
-        throw new TypeError('App writer workspace runner does not support repair.');
-      }
-
-      const repaired = await generator.repair(input);
-
-      return {
-        ...repaired,
-        files:
-          input.currentWorkspace === null
-            ? repaired.files
-            : mergeWorkspaceFiles(
-                selectNonPackageWorkspaceFiles(input.currentWorkspace.files),
-                repaired.files,
-              ),
-      };
+    repair(_input) {
+      return Promise.reject(new Error(message));
     },
   };
 }
+
+export const APP_WRITER_WORKSPACE_RUNNER_UNAVAILABLE_MESSAGE =
+  'Lantern app writer workspace harness is not configured. Bind the platform-owned workspace harness before using AI app writing.';
 
 export function createHarnessWorkspaceRunner(runnerInput: {
   harness: AppWriterWorkspaceHarness;

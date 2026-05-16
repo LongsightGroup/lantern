@@ -76,7 +76,7 @@ export async function runAppGenerationPlanningWorkflowStep(input: {
       ok: true,
       value: await planAppPackageGenerationRun({
         repository: services.getRepository(),
-        generator: services.appPackageGenerator,
+        workspaceRunner: services.appWriterWorkspaceRunner,
         generationId: input.initialized.run.generationId,
       }),
     };
@@ -106,7 +106,7 @@ export async function runAppGenerationInitializationWorkflowStep(input: {
       ok: true,
       value: await initializeAppPackageGenerationRun({
         repository: services.getRepository(),
-        generator: services.appPackageGenerator,
+        workspaceRunner: services.appWriterWorkspaceRunner,
         previewer: services.appPackagePreviewer,
         sourceCompiler: services.appPackageSourceCompiler,
         savePackage: {
@@ -140,7 +140,7 @@ export async function runAppGenerationFileWorkflowStep(input: {
       ok: true,
       value: await generateAppPackageFilesForPlannedRun({
         repository: services.getRepository(),
-        generator: services.appPackageGenerator,
+        workspaceRunner: services.appWriterWorkspaceRunner,
         planned: input.planned,
       }),
     };
@@ -167,7 +167,7 @@ export async function runAppGenerationFinishWorkflowStep(input: {
   try {
     const result = await finishGeneratedAppPackageRun({
       repository: services.getRepository(),
-      generator: services.appPackageGenerator,
+      workspaceRunner: services.appWriterWorkspaceRunner,
       previewer: services.appPackagePreviewer,
       sourceCompiler: services.appPackageSourceCompiler,
       savePackage: {

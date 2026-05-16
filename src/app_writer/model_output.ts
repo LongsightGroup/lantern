@@ -64,7 +64,7 @@ export function parseAppPackageGenerationResultJson(jsonText: string): AppPackag
   try {
     parsed = JSON.parse(extractModelJsonObjectText(jsonText));
   } catch {
-    throw new Error('App package generator returned invalid JSON.');
+    throw new Error('App writer workspace harness returned invalid JSON.');
   }
 
   return parseAppPackageGenerationResult(normalizeModelOutputRoot(parsed));
@@ -277,7 +277,7 @@ function normalizeAttemptEventAliases(value: unknown): unknown {
 }
 
 export function parseAppPackageGenerationResult(value: unknown): AppPackageGenerationResult {
-  const record = requireRecord(value, 'App package generator output must be a JSON object.');
+  const record = requireRecord(value, 'App writer workspace harness output must be a JSON object.');
   const normalizedRequest = requireRecord(
     normalizeNormalizedRequestAliases(record.normalizedRequest),
     'normalizedRequest',

@@ -562,7 +562,7 @@ function formatNullableNumber(value: number | null): string {
 
 function renderActivity(run: AppGenerationRunRecord, events: AuditEventRecord[]): string {
   if (events.length === 0) {
-    const fallbackEvents = [
+    const emptyStateEvents = [
       `Created run ${run.generationId}`,
       `Selected ${run.selectedStarterId ?? 'no'} starter`,
       `Current status is ${formatStatus(run.status)}`,
@@ -572,7 +572,7 @@ function renderActivity(run: AppGenerationRunRecord, events: AuditEventRecord[])
     ];
 
     return `<ol>
-      ${fallbackEvents.map((event) => `<li>${escapeHtml(event)}</li>`).join('')}
+      ${emptyStateEvents.map((event) => `<li>${escapeHtml(event)}</li>`).join('')}
     </ol>`;
   }
 

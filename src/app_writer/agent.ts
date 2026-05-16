@@ -1,21 +1,40 @@
 import { APP_GENERATION_AUDIT_EVENT_TYPES } from './service.ts';
+import { parseAppGenerationPlanningResultJson } from './model_output.ts';
+import { getWorkspaceFileRole } from './workspace_files.ts';
 import type {
+  AppGenerationPlanningResult,
   AppGenerationPlanStep,
   AppGenerationPlanStepId,
   AppGenerationPlanStepStatus,
+  AppGenerationWorkspaceRecord,
+  AppPackageGenerationInput,
+  AppPackageGenerationResult,
+  AppWriterWorkspaceFile,
 } from './types.ts';
 import type { AppWriterAgentObserveInput, AppWriterAgentSessionSnapshot } from './agent_session.ts';
 import { isD1Database, type D1Database } from '../db/d1.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import { createD1PackageReviewRepository } from '../package_review/repository_package_versions_d1.ts';
+import type { RuntimeArtifactBucket } from '../runtime/artifact_store.ts';
 
 const AGENT_SESSION_STORAGE_KEY = 'appWriterAgentSession';
 const SSE_RETRY_MS = 2000;
 const SSE_POLL_INTERVAL_MS = 2000;
 const SSE_MAX_POLLS = 30;
+const SHELL_CODE_ATTEMPT_LIMIT = 3;
+const WORKSPACE_FILE_GLOB = '/**/*';
+
+type WorkspaceConstructor = (typeof import('@cloudflare/shell'))['Workspace'];
+type ShellWorkspace = InstanceType<WorkspaceConstructor>;
+type ShellWorkspaceOptions = ConstructorParameters<WorkspaceConstructor>[0];
+type DynamicWorkerExecutorConstructor =
+  (typeof import('@cloudflare/codemode'))['DynamicWorkerExecutor'];
+type ShellExecutor = InstanceType<DynamicWorkerExecutorConstructor>;
+type ShellExecutorOptions = ConstructorParameters<DynamicWorkerExecutorConstructor>[0];
 
 interface DurableObjectState {
   storage: {
+    sql?: ShellWorkspaceOptions['sql'];
     get<T>(key: string): Promise<T | undefined>;
     put<T>(key: string, value: T): Promise<void>;
   };
@@ -23,6 +42,26 @@ interface DurableObjectState {
 
 interface AppWriterAgentEnv extends Record<string, unknown> {
   DB?: D1Database;
+  AI?: CloudflareAiBinding;
+  LOADER?: ShellExecutorOptions['loader'];
+  PACKAGE_ARTIFACTS?: RuntimeArtifactBucket;
+  APP_WRITER_MODEL?: string;
+}
+
+interface CloudflareAiMessage {
+  role: 'system' | 'user';
+  content: string;
+}
+
+interface CloudflareAiBinding {
+  run(
+    model: string,
+    input: {
+      messages: CloudflareAiMessage[];
+      response_format?: { type: 'json_object' };
+      stream?: true;
+    },
+  ): Promise<unknown>;
 }
 
 interface StoredAppWriterAgentSession {
@@ -66,6 +105,30 @@ export class AppWriterAgent {
       }
 
       return this.streamEvents();
+    }
+
+    if (url.pathname.endsWith('/workspace-harness/plan')) {
+      if (request.method !== 'POST') {
+        return jsonError(405, 'method_not_allowed', 'Workspace harness planning requires POST.');
+      }
+
+      return Response.json(await this.planWorkspace(await readWorkspacePlanInput(request)));
+    }
+
+    if (url.pathname.endsWith('/workspace-harness/author')) {
+      if (request.method !== 'POST') {
+        return jsonError(405, 'method_not_allowed', 'Workspace harness authoring requires POST.');
+      }
+
+      return Response.json(await this.authorWorkspace(await readWorkspaceAuthorInput(request)));
+    }
+
+    if (url.pathname.endsWith('/workspace-harness/repair')) {
+      if (request.method !== 'POST') {
+        return jsonError(405, 'method_not_allowed', 'Workspace harness repair requires POST.');
+      }
+
+      return Response.json(await this.repairWorkspace(await readWorkspaceRepairInput(request)));
     }
 
     return jsonError(404, 'not_found', 'App writer Agent endpoint was not found.');
@@ -145,6 +208,224 @@ export class AppWriterAgent {
       updatedAt: run.updatedAt,
     };
   }
+
+  private async planWorkspace(input: WorkspacePlanInput): Promise<AppGenerationPlanningResult> {
+    const text = await this.runModelText({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are Lantern App Writer. Return one valid JSON planning object only. The plan must target the Lantern app package contract and may only use window.GatewayApp capabilities.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            task: 'plan_lantern_workspace_app',
+            generationInput: input.generationInput,
+            workspaceFiles: summarizeWorkspaceFiles(input.workspace.files),
+            instructions: readWorkspaceFile(input.workspace.files, 'AGENTS.md'),
+          }),
+        },
+      ],
+      responseFormat: 'json',
+    });
+
+    return parseAppGenerationPlanningResultJson(text);
+  }
+
+  private async authorWorkspace(input: WorkspaceAuthorInput): Promise<WorkspaceHarnessResponse> {
+    const workspace = await this.createShellWorkspace(input.generationInput.generationId);
+    await syncWorkspaceFiles(workspace, input.workspace.files);
+
+    const result = await this.runWorkspaceCodeLoop({
+      workspace,
+      stage: 'author',
+      prompt: {
+        task: 'author_lantern_learning_app_workspace',
+        generationInput: input.generationInput,
+        planning: input.planning,
+        instructions: readWorkspaceFile(input.workspace.files, 'AGENTS.md'),
+        initialTree: summarizeWorkspaceFiles(input.workspace.files),
+        definitionOfDone:
+          'Edit the real workspace until the Lantern package files implement the plan. Use state.* filesystem APIs. Do not create backend code, external network calls, package installs, localStorage, sessionStorage, LMS code, or Cloudflare bindings.',
+      },
+    });
+
+    return {
+      files: await readShellWorkspaceFiles(workspace, input.workspace.files),
+      progressUpdates: [
+        {
+          stage: 'building_package',
+          message: 'Authored the Lantern workspace in the shell harness.',
+        },
+      ],
+      notes: result.notes,
+      validationFindings: [],
+    };
+  }
+
+  private async repairWorkspace(input: WorkspaceRepairInput): Promise<WorkspaceHarnessResponse> {
+    const workspace = await this.createShellWorkspace(input.generationInput.generationId);
+    await syncWorkspaceFiles(workspace, input.workspace.files);
+
+    const result = await this.runWorkspaceCodeLoop({
+      workspace,
+      stage: 'repair',
+      prompt: {
+        task: 'repair_lantern_learning_app_workspace',
+        generationInput: input.generationInput,
+        previousResult: {
+          normalizedRequest: input.previousResult.normalizedRequest,
+          appPlan: input.previousResult.appPlan,
+          selectedStarterId: input.previousResult.selectedStarterId,
+        },
+        validationFindings: input.validationFindings,
+        repairAttempt: input.repairAttempt,
+        instructions: readWorkspaceFile(input.workspace.files, 'AGENTS.md'),
+        currentTree: summarizeWorkspaceFiles(input.workspace.files),
+        definitionOfDone:
+          'Repair the real workspace diagnostics without changing the app concept. Use state.* filesystem APIs and keep all generated package files inside the Lantern allowlist.',
+      },
+    });
+
+    return {
+      files: await readShellWorkspaceFiles(workspace, input.workspace.files),
+      progressUpdates: [
+        {
+          stage: 'repairing_package',
+          message: 'Repaired the Lantern workspace in the shell harness.',
+        },
+      ],
+      notes: result.notes,
+      validationFindings: [],
+    };
+  }
+
+  private async createShellWorkspace(generationId: string): Promise<ShellWorkspace> {
+    const sql = this.state.storage.sql;
+
+    if (sql === undefined) {
+      throw new Error('App writer shell harness requires SQLite Durable Object storage.');
+    }
+    const { Workspace } = await import('@cloudflare/shell');
+
+    return new Workspace({
+      sql,
+      r2: this.env.PACKAGE_ARTIFACTS as ShellWorkspaceOptions['r2'],
+      name: () => generationId,
+      namespace: generationId,
+    });
+  }
+
+  private async runWorkspaceCodeLoop(input: {
+    workspace: ShellWorkspace;
+    stage: 'author' | 'repair';
+    prompt: Record<string, unknown>;
+  }): Promise<{ notes: string[] }> {
+    const executor = await this.createExecutor();
+    const { resolveProvider } = await import('@cloudflare/codemode');
+    const { stateTools } = await import('@cloudflare/shell/workers');
+    const failures: Array<{ code: string; error: string; logs: string[] }> = [];
+
+    for (let attempt = 1; attempt <= SHELL_CODE_ATTEMPT_LIMIT; attempt += 1) {
+      const code = await this.runModelText({
+        messages: buildWorkspaceCodeMessages({
+          prompt: input.prompt,
+          stage: input.stage,
+          attempt,
+          failures,
+        }),
+      });
+      const execution = await executor.execute(code, [
+        resolveProvider(stateTools(input.workspace)),
+      ]);
+
+      if (execution.error === undefined) {
+        return {
+          notes: [
+            `Workspace shell harness completed ${input.stage} on attempt ${attempt}.`,
+            ...normalizeExecutionLogs(execution.logs),
+          ],
+        };
+      }
+
+      failures.push({
+        code,
+        error: execution.error,
+        logs: normalizeExecutionLogs(execution.logs),
+      });
+    }
+
+    throw new Error(
+      `Workspace shell harness failed during ${input.stage}: ${
+        failures.at(-1)?.error ?? 'unknown execution error'
+      }`,
+    );
+  }
+
+  private async createExecutor(): Promise<ShellExecutor> {
+    const loader = this.env.LOADER;
+
+    if (loader === undefined) {
+      throw new Error('App writer shell harness requires a Worker Loader binding named LOADER.');
+    }
+    const { DynamicWorkerExecutor } = await import('@cloudflare/codemode');
+
+    return new DynamicWorkerExecutor({
+      loader,
+      globalOutbound: null,
+      timeout: 120000,
+    });
+  }
+
+  private async runModelText(input: {
+    messages: CloudflareAiMessage[];
+    responseFormat?: 'json';
+  }): Promise<string> {
+    const ai = this.env.AI;
+
+    if (!isCloudflareAiBinding(ai)) {
+      throw new Error('App writer shell harness requires a Workers AI binding named AI.');
+    }
+
+    const model = this.env.APP_WRITER_MODEL?.trim();
+
+    if (!model) {
+      throw new Error('App writer shell harness requires APP_WRITER_MODEL.');
+    }
+
+    return await readCloudflareAiResponseText(
+      await ai.run(model, {
+        messages: input.messages,
+        stream: true,
+        ...(input.responseFormat === 'json' ? { response_format: { type: 'json_object' } } : {}),
+      }),
+    );
+  }
+}
+
+interface WorkspacePlanInput {
+  generationInput: AppPackageGenerationInput;
+  workspace: AppGenerationWorkspaceRecord;
+}
+
+interface WorkspaceAuthorInput extends WorkspacePlanInput {
+  planning: AppGenerationPlanningResult;
+}
+
+interface WorkspaceRepairInput {
+  generationInput: AppPackageGenerationInput;
+  previousResult: AppPackageGenerationResult;
+  validationFindings: AppGenerationWorkspaceRecord['validationFindings'];
+  repairAttempt: number;
+  workspace: AppGenerationWorkspaceRecord;
+}
+
+interface WorkspaceHarnessResponse {
+  files: AppWriterWorkspaceFile[];
+  progressUpdates: Array<{ stage: 'building_package' | 'repairing_package'; message: string }>;
+  notes: string[];
+  validationFindings: AppGenerationWorkspaceRecord['validationFindings'];
 }
 
 async function readObserveInput(request: Request): Promise<AppWriterAgentObserveInput> {
@@ -162,6 +443,250 @@ async function readObserveInput(request: Request): Promise<AppWriterAgentObserve
     workflowInstanceId: expectNullableString(record.workflowInstanceId, 'workflowInstanceId'),
     observedAt: expectString(record.observedAt, 'observedAt'),
   };
+}
+
+async function readWorkspacePlanInput(request: Request): Promise<WorkspacePlanInput> {
+  const value = expectRecord(await readJson(request), 'workspacePlanInput');
+
+  return {
+    generationInput: value.generationInput as AppPackageGenerationInput,
+    workspace: value.workspace as AppGenerationWorkspaceRecord,
+  };
+}
+
+async function readWorkspaceAuthorInput(request: Request): Promise<WorkspaceAuthorInput> {
+  const value = expectRecord(await readJson(request), 'workspaceAuthorInput');
+
+  return {
+    generationInput: value.generationInput as AppPackageGenerationInput,
+    planning: value.planning as AppGenerationPlanningResult,
+    workspace: value.workspace as AppGenerationWorkspaceRecord,
+  };
+}
+
+async function readWorkspaceRepairInput(request: Request): Promise<WorkspaceRepairInput> {
+  const value = expectRecord(await readJson(request), 'workspaceRepairInput');
+
+  return {
+    generationInput: value.generationInput as AppPackageGenerationInput,
+    previousResult: value.previousResult as AppPackageGenerationResult,
+    validationFindings:
+      value.validationFindings as AppGenerationWorkspaceRecord['validationFindings'],
+    repairAttempt: expectNumber(value.repairAttempt, 'workspaceRepairInput.repairAttempt'),
+    workspace: value.workspace as AppGenerationWorkspaceRecord,
+  };
+}
+
+async function readJson(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    throw new TypeError('App writer Agent request body must be valid JSON.');
+  }
+}
+
+async function syncWorkspaceFiles(
+  workspace: ShellWorkspace,
+  files: readonly AppWriterWorkspaceFile[],
+): Promise<void> {
+  const incomingPaths = new Set(files.map((file) => toShellPath(file.path)));
+  const existingFiles = await listShellWorkspaceFilePaths(workspace);
+
+  for (const path of existingFiles) {
+    if (!incomingPaths.has(path)) {
+      await workspace.rm(path, { force: true });
+    }
+  }
+
+  for (const file of files) {
+    const path = toShellPath(file.path);
+    await workspace.mkdir(parentPath(path), { recursive: true });
+    await workspace.writeFile(path, file.contents);
+  }
+}
+
+async function readShellWorkspaceFiles(
+  workspace: ShellWorkspace,
+  seedFiles: readonly AppWriterWorkspaceFile[],
+): Promise<AppWriterWorkspaceFile[]> {
+  const roleByPath = new Map(seedFiles.map((file) => [file.path, getWorkspaceFileRole(file)]));
+  const paths = await listShellWorkspaceFilePaths(workspace);
+  const files: AppWriterWorkspaceFile[] = [];
+
+  for (const path of paths) {
+    const relativePath = fromShellPath(path);
+    const contents = await workspace.readFile(path);
+
+    if (contents === null) {
+      continue;
+    }
+
+    const file: AppWriterWorkspaceFile = {
+      path: relativePath,
+      contents,
+      role: roleByPath.get(relativePath) ?? getWorkspaceFileRole({ path: relativePath, contents }),
+    };
+    files.push(file);
+  }
+
+  return files.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+async function listShellWorkspaceFilePaths(workspace: ShellWorkspace): Promise<string[]> {
+  const entries = await workspace.glob(WORKSPACE_FILE_GLOB);
+
+  return entries
+    .filter((entry) => entry.type === 'file')
+    .map((entry) => entry.path)
+    .sort();
+}
+
+function buildWorkspaceCodeMessages(input: {
+  prompt: Record<string, unknown>;
+  stage: 'author' | 'repair';
+  attempt: number;
+  failures: ReadonlyArray<{ code: string; error: string; logs: readonly string[] }>;
+}): CloudflareAiMessage[] {
+  return [
+    {
+      role: 'system',
+      content:
+        'You are Lantern App Writer running in code mode. Return only an async JavaScript function. The function may use the provided state.* filesystem API to inspect and edit the real Lantern workspace. Do not use fetch, imports, package installs, LMS APIs, Cloudflare bindings, localStorage, sessionStorage, or backend code.',
+    },
+    {
+      role: 'user',
+      content: JSON.stringify({
+        stage: input.stage,
+        attempt: input.attempt,
+        workspaceApi:
+          'Use state.readFile, state.writeFile, state.writeJson, state.glob, state.readdir, state.searchFiles, and state.replaceInFile as needed.',
+        requiredReturn:
+          'Return a small JSON-serializable summary from the async function after edits are complete.',
+        prompt: input.prompt,
+        previousExecutionFailures: input.failures,
+      }),
+    },
+  ];
+}
+
+function summarizeWorkspaceFiles(
+  files: readonly AppWriterWorkspaceFile[],
+): Array<{ path: string; role: string; bytes: number }> {
+  return files.map((file) => ({
+    path: file.path,
+    role: getWorkspaceFileRole(file),
+    bytes: new TextEncoder().encode(file.contents).length,
+  }));
+}
+
+function readWorkspaceFile(files: readonly AppWriterWorkspaceFile[], path: string): string | null {
+  return files.find((file) => file.path === path)?.contents ?? null;
+}
+
+async function readCloudflareAiResponseText(response: unknown): Promise<string> {
+  if (typeof response === 'string') {
+    return response;
+  }
+
+  if (response instanceof ReadableStream) {
+    return await readAiResponseStream(response);
+  }
+
+  if (typeof response === 'object' && response !== null) {
+    const record = response as Record<string, unknown>;
+
+    if (typeof record.response === 'string') {
+      return record.response;
+    }
+
+    if (record.response instanceof ReadableStream) {
+      return await readAiResponseStream(record.response);
+    }
+  }
+
+  throw new Error('Workers AI response did not contain text.');
+}
+
+async function readAiResponseStream(stream: ReadableStream): Promise<string> {
+  const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
+  let output = '';
+
+  while (true) {
+    const next = await reader.read();
+
+    if (next.done) {
+      return output;
+    }
+
+    output += parseAiStreamChunk(next.value);
+  }
+}
+
+function parseAiStreamChunk(chunk: string): string {
+  return chunk
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data: '))
+    .map((line) => line.slice('data: '.length).trim())
+    .filter((line) => line !== '' && line !== '[DONE]')
+    .map((line) => {
+      try {
+        const parsed = JSON.parse(line) as {
+          response?: unknown;
+          choices?: Array<{ delta?: { content?: unknown } }>;
+        };
+
+        return typeof parsed.response === 'string'
+          ? parsed.response
+          : typeof parsed.choices?.[0]?.delta?.content === 'string'
+            ? parsed.choices[0].delta.content
+            : '';
+      } catch {
+        return line;
+      }
+    })
+    .join('');
+}
+
+function normalizeExecutionLogs(logs: readonly string[] | undefined): string[] {
+  return (logs ?? []).filter((log) => log.trim() !== '').slice(0, 10);
+}
+
+function isCloudflareAiBinding(value: unknown): value is CloudflareAiBinding {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as Partial<CloudflareAiBinding>).run === 'function'
+  );
+}
+
+function expectRecord(value: unknown, fieldName: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be a JSON object.`);
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function expectNumber(value: unknown, fieldName: string): number {
+  if (typeof value !== 'number') {
+    throw new TypeError(`${fieldName} must be a number.`);
+  }
+
+  return value;
+}
+
+function toShellPath(path: string): string {
+  return `/${path.replace(/^\/+/, '')}`;
+}
+
+function fromShellPath(path: string): string {
+  return path.replace(/^\/+/, '');
+}
+
+function parentPath(path: string): string {
+  const index = path.lastIndexOf('/');
+
+  return index <= 0 ? '/' : path.slice(0, index);
 }
 
 function buildUnknownSnapshot(

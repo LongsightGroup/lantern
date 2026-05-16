@@ -8,7 +8,15 @@ const decoder = new TextDecoder();
 await Deno.mkdir(outputDir, { recursive: true });
 
 const command = new Deno.Command(Deno.execPath(), {
-  args: ['bundle', '--platform=browser', sourcePath, '-o', rawBundlePath.pathname],
+  args: [
+    'bundle',
+    '--platform=browser',
+    '--external',
+    'cloudflare:workers',
+    sourcePath,
+    '-o',
+    rawBundlePath.pathname,
+  ],
 });
 const result = await command.output();
 

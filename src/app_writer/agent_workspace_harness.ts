@@ -1,57 +1,55 @@
+import { parseAppGenerationPlanningResult } from './model_output.ts';
 import {
-  expectRecord,
-  expectStringArray,
   parseProgressUpdates,
   parseValidationFindings,
   parseWorkspaceFiles,
 } from './binding_result.ts';
-import { parseAppGenerationPlanningResult } from './model_output.ts';
 import type { AppGenerationValidationFinding, AppWriterWorkspaceFile } from './types.ts';
 import type {
   AppWriterWorkspaceHarness,
   AppWriterWorkspaceHarnessResult,
 } from './workspace_runner.ts';
+import type { AppWriterAgentNamespace } from './agent_session.ts';
 
-const HARNESS_PLAN_PATH = '/app-writer/workspace-harness/plan';
-const HARNESS_AUTHOR_PATH = '/app-writer/workspace-harness/author';
-const HARNESS_REPAIR_PATH = '/app-writer/workspace-harness/repair';
+const HARNESS_PLAN_PATH = '/workspace-harness/plan';
+const HARNESS_AUTHOR_PATH = '/workspace-harness/author';
+const HARNESS_REPAIR_PATH = '/workspace-harness/repair';
 
-export interface AppWriterWorkspaceHarnessBinding {
-  fetch(request: Request): Promise<Response>;
-}
-
-export function createBoundAppWriterWorkspaceHarness(
-  binding: AppWriterWorkspaceHarnessBinding,
+export function createCloudflareAppWriterAgentWorkspaceHarness(
+  namespace: AppWriterAgentNamespace,
 ): AppWriterWorkspaceHarness {
   return {
     async plan(input) {
       return parseAppGenerationPlanningResult(
-        await postJson({
-          binding,
+        await postAgentJson({
+          namespace,
+          generationId: input.generationInput.generationId,
           path: HARNESS_PLAN_PATH,
           body: input,
-          responseName: 'workspace harness planning response',
+          responseName: 'app writer Agent workspace planning response',
         }),
       );
     },
     async author(input) {
       return parseWorkspaceHarnessResult(
-        await postJson({
-          binding,
+        await postAgentJson({
+          namespace,
+          generationId: input.generationInput.generationId,
           path: HARNESS_AUTHOR_PATH,
           body: input,
-          responseName: 'workspace harness authoring response',
+          responseName: 'app writer Agent workspace authoring response',
         }),
         'workspaceHarnessAuthorResult',
       );
     },
     async repair(input) {
       return parseWorkspaceHarnessResult(
-        await postJson({
-          binding,
+        await postAgentJson({
+          namespace,
+          generationId: input.generationInput.generationId,
           path: HARNESS_REPAIR_PATH,
           body: input,
-          responseName: 'workspace harness repair response',
+          responseName: 'app writer Agent workspace repair response',
         }),
         'workspaceHarnessRepairResult',
       );
@@ -59,24 +57,16 @@ export function createBoundAppWriterWorkspaceHarness(
   };
 }
 
-export function isAppWriterWorkspaceHarnessBinding(
-  value: unknown,
-): value is AppWriterWorkspaceHarnessBinding {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as Partial<AppWriterWorkspaceHarnessBinding>).fetch === 'function'
-  );
-}
-
-async function postJson(input: {
-  binding: AppWriterWorkspaceHarnessBinding;
+async function postAgentJson(input: {
+  namespace: AppWriterAgentNamespace;
+  generationId: string;
   path: string;
   body: unknown;
   responseName: string;
 }): Promise<unknown> {
-  const response = await input.binding.fetch(
-    new Request(`https://app-writer-workspace-harness.internal${input.path}`, {
+  const stub = input.namespace.get(input.namespace.idFromName(input.generationId));
+  const response = await stub.fetch(
+    new Request(`https://app-writer-agent.internal${input.path}`, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -115,4 +105,26 @@ function parseWorkspaceHarnessResult(
             `${fieldName}.validationFindings`,
           ) as AppGenerationValidationFinding[]),
   };
+}
+
+function expectRecord(value: unknown, fieldName: string): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be an object.`);
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function expectStringArray(value: unknown, fieldName: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be a string array.`);
+  }
+
+  return value.map((item, index) => {
+    if (typeof item !== 'string') {
+      throw new TypeError(`${fieldName}[${index}] must be text.`);
+    }
+
+    return item;
+  });
 }

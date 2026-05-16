@@ -1,7 +1,7 @@
-import type { AppPackageGenerator } from './package_generator.ts';
 import { AppPackageGenerationFailedError, runAppPackageGeneration } from './service.ts';
 import type { AppPackagePreviewer } from './types.ts';
 import type { AppWriterEvaluationPrompt } from './evaluation_corpus.ts';
+import type { AppWriterWorkspaceRunner } from './workspace_runner.ts';
 import type { PackageSource } from '../package_review/package_source.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type { ImportedPackageVersion } from '../package_review/intake.ts';
@@ -30,7 +30,7 @@ export async function runAppWriterEvaluationPrompt(input: {
     | 'getAppGenerationWorkspaceByGenerationId'
     | 'getAppGenerationRunById'
   >;
-  generator: AppPackageGenerator;
+  workspaceRunner: AppWriterWorkspaceRunner;
   previewer: AppPackagePreviewer;
   importPackageFromSource?: (
     source: PackageSource,
@@ -41,7 +41,7 @@ export async function runAppWriterEvaluationPrompt(input: {
   try {
     const result = await runAppPackageGeneration({
       repository: input.repository,
-      generator: input.generator,
+      workspaceRunner: input.workspaceRunner,
       previewer: input.previewer,
       generationId: `evaluation-${input.prompt.id}`,
       ownerId: 'evaluation',
