@@ -362,24 +362,21 @@ Deno.test('worker services route app writer workspace harness through APP_WRITER
 
               return Promise.resolve(
                 Response.json({
-                  normalizedRequest: {
-                    learningGoal: 'Practice phonics patterns.',
-                    audience: 'Grade 1',
-                    contentSummary: 'Phonics word list.',
-                    requestedActivity: 'matching game',
-                    constraints: [],
-                    missingInformation: [],
-                    safeToGenerate: true,
-                  },
-                  appPlan: buildAppGenerationPlan(),
-                  selectedStarterId: 'simple-activity',
                   progressUpdates: [
                     {
-                      stage: 'planning_app',
-                      message: 'Planning a phonics matching activity.',
+                      stage: 'building_package',
+                      message: 'Authored a phonics matching activity.',
+                    },
+                  ],
+                  files: [
+                    {
+                      path: 'manifest.json',
+                      contents: '{"app_id":"phonics-match"}\n',
+                      role: 'package',
                     },
                   ],
                   notes: [],
+                  validationFindings: [],
                 }),
               );
             },
@@ -412,8 +409,22 @@ Deno.test('worker services route app writer workspace harness through APP_WRITER
     initializedWorkspace,
   });
 
-  assertEquals(new URL(observedRequests[0]?.url ?? '').pathname, '/workspace-harness/plan');
+  assertEquals(observedRequests.length, 0);
   assertEquals(result.appPlan.appId, 'phonics-match');
+  await services.appWriterWorkspaceRunner.author({
+    generationId: 'generation-1',
+    ownerId: 'admin',
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: null,
+    selectedStarterId: 'simple-activity',
+    selectedContext: contextSelection.selectedContext,
+    authoringMode: 'typescript',
+    createdAt: '2026-05-16T12:00:00.000Z',
+    initializedWorkspace,
+    planning: result,
+  });
+
+  assertEquals(new URL(observedRequests[0]?.url ?? '').pathname, '/workspace-harness/author');
 });
 
 Deno.test('worker services use a platform source compiler binding when configured', async () => {
@@ -456,7 +467,9 @@ Deno.test('worker services use a platform source compiler binding when configure
       },
     ],
   });
-  const requestBody = (await compileRequests[0]?.json()) as { generationId?: unknown };
+  const requestBody = (await compileRequests[0]?.json()) as {
+    generationId?: unknown;
+  };
 
   assertEquals(services.appPackageSourceCompiler.supportsTypeScriptAuthoring, true);
   assertEquals(requestBody.generationId, 'generation-1');
@@ -508,7 +521,9 @@ Deno.test('worker services use a platform app previewer binding when configured'
       },
     ],
   });
-  const requestBody = (await previewRequests[0]?.json()) as { generationId?: unknown };
+  const requestBody = (await previewRequests[0]?.json()) as {
+    generationId?: unknown;
+  };
 
   assertEquals(requestBody.generationId, 'generation-1');
   assertEquals(findings[0]?.code, 'preview_assertion_failed');

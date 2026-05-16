@@ -579,7 +579,7 @@ async function planInitialPackage(input: {
     run,
     eventType: 'app_generation.planning',
     status: 'accepted',
-    summary: 'Asked the app writer workspace harness for a Lantern app plan.',
+    summary: 'Created the Lantern-owned app plan for the initialized workspace.',
   });
   await updateGenerationPlanStepInWorkspace({
     repository: input.repository,
@@ -1878,7 +1878,7 @@ function buildStarterMismatchFinding(input: {
 function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFinding {
   const message = error instanceof Error ? error.message : 'App package generation failed.';
   const isTimeout = isGenerationTimeoutMessage(message);
-  const isModelOutputContractError = isModelOutputContractMessage(message);
+  const isWorkspaceHarnessContractError = isWorkspaceHarnessContractMessage(message);
   const isProviderInternalError = isGenerationProviderInternalErrorMessage(message);
   const isProviderCapacityError = isGenerationProviderCapacityErrorMessage(message);
 
@@ -1896,8 +1896,8 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
     field: null,
     fix: isTimeout
       ? 'Retry generation. Lantern runs generation in durable staged background work; repeated timeouts point to model/provider latency for the current stage.'
-      : isModelOutputContractError
-        ? 'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.'
+      : isWorkspaceHarnessContractError
+        ? 'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.'
         : isProviderInternalError
           ? 'Retry generation. The model provider returned an internal error after Lantern used its bounded retry attempts.'
           : isProviderCapacityError
@@ -1905,8 +1905,8 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
             : 'Check the model configuration or retry generation.',
     detail: isTimeout
       ? { providerError: 'timeout' }
-      : isModelOutputContractError
-        ? { providerError: 'model_output_contract' }
+      : isWorkspaceHarnessContractError
+        ? { providerError: 'workspace_harness_contract' }
         : isProviderInternalError
           ? { providerError: 'internal_server_error' }
           : isProviderCapacityError
@@ -1921,7 +1921,7 @@ function isGenerationTimeoutMessage(message: string): boolean {
   return normalized.includes('timeout') || normalized.includes('timed out');
 }
 
-function isModelOutputContractMessage(message: string): boolean {
+function isWorkspaceHarnessContractMessage(message: string): boolean {
   const normalized = message.toLowerCase();
 
   return (

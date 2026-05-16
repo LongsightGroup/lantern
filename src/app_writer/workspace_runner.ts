@@ -1,5 +1,6 @@
 import { buildInitializedAppWriterWorkspace } from './workspace_initialization.ts';
 import type { AppWriterContextSelection } from './context.ts';
+import { buildLanternOwnedAppGenerationPlanningResult } from './planning.ts';
 import type {
   AppGenerationPlanningResult,
   AppGenerationProgressUpdate,
@@ -45,10 +46,6 @@ export interface AppWriterWorkspaceHarnessResult {
 }
 
 export interface AppWriterWorkspaceHarness {
-  plan(input: {
-    generationInput: AppPackageGenerationInput;
-    workspace: AppGenerationWorkspaceRecord;
-  }): Promise<AppGenerationPlanningResult>;
   author(input: {
     generationInput: AppPackageGenerationInput;
     planning: AppGenerationPlanningResult;
@@ -93,10 +90,7 @@ export function createHarnessWorkspaceRunner(runnerInput: {
       return Promise.resolve(buildInitializedAppWriterWorkspace(workspaceInput));
     },
     plan(input) {
-      return runnerInput.harness.plan({
-        generationInput: input,
-        workspace: input.initializedWorkspace,
-      });
+      return Promise.resolve(buildLanternOwnedAppGenerationPlanningResult(input));
     },
     async author(input) {
       const result = await runnerInput.harness.author({

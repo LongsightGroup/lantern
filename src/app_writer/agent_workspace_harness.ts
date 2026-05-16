@@ -1,4 +1,3 @@
-import { parseAppGenerationPlanningResult } from './model_output.ts';
 import {
   parseProgressUpdates,
   parseValidationFindings,
@@ -11,7 +10,6 @@ import type {
 } from './workspace_runner.ts';
 import type { AppWriterAgentNamespace } from './agent_session.ts';
 
-const HARNESS_PLAN_PATH = '/workspace-harness/plan';
 const HARNESS_AUTHOR_PATH = '/workspace-harness/author';
 const HARNESS_REPAIR_PATH = '/workspace-harness/repair';
 
@@ -19,17 +17,6 @@ export function createCloudflareAppWriterAgentWorkspaceHarness(
   namespace: AppWriterAgentNamespace,
 ): AppWriterWorkspaceHarness {
   return {
-    async plan(input) {
-      return parseAppGenerationPlanningResult(
-        await postAgentJson({
-          namespace,
-          generationId: input.generationInput.generationId,
-          path: HARNESS_PLAN_PATH,
-          body: input,
-          responseName: 'app writer Agent workspace planning response',
-        }),
-      );
-    },
     async author(input) {
       return parseWorkspaceHarnessResult(
         await postAgentJson({

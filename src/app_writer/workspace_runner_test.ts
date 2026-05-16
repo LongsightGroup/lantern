@@ -1,7 +1,7 @@
 import { assertEquals } from '@std/assert';
 import {
-  createHarnessWorkspaceRunner,
   type AppWriterWorkspaceHarness,
+  createHarnessWorkspaceRunner,
 } from './workspace_runner.ts';
 import type {
   AppGenerationPlanningResult,
@@ -14,11 +14,6 @@ Deno.test('harness workspace runner gives the harness the initialized workspace 
   const calls: string[] = [];
   const initializedWorkspace = buildWorkspace();
   const harness: AppWriterWorkspaceHarness = {
-    plan(input) {
-      calls.push(`plan:${input.workspace.files.length}`);
-
-      return Promise.resolve(buildPlanning());
-    },
     author(input) {
       calls.push(`author:${input.workspace.files[0]?.path}:${input.planning.appPlan.appId}`);
 
@@ -52,7 +47,7 @@ Deno.test('harness workspace runner gives the harness the initialized workspace 
     planning,
   });
 
-  assertEquals(calls, ['plan:2', 'author:AGENTS.md:phonics-match']);
+  assertEquals(calls, ['author:AGENTS.md:phonics-match']);
   assertEquals(authored.files[1]?.contents, '{"app_id":"phonics-match"}\n');
   assertEquals(authored.validationFindings, []);
 });
@@ -60,9 +55,6 @@ Deno.test('harness workspace runner gives the harness the initialized workspace 
 Deno.test('harness workspace runner repairs from the persisted workspace snapshot', async () => {
   const workspace = buildWorkspace();
   const harness: AppWriterWorkspaceHarness = {
-    plan(_input) {
-      throw new Error('Plan should not run in this test.');
-    },
     author(_input) {
       throw new Error('Author should not run in this test.');
     },

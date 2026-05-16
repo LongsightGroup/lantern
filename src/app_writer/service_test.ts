@@ -127,7 +127,7 @@ Deno.test('app writer service records staged planning before scaffold file gener
   assertEquals(
     planningEvents.map((event) => event.summary),
     [
-      'Asked the app writer workspace harness for a Lantern app plan.',
+      'Created the Lantern-owned app plan for the initialized workspace.',
       'Planning the Lantern app before editing scaffold files.',
     ],
   );
@@ -330,7 +330,7 @@ Deno.test('app writer service classifies model request timeouts distinctly', asy
   });
 });
 
-Deno.test('app writer service explains invalid JSON model output clearly', async () => {
+Deno.test('app writer service explains invalid workspace harness JSON clearly', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   const error = await assertRejects(
@@ -356,15 +356,15 @@ Deno.test('app writer service explains invalid JSON model output clearly', async
   assertEquals(error.run.status, 'failed');
   assertEquals(error.run.validationFindings[0]?.code, 'generation_failed');
   assertEquals(error.run.validationFindings[0]?.detail, {
-    providerError: 'model_output_contract',
+    providerError: 'workspace_harness_contract',
   });
   assertEquals(
     error.run.validationFindings[0]?.fix,
-    'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.',
+    'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.',
   );
 });
 
-Deno.test('app writer service explains invalid model package shape clearly', async () => {
+Deno.test('app writer service explains invalid workspace harness shape clearly', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   const error = await assertRejects(
@@ -390,11 +390,11 @@ Deno.test('app writer service explains invalid model package shape clearly', asy
   assertEquals(error.run.status, 'failed');
   assertEquals(error.run.validationFindings[0]?.code, 'generation_failed');
   assertEquals(error.run.validationFindings[0]?.detail, {
-    providerError: 'model_output_contract',
+    providerError: 'workspace_harness_contract',
   });
   assertEquals(
     error.run.validationFindings[0]?.fix,
-    'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.',
+    'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.',
   );
 });
 

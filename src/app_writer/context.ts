@@ -4,9 +4,9 @@ import {
   selectPromptContextExcerpts,
 } from './prompt_context.ts';
 import {
-  type AppWriterRecipe,
   APP_WRITER_PROMPT_CONTEXT_VERSION,
   APP_WRITER_PUBLIC_CONTRACT_SOURCES,
+  type AppWriterRecipe,
   buildAppWriterRecipe,
 } from './recipe.ts';
 
@@ -116,6 +116,7 @@ function buildSelection(input: {
 
 function mentionsBrowserAutograder(prompt: string): boolean {
   return [
+    'preferred grading: browser',
     'autograder',
     'auto-grader',
     'grade html',

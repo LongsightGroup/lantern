@@ -1,5 +1,4 @@
 import { APP_GENERATION_AUDIT_EVENT_TYPES } from './service.ts';
-import { parseAppGenerationPlanningResultJson } from './model_output.ts';
 import { getWorkspaceFileRole } from './workspace_files.ts';
 import type {
   AppGenerationPlanningResult,
@@ -12,7 +11,7 @@ import type {
   AppWriterWorkspaceFile,
 } from './types.ts';
 import type { AppWriterAgentObserveInput, AppWriterAgentSessionSnapshot } from './agent_session.ts';
-import { isD1Database, type D1Database } from '../db/d1.ts';
+import { type D1Database, isD1Database } from '../db/d1.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import { createD1PackageReviewRepository } from '../package_review/repository_package_versions_d1.ts';
 import type { RuntimeArtifactBucket } from '../runtime/artifact_store.ts';
@@ -107,14 +106,6 @@ export class AppWriterAgent {
       return this.streamEvents();
     }
 
-    if (url.pathname.endsWith('/workspace-harness/plan')) {
-      if (request.method !== 'POST') {
-        return jsonError(405, 'method_not_allowed', 'Workspace harness planning requires POST.');
-      }
-
-      return Response.json(await this.planWorkspace(await readWorkspacePlanInput(request)));
-    }
-
     if (url.pathname.endsWith('/workspace-harness/author')) {
       if (request.method !== 'POST') {
         return jsonError(405, 'method_not_allowed', 'Workspace harness authoring requires POST.');
@@ -207,30 +198,6 @@ export class AppWriterAgent {
       activityEventCount: await countGenerationActivityEvents(repository, generationId),
       updatedAt: run.updatedAt,
     };
-  }
-
-  private async planWorkspace(input: WorkspacePlanInput): Promise<AppGenerationPlanningResult> {
-    const text = await this.runModelText({
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are Lantern App Writer. Return one valid JSON planning object only. The plan must target the Lantern app package contract and may only use window.GatewayApp capabilities.',
-        },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            task: 'plan_lantern_workspace_app',
-            generationInput: input.generationInput,
-            workspaceFiles: summarizeWorkspaceFiles(input.workspace.files),
-            instructions: readWorkspaceFile(input.workspace.files, 'AGENTS.md'),
-          }),
-        },
-      ],
-      stage: 'planning',
-    });
-
-    return parseAppGenerationPlanningResultJson(text);
   }
 
   private async authorWorkspace(input: WorkspaceAuthorInput): Promise<WorkspaceHarnessResponse> {
@@ -429,12 +396,9 @@ async function withTimeout<T>(
   }
 }
 
-interface WorkspacePlanInput {
+interface WorkspaceAuthorInput {
   generationInput: AppPackageGenerationInput;
   workspace: AppGenerationWorkspaceRecord;
-}
-
-interface WorkspaceAuthorInput extends WorkspacePlanInput {
   planning: AppGenerationPlanningResult;
 }
 
@@ -467,15 +431,6 @@ async function readObserveInput(request: Request): Promise<AppWriterAgentObserve
     ownerId: expectString(record.ownerId, 'ownerId'),
     workflowInstanceId: expectNullableString(record.workflowInstanceId, 'workflowInstanceId'),
     observedAt: expectString(record.observedAt, 'observedAt'),
-  };
-}
-
-async function readWorkspacePlanInput(request: Request): Promise<WorkspacePlanInput> {
-  const value = expectRecord(await readJson(request), 'workspacePlanInput');
-
-  return {
-    generationInput: value.generationInput as AppPackageGenerationInput,
-    workspace: value.workspace as AppGenerationWorkspaceRecord,
   };
 }
 
