@@ -848,12 +848,17 @@ async function runCloudflareModelTextRequest(input: {
       };
     } catch (error) {
       const retryDelayMs = input.modelTransientErrorRetryDelaysMs[retryIndex];
+      const isTransientError = isTransientCloudflareModelError(error);
 
       if (
         retryDelayMs === undefined ||
-        !isTransientCloudflareModelError(error) ||
+        !isTransientError ||
         Date.now() + retryDelayMs >= deadline
       ) {
+        if (isTransientError && retryIndex > 0) {
+          throw buildTransientRetryExhaustedError(error, retryIndex);
+        }
+
         throw error;
       }
 
@@ -861,6 +866,13 @@ async function runCloudflareModelTextRequest(input: {
       await delayBeforeModelRetry(retryDelayMs, deadline);
     }
   }
+}
+
+function buildTransientRetryExhaustedError(error: unknown, retryCount: number): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  const attemptLabel = retryCount === 1 ? 'attempt' : 'attempts';
+
+  return new Error(`${message} after ${retryCount} transient retry ${attemptLabel}.`);
 }
 
 async function delayBeforeModelRetry(delayMs: number, deadline: number): Promise<void> {
@@ -1232,7 +1244,9 @@ const RAW_FILE_SYSTEM_PROMPT =
 
 const DEFAULT_MAX_RESPONSE_CHARACTERS = 250_000;
 const DEFAULT_MODEL_REQUEST_TIMEOUT_MS = 600_000;
-const DEFAULT_MODEL_TRANSIENT_ERROR_RETRY_DELAYS_MS = [1_000, 4_000, 10_000] as const;
+const DEFAULT_MODEL_TRANSIENT_ERROR_RETRY_DELAYS_MS = [
+  2_000, 10_000, 30_000, 60_000, 120_000,
+] as const;
 
 const PROMPT_CONTEXT_RULES = [
   'Treat promptContext as the authoritative Lantern contract context for this request.',

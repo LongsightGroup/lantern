@@ -374,6 +374,37 @@ Deno.test('Cloudflare app package generator retries transient provider internal 
   assertEquals(distFailures, 1);
 });
 
+Deno.test('Cloudflare app package generator reports exhausted transient retry attempts', async () => {
+  let attempts = 0;
+  const generator = createCloudflareAppPackageGenerator({
+    model: '@cf/test/model',
+    modelTransientErrorRetryDelaysMs: [0, 0],
+    ai: {
+      run(_model, _input) {
+        attempts += 1;
+        return Promise.reject(new Error('8008: Internal server error'));
+      },
+    },
+  });
+
+  await assertRejects(
+    () =>
+      generator.generate({
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics matching game.',
+        requestedAppId: 'phonics-match',
+        selectedStarterId: 'simple-activity',
+        selectedContext: {},
+        authoringMode: 'javascript',
+        createdAt: '2026-05-14T12:00:00.000Z',
+      }),
+    Error,
+    '8008: Internal server error after 2 transient retry attempts.',
+  );
+  assertEquals(attempts, 3);
+});
+
 Deno.test('Cloudflare app package generator reads JSON-line streaming raw fragments', async () => {
   let firstFileText = '';
   const generator = createCloudflareAppPackageGenerator({
