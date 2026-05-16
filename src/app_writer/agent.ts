@@ -296,18 +296,29 @@ export class AppWriterAgent {
     const failures: Array<{ code: string; error: string; logs: string[] }> = [];
 
     for (let attempt = 1; attempt <= SHELL_CODE_ATTEMPT_LIMIT; attempt += 1) {
-      const code = normalizeCode(
-        await this.runModelText({
-          messages: buildWorkspaceCodeMessages({
-            prompt: input.prompt,
-            stage: input.stage,
-            attempt,
-            failures,
-            toolTypes: readToolProviderTypes(stateProvider),
-          }),
-          stage: `${input.stage} code attempt ${attempt}`,
+      const rawCode = await this.runModelText({
+        messages: buildWorkspaceCodeMessages({
+          prompt: input.prompt,
+          stage: input.stage,
+          attempt,
+          failures,
+          toolTypes: readToolProviderTypes(stateProvider),
         }),
-      );
+        stage: `${input.stage} code attempt ${attempt}`,
+      });
+      let code: string;
+
+      try {
+        code = normalizeCode(rawCode);
+      } catch (error) {
+        failures.push({
+          code: rawCode,
+          error: error instanceof Error ? error.message : 'Code normalization failed.',
+          logs: [],
+        });
+        continue;
+      }
+
       const execution = await executor.execute(code, [resolveProvider(stateProvider)]);
 
       if (execution.error === undefined) {
@@ -603,27 +614,39 @@ async function readCloudflareAiResponseText(response: unknown): Promise<string> 
 async function readAiResponseStream(stream: ReadableStream): Promise<string> {
   const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
   let output = '';
+  let pending = '';
 
   while (true) {
     const next = await reader.read();
 
     if (next.done) {
-      return output;
+      return `${output}${parseAiStreamEvent(pending)}`;
     }
 
-    output += parseAiStreamChunk(next.value);
+    pending += next.value;
+    const events = pending.split(/\r?\n\r?\n/);
+    pending = events.pop() ?? '';
+
+    for (const event of events) {
+      output += parseAiStreamEvent(event);
+    }
   }
 }
 
-function parseAiStreamChunk(chunk: string): string {
-  const dataLines = chunk
+function parseAiStreamEvent(event: string): string {
+  if (event === '') {
+    return '';
+  }
+
+  const dataLines = event
     .split(/\r?\n/)
-    .filter((line) => line.startsWith('data: '))
-    .map((line) => line.slice('data: '.length).trim())
+    .map((line) => line.trimStart())
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.replace(/^data:\s?/, '').trim())
     .filter((line) => line !== '' && line !== '[DONE]');
 
   if (dataLines.length === 0) {
-    return chunk;
+    return event;
   }
 
   return dataLines
