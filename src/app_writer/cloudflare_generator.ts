@@ -881,9 +881,11 @@ function isTransientCloudflareModelError(error: unknown): boolean {
 
   return (
     normalized.includes('3040') ||
+    normalized.includes('3045') ||
     normalized.includes('8008') ||
     normalized.includes('capacity temporarily exceeded') ||
     normalized.includes('internal server error') ||
+    normalized.includes('unknown internal error') ||
     normalized.includes('temporarily overloaded') ||
     normalized.includes('please try again')
   );

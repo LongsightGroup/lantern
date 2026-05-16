@@ -1889,7 +1889,12 @@ function isModelOutputContractMessage(message: string): boolean {
 function isGenerationProviderInternalErrorMessage(message: string): boolean {
   const normalized = message.toLowerCase();
 
-  return normalized.includes('internal server error') || normalized.includes('8008');
+  return (
+    normalized.includes('3045') ||
+    normalized.includes('8008') ||
+    normalized.includes('internal server error') ||
+    normalized.includes('unknown internal error')
+  );
 }
 
 function isGenerationProviderCapacityErrorMessage(message: string): boolean {

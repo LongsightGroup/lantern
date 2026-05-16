@@ -321,6 +321,7 @@ Deno.test('Cloudflare app package generator retries transient provider capacity 
 
 Deno.test('Cloudflare app package generator retries transient provider internal errors', async () => {
   let contentFailures = 0;
+  let distFailures = 0;
   const generator = createCloudflareAppPackageGenerator({
     model: '@cf/test/model',
     modelTransientErrorRetryDelaysMs: [0],
@@ -338,6 +339,15 @@ Deno.test('Cloudflare app package generator retries transient provider internal 
         ) {
           contentFailures += 1;
           return Promise.reject(new Error('8008: Internal server error'));
+        }
+
+        if (
+          payload.task === 'write_lantern_app_workspace_file' &&
+          payload.targetFile?.path === 'dist/index.html' &&
+          distFailures === 0
+        ) {
+          distFailures += 1;
+          return Promise.reject(new Error('3045: Unknown internal error'));
         }
 
         return Promise.resolve({
@@ -361,6 +371,7 @@ Deno.test('Cloudflare app package generator retries transient provider internal 
 
   assertEquals(result.appPlan.appId, 'phonics-match');
   assertEquals(contentFailures, 1);
+  assertEquals(distFailures, 1);
 });
 
 Deno.test('Cloudflare app package generator reads JSON-line streaming raw fragments', async () => {

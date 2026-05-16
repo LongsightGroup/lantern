@@ -500,7 +500,7 @@ Deno.test('app writer service preserves validation findings when repair provider
       return Promise.resolve(structuredClone(invalidPackage));
     },
     repair(_input) {
-      return Promise.reject(new Error('8008: Internal server error'));
+      return Promise.reject(new Error('3045: Unknown internal error'));
     },
   };
 
@@ -522,7 +522,7 @@ Deno.test('app writer service preserves validation findings when repair provider
         ]),
       }),
     AppPackageGenerationFailedError,
-    '8008: Internal server error',
+    '3045: Unknown internal error',
   );
 
   assertEquals(error.run.status, 'failed');
