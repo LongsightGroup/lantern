@@ -1839,7 +1839,9 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
       ? 'generation_model_timeout'
       : isProviderCapacityError
         ? 'generation_model_capacity_exceeded'
-        : 'generation_failed',
+        : isProviderInternalError
+          ? 'generation_model_provider_internal_error'
+          : 'generation_failed',
     severity: 'error',
     message,
     file: null,
@@ -1849,7 +1851,7 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
       : isModelOutputContractError
         ? 'Retry generation. Lantern rejects model output unless the current generation stage returns valid JSON for its contract.'
         : isProviderInternalError
-          ? 'Retry generation. The model provider returned an internal error during the current app writer stage.'
+          ? 'Retry generation. The model provider returned an internal error after Lantern used its bounded retry attempts.'
           : isProviderCapacityError
             ? 'Retry generation. The model provider reported temporary capacity exhaustion after Lantern used its bounded retry attempts.'
             : 'Check the model configuration or retry generation.',

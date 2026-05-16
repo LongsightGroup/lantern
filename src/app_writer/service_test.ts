@@ -530,7 +530,10 @@ Deno.test('app writer service preserves validation findings when repair provider
     error.run.validationFindings.some((finding) => finding.code === 'file_path_not_allowed'),
     true,
   );
-  assertEquals(error.run.validationFindings.at(-1)?.code, 'generation_failed');
+  assertEquals(
+    error.run.validationFindings.at(-1)?.code,
+    'generation_model_provider_internal_error',
+  );
   assertEquals(error.run.validationFindings.at(-1)?.detail, {
     providerError: 'internal_server_error',
   });

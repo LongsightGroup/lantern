@@ -319,6 +319,50 @@ Deno.test('Cloudflare app package generator retries transient provider capacity 
   );
 });
 
+Deno.test('Cloudflare app package generator retries transient provider internal errors', async () => {
+  let contentFailures = 0;
+  const generator = createCloudflareAppPackageGenerator({
+    model: '@cf/test/model',
+    modelTransientErrorRetryDelaysMs: [0],
+    ai: {
+      run(_model, input) {
+        const payload = JSON.parse(input.messages.at(-1)?.content ?? '{}') as {
+          task?: string;
+          targetFile?: { path?: string };
+        };
+
+        if (
+          payload.task === 'write_lantern_app_workspace_file' &&
+          payload.targetFile?.path === 'content/activity.json' &&
+          contentFailures === 0
+        ) {
+          contentFailures += 1;
+          return Promise.reject(new Error('8008: Internal server error'));
+        }
+
+        return Promise.resolve({
+          requestId: 'cf-request-1',
+          response: buildModelTextForPayload(payload),
+        });
+      },
+    },
+  });
+
+  const result = await generator.generate({
+    generationId: 'generation-1',
+    ownerId: 'instructor-1',
+    promptText: 'Create a phonics matching game.',
+    requestedAppId: 'phonics-match',
+    selectedStarterId: 'simple-activity',
+    selectedContext: {},
+    authoringMode: 'javascript',
+    createdAt: '2026-05-14T12:00:00.000Z',
+  });
+
+  assertEquals(result.appPlan.appId, 'phonics-match');
+  assertEquals(contentFailures, 1);
+});
+
 Deno.test('Cloudflare app package generator reads JSON-line streaming raw fragments', async () => {
   let firstFileText = '';
   const generator = createCloudflareAppPackageGenerator({
