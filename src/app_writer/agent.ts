@@ -279,8 +279,8 @@ export class AppWriterAgent {
     return new Workspace({
       sql,
       r2: this.env.PACKAGE_ARTIFACTS as ShellWorkspaceOptions['r2'],
-      name: () => generationId,
-      namespace: generationId,
+      name: () => toShellWorkspaceNamespace(generationId),
+      namespace: toShellWorkspaceNamespace(generationId),
     });
   }
 
@@ -671,6 +671,12 @@ function toShellPath(path: string): string {
 
 function fromShellPath(path: string): string {
   return path.replace(/^\/+/, '');
+}
+
+function toShellWorkspaceNamespace(generationId: string): string {
+  const normalized = generationId.replaceAll(/[^a-zA-Z0-9_]/g, '_');
+
+  return /^[a-zA-Z]/.test(normalized) ? normalized : `appwriter_${normalized}`;
 }
 
 function parentPath(path: string): string {
