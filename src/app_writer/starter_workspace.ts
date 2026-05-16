@@ -94,6 +94,9 @@ Rules:
 - Write only files requested by Lantern.
 - Keep the app browser-only.
 - Use window.GatewayApp as the only runtime API.
+- In TypeScript, guard window.GatewayApp before using it:
+  const gateway = window.GatewayApp;
+  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");
 - Put learner content in content/activity.json.
 - ${
     authoringMode === 'typescript'
@@ -103,6 +106,9 @@ Rules:
 - Do not use imports, package installs, external URLs, localStorage, sessionStorage, LMS APIs, Cloudflare bindings, D1, R2, Durable Objects, or raw grade passback.
 - Use stable data-test selectors for preview tests.
 - Emit GatewayApp attempt events for reportable learner actions.
+- Attempt event shapes are strict: answer events have questionId and answer,
+  progress events have checkpoint and numeric value, complete events have only
+  type and timestamp.
 - Use GatewayApp local state for resumable per-student progress when the plan declares it.
 
 Definition of Done:

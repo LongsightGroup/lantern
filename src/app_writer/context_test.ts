@@ -46,6 +46,7 @@ Deno.test('app writer context selector includes prompt-safe state and reporting 
   assert(excerpts.some((excerpt) => excerpt.id === 'state-progress-reporting'));
   assert(excerpts.some((excerpt) => excerpt.content.includes('writeLocalState()')));
   assert(excerpts.some((excerpt) => excerpt.content.includes('emitAttemptEvent()')));
+  assert(excerpts.some((excerpt) => excerpt.content.includes('complete events use only type')));
   assert(
     excerpts.every(
       (excerpt) => !excerpt.source.includes('private/') && !excerpt.content.includes('private/'),
@@ -64,6 +65,7 @@ Deno.test('app writer context selector records TypeScript authoring mode', () =>
   assertEquals(selection.selectedContext.recipe.recipeId, APP_WRITER_RECIPE_ID);
   assertEquals(selection.selectedContext.recipe.recipeVersion, APP_WRITER_RECIPE_VERSION);
   assertEquals(selection.selectedContext.recipe.authoringMode, 'typescript');
+  assertEquals(selection.selectedContext.recipe.maxRepairAttempts, 3);
   assert(
     selection.selectedContext.promptContextExcerpts.some((excerpt) =>
       excerpt.content.includes('source/app.ts'),

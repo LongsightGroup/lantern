@@ -644,6 +644,14 @@ Deno.test('Cloudflare app package generator sends selected prompt context to gen
     starterWorkspace?: { instructions?: string };
   };
   assert(filePayload.starterWorkspace?.instructions?.includes('Generated App Workspace'));
+  assert(filePayload.starterWorkspace?.instructions?.includes('complete events have only'));
+
+  const rawFilePayload = capturedPayloads.find(
+    (payload) => payload.task === 'write_lantern_app_workspace_file',
+  ) as {
+    outputContract?: unknown;
+  };
+  assert(JSON.stringify(rawFilePayload.outputContract).includes('complete events have only'));
 
   const planningPayload = capturedPayloads[0] as {
     outputContract?: {

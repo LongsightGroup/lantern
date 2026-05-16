@@ -1393,10 +1393,10 @@ function buildRawFileOutputNote(input: {
       ? 'In TypeScript mode, put typed browser app logic in source/app.ts and content interfaces in source/content_model.ts. Do not return dist/app.js; Lantern compiles source/app.ts into reviewed browser JavaScript. Do not use imports, package installs, module exports, or remote code.'
       : 'In JavaScript mode, return browser-ready JavaScript only when the requested target is dist/app.js. Do not rely on a build step, package imports, TypeScript compilation, or source files.';
   const gatewayContractRule =
-    'Use exact manifest capability strings from appPlan. The SDK method is emitAttemptEvent(), but the manifest capability is submit_attempt_event; never write emit_attempt_event. Attempt events use camelCase SDK fields: type, questionId, answer, checkpoint, value, and timestamp. Do not use event_type or question_id. finalizeAttempt accepts completionState, not score or completed fields.';
+    'Use exact manifest capability strings from appPlan. The SDK method is emitAttemptEvent(), but the manifest capability is submit_attempt_event; never write emit_attempt_event. Attempt event shapes are strict: answer events have type, questionId, answer, and timestamp; progress events have type, checkpoint, numeric value, and timestamp; complete events have only type and timestamp. Do not use event_type or question_id. finalizeAttempt accepts completionState, not score or completed fields.';
   const strictTypeScriptRule =
     input.authoringMode === 'typescript'
-      ? 'TypeScript is strict: narrow nulls from readLocalState before helpers capture state, and assign a non-null typed state object before reading or mutating nested fields.'
+      ? 'TypeScript is strict: guard window.GatewayApp before use, narrow nulls from readLocalState before helpers capture state, and assign a non-null typed state object before reading or mutating nested fields.'
       : '';
 
   return `${input.target.purpose} Keep this file consistent with already-written workspace files and the validated app plan. Return a full replacement file, not a diff. ${typeScriptRule} ${gatewayContractRule} ${strictTypeScriptRule}`;
