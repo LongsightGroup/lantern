@@ -21,7 +21,7 @@ const SSE_RETRY_MS = 2000;
 const SSE_POLL_INTERVAL_MS = 2000;
 const SSE_MAX_POLLS = 30;
 const SHELL_CODE_ATTEMPT_LIMIT = 3;
-const MODEL_TEXT_TIMEOUT_MS = 120000;
+const MODEL_TEXT_TIMEOUT_MS = 300000;
 const WORKSPACE_FILE_GLOB = '/**/*';
 
 type WorkspaceConstructor = (typeof import('@cloudflare/shell'))['Workspace'];
@@ -290,23 +290,25 @@ export class AppWriterAgent {
     prompt: Record<string, unknown>;
   }): Promise<{ notes: string[] }> {
     const executor = await this.createExecutor();
-    const { resolveProvider } = await import('@cloudflare/codemode');
+    const { normalizeCode, resolveProvider } = await import('@cloudflare/codemode');
     const { stateTools } = await import('@cloudflare/shell/workers');
+    const stateProvider = stateTools(input.workspace);
     const failures: Array<{ code: string; error: string; logs: string[] }> = [];
 
     for (let attempt = 1; attempt <= SHELL_CODE_ATTEMPT_LIMIT; attempt += 1) {
-      const code = await this.runModelText({
-        messages: buildWorkspaceCodeMessages({
-          prompt: input.prompt,
-          stage: input.stage,
-          attempt,
-          failures,
+      const code = normalizeCode(
+        await this.runModelText({
+          messages: buildWorkspaceCodeMessages({
+            prompt: input.prompt,
+            stage: input.stage,
+            attempt,
+            failures,
+            toolTypes: readToolProviderTypes(stateProvider),
+          }),
+          stage: `${input.stage} code attempt ${attempt}`,
         }),
-        stage: `${input.stage} code attempt ${attempt}`,
-      });
-      const execution = await executor.execute(code, [
-        resolveProvider(stateTools(input.workspace)),
-      ]);
+      );
+      const execution = await executor.execute(code, [resolveProvider(stateProvider)]);
 
       if (execution.error === undefined) {
         return {
@@ -526,27 +528,34 @@ function buildWorkspaceCodeMessages(input: {
   stage: 'author' | 'repair';
   attempt: number;
   failures: ReadonlyArray<{ code: string; error: string; logs: readonly string[] }>;
+  toolTypes: string;
 }): CloudflareAiMessage[] {
   return [
     {
       role: 'system',
       content:
-        'You are Lantern App Writer running in code mode. Return only an async JavaScript function. The function may use the provided state.* filesystem API to inspect and edit the real Lantern workspace. Do not use fetch, imports, package installs, LMS APIs, Cloudflare bindings, localStorage, sessionStorage, or backend code.',
+        'You are Lantern App Writer running in Code Mode. Return only JavaScript for one async arrow function. The function edits the real Lantern workspace with state.* filesystem tools. Do not return Markdown, prose, JSON, imports, package installs, fetch, LMS APIs, Cloudflare bindings, localStorage, sessionStorage, or backend code.',
     },
     {
       role: 'user',
-      content: JSON.stringify({
-        stage: input.stage,
-        attempt: input.attempt,
-        workspaceApi:
-          'Use state.readFile, state.writeFile, state.writeJson, state.glob, state.readdir, state.searchFiles, and state.replaceInFile as needed.',
-        requiredReturn:
-          'Return a small JSON-serializable summary from the async function after edits are complete.',
-        prompt: input.prompt,
-        previousExecutionFailures: input.failures,
-      }),
+      content: [
+        `Stage: ${input.stage}`,
+        `Attempt: ${input.attempt}`,
+        'Return shape: async () => { /* edit files with state.* */ return { edited: string[] }; }',
+        'State tool types:',
+        input.toolTypes,
+        'Lantern authoring request:',
+        JSON.stringify(input.prompt, null, 2),
+        input.failures.length === 0
+          ? 'Previous execution failures: none'
+          : `Previous execution failures:\n${JSON.stringify(input.failures, null, 2)}`,
+      ].join('\n\n'),
     },
   ];
+}
+
+function readToolProviderTypes(provider: { types?: unknown }): string {
+  return typeof provider.types === 'string' ? provider.types : 'declare const state: unknown;';
 }
 
 function summarizeWorkspaceFiles(
