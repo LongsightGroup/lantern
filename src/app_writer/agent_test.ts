@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { AppWriterAgent } from './agent.ts';
+import { AppWriterAgent, normalizeCloudflareAiResponseText } from './agent.ts';
 
 Deno.test('app writer Agent stores observed Workflow session state', async () => {
   const agent = new AppWriterAgent(createMemoryDurableObjectState(), {});
@@ -50,6 +50,31 @@ Deno.test('app writer Agent exposes an SSE snapshot stream', async () => {
   assertEquals(response.headers.get('content-type'), 'text/event-stream; charset=UTF-8');
   assertStringIncludes(body, 'event: snapshot');
   assertStringIncludes(body, '"generationId":"generation-1"');
+});
+
+Deno.test('app writer Agent normalizes string SSE model responses before Code Mode', () => {
+  const body = [
+    'event: message',
+    'data: {"response":"async () => {"}',
+    '',
+    'data: {"response":"\\n  await state.writeFile(\\"/manifest.json\\", \\"{}\\");"}',
+    '',
+    'data: {"response":"\\n  return { edited: [\\"manifest.json\\"] };\\n}"}',
+    '',
+    'data: [DONE]',
+    '',
+  ].join('\n');
+
+  assertEquals(
+    normalizeCloudflareAiResponseText(body),
+    'async () => {\n  await state.writeFile("/manifest.json", "{}");\n  return { edited: ["manifest.json"] };\n}',
+  );
+});
+
+Deno.test('app writer Agent leaves plain code model responses unchanged', () => {
+  const code = 'async () => ({ edited: [] })';
+
+  assertEquals(normalizeCloudflareAiResponseText(code), code);
 });
 
 function createMemoryDurableObjectState() {

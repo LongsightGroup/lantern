@@ -585,7 +585,7 @@ function readWorkspaceFile(files: readonly AppWriterWorkspaceFile[], path: strin
 
 async function readCloudflareAiResponseText(response: unknown): Promise<string> {
   if (typeof response === 'string') {
-    return response;
+    return normalizeCloudflareAiResponseText(response);
   }
 
   if (response instanceof ReadableStream) {
@@ -600,7 +600,7 @@ async function readCloudflareAiResponseText(response: unknown): Promise<string> 
     const record = response as Record<string, unknown>;
 
     if (typeof record.response === 'string') {
-      return record.response;
+      return normalizeCloudflareAiResponseText(record.response);
     }
 
     if (record.response instanceof ReadableStream) {
@@ -609,6 +609,14 @@ async function readCloudflareAiResponseText(response: unknown): Promise<string> 
   }
 
   throw new Error('Workers AI response did not contain text.');
+}
+
+export function normalizeCloudflareAiResponseText(text: string): string {
+  if (!looksLikeServerSentEvents(text)) {
+    return text;
+  }
+
+  return readAiResponseEvents(text);
 }
 
 async function readAiResponseStream(stream: ReadableStream): Promise<string> {
@@ -633,20 +641,41 @@ async function readAiResponseStream(stream: ReadableStream): Promise<string> {
   }
 }
 
+function readAiResponseEvents(text: string): string {
+  let output = '';
+  const events = text.split(/\r?\n\r?\n/);
+
+  for (const event of events) {
+    output += parseAiStreamEvent(event);
+  }
+
+  return output;
+}
+
+function looksLikeServerSentEvents(text: string): boolean {
+  return text.split(/\r?\n/).some((line) => {
+    const normalized = line.trimStart();
+
+    return normalized.startsWith('data:') || normalized.startsWith('event:');
+  });
+}
+
 function parseAiStreamEvent(event: string): string {
   if (event === '') {
     return '';
   }
 
-  const dataLines = event
-    .split(/\r?\n/)
-    .map((line) => line.trimStart())
-    .filter((line) => line.startsWith('data:'))
+  const lines = event.split(/\r?\n/).map((line) => line.trimStart());
+  const hasServerSentEventFields = lines.some(
+    (line) => line.startsWith('event:') || line.startsWith('data:'),
+  );
+  const rawDataLines = lines.filter((line) => line.startsWith('data:'));
+  const dataLines = rawDataLines
     .map((line) => line.replace(/^data:\s?/, '').trim())
     .filter((line) => line !== '' && line !== '[DONE]');
 
   if (dataLines.length === 0) {
-    return event;
+    return hasServerSentEventFields ? '' : event;
   }
 
   return dataLines
