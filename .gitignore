@@ -6,5 +6,5 @@ var/attempt-evidence/
 var/authoring-drafts/
 .playwright-cli/
 .wrangler/
-output/worker.bundle.mjs
+output/
 .planning

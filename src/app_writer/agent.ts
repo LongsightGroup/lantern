@@ -22,6 +22,7 @@ const SSE_RETRY_MS = 2000;
 const SSE_POLL_INTERVAL_MS = 2000;
 const SSE_MAX_POLLS = 30;
 const SHELL_CODE_ATTEMPT_LIMIT = 3;
+const MODEL_TEXT_TIMEOUT_MS = 120000;
 const WORKSPACE_FILE_GLOB = '/**/*';
 
 type WorkspaceConstructor = (typeof import('@cloudflare/shell'))['Workspace'];
@@ -58,7 +59,6 @@ interface CloudflareAiBinding {
     model: string,
     input: {
       messages: CloudflareAiMessage[];
-      response_format?: { type: 'json_object' };
       stream?: true;
     },
   ): Promise<unknown>;
@@ -227,7 +227,7 @@ export class AppWriterAgent {
           }),
         },
       ],
-      responseFormat: 'json',
+      stage: 'planning',
     });
 
     return parseAppGenerationPlanningResultJson(text);
@@ -335,6 +335,7 @@ export class AppWriterAgent {
           attempt,
           failures,
         }),
+        stage: `${input.stage} code attempt ${attempt}`,
       });
       const execution = await executor.execute(code, [
         resolveProvider(stateTools(input.workspace)),
@@ -380,7 +381,7 @@ export class AppWriterAgent {
 
   private async runModelText(input: {
     messages: CloudflareAiMessage[];
-    responseFormat?: 'json';
+    stage: string;
   }): Promise<string> {
     const ai = this.env.AI;
 
@@ -394,13 +395,37 @@ export class AppWriterAgent {
       throw new Error('App writer shell harness requires APP_WRITER_MODEL.');
     }
 
-    return await readCloudflareAiResponseText(
-      await ai.run(model, {
-        messages: input.messages,
-        stream: true,
-        ...(input.responseFormat === 'json' ? { response_format: { type: 'json_object' } } : {}),
-      }),
+    return await withTimeout(
+      (async () => {
+        const response = await ai.run(model, {
+          messages: input.messages,
+          stream: true,
+        });
+
+        return await readCloudflareAiResponseText(response);
+      })(),
+      MODEL_TEXT_TIMEOUT_MS,
+      `Cloudflare AI model request timed out during app writer ${input.stage}.`,
     );
+  }
+}
+
+async function withTimeout<T>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
@@ -592,6 +617,10 @@ async function readCloudflareAiResponseText(response: unknown): Promise<string> 
     return await readAiResponseStream(response);
   }
 
+  if (response instanceof Response && response.body !== null) {
+    return await readAiResponseStream(response.body);
+  }
+
   if (typeof response === 'object' && response !== null) {
     const record = response as Record<string, unknown>;
 
@@ -623,11 +652,17 @@ async function readAiResponseStream(stream: ReadableStream): Promise<string> {
 }
 
 function parseAiStreamChunk(chunk: string): string {
-  return chunk
+  const dataLines = chunk
     .split(/\r?\n/)
     .filter((line) => line.startsWith('data: '))
     .map((line) => line.slice('data: '.length).trim())
-    .filter((line) => line !== '' && line !== '[DONE]')
+    .filter((line) => line !== '' && line !== '[DONE]');
+
+  if (dataLines.length === 0) {
+    return chunk;
+  }
+
+  return dataLines
     .map((line) => {
       try {
         const parsed = JSON.parse(line) as {
