@@ -1,5 +1,9 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { AppWriterAgent, normalizeCloudflareAiResponseText } from './agent.ts';
+import {
+  AppWriterAgent,
+  normalizeCloudflareAiResponseText,
+  normalizeWorkspaceCodeForExecution,
+} from './agent.ts';
 
 Deno.test('app writer Agent stores observed Workflow session state', async () => {
   const agent = new AppWriterAgent(createMemoryDurableObjectState(), {});
@@ -75,6 +79,18 @@ Deno.test('app writer Agent leaves plain code model responses unchanged', () => 
   const code = 'async () => ({ edited: [] })';
 
   assertEquals(normalizeCloudflareAiResponseText(code), code);
+});
+
+Deno.test('app writer Agent removes top-level arrow semicolon before Code Mode execution', () => {
+  const normalized = normalizeWorkspaceCodeForExecution(
+    'ignored',
+    () => 'async () => {\n  await state.writeFile({ path: "/manifest.json", contents: "{}" });\n};',
+  );
+
+  assertEquals(
+    normalized,
+    'async () => {\n  await state.writeFile({ path: "/manifest.json", contents: "{}" });\n}',
+  );
 });
 
 function createMemoryDurableObjectState() {

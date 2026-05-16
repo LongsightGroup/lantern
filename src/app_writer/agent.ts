@@ -309,7 +309,7 @@ export class AppWriterAgent {
       let code: string;
 
       try {
-        code = normalizeCode(rawCode);
+        code = normalizeWorkspaceCodeForExecution(rawCode, normalizeCode);
       } catch (error) {
         failures.push({
           code: rawCode,
@@ -619,6 +619,13 @@ export function normalizeCloudflareAiResponseText(text: string): string {
   return readAiResponseEvents(text);
 }
 
+export function normalizeWorkspaceCodeForExecution(
+  rawCode: string,
+  normalizeCode: (code: string) => string,
+): string {
+  return stripTrailingArrowFunctionSemicolon(normalizeCode(rawCode));
+}
+
 async function readAiResponseStream(stream: ReadableStream): Promise<string> {
   const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
   let output = '';
@@ -658,6 +665,20 @@ function looksLikeServerSentEvents(text: string): boolean {
 
     return normalized.startsWith('data:') || normalized.startsWith('event:');
   });
+}
+
+function stripTrailingArrowFunctionSemicolon(code: string): string {
+  const trimmed = code.trim();
+
+  if (!trimmed.endsWith(';') || !looksLikeArrowFunctionExpression(trimmed)) {
+    return code;
+  }
+
+  return trimmed.slice(0, -1);
+}
+
+function looksLikeArrowFunctionExpression(code: string): boolean {
+  return /^(?:async\s+)?(?:\([^)]*\)|[a-zA-Z_$][\w$]*)\s*=>[\s\S]*;\s*$/.test(code);
 }
 
 function parseAiStreamEvent(event: string): string {
