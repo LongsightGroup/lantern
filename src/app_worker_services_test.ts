@@ -503,6 +503,10 @@ Deno.test('worker services use a platform app previewer binding when configured'
                   },
                 },
               ],
+              assertionCount: 1,
+              passedAssertionCount: 0,
+              runtimeLog: [],
+              summary: 'Failed 1/1 preview assertions.',
             }),
           );
         },
@@ -511,7 +515,7 @@ Deno.test('worker services use a platform app previewer binding when configured'
     env,
   );
 
-  const findings = await services.appPackagePreviewer.preview({
+  const result = await services.appPackagePreviewer.preview({
     generationId: 'generation-1',
     selectedStarterId: 'simple-activity',
     files: [
@@ -526,7 +530,8 @@ Deno.test('worker services use a platform app previewer binding when configured'
   };
 
   assertEquals(requestBody.generationId, 'generation-1');
-  assertEquals(findings[0]?.code, 'preview_assertion_failed');
+  assertEquals(result.validationFindings[0]?.code, 'preview_assertion_failed');
+  assertEquals(result.summary, 'Failed 1/1 preview assertions.');
 });
 
 Deno.test('worker services fail clearly when app generation Workflow is not bound', async () => {

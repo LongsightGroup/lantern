@@ -193,9 +193,9 @@ export async function preparePreviewSession(input: {
   const createOpaqueToken = input.createOpaqueToken ?? defaultOpaqueToken;
   const packageVersion = input.packageVersion;
 
-  if (packageVersion.approvalStatus !== 'approved') {
+  if (packageVersion.approvalStatus === 'rejected') {
     throw new Error(
-      `Test launch requires an approved package version. Found ${packageVersion.appId}@${packageVersion.version} in ${packageVersion.approvalStatus} state.`,
+      `Test launch is unavailable for rejected package version ${packageVersion.appId}@${packageVersion.version}.`,
     );
   }
 

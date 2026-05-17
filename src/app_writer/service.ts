@@ -1,4 +1,9 @@
-import { type AppWriterContextSelection, selectAppWriterContext } from './context.ts';
+import {
+  type AppWriterContextSelection,
+  readAppWriterRevisionContext,
+  selectAppWriterContext,
+  selectAppWriterRevisionContext,
+} from './context.ts';
 import {
   validateGeneratedAppPackage,
   validateGeneratedAppPackagePlanAlignment,
@@ -15,6 +20,7 @@ import type {
   AppPackageGenerationInput,
   AppPackageGenerationResult,
   AppPackagePreviewer,
+  AppPackagePreviewResult,
   AppPackageSourceCompiler,
   AppWriterAuthoringMode,
   AppWriterWorkspaceFile,
@@ -23,6 +29,7 @@ import { hasTypeScriptAuthoringSource } from './source_compiler.ts';
 import { APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS } from './recipe.ts';
 import { normalizeGenerationPlan, updateGenerationPlanStep } from './generation_plan.ts';
 import type { AppWriterWorkspaceRunner } from './workspace_runner.ts';
+import { AppWriterWorkspaceHarnessError } from './workspace_runner.ts';
 import {
   mergeWorkspaceFiles,
   selectNonPackageWorkspaceFiles,
@@ -32,7 +39,10 @@ import type { ImportedPackageVersion } from '../package_review/intake.ts';
 import type { PackageSource } from '../package_review/package_source.ts';
 import { createMemoryPackageSource } from '../package_review/package_source.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
+import type { PackageSnapshotStore } from '../package_review/snapshot_store.ts';
 import type { AuditEventStatus, PackageVersionRecord } from '../package_review/types.ts';
+import { LANTERN_APP_CSS } from '../styles/lantern_app_css.ts';
+import { PICO_CSS } from '../styles/pico_css.ts';
 
 const TYPESCRIPT_AUTHORING_SOURCE_PATHS = new Set(['source/app.ts', 'source/content_model.ts']);
 
@@ -48,6 +58,7 @@ export interface RunAppPackageGenerationInput {
     | 'getAppGenerationRunById'
   >;
   workspaceRunner: AppWriterWorkspaceRunner;
+  packageSnapshotStore?: PackageSnapshotStore;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: {
@@ -102,8 +113,10 @@ export interface StartedAppPackageGenerationRun {
 
 export interface ContinueAppPackageGenerationRunInput {
   repository: RunAppPackageGenerationInput['repository'] &
-    Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
+    Pick<PackageReviewRepository, 'getAppGenerationRunById'> &
+    Partial<Pick<PackageReviewRepository, 'getPackageVersionById'>>;
   workspaceRunner: AppWriterWorkspaceRunner;
+  packageSnapshotStore?: PackageSnapshotStore;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: RunAppPackageGenerationInput['savePackage'];
@@ -171,6 +184,70 @@ export async function startAppPackageGenerationRun(
   };
 }
 
+export async function startAppPackageRevisionRun(
+  input: RunAppPackageGenerationInput & {
+    sourcePackageVersion: PackageVersionRecord;
+    targetVersion: string;
+  },
+): Promise<StartedAppPackageGenerationRun> {
+  const now = input.now ?? (() => new Date().toISOString());
+  const createdAt = now();
+  const maxRepairAttempts = input.maxRepairAttempts ?? APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS;
+  const authoringMode =
+    input.authoringMode ?? selectAuthoringModeForGeneration(input.sourceCompiler);
+  const contextSelection = selectAppWriterRevisionContext({
+    promptText: input.promptText,
+    sourcePackageVersion: input.sourcePackageVersion,
+    targetVersion: input.targetVersion,
+    authoringMode,
+    maxRepairAttempts,
+  });
+  const revisionPromptText = formatRevisionPromptText({
+    promptText: input.promptText,
+    sourcePackageVersion: input.sourcePackageVersion,
+    targetVersion: input.targetVersion,
+  });
+  const run = await input.repository.createAppGenerationRun(
+    buildInitialGenerationRun({
+      generationId: input.generationId,
+      ownerId: input.ownerId,
+      promptText: revisionPromptText,
+      requestedAppId: input.sourcePackageVersion.appId,
+      contextSelection,
+      createdAt,
+    }),
+  );
+  await recordGenerationActivity({
+    repository: input.repository,
+    run,
+    eventType: 'app_generation.started',
+    status: 'accepted',
+    summary: `Started an app writer revision run from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version}.`,
+    detail: {
+      revisionSourcePackageVersionId: input.sourcePackageVersion.id,
+      revisionSourceVersion: input.sourcePackageVersion.version,
+      revisionTargetVersion: input.targetVersion,
+    },
+  });
+
+  return {
+    run,
+    continueGeneration: () =>
+      continueStartedAppPackageGeneration({
+        input: {
+          ...input,
+          promptText: revisionPromptText,
+          requestedAppId: input.sourcePackageVersion.appId,
+        },
+        now,
+        createdAt,
+        requestedAppId: input.sourcePackageVersion.appId,
+        contextSelection,
+        run,
+      }),
+  };
+}
+
 export async function initializeAppPackageGenerationRun(
   input: ContinueAppPackageGenerationRunInput,
 ): Promise<InitializedAppPackageGenerationRun> {
@@ -213,6 +290,11 @@ export async function initializeAppPackageGenerationRun(
     generationId: run.generationId,
     contextSelection,
     initializedAt: run.updatedAt,
+    ...(await buildRevisionSourceFilesIfNeeded({
+      repository: input.repository,
+      packageSnapshotStore: input.packageSnapshotStore,
+      contextSelection,
+    })),
   });
   const savedWorkspace = await input.repository.saveAppGenerationWorkspace(initializedWorkspace);
 
@@ -259,6 +341,9 @@ export async function continueAppPackageGenerationRun(
   const continuationInput: RunAppPackageGenerationInput = {
     repository: input.repository,
     workspaceRunner: input.workspaceRunner,
+    ...(input.packageSnapshotStore === undefined
+      ? {}
+      : { packageSnapshotStore: input.packageSnapshotStore }),
     generationId: run.generationId,
     ownerId: run.ownerId,
     promptText: run.promptText,
@@ -372,6 +457,7 @@ export async function finishGeneratedAppPackageRun(input: {
   repository: RunAppPackageGenerationInput['repository'] &
     Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
   workspaceRunner: AppWriterWorkspaceRunner;
+  packageSnapshotStore?: PackageSnapshotStore;
   previewer?: AppPackagePreviewer;
   sourceCompiler?: AppPackageSourceCompiler;
   savePackage?: RunAppPackageGenerationInput['savePackage'];
@@ -402,6 +488,9 @@ export async function finishGeneratedAppPackageRun(input: {
       input: {
         repository: input.repository,
         workspaceRunner: input.workspaceRunner,
+        ...(input.packageSnapshotStore === undefined
+          ? {}
+          : { packageSnapshotStore: input.packageSnapshotStore }),
         generationId: input.generated.generatorInput.generationId,
         ownerId: input.generated.generatorInput.ownerId,
         promptText: input.generated.generatorInput.promptText,
@@ -454,6 +543,9 @@ async function continueStartedAppPackageGeneration(continuation: {
     const initialized = await initializeAppPackageGenerationRun({
       repository: input.repository,
       workspaceRunner: input.workspaceRunner,
+      ...(input.packageSnapshotStore === undefined
+        ? {}
+        : { packageSnapshotStore: input.packageSnapshotStore }),
       ...(input.previewer === undefined ? {} : { previewer: input.previewer }),
       ...(input.sourceCompiler === undefined ? {} : { sourceCompiler: input.sourceCompiler }),
       ...(input.savePackage === undefined ? {} : { savePackage: input.savePackage }),
@@ -606,7 +698,7 @@ async function planInitialPackage(input: {
       appPlan: planning.appPlan,
       selectedStarterId: planning.selectedStarterId,
       generatedAppId: planning.appPlan.appId,
-      generatedVersion: '0.1.0',
+      generatedVersion: targetVersionForContext(input.contextSelection),
       modelRequestMetadata: [...run.modelRequestMetadata, ...(planning.modelRequestMetadata ?? [])],
       generationNotes: [...planning.notes],
       validationFindings: [starterFinding],
@@ -645,7 +737,7 @@ async function planInitialPackage(input: {
     appPlan: planning.appPlan,
     selectedStarterId: planning.selectedStarterId,
     generatedAppId: planning.appPlan.appId,
-    generatedVersion: '0.1.0',
+    generatedVersion: targetVersionForContext(input.contextSelection),
     modelRequestMetadata: [...run.modelRequestMetadata, ...(planning.modelRequestMetadata ?? [])],
     generationNotes: [...planning.notes],
     updatedAt: input.now(),
@@ -882,7 +974,7 @@ async function finishGeneratedPackage(input: {
         appPlan: generation.appPlan,
         selectedStarterId: generation.selectedStarterId,
         generatedAppId: generation.appPlan.appId,
-        generatedVersion: '0.1.0',
+        generatedVersion: targetVersionForContext(input.contextSelection),
         modelRequestMetadata: appendModelRequestMetadata(run, generation),
         generationNotes: [...generation.notes],
         validationFindings: [starterFinding, ...generation.validationFindings],
@@ -964,6 +1056,10 @@ async function finishGeneratedPackage(input: {
 
     const validationFindings = [
       ...generation.validationFindings,
+      ...validateRevisionPackageIdentity({
+        contextSelection: input.contextSelection,
+        files: generation.files,
+      }),
       ...validateGeneratedAppPackagePlanAlignment({
         appPlan: generation.appPlan,
         files: generation.files,
@@ -991,7 +1087,7 @@ async function finishGeneratedPackage(input: {
       appPlan: generation.appPlan,
       selectedStarterId: generation.selectedStarterId,
       generatedAppId: generation.appPlan.appId,
-      generatedVersion: '0.1.0',
+      generatedVersion: targetVersionForContext(input.contextSelection),
       modelRequestMetadata: appendModelRequestMetadata(run, generation),
       generationNotes: [...generation.notes],
       validationFindings,
@@ -1168,6 +1264,10 @@ function buildContextSelectionFromRun(run: AppGenerationRunRecord): AppWriterCon
   };
 }
 
+function targetVersionForContext(contextSelection: AppWriterContextSelection): string {
+  return readAppWriterRevisionContext(contextSelection.selectedContext)?.targetVersion ?? '0.1.0';
+}
+
 function buildGeneratorInputFromRun(
   run: Pick<
     AppGenerationRunRecord,
@@ -1191,6 +1291,284 @@ function buildGeneratorInputFromRun(
     authoringMode: contextSelection.selectedContext.authoringMode,
     createdAt: run.createdAt,
   };
+}
+
+function validateRevisionPackageIdentity(input: {
+  contextSelection: AppWriterContextSelection;
+  files: readonly AppWriterWorkspaceFile[];
+}): AppGenerationValidationFinding[] {
+  const revision = readAppWriterRevisionContext(input.contextSelection.selectedContext);
+
+  if (revision === null) {
+    return [];
+  }
+
+  const manifestFile = selectPackageWorkspaceFiles(input.files).find(
+    (file) => file.path === 'manifest.json',
+  );
+
+  if (manifestFile === undefined) {
+    return [];
+  }
+
+  let manifest: Record<string, unknown>;
+
+  try {
+    const parsed = JSON.parse(manifestFile.contents) as unknown;
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return [];
+    }
+
+    manifest = parsed as Record<string, unknown>;
+  } catch {
+    return [];
+  }
+
+  const findings: AppGenerationValidationFinding[] = [];
+
+  if (manifest.app_id !== revision.sourceAppId) {
+    findings.push({
+      code: 'revision_manifest_app_id_changed',
+      severity: 'error',
+      message: `Revision manifest app_id must remain ${revision.sourceAppId}.`,
+      file: 'manifest.json',
+      field: '/app_id',
+      fix: `Set manifest app_id back to ${revision.sourceAppId}.`,
+      detail: {
+        expected: revision.sourceAppId,
+        actual: typeof manifest.app_id === 'string' ? manifest.app_id : null,
+      },
+    });
+  }
+
+  if (manifest.version !== revision.targetVersion) {
+    findings.push({
+      code: 'revision_manifest_version_mismatch',
+      severity: 'error',
+      message: `Revision manifest version must be ${revision.targetVersion}.`,
+      file: 'manifest.json',
+      field: '/version',
+      fix: `Set manifest version to ${revision.targetVersion}.`,
+      detail: {
+        sourceVersion: revision.sourceVersion,
+        expected: revision.targetVersion,
+        actual: typeof manifest.version === 'string' ? manifest.version : null,
+      },
+    });
+  }
+
+  return findings;
+}
+
+async function buildRevisionSourceFilesIfNeeded(input: {
+  repository: Partial<Pick<PackageReviewRepository, 'getPackageVersionById'>>;
+  packageSnapshotStore: PackageSnapshotStore | undefined;
+  contextSelection: AppWriterContextSelection;
+}): Promise<{ revisionSourceFiles?: AppWriterWorkspaceFile[] }> {
+  const revision = readAppWriterRevisionContext(input.contextSelection.selectedContext);
+
+  if (revision === null) {
+    return {};
+  }
+
+  if (input.packageSnapshotStore === undefined) {
+    throw new Error(
+      'App Writer revision initialization requires package snapshot storage so Lantern can load the previous reviewed package.',
+    );
+  }
+
+  const getPackageVersionById = input.repository.getPackageVersionById;
+
+  if (getPackageVersionById === undefined) {
+    throw new Error(
+      'App Writer revision initialization requires package version lookup so Lantern can load the previous package.',
+    );
+  }
+
+  const packageVersion = await getPackageVersionById(revision.sourcePackageVersionId);
+
+  if (packageVersion === null) {
+    throw new Error(
+      `Revision source package version ${revision.sourcePackageVersionId} was not found.`,
+    );
+  }
+
+  if (
+    packageVersion.appId !== revision.sourceAppId ||
+    packageVersion.version !== revision.sourceVersion
+  ) {
+    throw new Error(
+      `Revision source package ${packageVersion.appId}@${packageVersion.version} did not match the recorded source ${revision.sourceAppId}@${revision.sourceVersion}.`,
+    );
+  }
+
+  const files = await loadRevisionSourcePackageFiles({
+    packageSnapshotStore: input.packageSnapshotStore,
+    packageVersion,
+    targetVersion: revision.targetVersion,
+  });
+
+  return { revisionSourceFiles: files };
+}
+
+async function loadRevisionSourcePackageFiles(input: {
+  packageSnapshotStore: PackageSnapshotStore;
+  packageVersion: PackageVersionRecord;
+  targetVersion: string;
+}): Promise<AppWriterWorkspaceFile[]> {
+  const snapshotRoot = input.packageVersion.artifact.snapshotRoot;
+  const paths = await input.packageSnapshotStore.listFiles(snapshotRoot);
+  const files: AppWriterWorkspaceFile[] = [];
+  const seenPaths = new Set<string>();
+
+  for (const path of paths) {
+    const bytes = await input.packageSnapshotStore.readBytes(snapshotRoot, path);
+    const contents = decodeRevisionSourceFile({
+      path,
+      bytes,
+    });
+    seenPaths.add(path);
+
+    files.push({
+      path,
+      role: 'package',
+      contents: rewriteRevisionSourceFile({
+        path,
+        contents,
+        appId: input.packageVersion.appId,
+        targetVersion: input.targetVersion,
+      }),
+    });
+  }
+
+  if (!files.some((file) => file.path === 'manifest.json')) {
+    throw new Error(
+      `Revision source package ${input.packageVersion.appId}@${input.packageVersion.version} is missing manifest.json.`,
+    );
+  }
+
+  if (!seenPaths.has('dist/pico.min.css')) {
+    files.push({
+      path: 'dist/pico.min.css',
+      role: 'package',
+      contents: PICO_CSS,
+    });
+  }
+
+  if (!seenPaths.has('dist/lantern-app.css')) {
+    files.push({
+      path: 'dist/lantern-app.css',
+      role: 'package',
+      contents: LANTERN_APP_CSS,
+    });
+  }
+
+  if (!seenPaths.has('dist/app.css')) {
+    files.push({
+      path: 'dist/app.css',
+      role: 'package',
+      contents:
+        '/* App-specific styles only. Pico and Lantern base styles are reviewed files. */\n',
+    });
+  }
+
+  return files.sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function rewriteRevisionSourceFile(input: {
+  path: string;
+  contents: string;
+  appId: string;
+  targetVersion: string;
+}): string {
+  switch (input.path) {
+    case 'manifest.json':
+      return rewriteRevisionManifest({
+        contents: input.contents,
+        appId: input.appId,
+        targetVersion: input.targetVersion,
+      });
+    case 'dist/index.html':
+      return ensureReviewedStylesheetLinks(input.contents);
+    case 'dist/pico.min.css':
+      return PICO_CSS;
+    case 'dist/lantern-app.css':
+      return LANTERN_APP_CSS;
+    default:
+      return input.contents;
+  }
+}
+
+function ensureReviewedStylesheetLinks(html: string): string {
+  const requiredLinks = [
+    {
+      href: './pico.min.css',
+      html: '<link rel="stylesheet" href="./pico.min.css">',
+    },
+    {
+      href: './lantern-app.css',
+      html: '<link rel="stylesheet" href="./lantern-app.css">',
+    },
+    { href: './app.css', html: '<link rel="stylesheet" href="./app.css">' },
+  ];
+  const missingLinks = requiredLinks.filter((link) => !hasStylesheetLink(html, link.href));
+
+  if (missingLinks.length === 0) {
+    return html;
+  }
+
+  const insertion = missingLinks.map((link) => link.html).join('');
+  const rewritten = html.replace(/<head([^>]*)>/i, `<head$1>${insertion}`);
+
+  if (rewritten === html) {
+    throw new Error('Revision source dist/index.html must contain a <head> element.');
+  }
+
+  return rewritten;
+}
+
+function hasStylesheetLink(html: string, href: string): boolean {
+  const escapedHref = href.replace('.', '\\.');
+  const optionalDotSlash = escapedHref.startsWith('\\./')
+    ? `(?:\\./)?${escapedHref.slice(3)}`
+    : escapedHref;
+  return new RegExp(
+    `<link\\b[^>]*\\brel=["']stylesheet["'][^>]*\\bhref=["']${optionalDotSlash}["']`,
+    'i',
+  ).test(html);
+}
+
+function decodeRevisionSourceFile(input: { path: string; bytes: Uint8Array }): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(input.bytes);
+  } catch {
+    throw new Error(
+      `Revision source package file ${input.path} is not UTF-8 text. App Writer revisions require text package files.`,
+    );
+  }
+}
+
+function rewriteRevisionManifest(input: {
+  contents: string;
+  appId: string;
+  targetVersion: string;
+}): string {
+  const parsed = JSON.parse(input.contents) as unknown;
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Revision source manifest.json must be a JSON object.');
+  }
+
+  return `${JSON.stringify(
+    {
+      ...(parsed as Record<string, unknown>),
+      app_id: input.appId,
+      version: input.targetVersion,
+    },
+    null,
+    2,
+  )}\n`;
 }
 
 function selectAuthoringModeForGeneration(
@@ -1238,6 +1616,8 @@ async function failGenerationRun(input: {
   const failedRun = await input.repository.updateAppGenerationRun({
     ...input.run,
     status: 'failed',
+    modelRequestMetadata: appendModelRequestMetadataFromError(input.run, input.error),
+    generationNotes: appendGenerationNotesFromError(input.run, input.error),
     validationFindings: [
       ...input.run.validationFindings,
       buildGenerationFailedFinding(input.error),
@@ -1383,9 +1763,15 @@ async function runPreviewIfConfigured(
   input: RunAppPackageGenerationInput,
   contextSelection: AppWriterContextSelection,
   generation: AppPackageGenerationResult,
-): Promise<AppGenerationValidationFinding[]> {
+): Promise<AppPackagePreviewResult> {
   if (input.previewer === undefined) {
-    return [];
+    return {
+      validationFindings: [],
+      assertionCount: 0,
+      passedAssertionCount: 0,
+      runtimeLog: [],
+      summary: 'Preview is not configured.',
+    };
   }
 
   return await input.previewer.preview({
@@ -1446,6 +1832,8 @@ async function failRepairingGenerationRun(input: {
   const failedRun = await input.repository.updateAppGenerationRun({
     ...input.run,
     status: 'failed',
+    modelRequestMetadata: appendModelRequestMetadataFromError(input.run, input.error),
+    generationNotes: appendGenerationNotesFromError(input.run, input.error),
     validationFindings: [...input.run.validationFindings, failedFinding],
     updatedAt: input.now(),
   });
@@ -1490,6 +1878,8 @@ async function failAuthoringGenerationRun(input: {
   const failedRun = await input.repository.updateAppGenerationRun({
     ...input.run,
     status: 'failed',
+    modelRequestMetadata: appendModelRequestMetadataFromError(input.run, input.error),
+    generationNotes: appendGenerationNotesFromError(input.run, input.error),
     validationFindings: [...input.run.validationFindings, failedFinding],
     updatedAt: input.now(),
   });
@@ -1632,12 +2022,14 @@ async function previewGeneratedPackage(input: {
     summary: 'Started Lantern preview checks for the generated package.',
   });
 
-  const previewFindings = await runPreviewIfConfigured(
+  const previewResult = await runPreviewIfConfigured(
     input.input,
     input.contextSelection,
     input.generation,
   );
+  const previewFindings = previewResult.validationFindings;
   const findings = [...input.validationFindings, ...previewFindings];
+  const previewStepResult = buildPreviewStepResult(previewResult);
 
   if (previewFindings.length > 0) {
     run = await input.input.repository.updateAppGenerationRun({
@@ -1659,6 +2051,7 @@ async function previewGeneratedPackage(input: {
       status: 'failed',
       now: run.updatedAt,
       diagnosticCount: previewFindings.length,
+      result: previewStepResult,
     });
 
     return { run, findings };
@@ -1677,9 +2070,20 @@ async function previewGeneratedPackage(input: {
     id: 'preview_runtime',
     status: 'succeeded',
     now: run.updatedAt,
+    result: previewStepResult,
   });
 
   return { run, findings };
+}
+
+function buildPreviewStepResult(result: AppPackagePreviewResult): Record<string, unknown> {
+  return {
+    assertionCount: result.assertionCount,
+    passedAssertionCount: result.passedAssertionCount,
+    runtimeLogCount: result.runtimeLog.length,
+    summary: result.summary,
+    runtimeLog: result.runtimeLog.slice(0, 10),
+  };
 }
 
 async function saveGeneratedPackageIfRequested(input: {
@@ -1825,11 +2229,60 @@ function buildInitialGenerationRun(input: {
   };
 }
 
+function formatRevisionPromptText(input: {
+  promptText: string;
+  sourcePackageVersion: PackageVersionRecord;
+  targetVersion: string;
+}): string {
+  return [
+    `Revision request for ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version}.`,
+    `Target version: ${input.targetVersion}.`,
+    `Preserve manifest app_id: ${input.sourcePackageVersion.appId}.`,
+    'Start from the existing package snapshot and make only the requested refinement.',
+    '',
+    'Instructor refinement prompt:',
+    input.promptText,
+  ].join('\n');
+}
+
 function appendModelRequestMetadata(
   run: AppGenerationRunRecord,
   generation: AppPackageGenerationResult,
 ): AppGenerationRunRecord['modelRequestMetadata'] {
-  const metadata = [...run.modelRequestMetadata, ...(generation.modelRequestMetadata ?? [])];
+  return deduplicateModelRequestMetadata([
+    ...run.modelRequestMetadata,
+    ...(generation.modelRequestMetadata ?? []),
+  ]);
+}
+
+function appendModelRequestMetadataFromError(
+  run: AppGenerationRunRecord,
+  error: unknown,
+): AppGenerationRunRecord['modelRequestMetadata'] {
+  if (!(error instanceof AppWriterWorkspaceHarnessError)) {
+    return run.modelRequestMetadata;
+  }
+
+  return deduplicateModelRequestMetadata([
+    ...run.modelRequestMetadata,
+    ...error.modelRequestMetadata,
+  ]);
+}
+
+function appendGenerationNotesFromError(
+  run: AppGenerationRunRecord,
+  error: unknown,
+): AppGenerationRunRecord['generationNotes'] {
+  if (!(error instanceof AppWriterWorkspaceHarnessError)) {
+    return run.generationNotes;
+  }
+
+  return deduplicateStrings([...run.generationNotes, ...error.notes]);
+}
+
+function deduplicateModelRequestMetadata(
+  metadata: readonly AppGenerationRunRecord['modelRequestMetadata'][number][],
+): AppGenerationRunRecord['modelRequestMetadata'] {
   const seen = new Set<string>();
   const deduplicated: AppGenerationRunRecord['modelRequestMetadata'] = [];
 
@@ -1840,6 +2293,10 @@ function appendModelRequestMetadata(
       item.requestId,
       item.durationMs,
       item.responseCharacters,
+      item.stage,
+      item.attempt,
+      item.outcome,
+      item.errorCode,
     ]);
 
     if (seen.has(key)) {
@@ -1877,42 +2334,81 @@ function buildStarterMismatchFinding(input: {
 
 function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFinding {
   const message = error instanceof Error ? error.message : 'App package generation failed.';
+  const harnessCode = error instanceof AppWriterWorkspaceHarnessError ? error.code : null;
   const isTimeout = isGenerationTimeoutMessage(message);
   const isWorkspaceHarnessContractError = isWorkspaceHarnessContractMessage(message);
   const isProviderInternalError = isGenerationProviderInternalErrorMessage(message);
   const isProviderCapacityError = isGenerationProviderCapacityErrorMessage(message);
-
-  return {
-    code: isTimeout
+  const findingCode =
+    mapHarnessFailureFindingCode(harnessCode) ??
+    (isTimeout
       ? 'generation_model_timeout'
       : isProviderCapacityError
         ? 'generation_model_capacity_exceeded'
         : isProviderInternalError
           ? 'generation_model_provider_internal_error'
-          : 'generation_failed',
+          : 'generation_failed');
+
+  return {
+    code: findingCode,
     severity: 'error',
     message,
     file: null,
     field: null,
-    fix: isTimeout
-      ? 'Retry generation. Lantern runs generation in durable staged background work; repeated timeouts point to model/provider latency for the current stage.'
-      : isWorkspaceHarnessContractError
-        ? 'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.'
-        : isProviderInternalError
-          ? 'Retry generation. The model provider returned an internal error after Lantern used its bounded retry attempts.'
-          : isProviderCapacityError
-            ? 'Retry generation. The model provider reported temporary capacity exhaustion after Lantern used its bounded retry attempts.'
-            : 'Check the model configuration or retry generation.',
-    detail: isTimeout
-      ? { providerError: 'timeout' }
-      : isWorkspaceHarnessContractError
-        ? { providerError: 'workspace_harness_contract' }
-        : isProviderInternalError
-          ? { providerError: 'internal_server_error' }
-          : isProviderCapacityError
-            ? { providerError: 'capacity_exceeded' }
-            : {},
+    fix:
+      harnessCode === 'code_normalization_failed'
+        ? 'Retry generation. Lantern could not normalize the Code Mode response into executable workspace-edit code after bounded attempts.'
+        : harnessCode === 'code_execution_failed'
+          ? 'Retry generation. Lantern executed the workspace-edit code but it failed after bounded attempts.'
+          : harnessCode === 'workspace_read_write_failed'
+            ? 'Check the app writer workspace service bindings and retry generation.'
+            : harnessCode === 'provider_error'
+              ? 'Retry generation. The model provider failed during the current app writer stage.'
+              : isTimeout || harnessCode === 'model_timeout'
+                ? 'Retry generation. Lantern runs generation in durable staged background work; repeated timeouts point to model/provider latency for the current stage.'
+                : isWorkspaceHarnessContractError
+                  ? 'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.'
+                  : isProviderInternalError
+                    ? 'Retry generation. The model provider returned an internal error after Lantern used its bounded retry attempts.'
+                    : isProviderCapacityError
+                      ? 'Retry generation. The model provider reported temporary capacity exhaustion after Lantern used its bounded retry attempts.'
+                      : 'Check the model configuration or retry generation.',
+    detail:
+      harnessCode === null
+        ? isTimeout
+          ? { providerError: 'timeout' }
+          : isWorkspaceHarnessContractError
+            ? { providerError: 'workspace_harness_contract' }
+            : isProviderInternalError
+              ? { providerError: 'internal_server_error' }
+              : isProviderCapacityError
+                ? { providerError: 'capacity_exceeded' }
+                : {}
+        : {
+            harnessError: harnessCode,
+            modelRequestCount:
+              error instanceof AppWriterWorkspaceHarnessError
+                ? error.modelRequestMetadata.length
+                : 0,
+          },
   };
+}
+
+function mapHarnessFailureFindingCode(harnessCode: string | null): string | null {
+  switch (harnessCode) {
+    case 'model_timeout':
+      return 'generation_model_timeout';
+    case 'provider_error':
+      return 'generation_model_provider_error';
+    case 'code_normalization_failed':
+      return 'generation_code_normalization_failed';
+    case 'code_execution_failed':
+      return 'generation_code_execution_failed';
+    case 'workspace_read_write_failed':
+      return 'generation_workspace_read_write_failed';
+    default:
+      return null;
+  }
 }
 
 function isGenerationTimeoutMessage(message: string): boolean {

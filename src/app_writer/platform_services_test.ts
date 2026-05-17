@@ -54,17 +54,23 @@ Deno.test('app writer platform service routes preview through the configured pre
       preview(input) {
         previewInputs.push(input);
 
-        return Promise.resolve([
-          {
-            code: 'preview_assertion_failed',
-            severity: 'error',
-            message: 'Expected title was missing.',
-            file: 'preview/tests.json',
-            field: null,
-            fix: 'Render the expected title.',
-            detail: {},
-          },
-        ]);
+        return Promise.resolve({
+          validationFindings: [
+            {
+              code: 'preview_assertion_failed',
+              severity: 'error',
+              message: 'Expected title was missing.',
+              file: 'preview/tests.json',
+              field: null,
+              fix: 'Render the expected title.',
+              detail: {},
+            },
+          ],
+          assertionCount: 1,
+          passedAssertionCount: 0,
+          runtimeLog: [],
+          summary: 'Failed 1/1 preview assertions.',
+        });
       },
     },
   });
@@ -82,11 +88,13 @@ Deno.test('app writer platform service routes preview through the configured pre
   );
   const body = (await response.json()) as {
     validationFindings?: Array<{ code?: unknown }>;
+    summary?: unknown;
   };
 
   assertEquals(response.status, 200);
   assertEquals((previewInputs[0] as { generationId?: unknown }).generationId, 'generation-1');
   assertEquals(body.validationFindings?.[0]?.code, 'preview_assertion_failed');
+  assertEquals(body.summary, 'Failed 1/1 preview assertions.');
 });
 
 Deno.test('app writer platform service fails clearly when an endpoint is not configured', async () => {

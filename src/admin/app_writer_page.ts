@@ -153,6 +153,7 @@ export function renderAppGenerationRunPage(input: {
           <p class="section-label">Request</p>
           <h2>${escapeHtml(formatStatus(run.status))}</h2>
           ${renderGenerationProgress(run.status)}
+          ${renderLiveProgress({ run, workspace })}
           ${
             refreshWhileRunning
               ? `<p class="line-copy">Lantern is still working. This page refreshes while generation runs, and the run URL can be reopened later.</p>
@@ -211,7 +212,7 @@ export function renderAppGenerationRunPage(input: {
                       packageVersion.appId,
                     )}/versions/${escapeHtml(
                       packageVersion.version,
-                    )}">Review before test launch</a>`
+                    )}/preview">Test pending version</a>`
             }
           </section>
           <section class="fact">
@@ -247,6 +248,7 @@ export function renderAppGenerationRunPage(input: {
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Validation and preview</p>
+        ${renderPreviewSummary(workspace)}
         ${renderFindings(run)}
       </div>
     </section>
@@ -276,10 +278,11 @@ export function renderAppGenerationRunPage(input: {
     </section>
     ${renderGeneratedPackageRuntimeLog({
       packageVersion,
+      workspace,
       latestPreviewSession,
       previewEvidence,
     })}
-    ${refreshWhileRunning ? renderGenerationRefreshScript(run.generationId, run.updatedAt) : ''}`,
+    ${refreshWhileRunning ? renderGenerationRefreshScript(run.generationId) : ''}`,
   });
 }
 
@@ -315,12 +318,47 @@ function renderGenerationProgress(status: AppGenerationStatus): string {
   </ol>`;
 }
 
-function renderGenerationRefreshScript(generationId: string, updatedAt: string): string {
+function renderLiveProgress(input: {
+  run: AppGenerationRunRecord;
+  workspace: AppGenerationWorkspaceRecord | null;
+}): string {
+  const currentStep = selectCurrentGenerationPlanStep(input.workspace);
+  const modelAttempt = input.run.modelRequestMetadata.at(-1);
+
+  return `<div class="line-list app-writer-live-progress" data-app-writer-live-progress>
+    <article class="line-item">
+      <p class="line-title">Live progress <span class="status-badge status-pending" data-app-writer-live-status>${escapeHtml(
+        formatStatus(input.run.status),
+      )}</span></p>
+      <p class="line-copy" data-app-writer-live-step>${escapeHtml(
+        currentStep === null
+          ? 'No generation plan step is active yet.'
+          : `${formatProgressStage(currentStep.id)}: ${currentStep.summary}`,
+      )}</p>
+      <p class="micro muted" data-app-writer-live-detail>${escapeHtml(
+        [
+          `Repairs ${input.run.repairAttemptCount}`,
+          `Findings ${input.run.validationFindings.length}`,
+          modelAttempt === undefined
+            ? 'Model attempt unknown'
+            : `Model ${modelAttempt.stage} attempt ${modelAttempt.attempt} ${modelAttempt.outcome}`,
+        ].join(' · '),
+      )}</p>
+    </article>
+  </div>`;
+}
+
+function renderGenerationRefreshScript(generationId: string): string {
   const eventUrl = `/admin/app-writer/runs/${escapeHtml(generationId)}/events`;
-  const currentUpdatedAt = JSON.stringify(updatedAt);
 
   return `<script>
     let reloaded = false;
+    const setText = (selector, value) => {
+      const element = document.querySelector(selector);
+      if (element instanceof HTMLElement && typeof value === 'string') {
+        element.textContent = value;
+      }
+    };
     const reloadOnce = () => {
       if (reloaded) return;
       reloaded = true;
@@ -338,9 +376,15 @@ function renderGenerationRefreshScript(generationId: string, updatedAt: string):
             return;
           }
 
-          if (snapshot.updatedAt && snapshot.updatedAt !== ${currentUpdatedAt}) {
-            reloadOnce();
-          }
+          setText('[data-app-writer-live-status]', String(snapshot.status || 'unknown').replaceAll('_', ' '));
+          setText('[data-app-writer-live-step]', snapshot.currentPlanStepSummary || snapshot.lastActivitySummary || 'Lantern is working.');
+          setText('[data-app-writer-live-detail]', [
+            'Repairs ' + String(snapshot.repairAttemptCount ?? 0),
+            'Findings ' + String(snapshot.validationFindingCount ?? 0),
+            snapshot.currentModelStage
+              ? 'Model ' + snapshot.currentModelStage + ' attempt ' + String(snapshot.currentModelAttempt ?? '?')
+              : 'Model attempt unknown',
+          ].join(' · '));
         } catch (_error) {
           reloadOnce();
         }
@@ -476,13 +520,164 @@ function renderGenerationPlan(workspace: AppGenerationWorkspaceRecord | null): s
           `<article class="line-item">
           <p class="line-title">${escapeHtml(
             formatProgressStage(step.id),
-          )} <span class="status-badge status-pending">${escapeHtml(step.status)}</span></p>
+          )} <span class="status-badge ${escapeHtml(
+            statusClassForPlanStep(step.status),
+          )}">${escapeHtml(step.status)}</span></p>
           <p class="line-copy">${escapeHtml(step.summary)}</p>
-          <p class="micro muted">${escapeHtml(String(step.diagnosticCount))} diagnostics.</p>
+          <p class="micro muted">${escapeHtml(renderPlanStepTiming(step))} · ${escapeHtml(
+            String(step.diagnosticCount),
+          )} diagnostics.</p>
+          ${renderPlanStepResult(step)}
         </article>`,
       )
       .join('')}
   </div>`;
+}
+
+function renderPreviewSummary(workspace: AppGenerationWorkspaceRecord | null): string {
+  const previewResult = readPreviewStepResult(workspace);
+
+  if (previewResult === null) {
+    return '<p class="line-copy">No preview assertion summary has been recorded yet.</p>';
+  }
+
+  return `<div class="line-list">
+    <article class="line-item">
+      <p class="line-title">Preview summary</p>
+      <p class="line-copy">${escapeHtml(previewResult.summary)}</p>
+      <p class="micro muted">${escapeHtml(
+        `${previewResult.passedAssertionCount}/${previewResult.assertionCount} assertions passed · ${previewResult.runtimeLogCount} runtime log entries`,
+      )}</p>
+    </article>
+  </div>`;
+}
+
+function renderPlanStepTiming(
+  step: AppGenerationWorkspaceRecord['generationPlan'][number],
+): string {
+  const started =
+    step.startedAt === null ? 'not started' : `started ${formatDateTime(step.startedAt)}`;
+  const completed =
+    step.completedAt === null ? 'not completed' : `completed ${formatDateTime(step.completedAt)}`;
+
+  return `${started}; ${completed}`;
+}
+
+function renderPlanStepResult(
+  step: AppGenerationWorkspaceRecord['generationPlan'][number],
+): string {
+  const summary = readUnknownString(step.result.summary);
+
+  if (typeof summary === 'string') {
+    const assertionCount = readUnknownNumber(step.result.assertionCount);
+    const passedAssertionCount = readUnknownNumber(step.result.passedAssertionCount);
+
+    return `<p class="micro muted">${escapeHtml(
+      assertionCount === null || passedAssertionCount === null
+        ? summary
+        : `${summary} Assertions ${passedAssertionCount}/${assertionCount}.`,
+    )}</p>`;
+  }
+
+  const keys = Object.keys(step.result);
+
+  if (keys.length === 0) {
+    return '';
+  }
+
+  return `<p class="micro muted">Result: ${escapeHtml(
+    keys
+      .filter((key) => key !== 'runtimeLog')
+      .slice(0, 4)
+      .map((key) => `${key}=${formatResultValue(step.result[key])}`)
+      .join(', '),
+  )}</p>`;
+}
+
+function statusClassForPlanStep(status: string): string {
+  switch (status) {
+    case 'succeeded':
+      return 'status-approved';
+    case 'failed':
+      return 'status-rejected';
+    case 'running':
+      return 'status-pending';
+    default:
+      return 'status-pending';
+  }
+}
+
+function selectCurrentGenerationPlanStep(
+  workspace: AppGenerationWorkspaceRecord | null,
+): AppGenerationWorkspaceRecord['generationPlan'][number] | null {
+  if (workspace === null) {
+    return null;
+  }
+
+  return (
+    workspace.generationPlan.find((step) => step.status === 'running') ??
+    workspace.generationPlan.find((step) => step.status === 'failed') ??
+    [...workspace.generationPlan].reverse().find((step) => step.status !== 'pending') ??
+    null
+  );
+}
+
+function readPreviewStepResult(workspace: AppGenerationWorkspaceRecord | null): {
+  assertionCount: number;
+  passedAssertionCount: number;
+  runtimeLogCount: number;
+  summary: string;
+} | null {
+  const step = workspace?.generationPlan.find((candidate) => candidate.id === 'preview_runtime');
+
+  if (step === undefined) {
+    return null;
+  }
+
+  const assertionCount = readUnknownNumber(step.result.assertionCount);
+  const passedAssertionCount = readUnknownNumber(step.result.passedAssertionCount);
+  const runtimeLogCount = readUnknownNumber(step.result.runtimeLogCount);
+  const summary = readUnknownString(step.result.summary);
+
+  if (
+    assertionCount === null ||
+    passedAssertionCount === null ||
+    runtimeLogCount === null ||
+    summary === null
+  ) {
+    return null;
+  }
+
+  return {
+    assertionCount,
+    passedAssertionCount,
+    runtimeLogCount,
+    summary,
+  };
+}
+
+function readUnknownNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function formatResultValue(value: unknown): string {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (value === null) {
+    return 'null';
+  }
+
+  if (Array.isArray(value)) {
+    return `${value.length} items`;
+  }
+
+  if (typeof value === 'object') {
+    return 'object';
+  }
+
+  return 'unknown';
 }
 
 function formatWorkspaceFileRole(role: string | undefined): string {
@@ -499,18 +694,37 @@ function renderModelRequestMetadata(run: AppGenerationRunRecord): string {
       .map(
         (metadata) =>
           `<article class="line-item">
-          <p class="line-title">${escapeHtml(metadata.provider)}${
+          <p class="line-title">${escapeHtml(metadata.stage)} attempt ${escapeHtml(
+            String(metadata.attempt),
+          )} <span class="status-badge ${escapeHtml(
+            statusClassForModelOutcome(metadata.outcome),
+          )}">${escapeHtml(metadata.outcome)}</span></p>
+          <p class="line-copy">${escapeHtml(metadata.provider)}${
             metadata.model === null ? '' : ` · ${escapeHtml(metadata.model)}`
           }</p>
-          <p class="line-copy">Request ${escapeHtml(
+          <p class="micro muted">Request ${escapeHtml(
             metadata.requestId ?? 'not provided',
           )}; ${escapeHtml(
             formatNullableNumber(metadata.responseCharacters),
-          )} characters; ${escapeHtml(formatNullableNumber(metadata.durationMs))} ms.</p>
+          )} characters; ${escapeHtml(formatNullableNumber(metadata.durationMs))} ms${
+            metadata.errorCode === null ? '' : `; ${escapeHtml(metadata.errorCode)}`
+          }.</p>
         </article>`,
       )
       .join('')}
   </div>`;
+}
+
+function statusClassForModelOutcome(outcome: string): string {
+  switch (outcome) {
+    case 'succeeded':
+      return 'status-approved';
+    case 'failed':
+    case 'timed_out':
+      return 'status-rejected';
+    default:
+      return 'status-pending';
+  }
 }
 
 function renderFindings(run: AppGenerationRunRecord): string {
@@ -525,6 +739,7 @@ function renderFindings(run: AppGenerationRunRecord): string {
           `<article class="line-item">
           <p class="line-title">${escapeHtml(finding.code)}</p>
           <p class="line-copy">${escapeHtml(finding.message)}</p>
+          ${renderFindingDetail(finding)}
           ${
             finding.fix === null ? '' : `<p class="micro muted">Fix: ${escapeHtml(finding.fix)}</p>`
           }
@@ -532,6 +747,26 @@ function renderFindings(run: AppGenerationRunRecord): string {
       )
       .join('')}
   </div>`;
+}
+
+function renderFindingDetail(
+  finding: AppGenerationRunRecord['validationFindings'][number],
+): string {
+  const harnessError = readUnknownString(finding.detail.harnessError);
+  const modelRequestCount = readUnknownNumber(finding.detail.modelRequestCount);
+
+  if (harnessError === null && modelRequestCount === null) {
+    return '';
+  }
+
+  return `<p class="micro muted">Detail: ${escapeHtml(
+    [
+      harnessError === null ? null : `harness=${harnessError}`,
+      modelRequestCount === null ? null : `model requests=${modelRequestCount}`,
+    ]
+      .filter((part): part is string => part !== null)
+      .join(', '),
+  )}</p>`;
 }
 
 function readManifestRecord(record: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -597,6 +832,7 @@ function renderActivityEvent(event: AuditEventRecord): string {
 
 function renderGeneratedPackageRuntimeLog(input: {
   packageVersion: PackageVersionRecord | null;
+  workspace: AppGenerationWorkspaceRecord | null;
   latestPreviewSession: PreviewSessionRecord | null;
   previewEvidence: PreviewEvidenceRecord[];
 }): string {
@@ -613,7 +849,13 @@ function renderGeneratedPackageRuntimeLog(input: {
         <p class="section-label">Runtime log</p>
         ${
           input.latestPreviewSession === null
-            ? `<p class="line-copy">No runtime preview session has been recorded for this generated package yet.</p>
+            ? `<p class="line-copy">${escapeHtml(
+                readPreviewStepResult(input.workspace) === null
+                  ? 'No manual runtime preview session has been recorded for this generated package yet.'
+                  : `Generation preview completed: ${
+                      readPreviewStepResult(input.workspace)?.summary ?? ''
+                    } No manual test launch has been opened yet.`,
+              )}</p>
               <div class="button-row">
                 <a class="button-secondary" href="${previewHref}">Open test launch</a>
               </div>`
@@ -671,12 +913,27 @@ function formatSelectedContext(context: Record<string, unknown>): string {
     ? context.referenceAppIds.filter((item): item is string => typeof item === 'string')
     : [];
   const recipe = formatAppWriterRecipe(context);
+  const revision = formatRevisionContext(context);
   const parts = [
     ...(recipe === null ? [] : [recipe]),
+    ...(revision === null ? [] : [revision]),
     references.length === 0 ? 'No references recorded.' : `References: ${references.join(', ')}`,
   ];
 
   return parts.join(' · ');
+}
+
+function formatRevisionContext(context: Record<string, unknown>): string | null {
+  const revision = readUnknownRecord(context.revision);
+  const sourceAppId = readUnknownString(revision?.sourceAppId);
+  const sourceVersion = readUnknownString(revision?.sourceVersion);
+  const targetVersion = readUnknownString(revision?.targetVersion);
+
+  if (sourceAppId === null || sourceVersion === null || targetVersion === null) {
+    return null;
+  }
+
+  return `Revision ${sourceAppId}@${sourceVersion} -> ${targetVersion}`;
 }
 
 function formatAppWriterRecipe(context: Record<string, unknown>): string | null {

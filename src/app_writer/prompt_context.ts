@@ -20,7 +20,7 @@ interface PromptContextScoreInput {
   referenceAppIds: ReadonlySet<string>;
 }
 
-const MAX_PROMPT_CONTEXT_EXCERPTS = 7;
+const MAX_PROMPT_CONTEXT_EXCERPTS = 8;
 
 export function selectPromptContextExcerpts(input: {
   promptText: string;
@@ -86,7 +86,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
     source: 'APP_PACKAGE_SPEC.md#Package Layout',
     required: true,
     content:
-      'Generate a reviewed Lantern app package, not a Cloudflare Worker, LMS tool, or backend service. Published packages contain manifest.json, dist/index.html, dist/app.js, content/activity.json, preview/fixtures.json, and preview/tests.json. In TypeScript authoring mode, return source/app.ts and source/content_model.ts; Lantern compiles source/app.ts into dist/app.js.',
+      'Generate a reviewed Lantern app package, not a Cloudflare Worker, LMS tool, or backend service. Published packages contain manifest.json, dist/index.html, dist/pico.min.css, dist/lantern-app.css, dist/app.css, dist/app.js, content/activity.json, preview/fixtures.json, and preview/tests.json. In TypeScript authoring mode, write source/app.ts and source/content_model.ts; Lantern compiles source/app.ts into dist/app.js.',
   },
   {
     id: 'runtime-boundary',
@@ -97,12 +97,20 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
       'Use only browser code. Do not add backend code, package imports, external scripts, arbitrary fetch calls, LMS API calls, direct grade writes, Cloudflare bindings, D1, R2, Durable Objects, localStorage, sessionStorage, or a standalone fallback runtime path. Lantern owns launch, storage, grading, audit, and deployment.',
   },
   {
+    id: 'style-contract',
+    title: 'Self-contained Pico and Lantern styling',
+    source: '.lantern/contracts/style-contract.md',
+    required: true,
+    content:
+      'Generated apps use a self-contained style stack: dist/pico.min.css is a pinned Pico base, dist/lantern-app.css is a pinned Lantern learning-app layer, and dist/app.css is the only model-editable app-specific stylesheet. Use semantic HTML and Pico defaults for ordinary controls. Use Lantern classes such as ln-app, ln-panel, ln-flashcard, ln-choice-grid, ln-choice, ln-feedback, ln-progress-summary, ln-report-table, and ln-visually-hidden for learning-specific UI. Do not modify dist/pico.min.css or dist/lantern-app.css. Do not load external fonts, stylesheets, icons, images, scripts, or CDNs.',
+  },
+  {
     id: 'gateway-sdk-surface',
     title: 'GatewayApp SDK surface',
     source: 'sdk/app-sdk.ts#GatewayAppClient',
     required: true,
     content:
-      'Use window.GatewayApp as the only runtime API. In TypeScript, assign const gateway = window.GatewayApp and immediately guard it with if (!gateway) throw before calling methods. Available methods are getLaunchContext(), getActivityContent<T>(), readLocalState<T>(), writeLocalState<T>(value), emitAttemptEvent(event), submitEvidenceArtifact(input), submitScoreProposal(input), runBrowserGrader(), and finalizeAttempt(input). Manifest capabilities must be the minimum exact capability strings that match SDK calls. The emitAttemptEvent() method requires manifest capability submit_attempt_event; never write emit_attempt_event.',
+      'Use window.GatewayApp as the only runtime API. In TypeScript, assign const gateway = window.GatewayApp and immediately guard it with if (!gateway) throw before calling methods. Available methods are getLaunchContext(), getActivityContent<T>(), readLocalState<T>(), writeLocalState<T>(value), emitAttemptEvent(event), submitEvidenceArtifact(input), submitScoreProposal(input), runBrowserGrader(), and finalizeAttempt(input). Manifest capabilities must be the minimum exact capability strings that match SDK calls. The emitAttemptEvent() method requires manifest capability submit_attempt_event; never write emit_attempt_event. submitEvidenceArtifact() must receive { kind, contentType, fileName, bodyBase64 }; for structured JSON use kind "structured_json", contentType "application/json", and bodyBase64: btoa(JSON.stringify(data)). Never pass raw evidence objects such as { html, timestamp }.',
   },
   {
     id: 'runtime-source-authoring',
@@ -149,7 +157,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
     referenceAppIds: ['template', 'web-checkup', 'typescript-ladder-game'],
     keywords: ['autograder', 'auto-grader', 'evidence', 'grader', 'jasmine', 'spec'],
     content:
-      'Use browser-autograder only for reviewed HTML, CSS, or JavaScript checks. Include grading/specs/checks.spec.js or listed spec files, evidence/example-output.json, preview fixtures, and preview tests. The package does not run server code; Lantern runs the reviewed grader specs through its own browser grader path.',
+      'Use browser-autograder only for reviewed HTML, CSS, or JavaScript checks. Include grading/specs/checks.spec.js or listed spec files, evidence/example-output.json, preview fixtures, and preview tests. The package does not run server code; Lantern runs the reviewed grader specs through its own browser grader path. When submitting evidence, call runBrowserGrader(), submitEvidenceArtifact({ kind: "structured_json", contentType: "application/json", fileName, bodyBase64: btoa(JSON.stringify(resultData)) }), submitScoreProposal({ scoreGiven, scoreMaximum }), and finalizeAttempt({ completionState: "completed" }).',
   },
   {
     id: 'quick-study-reference',

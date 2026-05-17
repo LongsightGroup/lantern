@@ -12,7 +12,7 @@ export function renderTopLevelLaunchPage(input: { location: string }): string {
     <style>
       :root {
         color-scheme: light;
-        font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       }
 
       body {
@@ -105,7 +105,7 @@ export function renderLtiPlatformStorageLaunchPage(input: {
     <style>
       :root {
         color-scheme: light;
-        font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       }
 
       body {

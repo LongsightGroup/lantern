@@ -11,8 +11,8 @@ import type {
   AppGenerationAttemptEventType,
   AppGenerationGradingMode,
   AppGenerationPlan,
-  AppPackagePreviewInput,
   AppPackagePreviewer,
+  AppPackagePreviewInput,
   AppPackageSourceCompileInput,
   AppPackageSourceCompiler,
   AppWriterStarterId,
@@ -90,9 +90,9 @@ export function createAppWriterPlatformServicesHandler(input: {
         }
 
         const previewInput = parsePreviewInput(await readJson(request));
-        const validationFindings = await input.previewer.preview(previewInput);
+        const previewResult = await input.previewer.preview(previewInput);
 
-        return Response.json({ validationFindings });
+        return Response.json(previewResult);
       }
 
       return jsonError(404, 'not_found', 'App writer service endpoint was not found.');

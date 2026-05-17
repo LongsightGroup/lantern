@@ -48,6 +48,13 @@ export function mapRuntimeSessionRow(row: RuntimeSessionRow | undefined): Runtim
       activityId: row.launchActivityId,
       submissionMode: resolveSubmissionMode(row.capabilities),
     },
+    ...(row.previewSessionId === null
+      ? {}
+      : {
+          preview: {
+            previewSessionId: row.previewSessionId,
+          },
+        }),
     createdAt: normalizeTimestamp(row.createdAt),
     expiresAt: normalizeTimestamp(row.expiresAt),
   };

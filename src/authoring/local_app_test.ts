@@ -105,7 +105,8 @@ Deno.test('renderValidationFailure groups diagnostics by manifest field and file
 });
 
 Deno.test('serializeValidationResult emits stable JSON for success and failure', async () => {
-  const success = await preflightLocalAppPackageSource(buildPackageSource());
+  const source = buildPackageSource();
+  const success = await preflightLocalAppPackageSource(source);
 
   if (!success.ok) {
     throw new Error(`Expected valid package source: ${JSON.stringify(success.diagnostics)}`);
@@ -116,6 +117,7 @@ Deno.test('serializeValidationResult emits stable JSON for success and failure',
       ...success,
       appPackage: {
         rootPath: '/tmp/valid-app',
+        source,
         ...success.validatedPackage,
       },
     }),

@@ -370,7 +370,7 @@ async function serveStaticFile(input: {
 }): Promise<Response> {
   const url = new URL(input.request.url);
   const packagePath = trimLeadingSlash(url.pathname);
-  const absolutePath = joinSnapshotPath(
+  joinSnapshotPath(
     input.appPackage.rootPath,
     packagePath,
     'Requested preview file is outside the app package root.',
@@ -394,19 +394,24 @@ async function serveStaticFile(input: {
       });
     }
 
-    const bytes = await Deno.readFile(absolutePath);
+    const bytes = await input.appPackage.source.readBytes(packagePath);
 
-    return new Response(bytes, {
+    if (bytes === null) {
+      return new Response('Preview file not found.', { status: 404 });
+    }
+
+    const body =
+      bytes.buffer instanceof ArrayBuffer
+        ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+        : new Uint8Array(bytes).buffer;
+
+    return new Response(body, {
       status: 200,
       headers: {
         'content-type': contentTypeForPath(url.pathname),
       },
     });
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return new Response('Preview file not found.', { status: 404 });
-    }
-
     return new Response(errorMessage(error), { status: 500 });
   }
 }
@@ -482,12 +487,21 @@ async function serveLocalBrowserGraderAsset(input: {
     });
   }
 
-  const absolutePath = joinSnapshotPath(
+  joinSnapshotPath(
     input.appPackage.rootPath,
     trimLeadingSlash(specPath),
     'Browser grader spec file must stay inside the package root.',
   );
-  const source = await Deno.readTextFile(absolutePath);
+  const source = await input.appPackage.source.readText(trimLeadingSlash(specPath));
+
+  if (source === null) {
+    return new Response('Browser grader spec was not found.', {
+      status: 404,
+      headers: {
+        'content-type': 'text/plain; charset=utf-8',
+      },
+    });
+  }
 
   return new Response(source, {
     status: 200,

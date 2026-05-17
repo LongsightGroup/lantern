@@ -17,7 +17,7 @@ const WORKER_SNAPSHOT_ROOT = 'var/packages/chapter-4-asteroids/1.0.0';
 const exampleArtifactStore = createR2RuntimeArtifactStore(
   createTestRuntimeArtifactBucket({
     [`${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`]:
-      '<!doctype html><html><head><title>Chapter 4 Asteroids</title></head><body>Chapter 4 Asteroids</body></html>',
+      '<!doctype html><html><head><link rel="stylesheet" href="app.css"><title>Chapter 4 Asteroids</title></head><body>Chapter 4 Asteroids</body></html>',
     [`${EXAMPLE_SNAPSHOT_ROOT}/content/activity.json`]:
       '{"title":"Chapter 4 Asteroids","questions":[{"id":"q1"}]}',
   }),
@@ -65,6 +65,10 @@ Deno.test('runtime session route serves the pinned reviewed entrypoint with an i
   assertStringIncludes(
     html,
     'https://runtime.lantern.example/runtime/sessions/runtime-session-123/files/__token__/runtime-token-123/dist/',
+  );
+  assertEquals(
+    html.indexOf('<base href=') < html.indexOf('<link rel="stylesheet" href="app.css">'),
+    true,
   );
   assertStringIncludes(
     html,

@@ -71,13 +71,10 @@ export function renderDeepLinkingSubmitStatusPage(input: {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeHtml(input.title)}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
         color-scheme: light;
-        --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
         --bg: linear-gradient(180deg, #f6f8fb 0%, #eef2f7 100%);
         --surface: #ffffff;
         --surface-soft: #f8fafc;

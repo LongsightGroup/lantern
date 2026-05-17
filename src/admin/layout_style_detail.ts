@@ -46,7 +46,7 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         color: var(--secondary);
       }
 
-      input,
+      input:not([type="checkbox"], [type="radio"], [type="submit"], [type="button"], [type="reset"], [type="file"], [type="range"]),
       textarea,
       select {
         width: 100%;
@@ -59,7 +59,7 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         transition: border-color 120ms, box-shadow 120ms;
       }
 
-      input:focus,
+      input:not([type="checkbox"], [type="radio"], [type="submit"], [type="button"], [type="reset"], [type="file"], [type="range"]):focus,
       textarea:focus,
       select:focus {
         outline: none;
@@ -67,7 +67,7 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         box-shadow: 0 0 0 3px var(--accent-soft);
       }
 
-      input::placeholder,
+      input:not([type="checkbox"], [type="radio"], [type="submit"], [type="button"], [type="reset"], [type="file"], [type="range"])::placeholder,
       textarea::placeholder {
         color: var(--muted);
       }
@@ -77,24 +77,24 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         resize: vertical;
       }
 
-      input[aria-invalid="true"],
+      input:not([type="checkbox"], [type="radio"], [type="submit"], [type="button"], [type="reset"], [type="file"], [type="range"])[aria-invalid="true"],
       textarea[aria-invalid="true"],
       select[aria-invalid="true"] {
         border-color: #f2a9b7;
         box-shadow: 0 0 0 3px rgba(223, 27, 65, 0.12);
       }
 
-      input[type="radio"],
-      input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
-        margin: 2px 0 0;
-        padding: 0;
-        border: none;
-        border-radius: 999px;
-        background: transparent;
-        box-shadow: none;
-        accent-color: var(--accent);
+      .field .chip-row label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+      }
+
+      .field .chip-row input[type="radio"],
+      .field .chip-row input[type="checkbox"] {
+        flex: 0 0 auto;
+        margin: 0;
       }
 
       .field-hint {

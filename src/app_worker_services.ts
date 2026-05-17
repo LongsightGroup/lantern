@@ -16,9 +16,9 @@ import {
 } from './app_writer/source_compiler_binding.ts';
 import type { AppPackageSourceCompiler } from './app_writer/types.ts';
 import {
+  type AppGenerationRunScheduler,
   createCloudflareWorkflowAppGenerationRunScheduler,
   isAppGenerationWorkflowBinding,
-  type AppGenerationRunScheduler,
 } from './app_writer/workflow_scheduler.ts';
 import {
   createHarnessWorkspaceRunner,
@@ -110,6 +110,7 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
 
   return {
     env,
+    packageSnapshotStore: snapshotStore,
     appWriterWorkspaceRunner: resolveWorkerAppWriterWorkspaceRunner(bindings),
     appPackagePreviewer: resolveWorkerAppPackagePreviewer(bindings),
     appPackageSourceCompiler: resolveWorkerAppPackageSourceCompiler(bindings),

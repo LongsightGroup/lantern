@@ -5,8 +5,10 @@ import {
   type LocalAppValidationResult,
   type LocalPreviewTest,
   validateLocalAppPackage,
+  validateLocalAppPackageSource,
 } from './local_app.ts';
-import { createLocalPreviewHarness } from './local_preview.ts';
+import { createLocalPreviewHarness, type LocalPreviewLogEntry } from './local_preview.ts';
+import type { PackageSource } from '../package_review/package_source.ts';
 
 const DEFAULT_SETTLE_TIMEOUT_MS = 1_000;
 const DEFAULT_IDLE_POLL_MS = 20;
@@ -38,6 +40,7 @@ export interface SuccessfulLocalPreviewAssertionRun {
   results: LocalPreviewAssertionResult[];
   passedCount: number;
   failedCount: number;
+  runtimeLog: LocalPreviewLogEntry[];
 }
 
 export interface FailedLocalPreviewAssertionValidationRun {
@@ -55,6 +58,7 @@ export interface FailedLocalPreviewAssertionRuntimeRun {
   packageRoot: string;
   message: string;
   details: string[];
+  runtimeLog: LocalPreviewLogEntry[];
 }
 
 export type LocalPreviewAssertionRunResult =
@@ -67,6 +71,8 @@ interface PreviewRuntimeHandle {
   close(): Promise<void>;
 }
 
+type PreviewFetch = (url: string, init?: RequestInit) => Promise<Response>;
+
 export async function runLocalPreviewAssertions(
   packageRoot: string,
   input: {
@@ -74,6 +80,28 @@ export async function runLocalPreviewAssertions(
   } = {},
 ): Promise<LocalPreviewAssertionRunResult> {
   const validation = await validateLocalAppPackage(packageRoot);
+
+  if (!validation.ok || !validation.appPackage) {
+    return buildValidationFailure(packageRoot, validation);
+  }
+
+  const result = await runLocalPreviewAssertionsForPackage(validation.appPackage, input);
+
+  return {
+    packageRoot,
+    ...result,
+  };
+}
+
+export async function runLocalPreviewAssertionsForSource(
+  source: PackageSource,
+  input: {
+    packageRoot?: string;
+    settleTimeoutMs?: number;
+  } = {},
+): Promise<LocalPreviewAssertionRunResult> {
+  const packageRoot = input.packageRoot ?? 'memory://lantern-preview-package';
+  const validation = await validateLocalAppPackageSource(source, packageRoot);
 
   if (!validation.ok || !validation.appPackage) {
     return buildValidationFailure(packageRoot, validation);
@@ -96,7 +124,11 @@ export async function runLocalPreviewAssertionsForPackage(
   | Omit<SuccessfulLocalPreviewAssertionRun, 'packageRoot'>
   | Omit<FailedLocalPreviewAssertionRuntimeRun, 'packageRoot'>
 > {
-  const runtime = await loadPreviewRuntime(appPackage, input);
+  const runtimeLog: LocalPreviewLogEntry[] = [];
+  const runtime = await loadPreviewRuntime(appPackage, {
+    ...input,
+    runtimeLog,
+  });
 
   try {
     const results = evaluatePreviewAssertions(runtime.window.document, appPackage.previewTests);
@@ -107,6 +139,7 @@ export async function runLocalPreviewAssertionsForPackage(
       results,
       passedCount: results.length - failedCount,
       failedCount,
+      runtimeLog,
     };
   } catch (error) {
     return {
@@ -114,6 +147,7 @@ export async function runLocalPreviewAssertionsForPackage(
       kind: 'runtime_failed',
       message: error instanceof Error ? error.message : 'Lantern preview assertion runtime failed.',
       details: [],
+      runtimeLog,
     };
   } finally {
     await runtime.close();
@@ -138,21 +172,16 @@ async function loadPreviewRuntime(
   appPackage: LocalAppPackage,
   input: {
     settleTimeoutMs?: number;
+    runtimeLog: LocalPreviewLogEntry[];
   },
 ): Promise<PreviewRuntimeHandle> {
   const harness = createLocalPreviewHarness({
     appPackage,
-  });
-  const server = Deno.serve(
-    {
-      hostname: '127.0.0.1',
-      port: 0,
-      onListen() {},
+    logger(entry) {
+      input.runtimeLog.push(entry);
     },
-    (request) => harness.handle(request),
-  );
-  const address = server.addr as Deno.NetAddr;
-  const origin = `http://${address.hostname}:${address.port}`;
+  });
+  const origin = 'https://lantern-preview.local';
   const entrypointUrl = `${origin}${harness.entrypointPath}`;
   const browser = new Browser({
     settings: {
@@ -161,9 +190,26 @@ async function loadPreviewRuntime(
     },
   });
   const page = browser.newPage();
+  const fetchPreview: PreviewFetch = async (url, init = {}) => {
+    const requestUrl = new URL(url, entrypointUrl);
+
+    if (requestUrl.origin !== origin) {
+      return await fetch(requestUrl, init);
+    }
+
+    return await harness.handle(new Request(requestUrl, init));
+  };
 
   try {
-    await page.goto(entrypointUrl);
+    const entrypointResponse = await fetchPreview(entrypointUrl);
+
+    if (!entrypointResponse.ok) {
+      throw new Error(
+        `Preview entrypoint request failed for ${entrypointUrl} with status ${entrypointResponse.status}.`,
+      );
+    }
+
+    page.content = injectPreviewBaseHref(await entrypointResponse.text(), entrypointUrl);
     await page.waitUntilComplete();
 
     const frame = page.frames[0];
@@ -174,10 +220,10 @@ async function loadPreviewRuntime(
 
     const runtimeErrors: string[] = [];
     attachRuntimeErrorCapture(frame.window, runtimeErrors);
-    installControlledScriptLoader(frame.window, entrypointUrl);
-    const pendingFetches = trackWindowFetch(frame.window);
+    installControlledScriptLoader(frame.window, entrypointUrl, fetchPreview);
+    const pendingFetches = trackWindowFetch(frame.window, fetchPreview);
 
-    await executePreviewScripts(frame.window, entrypointUrl);
+    await executePreviewScripts(frame.window, entrypointUrl, fetchPreview);
     await waitForPreviewIdle({
       runtimeErrors,
       pendingFetches,
@@ -192,17 +238,19 @@ async function loadPreviewRuntime(
       window: frame.window,
       async close() {
         await browser.close();
-        await server.shutdown();
       },
     };
   } catch (error) {
     await browser.close();
-    await server.shutdown();
     throw error;
   }
 }
 
-function installControlledScriptLoader(window: BrowserWindow, entrypointUrl: string): void {
+function installControlledScriptLoader(
+  window: BrowserWindow,
+  entrypointUrl: string,
+  fetchPreview: PreviewFetch,
+): void {
   const allowedOrigin = new URL(entrypointUrl).origin;
   const originalAppendChild = window.Node.prototype.appendChild;
 
@@ -211,7 +259,7 @@ function installControlledScriptLoader(window: BrowserWindow, entrypointUrl: str
     node: InstanceType<BrowserWindow['Node']>,
   ): InstanceType<BrowserWindow['Node']> {
     if (isWindowScriptElement(window, node) && node.src.trim() !== '') {
-      void loadControlledScript(window, node, allowedOrigin);
+      void loadControlledScript(window, node, allowedOrigin, fetchPreview);
 
       return node;
     }
@@ -224,6 +272,7 @@ async function loadControlledScript(
   window: BrowserWindow,
   element: InstanceType<BrowserWindow['HTMLScriptElement']>,
   allowedOrigin: string,
+  fetchPreview: PreviewFetch,
 ): Promise<void> {
   try {
     const scriptUrl = new URL(element.src, window.location.href);
@@ -234,7 +283,7 @@ async function loadControlledScript(
       );
     }
 
-    const response = await fetch(scriptUrl);
+    const response = await fetchPreview(scriptUrl.toString());
 
     if (!response.ok) {
       throw new Error(
@@ -315,17 +364,26 @@ function attachRuntimeErrorCapture(window: BrowserWindow, runtimeErrors: string[
   });
 }
 
-function trackWindowFetch(window: BrowserWindow): () => number {
+function trackWindowFetch(window: BrowserWindow, fetchPreview: PreviewFetch): () => number {
   type WindowFetch = BrowserWindow['fetch'];
 
-  const originalFetch = window.fetch.bind(window) as WindowFetch;
   let pendingFetches = 0;
 
   const wrappedFetch: WindowFetch = async (...args) => {
     pendingFetches += 1;
 
     try {
-      return await originalFetch(...args);
+      const response = await fetchPreview(
+        readWindowFetchUrl(window, args[0]),
+        args[1] as RequestInit,
+      );
+      const body = await response.arrayBuffer();
+
+      return new window.Response(body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: [...response.headers.entries()],
+      });
     } finally {
       pendingFetches -= 1;
     }
@@ -335,7 +393,11 @@ function trackWindowFetch(window: BrowserWindow): () => number {
   return () => pendingFetches;
 }
 
-async function executePreviewScripts(window: BrowserWindow, entrypointUrl: string): Promise<void> {
+async function executePreviewScripts(
+  window: BrowserWindow,
+  entrypointUrl: string,
+  fetchPreview: PreviewFetch,
+): Promise<void> {
   const scripts = [...window.document.querySelectorAll('script')];
 
   for (const [index, script] of scripts.entries()) {
@@ -361,7 +423,7 @@ async function executePreviewScripts(window: BrowserWindow, entrypointUrl: strin
     }
 
     const scriptUrl = new URL(scriptSource, entrypointUrl).toString();
-    const response = await fetch(scriptUrl);
+    const response = await fetchPreview(scriptUrl);
 
     if (!response.ok) {
       throw new Error(
@@ -373,6 +435,35 @@ async function executePreviewScripts(window: BrowserWindow, entrypointUrl: strin
 
     window.eval(`${source}\n//# sourceURL=${scriptUrl}`);
   }
+}
+
+function injectPreviewBaseHref(html: string, entrypointUrl: string): string {
+  const tag = `<base href="${entrypointUrl}">`;
+
+  if (/<head\b[^>]*>/i.test(html)) {
+    return html.replace(/<head\b[^>]*>/i, (match) => `${match}${tag}`);
+  }
+
+  return `${tag}${html}`;
+}
+
+function readWindowFetchUrl(
+  window: BrowserWindow,
+  input: Parameters<BrowserWindow['fetch']>[0],
+): string {
+  if (typeof input === 'string') {
+    return new URL(input, window.location.href).toString();
+  }
+
+  if (input instanceof URL) {
+    return input.toString();
+  }
+
+  if (input instanceof window.Request) {
+    return input.url;
+  }
+
+  return String(input);
 }
 
 function isSupportedPreviewScriptType(type: string): boolean {

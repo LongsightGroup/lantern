@@ -152,6 +152,12 @@ export interface AppGenerationValidationFinding {
   detail: Record<string, unknown>;
 }
 
+export type AppGenerationModelRequestStage = 'author' | 'repair';
+
+export type AppGenerationModelRequestStoredStage = AppGenerationModelRequestStage | 'unknown';
+
+export type AppGenerationModelRequestOutcome = 'succeeded' | 'failed' | 'timed_out' | 'unknown';
+
 export interface AppGenerationRunRecord {
   generationId: string;
   ownerId: string;
@@ -189,6 +195,10 @@ export interface AppGenerationModelRequestMetadata {
   requestId: string | null;
   durationMs: number | null;
   responseCharacters: number | null;
+  stage: AppGenerationModelRequestStoredStage;
+  attempt: number;
+  outcome: AppGenerationModelRequestOutcome;
+  errorCode: string | null;
 }
 
 export interface AppPackageGenerationInput {
@@ -214,8 +224,22 @@ export interface AppPackagePreviewInput {
   files: readonly AppWriterWorkspaceFile[];
 }
 
+export interface AppPackagePreviewRuntimeLogEntry {
+  level: 'info' | 'warning' | 'error';
+  message: string;
+  detail: Record<string, unknown>;
+}
+
+export interface AppPackagePreviewResult {
+  validationFindings: AppGenerationValidationFinding[];
+  assertionCount: number;
+  passedAssertionCount: number;
+  runtimeLog: AppPackagePreviewRuntimeLogEntry[];
+  summary: string;
+}
+
 export interface AppPackagePreviewer {
-  preview(input: AppPackagePreviewInput): Promise<AppGenerationValidationFinding[]>;
+  preview(input: AppPackagePreviewInput): Promise<AppPackagePreviewResult>;
 }
 
 export interface AppPackageSourceCompileInput {

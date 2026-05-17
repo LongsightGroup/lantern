@@ -3,7 +3,11 @@ import type {
   PreviewEvidenceRecord,
   PreviewSessionRecord,
 } from '../package_review/types.ts';
-import { summarizeCapabilities } from '../package_review/summary.ts';
+import {
+  approvalStatusClass,
+  approvalStatusLabel,
+  summarizeCapabilities,
+} from '../package_review/summary.ts';
 import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
@@ -24,13 +28,16 @@ export function renderPreviewPage(input: {
 }): string {
   const { packageVersion, savedDefaults, latestSession, previewEvidence } = input;
   const capabilitySummary = summarizeCapabilities(packageVersion.capabilities);
+  const isPendingReview = packageVersion.approvalStatus === 'pending';
+  const pageLabel = isPendingReview ? 'Review Test Launch' : 'Test Launch';
 
   return renderAdminLayout({
-    title: `${packageVersion.title} ${packageVersion.version} Test Launch`,
-    eyebrow: 'Test Launch',
+    title: `${packageVersion.title} ${packageVersion.version} ${pageLabel}`,
+    eyebrow: pageLabel,
     heading: packageVersion.title,
-    intro:
-      'Open this approved version as a student or instructor without signing in through the LMS.',
+    intro: isPendingReview
+      ? 'Open this pending version as a student or instructor before approval. Test activity stays in Lantern and never writes to the LMS.'
+      : 'Open this approved version as a student or instructor without signing in through the LMS.',
     activePath: '/admin/packages',
     breadcrumbs: [
       { label: 'Apps', href: '/admin/packages' },
@@ -57,7 +64,9 @@ export function renderPreviewPage(input: {
       <div class="panel-body stack">
         <div class="preview-launch-stack">
           <p class="section-label">Test launch</p>
-          <h2>Version ${escapeHtml(packageVersion.version)}</h2>
+          <h2>Version ${escapeHtml(packageVersion.version)} <span class="${approvalStatusClass(
+            packageVersion.approvalStatus,
+          )}">${escapeHtml(approvalStatusLabel(packageVersion.approvalStatus))}</span></h2>
           <p class="micro muted">Defaults ${renderLaunchSummary(
             savedDefaults.launch,
           )}. No LMS sign-in or live LMS writes.</p>
@@ -106,18 +115,20 @@ export function renderPreviewPage(input: {
                 value="${escapeHtml(input.formValues.activityId)}"
               >
             </div>
-          </div>
+            </div>
             <div class="button-row form-actions">
-              <button type="submit" class="button-primary">Start test launch</button>
+              <button type="submit" class="button-primary">${
+                isPendingReview ? 'Start review test launch' : 'Start test launch'
+              }</button>
               <a class="button-secondary" href="/admin/packages/${escapeHtml(
                 packageVersion.appId,
               )}/versions/${escapeHtml(packageVersion.version)}">Back to version details</a>
             </div>
           </form>
           <details>
-            <summary>Show reviewed runtime capabilities</summary>
+            <summary>Show runtime capabilities</summary>
             <div class="detail-stack">
-              <p class="micro muted">This test session can only use the reviewed runtime capabilities saved with this package version.</p>
+              <p class="micro muted">This test session can only use the runtime capabilities saved with this package version.</p>
               <div class="line-list">
                 ${capabilitySummary
                   .map(

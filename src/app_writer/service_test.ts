@@ -4,6 +4,7 @@ import {
   createUnavailableAppWriterWorkspaceRunner,
 } from '../test_helpers/app_writer_workspace_runner.ts';
 import type { AppWriterWorkspaceRunner } from './workspace_runner.ts';
+import { AppWriterWorkspaceHarnessError } from './workspace_runner.ts';
 import {
   AppPackageGenerationFailedError,
   continueAppPackageGenerationRun,
@@ -12,6 +13,7 @@ import {
   planAppPackageGenerationRun,
   runAppPackageGeneration,
   startAppPackageGenerationRun,
+  startAppPackageRevisionRun,
 } from './service.ts';
 import { buildInitializedAppWriterWorkspace } from './workspace_initialization.ts';
 import { createTypeScriptAppPackageSourceCompiler } from './typescript_source_compiler.ts';
@@ -22,12 +24,17 @@ import type {
   AppPackageFileGenerationResult,
   AppPackageGenerationResult,
   AppPackagePreviewer,
+  AppPackagePreviewResult,
 } from './types.ts';
 import { importPackage } from '../package_review/intake.ts';
+import type { PackageSnapshotStore } from '../package_review/snapshot_store.ts';
 import { getDefaultPackageSnapshotStore } from '../package_review/snapshot_store_fs.ts';
 import { buildValidSimpleActivityFiles } from '../test_helpers/app_writer_generated_package.ts';
 import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
-import { createInMemoryPackageReviewRepository } from '../test_helpers/package_review.ts';
+import {
+  buildPackageVersionRecord,
+  createInMemoryPackageReviewRepository,
+} from '../test_helpers/package_review.ts';
 
 Deno.test('app writer service creates a durable run and records generated artifacts', async () => {
   const repository = createInMemoryPackageReviewRepository();
@@ -42,6 +49,10 @@ Deno.test('app writer service creates a durable run and records generated artifa
             requestId: 'request-1',
             durationMs: 25,
             responseCharacters: 2048,
+            stage: 'author',
+            attempt: 1,
+            outcome: 'succeeded',
+            errorCode: null,
           },
         ],
       }),
@@ -245,6 +256,67 @@ Deno.test('app writer service records authoring provider capacity failures on th
 
   assertEquals(authorStep?.status, 'failed');
   assertEquals(workspace?.validationFindings, error.run.validationFindings);
+});
+
+Deno.test('app writer service persists harness model metadata on failed authoring runs', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const stagedWorkspaceRunner = createStagedAppWriterWorkspaceRunner();
+  const workspaceRunner: AppWriterWorkspaceRunner = {
+    ...stagedWorkspaceRunner,
+    author(_input) {
+      return Promise.reject(
+        new AppWriterWorkspaceHarnessError({
+          code: 'code_execution_failed',
+          message: 'Workspace edit code failed.',
+          modelRequestMetadata: [
+            {
+              provider: 'cloudflare',
+              model: '@cf/test/model',
+              requestId: null,
+              durationMs: 80,
+              responseCharacters: 2048,
+              stage: 'author',
+              attempt: 1,
+              outcome: 'failed',
+              errorCode: 'code_execution_failed',
+            },
+          ],
+          notes: ['Harness failure 1: code_execution_failed'],
+        }),
+      );
+    },
+  };
+
+  const error = await assertRejects(
+    () =>
+      runAppPackageGeneration({
+        repository,
+        workspaceRunner,
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics matching game.',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+          '2026-05-14T12:00:03.000Z',
+          '2026-05-14T12:00:04.000Z',
+          '2026-05-14T12:00:05.000Z',
+        ]),
+      }),
+    AppPackageGenerationFailedError,
+    'Workspace edit code failed.',
+  );
+
+  const failedMetadata = error.run.modelRequestMetadata.at(-1);
+
+  assertEquals(failedMetadata?.stage, 'author');
+  assertEquals(failedMetadata?.outcome, 'failed');
+  assertEquals(error.run.validationFindings[0]?.code, 'generation_code_execution_failed');
+  assertEquals(
+    error.run.generationNotes.includes('Harness failure 1: code_execution_failed'),
+    true,
+  );
 });
 
 Deno.test('app writer service records failed workspaceRunner runs before rejecting', async () => {
@@ -802,9 +874,120 @@ Deno.test({
       assertEquals(result.run.status, 'saved_pending_version');
       assertEquals(result.run.packageVersionId, 1);
       assertEquals(result.packageVersion?.approvalStatus, 'pending');
+      const workspace = await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
+      const previewStep = workspace?.generationPlan.find((step) => step.id === 'preview_runtime');
+      assertEquals(previewStep?.result.summary, 'Passed 1/1 preview assertions.');
+      assertEquals(previewStep?.result.assertionCount, 1);
       assertEquals(
         await Deno.readTextFile(`${storageRoot}/phonics-match/0.1.0/manifest.json`),
         buildValidSimpleActivityFiles()[0]?.contents,
+      );
+    } finally {
+      await Deno.remove(storageRoot, { recursive: true });
+    }
+  },
+});
+
+Deno.test({
+  name: 'app writer revision runs initialize from a previous package snapshot and save a new pending version',
+  permissions: {
+    read: true,
+    write: true,
+  },
+  async fn() {
+    const sourceFiles = buildValidSimpleActivityFiles();
+    const sourcePackage = buildPackageVersionRecord({
+      id: 7,
+      appId: 'phonics-match',
+      version: '0.1.0',
+      title: 'Phonics Match',
+      description: 'A small matching game for phonics practice.',
+      capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+      grading: {
+        mode: 'completion',
+        rubricFile: null,
+        maxScore: 100,
+      },
+      manifestJson: JSON.parse(
+        sourceFiles.find((file) => file.path === 'manifest.json')?.contents ?? '{}',
+      ) as Record<string, unknown>,
+      artifact: {
+        snapshotRoot: 'snapshots/phonics-match/0.1.0',
+        manifestPath: 'snapshots/phonics-match/0.1.0/manifest.json',
+        entrypointPath: 'snapshots/phonics-match/0.1.0/dist/index.html',
+        digest: 'sha256:source-phonics-match',
+      },
+    });
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [sourcePackage],
+    });
+    const sourceSnapshotStore = createMemoryPackageSnapshotStore({
+      [sourcePackage.artifact.snapshotRoot]: sourceFiles,
+    });
+    const storageRoot = await Deno.makeTempDir({
+      prefix: 'lantern-revision-package-',
+    });
+
+    try {
+      const started = await startAppPackageRevisionRun({
+        repository,
+        workspaceRunner: createRevisionAssertingWorkspaceRunner(),
+        packageSnapshotStore: sourceSnapshotStore,
+        previewer: createSequencePreviewer([[]]),
+        savePackage: {
+          importPackageFromSource: (source, options = {}) =>
+            importPackage({
+              ...options,
+              source,
+              snapshotStore: getDefaultPackageSnapshotStore(),
+              env: TEST_RUNTIME_CONTRACT_ENV,
+            }),
+          storageRoot,
+        },
+        generationId: 'generation-revision-1',
+        ownerId: 'instructor-1',
+        promptText: 'Add a printable instructor progress summary.',
+        requestedAppId: 'phonics-match',
+        sourcePackageVersion: sourcePackage,
+        targetVersion: '0.2.0',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+          '2026-05-14T12:00:03.000Z',
+          '2026-05-14T12:00:04.000Z',
+        ]),
+      });
+      const result = await started.continueGeneration();
+
+      assertEquals(result.run.status, 'saved_pending_version');
+      assertEquals(result.run.requestedAppId, 'phonics-match');
+      assertEquals(result.run.generatedVersion, '0.2.0');
+      assertEquals(result.packageVersion?.appId, 'phonics-match');
+      assertEquals(result.packageVersion?.version, '0.2.0');
+      assertEquals(result.packageVersion?.approvalStatus, 'pending');
+      assertEquals(result.run.selectedContext.revision, {
+        sourcePackageVersionId: 7,
+        sourceAppId: 'phonics-match',
+        sourceVersion: '0.1.0',
+        sourceTitle: 'Phonics Match',
+        sourceDescription: 'A small matching game for phonics practice.',
+        sourceCapabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+        sourceGradingMode: 'completion',
+        sourceMaxScore: 100,
+        targetVersion: '0.2.0',
+      });
+
+      const workspace =
+        await repository.getAppGenerationWorkspaceByGenerationId('generation-revision-1');
+      const initializeStep = workspace?.generationPlan.find(
+        (step) => step.id === 'initialize_workspace',
+      );
+
+      assertEquals(initializeStep?.result.initializationMode, 'revision_snapshot');
+      assertEquals(
+        workspace?.files.some((file) => file.path === '.lantern/contracts/source-package.json'),
+        true,
       );
     } finally {
       await Deno.remove(storageRoot, { recursive: true });
@@ -920,6 +1103,10 @@ function createStagedAppWriterWorkspaceRunner(): AppWriterWorkspaceRunner {
             requestId: 'request-plan',
             durationMs: 20,
             responseCharacters: 1024,
+            stage: 'author',
+            attempt: 1,
+            outcome: 'succeeded',
+            errorCode: null,
           },
         ],
       };
@@ -944,6 +1131,10 @@ function createStagedAppWriterWorkspaceRunner(): AppWriterWorkspaceRunner {
             requestId: 'request-files',
             durationMs: 40,
             responseCharacters: 4096,
+            stage: 'author',
+            attempt: 1,
+            outcome: 'succeeded',
+            errorCode: null,
           },
         ],
       };
@@ -954,6 +1145,113 @@ function createStagedAppWriterWorkspaceRunner(): AppWriterWorkspaceRunner {
     },
     repair(_input) {
       return Promise.resolve(buildGenerationResult());
+    },
+  };
+}
+
+function createRevisionAssertingWorkspaceRunner(): AppWriterWorkspaceRunner {
+  return {
+    initialize(input) {
+      return Promise.resolve(buildInitializedAppWriterWorkspace(input));
+    },
+    plan(input) {
+      const generation = buildGenerationResult({
+        notes: ['Planned revision from source package snapshot.'],
+      });
+      const revision = input.selectedContext.revision as
+        | {
+            targetVersion?: unknown;
+          }
+        | undefined;
+
+      assertEquals(input.requestedAppId, 'phonics-match');
+      assertEquals(revision?.targetVersion, '0.2.0');
+
+      return Promise.resolve({
+        normalizedRequest: generation.normalizedRequest,
+        appPlan: generation.appPlan,
+        selectedStarterId: generation.selectedStarterId,
+        progressUpdates: [
+          {
+            stage: 'planning_app',
+            message: 'Planning a revision from the previous package snapshot.',
+          },
+        ],
+        notes: ['Planned revision from source package snapshot.'],
+      });
+    },
+    author(input) {
+      const manifest = input.initializedWorkspace.files.find(
+        (file) => file.path === 'manifest.json',
+      );
+      const css = input.initializedWorkspace.files.find((file) => file.path === 'dist/app.css');
+
+      assertEquals(JSON.parse(manifest?.contents ?? '{}').version, '0.2.0');
+      assertEquals(css?.contents.includes('font-family'), true);
+
+      return Promise.resolve({
+        files: input.initializedWorkspace.files.map((file) =>
+          file.path === 'dist/app.js'
+            ? {
+                ...file,
+                contents: `${file.contents}\nconsole.log("revision summary ready");\n`,
+              }
+            : file,
+        ),
+        progressUpdates: [
+          {
+            stage: 'building_package',
+            message: 'Edited existing package snapshot files.',
+          },
+        ],
+        notes: ['Revised existing package snapshot.'],
+        validationFindings: [],
+      });
+    },
+    repair(_input) {
+      return Promise.reject(new Error('Revision test should not repair.'));
+    },
+  };
+}
+
+function createMemoryPackageSnapshotStore(
+  roots: Record<string, AppPackageGenerationResult['files']>,
+): PackageSnapshotStore {
+  const filesByRoot = new Map(
+    Object.entries(roots).map(([root, files]) => [
+      root,
+      new Map(files.map((file) => [file.path, new TextEncoder().encode(file.contents)])),
+    ]),
+  );
+
+  return {
+    readBytes(snapshotRoot, relativePath) {
+      const file = filesByRoot.get(snapshotRoot)?.get(relativePath);
+
+      if (file === undefined) {
+        return Promise.reject(
+          new Error(`Snapshot file ${snapshotRoot}/${relativePath} was not found.`),
+        );
+      }
+
+      return Promise.resolve(file.slice());
+    },
+    writeBytes(snapshotRoot, relativePath, bytes) {
+      let files = filesByRoot.get(snapshotRoot);
+
+      if (files === undefined) {
+        files = new Map();
+        filesByRoot.set(snapshotRoot, files);
+      }
+
+      files.set(relativePath, bytes.slice());
+      return Promise.resolve();
+    },
+    fileExists(snapshotRoot, relativePath) {
+      return Promise.resolve(filesByRoot.get(snapshotRoot)?.has(relativePath) ?? false);
+    },
+    listFiles(snapshotRoot) {
+      return Promise.resolve([...(filesByRoot.get(snapshotRoot)?.keys() ?? [])].sort());
     },
   };
 }
@@ -985,7 +1283,7 @@ const TEST_RUNTIME_CONTRACT_ENV = {
 };
 
 function createSequencePreviewer(results: AppGenerationValidationFinding[][]): AppPackagePreviewer {
-  const remainingResults = results.map((result) => structuredClone(result));
+  const remainingResults = results.map((result) => buildPreviewResult(result));
 
   return {
     preview(_input) {
@@ -997,6 +1295,27 @@ function createSequencePreviewer(results: AppGenerationValidationFinding[][]): A
 
       return Promise.resolve(nextResult);
     },
+  };
+}
+
+function buildPreviewResult(
+  validationFindings: AppGenerationValidationFinding[],
+): AppPackagePreviewResult {
+  return {
+    validationFindings: structuredClone(validationFindings),
+    assertionCount: validationFindings.length === 0 ? 1 : validationFindings.length,
+    passedAssertionCount: validationFindings.length === 0 ? 1 : 0,
+    runtimeLog: [
+      {
+        level: 'info',
+        message: 'preview content read',
+        detail: {},
+      },
+    ],
+    summary:
+      validationFindings.length === 0
+        ? 'Passed 1/1 preview assertions.'
+        : `Failed ${validationFindings.length}/${validationFindings.length} preview assertions.`,
   };
 }
 

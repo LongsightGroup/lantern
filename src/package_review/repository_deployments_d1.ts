@@ -271,7 +271,10 @@ export function createD1DeploymentRepositoryMethods(
         throw new Error(`Package version id ${input.packageVersionId} was not found.`);
       }
 
-      if (packageVersion.approvalStatus !== 'approved') {
+      if (
+        packageVersion.approvalStatus !== 'approved' &&
+        !(lmsType === 'preview' && packageVersion.approvalStatus === 'pending')
+      ) {
         throw new Error('Only approved package versions can be enabled.');
       }
 
@@ -538,7 +541,9 @@ async function assertBindingAvailable(
 
   if (conflictingBinding !== null) {
     throw new Error(
-      `${formatBindingLabel(input.lmsType)} ${input.clientId} / ${input.deploymentId} already belongs to another deployment.`,
+      `${formatBindingLabel(
+        input.lmsType,
+      )} ${input.clientId} / ${input.deploymentId} already belongs to another deployment.`,
     );
   }
 }

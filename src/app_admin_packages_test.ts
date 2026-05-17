@@ -155,6 +155,95 @@ Deno.test('GET /admin/packages/:appId renders the app overview with versions and
   assertStringIncludes(body, 'Latest version');
 });
 
+Deno.test('GET /admin/packages/:appId/versions/:version/revise renders App Writer revision form', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        appId: 'phonics-match',
+        version: '0.1.0',
+        title: 'Phonics Match',
+      }),
+      buildPackageVersionRecord({
+        id: 2,
+        appId: 'phonics-match',
+        version: '0.2.0',
+        title: 'Phonics Match',
+      }),
+    ],
+  });
+  const response = await createAdminApp({
+    getRepository: () => repository,
+  }).request('http://localhost/admin/packages/phonics-match/versions/0.1.0/revise');
+
+  assertEquals(response.status, 200);
+  const body = await response.text();
+
+  assertStringIncludes(body, 'Revise Phonics Match');
+  assertStringIncludes(body, 'name="promptText"');
+  assertStringIncludes(body, 'name="targetVersion" value="0.3.0"');
+  assertStringIncludes(body, 'Revise app');
+});
+
+Deno.test('POST /admin/packages/:appId/versions/:version/revise creates a revision run and redirects to App Writer progress', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        id: 7,
+        appId: 'phonics-match',
+        version: '0.1.0',
+        title: 'Phonics Match',
+        capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+        grading: {
+          mode: 'completion',
+          rubricFile: null,
+          maxScore: 100,
+        },
+      }),
+    ],
+  });
+  const formData = new FormData();
+
+  formData.set('promptText', 'Add printable instructor reports.');
+  formData.set('targetVersion', '0.2.0');
+
+  const response = await createAdminApp({
+    getRepository: () => repository,
+    appGenerationRunScheduler: {
+      schedule(input) {
+        return Promise.resolve({
+          mode: 'workflow',
+          workflowInstanceId: `workflow-${input.generationId}`,
+        });
+      },
+    },
+  }).request('http://localhost/admin/packages/phonics-match/versions/0.1.0/revise', {
+    method: 'POST',
+    headers: { Origin: 'http://localhost' },
+    body: formData,
+  });
+
+  assertEquals(response.status, 303);
+  assertStringIncludes(response.headers.get('location') ?? '', '/admin/app-writer/runs/');
+
+  const queuedEvents = await repository.listAuditEventsByEventType('app_generation.generating');
+  const runId = String(queuedEvents[0]?.detail.generationId ?? '');
+  const run = await repository.getAppGenerationRunById(runId);
+
+  assertEquals(run?.requestedAppId, 'phonics-match');
+  assertEquals(run?.generatedVersion, null);
+  assertEquals(run?.selectedContext.revision, {
+    sourcePackageVersionId: 7,
+    sourceAppId: 'phonics-match',
+    sourceVersion: '0.1.0',
+    sourceTitle: 'Phonics Match',
+    sourceDescription: 'Shoot the correct vocabulary target.',
+    sourceCapabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+    sourceGradingMode: 'completion',
+    sourceMaxScore: 100,
+    targetVersion: '0.2.0',
+  });
+});
+
 Deno.test('POST /admin/packages/import-reference imports the selected reference app and redirects to the app overview page', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const chapter4 = buildImportedPackageVersion({ version: '0.1.0' });

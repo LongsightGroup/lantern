@@ -1,4 +1,10 @@
-import type { AppWriterAuthoringMode, AppWriterStarterId } from './types.ts';
+import type { Capability } from '../../sdk/app-sdk.ts';
+import type { GradingMode, PackageVersionRecord } from '../package_review/types.ts';
+import type {
+  AppGenerationGradingMode,
+  AppWriterAuthoringMode,
+  AppWriterStarterId,
+} from './types.ts';
 import {
   type AppWriterPromptContextExcerpt,
   selectPromptContextExcerpts,
@@ -17,6 +23,18 @@ export interface AppWriterContextSelectionInput {
   maxRepairAttempts?: number;
 }
 
+export interface AppWriterRevisionContext {
+  sourcePackageVersionId: number;
+  sourceAppId: string;
+  sourceVersion: string;
+  sourceTitle: string;
+  sourceDescription: string | null;
+  sourceCapabilities: Capability[];
+  sourceGradingMode: AppGenerationGradingMode;
+  sourceMaxScore: number;
+  targetVersion: string;
+}
+
 export interface AppWriterContextSelection {
   starterId: AppWriterStarterId;
   selectedContext: {
@@ -28,6 +46,7 @@ export interface AppWriterContextSelection {
     recipe: AppWriterRecipe;
     promptContextExcerpts: AppWriterPromptContextExcerpt[];
     selectionReason: string;
+    revision?: AppWriterRevisionContext;
   };
 }
 
@@ -82,6 +101,78 @@ export function selectAppWriterContext(
   });
 }
 
+export function selectAppWriterRevisionContext(input: {
+  promptText: string;
+  sourcePackageVersion: PackageVersionRecord;
+  targetVersion: string;
+  authoringMode?: AppWriterAuthoringMode;
+  maxRepairAttempts?: number;
+}): AppWriterContextSelection {
+  const starterId = selectStarterForPackageVersion(input.sourcePackageVersion);
+
+  return buildSelection({
+    promptText: input.promptText,
+    authoringMode: input.authoringMode ?? 'javascript',
+    maxRepairAttempts: input.maxRepairAttempts,
+    starterId,
+    referenceAppIds:
+      starterId === 'browser-autograder'
+        ? ['template', 'web-checkup', 'typescript-ladder-game']
+        : ['examples/starters/simple-activity'],
+    selectionReason: `Revision starts from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version} and targets ${input.targetVersion}.`,
+    revision: {
+      sourcePackageVersionId: input.sourcePackageVersion.id,
+      sourceAppId: input.sourcePackageVersion.appId,
+      sourceVersion: input.sourcePackageVersion.version,
+      sourceTitle: input.sourcePackageVersion.title,
+      sourceDescription: input.sourcePackageVersion.description,
+      sourceCapabilities: [...input.sourcePackageVersion.capabilities],
+      sourceGradingMode: requireSupportedRevisionGradingMode(
+        input.sourcePackageVersion.grading.mode,
+      ),
+      sourceMaxScore: input.sourcePackageVersion.grading.maxScore ?? 100,
+      targetVersion: input.targetVersion,
+    },
+  });
+}
+
+export function readAppWriterRevisionContext(
+  context: Record<string, unknown>,
+): AppWriterRevisionContext | null {
+  const revision = context.revision;
+
+  if (revision === undefined) {
+    return null;
+  }
+
+  if (typeof revision !== 'object' || revision === null || Array.isArray(revision)) {
+    throw new TypeError('App writer revision context must be a JSON object.');
+  }
+
+  const record = revision as Record<string, unknown>;
+
+  return {
+    sourcePackageVersionId: expectNumber(
+      record.sourcePackageVersionId,
+      'revision.sourcePackageVersionId',
+    ),
+    sourceAppId: expectString(record.sourceAppId, 'revision.sourceAppId'),
+    sourceVersion: expectString(record.sourceVersion, 'revision.sourceVersion'),
+    sourceTitle: expectString(record.sourceTitle, 'revision.sourceTitle'),
+    sourceDescription: expectNullableString(record.sourceDescription, 'revision.sourceDescription'),
+    sourceCapabilities: expectCapabilities(
+      record.sourceCapabilities,
+      'revision.sourceCapabilities',
+    ),
+    sourceGradingMode: expectRevisionGradingMode(
+      record.sourceGradingMode,
+      'revision.sourceGradingMode',
+    ),
+    sourceMaxScore: expectNumber(record.sourceMaxScore, 'revision.sourceMaxScore'),
+    targetVersion: expectString(record.targetVersion, 'revision.targetVersion'),
+  };
+}
+
 function buildSelection(input: {
   promptText: string;
   authoringMode: AppWriterAuthoringMode;
@@ -89,6 +180,7 @@ function buildSelection(input: {
   starterId: AppWriterStarterId;
   referenceAppIds: string[];
   selectionReason: string;
+  revision?: AppWriterRevisionContext;
 }): AppWriterContextSelection {
   const promptContextExcerpts = selectPromptContextExcerpts({
     promptText: input.promptText,
@@ -110,8 +202,66 @@ function buildSelection(input: {
       }),
       promptContextExcerpts,
       selectionReason: input.selectionReason,
+      ...(input.revision === undefined ? {} : { revision: input.revision }),
     },
   };
+}
+
+function selectStarterForPackageVersion(packageVersion: PackageVersionRecord): AppWriterStarterId {
+  return packageVersion.grading.mode === 'browser' ||
+    packageVersion.capabilities.includes('submit_evidence_artifact')
+    ? 'browser-autograder'
+    : 'simple-activity';
+}
+
+function requireSupportedRevisionGradingMode(mode: GradingMode): AppGenerationGradingMode {
+  if (mode === 'completion' || mode === 'declarative' || mode === 'browser') {
+    return mode;
+  }
+
+  throw new Error(
+    `App Writer revisions require completion, declarative, or browser grading. ${mode} is not supported for AI revision runs.`,
+  );
+}
+
+function expectRevisionGradingMode(value: unknown, fieldName: string): AppGenerationGradingMode {
+  if (value === 'completion' || value === 'declarative' || value === 'browser') {
+    return value;
+  }
+
+  throw new TypeError(`${fieldName} must be completion, declarative, or browser.`);
+}
+
+function expectCapabilities(value: unknown, fieldName: string): Capability[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return value.map((item, index) => expectString(item, `${fieldName}[${index}]`) as Capability);
+}
+
+function expectNumber(value: unknown, fieldName: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${fieldName} must be a number.`);
+  }
+
+  return value;
+}
+
+function expectString(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string') {
+    throw new TypeError(`${fieldName} must be a string.`);
+  }
+
+  return value;
+}
+
+function expectNullableString(value: unknown, fieldName: string): string | null {
+  if (value === null) {
+    return null;
+  }
+
+  return expectString(value, fieldName);
 }
 
 function mentionsBrowserAutograder(prompt: string): boolean {

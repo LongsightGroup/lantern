@@ -53,12 +53,18 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
             <textarea id="review-notes" name="reviewNotes" placeholder="Record why this version is ready, or what still needs to change."></textarea>
           </div>
           <div class="button-row">
+            <a class="button-secondary" href="/admin/packages/${escapeHtml(
+              packageVersion.appId,
+            )}/versions/${escapeHtml(packageVersion.version)}/preview">Test pending version</a>
             <button type="submit" class="button-primary" formaction="/admin/packages/${escapeHtml(
               String(packageVersion.id),
             )}/approve">Approve version</button>
             <button type="submit" class="button-danger" formaction="/admin/packages/${escapeHtml(
               String(packageVersion.id),
             )}/reject">Reject version</button>
+            <a class="button-secondary" href="/admin/packages/${escapeHtml(
+              packageVersion.appId,
+            )}/versions/${escapeHtml(packageVersion.version)}/revise">Revise with AI</a>
           </div>
         </form>
       </div>
@@ -76,6 +82,9 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
             <a class="button-primary" href="/admin/packages/${escapeHtml(
               packageVersion.appId,
             )}/versions/${escapeHtml(packageVersion.version)}/preview">Open test launch</a>
+            <a class="button-secondary" href="/admin/packages/${escapeHtml(
+              packageVersion.appId,
+            )}/versions/${escapeHtml(packageVersion.version)}/revise">Revise with AI</a>
             ${
               supportsAuthoringDrafts(packageVersion)
                 ? `<a class="button-secondary" href="/admin/packages/${escapeHtml(

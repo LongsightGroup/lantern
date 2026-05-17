@@ -42,9 +42,9 @@ const CAPABILITY_COPY: Record<Capability, CapabilitySummary> = {
   submit_attempt_event: {
     id: 'submit_attempt_event',
     label: 'Progress updates',
-    detail: 'Sends learner answers and progress back to Lantern while the activity is in use.',
-    flagged: true,
-    flagLabel: 'Learner work leaves the app',
+    detail: 'Records learner answers and progress in Lantern while the activity is in use.',
+    flagged: false,
+    flagLabel: null,
   },
   submit_evidence_artifact: {
     id: 'submit_evidence_artifact',
@@ -52,15 +52,14 @@ const CAPABILITY_COPY: Record<Capability, CapabilitySummary> = {
     detail:
       'Lets the app send reviewed evidence artifacts back to Lantern. Lantern still owns submission binding, storage, and any later grade publication.',
     flagged: true,
-    flagLabel: 'Learner evidence leaves the app',
+    flagLabel: 'Stores submitted evidence',
   },
   finalize_attempt: {
     id: 'finalize_attempt',
     label: 'Finish attempt',
-    detail:
-      'Lets the app mark work complete so Lantern can score it and return a grade when applicable.',
-    flagged: true,
-    flagLabel: 'Can affect scores or grades',
+    detail: 'Reports that the learner finished so Lantern can complete scoring when configured.',
+    flagged: false,
+    flagLabel: null,
   },
   read_local_state: {
     id: 'read_local_state',
@@ -72,9 +71,9 @@ const CAPABILITY_COPY: Record<Capability, CapabilitySummary> = {
   write_local_state: {
     id: 'write_local_state',
     label: 'Save progress',
-    detail: 'Stores learner progress in Lantern so the learner can continue later.',
-    flagged: true,
-    flagLabel: 'Stores learner data',
+    detail: 'Saves learner progress in Lantern so the learner can continue later.',
+    flagged: false,
+    flagLabel: null,
   },
 };
 

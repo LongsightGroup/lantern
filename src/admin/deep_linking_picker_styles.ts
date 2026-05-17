@@ -1,7 +1,16 @@
-export const DEEP_LINKING_PICKER_STYLES = `
+import { PICO_CSS } from '../styles/pico_css.ts';
+
+export const DEEP_LINKING_PICKER_STYLES = `${PICO_CSS}
       :root {
         color-scheme: light;
-        --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        --pico-font-family: var(--font);
+        --pico-primary: #14532d;
+        --pico-primary-hover: #166534;
+        --pico-primary-background: #14532d;
+        --pico-primary-hover-background: #166534;
+        --pico-primary-border: #14532d;
+        --pico-primary-hover-border: #166534;
         --bg: linear-gradient(180deg, #f6f8fb 0%, #eef2f7 100%);
         --surface: #ffffff;
         --surface-soft: #f8fafc;

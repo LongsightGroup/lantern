@@ -1,4 +1,6 @@
 import {
+  expectString,
+  parseModelRequestMetadata,
   parseProgressUpdates,
   parseValidationFindings,
   parseWorkspaceFiles,
@@ -6,8 +8,10 @@ import {
 import type { AppGenerationValidationFinding, AppWriterWorkspaceFile } from './types.ts';
 import type {
   AppWriterWorkspaceHarness,
+  AppWriterWorkspaceHarnessError,
   AppWriterWorkspaceHarnessResult,
 } from './workspace_runner.ts';
+import { AppWriterWorkspaceHarnessError as WorkspaceHarnessError } from './workspace_runner.ts';
 import type { AppWriterAgentNamespace } from './agent_session.ts';
 
 const HARNESS_AUTHOR_PATH = '/workspace-harness/author';
@@ -64,13 +68,54 @@ async function postAgentJson(input: {
   const responseBody = await response.text();
 
   if (!response.ok) {
-    throw new Error(`${input.responseName} failed with HTTP ${response.status}: ${responseBody}`);
+    throw parseWorkspaceHarnessError({
+      responseName: input.responseName,
+      status: response.status,
+      responseBody,
+    });
   }
 
   try {
     return JSON.parse(responseBody);
   } catch {
     throw new TypeError(`${input.responseName} must be valid JSON.`);
+  }
+}
+
+function parseWorkspaceHarnessError(input: {
+  responseName: string;
+  status: number;
+  responseBody: string;
+}): AppWriterWorkspaceHarnessError {
+  try {
+    const parsed = JSON.parse(input.responseBody) as unknown;
+    const record = expectRecord(parsed, `${input.responseName}.errorResponse`);
+    const errorRecord = expectRecord(record.error, `${input.responseName}.errorResponse.error`);
+    const metadata =
+      errorRecord.modelRequestMetadata === undefined
+        ? []
+        : parseModelRequestMetadata(
+            errorRecord.modelRequestMetadata,
+            `${input.responseName}.errorResponse.error.modelRequestMetadata`,
+          );
+
+    return new WorkspaceHarnessError({
+      code: expectString(errorRecord.code, `${input.responseName}.errorResponse.error.code`),
+      message: expectString(
+        errorRecord.message,
+        `${input.responseName}.errorResponse.error.message`,
+      ),
+      modelRequestMetadata: metadata,
+      notes:
+        errorRecord.notes === undefined
+          ? []
+          : expectStringArray(errorRecord.notes, `${input.responseName}.errorResponse.error.notes`),
+    });
+  } catch {
+    return new WorkspaceHarnessError({
+      code: 'provider_error',
+      message: `${input.responseName} failed with HTTP ${input.status}: ${input.responseBody}`,
+    });
   }
 }
 
@@ -84,6 +129,14 @@ function parseWorkspaceHarnessResult(
     files: parseWorkspaceFiles(record.files, `${fieldName}.files`) as AppWriterWorkspaceFile[],
     progressUpdates: parseProgressUpdates(record.progressUpdates, `${fieldName}.progressUpdates`),
     notes: expectStringArray(record.notes, `${fieldName}.notes`),
+    ...(record.modelRequestMetadata === undefined
+      ? {}
+      : {
+          modelRequestMetadata: parseModelRequestMetadata(
+            record.modelRequestMetadata,
+            `${fieldName}.modelRequestMetadata`,
+          ),
+        }),
     validationFindings:
       record.validationFindings === undefined
         ? []

@@ -81,7 +81,7 @@ function resolveActionVersion(
   history: PackageVersionRecord[],
   currentVersion: PackageVersionRecord | null,
 ): PackageVersionRecord | null {
-  if (currentVersion?.approvalStatus === 'approved') {
+  if (currentVersion !== null && currentVersion.approvalStatus !== 'rejected') {
     return currentVersion;
   }
 

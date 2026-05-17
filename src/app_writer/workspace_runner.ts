@@ -2,6 +2,7 @@ import { buildInitializedAppWriterWorkspace } from './workspace_initialization.t
 import type { AppWriterContextSelection } from './context.ts';
 import { buildLanternOwnedAppGenerationPlanningResult } from './planning.ts';
 import type {
+  AppGenerationModelRequestMetadata,
   AppGenerationPlanningResult,
   AppGenerationProgressUpdate,
   AppGenerationValidationFinding,
@@ -11,6 +12,7 @@ import type {
   AppPackageGenerationInput,
   AppPackageGenerationResult,
   AppPackageRepairInput,
+  AppWriterWorkspaceFile,
 } from './types.ts';
 
 export interface AppWriterWorkspaceRunner {
@@ -24,6 +26,7 @@ export interface AppWriterWorkspaceInitializeInput {
   generationId: string;
   contextSelection: AppWriterContextSelection;
   initializedAt: string;
+  revisionSourceFiles?: readonly AppWriterWorkspaceFile[];
 }
 
 export interface AppWriterWorkspacePlanningInput extends AppPackageGenerationInput {
@@ -42,6 +45,7 @@ export interface AppWriterWorkspaceHarnessResult {
   files: AppGenerationWorkspaceRecord['files'];
   progressUpdates: AppGenerationProgressUpdate[];
   notes: string[];
+  modelRequestMetadata?: AppGenerationModelRequestMetadata[];
   validationFindings?: AppGenerationValidationFinding[];
 }
 
@@ -58,6 +62,25 @@ export interface AppWriterWorkspaceHarness {
     repairAttempt: number;
     workspace: AppGenerationWorkspaceRecord;
   }): Promise<AppWriterWorkspaceHarnessResult>;
+}
+
+export class AppWriterWorkspaceHarnessError extends Error {
+  readonly code: string;
+  readonly modelRequestMetadata: AppGenerationModelRequestMetadata[];
+  readonly notes: string[];
+
+  constructor(input: {
+    code: string;
+    message: string;
+    modelRequestMetadata?: readonly AppGenerationModelRequestMetadata[];
+    notes?: readonly string[];
+  }) {
+    super(input.message);
+    this.name = 'AppWriterWorkspaceHarnessError';
+    this.code = input.code;
+    this.modelRequestMetadata = [...(input.modelRequestMetadata ?? [])];
+    this.notes = [...(input.notes ?? [])];
+  }
 }
 
 export function createUnavailableAppWriterWorkspaceRunner(
@@ -103,6 +126,9 @@ export function createHarnessWorkspaceRunner(runnerInput: {
         files: result.files,
         progressUpdates: result.progressUpdates,
         notes: result.notes,
+        ...(result.modelRequestMetadata === undefined
+          ? {}
+          : { modelRequestMetadata: result.modelRequestMetadata }),
         validationFindings: result.validationFindings ?? [],
       };
     },
@@ -126,6 +152,10 @@ export function createHarnessWorkspaceRunner(runnerInput: {
         files: result.files,
         progressUpdates: result.progressUpdates,
         notes: [...input.previousResult.notes, ...result.notes],
+        modelRequestMetadata: [
+          ...(input.previousResult.modelRequestMetadata ?? []),
+          ...(result.modelRequestMetadata ?? []),
+        ],
         validationFindings: result.validationFindings ?? [],
       };
     },

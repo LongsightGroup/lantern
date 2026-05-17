@@ -222,7 +222,10 @@ export function createInMemoryDeploymentRepository(
         throw new Error(`Package version id ${input.packageVersionId} was not found.`);
       }
 
-      if (packageVersion.approvalStatus !== 'approved') {
+      if (
+        packageVersion.approvalStatus !== 'approved' &&
+        !(lmsType === 'preview' && packageVersion.approvalStatus === 'pending')
+      ) {
         throw new Error('Only approved package versions can be enabled.');
       }
 

@@ -65,7 +65,7 @@ Deno.test('app writer context selector records TypeScript authoring mode', () =>
   assertEquals(selection.selectedContext.recipe.recipeId, APP_WRITER_RECIPE_ID);
   assertEquals(selection.selectedContext.recipe.recipeVersion, APP_WRITER_RECIPE_VERSION);
   assertEquals(selection.selectedContext.recipe.authoringMode, 'typescript');
-  assertEquals(selection.selectedContext.recipe.maxRepairAttempts, 3);
+  assertEquals(selection.selectedContext.recipe.maxRepairAttempts, 4);
   assert(
     selection.selectedContext.promptContextExcerpts.some((excerpt) =>
       excerpt.content.includes('source/app.ts'),
@@ -83,14 +83,16 @@ Deno.test('app writer context selector records the versioned app writer recipe',
   assertEquals(selection.selectedContext.recipe.recipeId, APP_WRITER_RECIPE_ID);
   assertEquals(selection.selectedContext.recipe.recipeVersion, APP_WRITER_RECIPE_VERSION);
   assertEquals(selection.selectedContext.recipe.outputContracts, [
-    'planning_json',
-    'raw_workspace_file',
+    'lantern_owned_plan',
+    'shell_workspace_snapshot',
+    'codemode_workspace_edit',
   ]);
   assertEquals(selection.selectedContext.recipe.proofChecks, [
     'strict_typescript',
     'package_validation',
     'preview_runtime_assertions',
     'policy_checks',
+    'style_contract',
   ]);
   assertEquals(selection.selectedContext.recipe.runtimeApi, 'window.GatewayApp');
   assertEquals(selection.selectedContext.recipe.maxRepairAttempts, 2);

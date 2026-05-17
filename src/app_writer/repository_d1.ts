@@ -31,6 +31,13 @@ const APP_GENERATION_ACTIVITY_TYPES = [
 const APP_GENERATION_GRADING_MODES = ['completion', 'declarative', 'browser'] as const;
 const APP_GENERATION_ATTEMPT_EVENT_TYPES = ['answer', 'progress', 'complete'] as const;
 const APP_GENERATION_VALIDATION_SEVERITIES = ['error', 'warning'] as const;
+const APP_GENERATION_MODEL_REQUEST_STAGES = ['author', 'repair', 'unknown'] as const;
+const APP_GENERATION_MODEL_REQUEST_OUTCOMES = [
+  'succeeded',
+  'failed',
+  'timed_out',
+  'unknown',
+] as const;
 const APP_GENERATION_CAPABILITIES = [
   'read_launch_context',
   'read_activity_content',
@@ -538,6 +545,30 @@ function parseModelRequestMetadataField(
         record.responseCharacters,
         `${fieldName}[${index}].responseCharacters`,
       ),
+      stage:
+        record.stage === undefined
+          ? 'unknown'
+          : expectStringLiteral(
+              record.stage,
+              `${fieldName}[${index}].stage`,
+              APP_GENERATION_MODEL_REQUEST_STAGES,
+            ),
+      attempt:
+        record.attempt === undefined
+          ? 0
+          : expectNumber(record.attempt, `${fieldName}[${index}].attempt`),
+      outcome:
+        record.outcome === undefined
+          ? 'unknown'
+          : expectStringLiteral(
+              record.outcome,
+              `${fieldName}[${index}].outcome`,
+              APP_GENERATION_MODEL_REQUEST_OUTCOMES,
+            ),
+      errorCode:
+        record.errorCode === undefined
+          ? null
+          : expectNullableString(record.errorCode, `${fieldName}[${index}].errorCode`),
     };
   });
 }

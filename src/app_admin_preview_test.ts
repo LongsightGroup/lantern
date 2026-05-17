@@ -3,6 +3,7 @@ import { createApp } from './app.ts';
 import {
   EXAMPLE_SNAPSHOT_ROOT,
   getReferenceAppSnapshotRoot,
+  withCanvasReturnEnv,
   withRuntimeOriginEnv,
 } from './app_test_support.ts';
 import {
@@ -51,7 +52,7 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-lau
   assertStringIncludes(body, 'action="/admin/packages/chapter-4-asteroids/versions/0.1.0/preview"');
 });
 
-Deno.test('GET /admin/packages/:appId/versions/:version/preview fails clearly for non-approved versions with no runtime redirect', async () => {
+Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-launch defaults for pending review versions', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -59,6 +60,21 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview fails clearly fo
         appId: 'chapter-4-asteroids',
         version: '0.2.0',
         approvalStatus: 'pending',
+        manifestJson: {
+          app_id: 'chapter-4-asteroids',
+          version: '0.2.0',
+          title: 'Chapter 4 Asteroids',
+          preview: {
+            fixtures_file: '/preview/fixtures.json',
+            tests_file: '/preview/tests.json',
+          },
+        },
+        artifact: {
+          snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+          manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+          entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+          digest: 'sha256:example-pending-preview',
+        },
       }),
     ],
   });
@@ -67,9 +83,74 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview fails clearly fo
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/versions/0.2.0/preview');
 
-  assertEquals(response.status, 409);
+  assertEquals(response.status, 200);
   assertEquals(response.headers.get('location'), null);
-  assertStringIncludes(await response.text(), 'Test launch requires an approved package version.');
+  const body = await response.text();
+  assertStringIncludes(body, 'Review Test Launch');
+  assertStringIncludes(body, 'Pending review');
+  assertStringIncludes(body, 'Start review test launch');
+  assertStringIncludes(body, 'No LMS sign-in or live LMS writes.');
+});
+
+Deno.test('POST /admin/packages/:appId/versions/:version/preview launches pending review versions only as preview runtime sessions', async () => {
+  await withCanvasReturnEnv(async () => {
+    await withRuntimeOriginEnv(async () => {
+      const repository = createInMemoryPackageReviewRepository({
+        packageVersions: [
+          buildPackageVersionRecord({
+            id: 43,
+            appId: 'chapter-4-asteroids',
+            version: '0.2.0',
+            approvalStatus: 'pending',
+            manifestJson: {
+              app_id: 'chapter-4-asteroids',
+              version: '0.2.0',
+              title: 'Chapter 4 Asteroids',
+              preview: {
+                fixtures_file: '/preview/fixtures.json',
+                tests_file: '/preview/tests.json',
+              },
+            },
+            artifact: {
+              snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
+              manifestPath: `${EXAMPLE_SNAPSHOT_ROOT}/manifest.json`,
+              entrypointPath: `${EXAMPLE_SNAPSHOT_ROOT}/dist/index.html`,
+              digest: 'sha256:example-pending-preview-post',
+            },
+          }),
+        ],
+      });
+      const app = createApp({ getRepository: () => repository });
+      const formData = new FormData();
+      formData.set('userRole', 'learner');
+      formData.set('courseId', 'course_demo');
+      formData.set('assignmentId', 'assignment_demo');
+      formData.set('activityId', 'chapter-4-asteroids');
+
+      const response = await app.request(
+        'https://lantern.example/admin/packages/chapter-4-asteroids/versions/0.2.0/preview',
+        {
+          method: 'POST',
+          headers: { Origin: 'https://lantern.example' },
+          body: formData,
+        },
+      );
+
+      assertEquals(response.status, 303);
+      const runtimeLocation = new URL(response.headers.get('location') ?? '');
+      const sessionId = runtimeLocation.pathname.split('/').at(-1) ?? '';
+      const session = await repository.getRuntimeSessionById(sessionId);
+      const deployment = await repository.getDeploymentBySlug('chapter-4-asteroids-preview');
+
+      assertEquals(session?.preview?.previewSessionId.startsWith('preview-session-'), true);
+      assertEquals(session?.packageVersionId, 43);
+      assertEquals(deployment?.enabledPackageVersionId, 43);
+      assertEquals(deployment?.lmsType, 'preview');
+
+      const runtimeResponse = await app.request(runtimeLocation.toString());
+      assertEquals(runtimeResponse.status, 200);
+    });
+  });
 });
 
 Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a runtime session from submitted test-launch values and redirects to Lantern runtime', async () => {

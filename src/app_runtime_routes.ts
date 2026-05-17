@@ -69,17 +69,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       }
       runtime.setReviewedPackage(reviewedPackage);
 
-      if (reviewedPackage.approvalStatus !== 'approved') {
-        failRuntimeOutcome({
-          type: 'integrity_failure',
-          code: 'package_version_not_approved',
-          message: `Runtime session package version ${reviewedPackage.appId}@${reviewedPackage.version} is not approved.`,
-          status: 409,
-          detail: {
-            packageVersionId: reviewedPackage.id,
-          },
-        });
-      }
+      requireRuntimePackageVersionCanRun(runtime.session, reviewedPackage);
       runtime.setDeliveryForReviewedPackage(reviewedPackage);
 
       const response = context.html(
@@ -410,11 +400,11 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const fileRequest = readRuntimeFileRequest(context);
-      const approvedPackage = await requireApprovedRuntimePackageVersion(repository, session);
-      reviewedPackage = approvedPackage;
+      const runtimePackage = await requireRunnableRuntimePackageVersion(repository, session);
+      reviewedPackage = runtimePackage;
       delivery = services.runtimeDelivery.describeDelivery({
         session,
-        reviewedPackage: approvedPackage,
+        reviewedPackage: runtimePackage,
       });
 
       authorizeRuntimeSession({
@@ -425,7 +415,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       return buildRuntimeAssetResponse(
         await services.runtimeDelivery.loadReviewedAsset({
           session,
-          reviewedPackage: approvedPackage,
+          reviewedPackage: runtimePackage,
           relativePath: fileRequest.relativePath,
         }),
       );
@@ -464,18 +454,18 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         expected: session,
       });
 
-      const approvedPackage = await requireApprovedRuntimePackageVersion(repository, session);
-      reviewedPackage = approvedPackage;
+      const runtimePackage = await requireRunnableRuntimePackageVersion(repository, session);
+      reviewedPackage = runtimePackage;
       delivery = services.runtimeDelivery.describeDelivery({
         session,
-        reviewedPackage: approvedPackage,
+        reviewedPackage: runtimePackage,
       });
       const assetPath = url.pathname.slice(
         `/runtime/sessions/${encodeURIComponent(sessionId)}/browser-grader/`.length,
       );
       const asset = await services.runtimeDelivery.loadBrowserGraderAsset({
         session,
-        reviewedPackage: approvedPackage,
+        reviewedPackage: runtimePackage,
         assetPath,
       });
 
@@ -684,7 +674,7 @@ function buildRuntimeAssetResponse(asset: { bytes: Uint8Array; contentType: stri
   });
 }
 
-async function requireApprovedRuntimePackageVersion(
+async function requireRunnableRuntimePackageVersion(
   repository: ReturnType<AppServices['getRepository']>,
   session: RuntimeSessionRecord,
 ): Promise<PackageVersionRecord> {
@@ -702,19 +692,32 @@ async function requireApprovedRuntimePackageVersion(
     });
   }
 
-  if (packageVersion.approvalStatus !== 'approved') {
-    failRuntimeOutcome({
-      type: 'integrity_failure',
-      code: 'package_version_not_approved',
-      message: `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
-      status: 409,
-      detail: {
-        packageVersionId: packageVersion.id,
-      },
-    });
-  }
+  requireRuntimePackageVersionCanRun(session, packageVersion);
 
   return packageVersion;
+}
+
+function requireRuntimePackageVersionCanRun(
+  session: RuntimeSessionRecord,
+  packageVersion: PackageVersionRecord,
+): void {
+  if (packageVersion.approvalStatus === 'approved') {
+    return;
+  }
+
+  if (session.preview !== undefined && packageVersion.approvalStatus === 'pending') {
+    return;
+  }
+
+  failRuntimeOutcome({
+    type: 'integrity_failure',
+    code: 'package_version_not_approved',
+    message: `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+    status: 409,
+    detail: {
+      packageVersionId: packageVersion.id,
+    },
+  });
 }
 
 function applyRuntimeResponseHeaders(headers: Headers): void {

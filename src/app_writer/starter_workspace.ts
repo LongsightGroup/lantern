@@ -3,10 +3,15 @@ import type {
   AppWriterStarterId,
   AppWriterWorkspaceFile,
 } from './types.ts';
+import { LANTERN_APP_CSS } from '../styles/lantern_app_css.ts';
+import { PICO_CSS } from '../styles/pico_css.ts';
 
 export const APP_WRITER_BASELINE_PACKAGE_FILES = [
   'manifest.json',
   'dist/index.html',
+  'dist/pico.min.css',
+  'dist/lantern-app.css',
+  'dist/app.css',
   'dist/app.js',
   'content/activity.json',
   'preview/fixtures.json',
@@ -16,6 +21,9 @@ export const APP_WRITER_BASELINE_PACKAGE_FILES = [
 export const APP_WRITER_TYPESCRIPT_AUTHORING_FILES = [
   'manifest.json',
   'dist/index.html',
+  'dist/pico.min.css',
+  'dist/lantern-app.css',
+  'dist/app.css',
   'source/app.ts',
   'source/content_model.ts',
   'content/activity.json',
@@ -41,13 +49,18 @@ export function buildAppWriterStarterWorkspace(
         files: buildStarterFilesForAuthoringMode(
           buildBrowserAutograderStarterFiles(),
           authoringMode,
+          starterId,
         ),
       };
     case 'simple-activity':
       return {
         starterId,
         instructions: buildWorkspaceInstructions(authoringMode),
-        files: buildStarterFilesForAuthoringMode(buildSimpleActivityStarterFiles(), authoringMode),
+        files: buildStarterFilesForAuthoringMode(
+          buildSimpleActivityStarterFiles(),
+          authoringMode,
+          starterId,
+        ),
       };
   }
 }
@@ -104,6 +117,10 @@ Rules:
       : 'Put browser-ready JavaScript in dist/app.js.'
   }
 - Do not use imports, package installs, external URLs, localStorage, sessionStorage, LMS APIs, Cloudflare bindings, D1, R2, Durable Objects, or raw grade passback.
+- Styling is self-contained. Use the vendored Pico base in dist/pico.min.css,
+  Lantern learning-app primitives in dist/lantern-app.css, and app-specific
+  overrides in dist/app.css. Do not modify dist/pico.min.css or load external
+  fonts, stylesheets, images, or scripts.
 - Use stable data-test selectors for preview tests.
 - Emit GatewayApp attempt events for reportable learner actions.
 - Attempt event shapes are strict: answer events have questionId and answer,
@@ -116,29 +133,116 @@ Definition of Done:
 - The package manifest, content, preview fixtures, preview tests, SDK capability use, and policy checks must validate with zero error findings.
 - The app must boot and pass preview assertions in Lantern's runtime path.
 - If any typing, validation, preview, runtime, or policy check fails, Lantern will send diagnostics back for targeted repair and rerun the full loop.
+
+See .lantern/contracts/definition-of-done.md and
+.lantern/contracts/gateway-app-sdk.d.ts before editing. They are the narrowed
+contract for generated learning apps.
 `;
 }
 
 function buildStarterFilesForAuthoringMode(
   files: AppWriterWorkspaceFile[],
   authoringMode: AppWriterAuthoringMode,
+  starterId: AppWriterStarterId,
 ): AppWriterWorkspaceFile[] {
   if (authoringMode === 'javascript') {
     return files;
+  }
+
+  if (starterId === 'browser-autograder') {
+    return [
+      ...files.filter((file) => file.path !== 'dist/app.js'),
+      {
+        path: 'source/content_model.ts',
+        contents:
+          'interface ActivityContent {\n  title: string;\n  instructions: string;\n  checks?: string[];\n}\n',
+      },
+      {
+        path: 'source/app.ts',
+        contents: buildBrowserAutograderTypeScriptStarterSource(),
+      },
+    ];
   }
 
   return [
     ...files.filter((file) => file.path !== 'dist/app.js'),
     {
       path: 'source/content_model.ts',
-      contents: 'interface ActivityContent {\n  title: string;\n  instructions: string;\n}\n',
+      contents:
+        'interface ActivityContent {\n  title: string;\n  instructions: string;\n  items?: string[];\n}\n',
     },
     {
       path: 'source/app.ts',
       contents:
-        'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");\n  const content = await gateway.getActivityContent<ActivityContent>();\n  const root = document.querySelector("#app");\n  if (!(root instanceof HTMLElement)) throw new Error("App root is missing.");\n  root.innerHTML = "";\n  const title = document.createElement("h1");\n  title.dataset.test = "app-title";\n  title.textContent = content.title;\n  root.append(title);\n}\nvoid start();\n',
+        'function requireGateway(): NonNullable<Window["GatewayApp"]> {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");\n  return gateway;\n}\n\nfunction requireRoot(): HTMLElement {\n  const root = document.querySelector("#app");\n  if (!(root instanceof HTMLElement)) throw new Error("App root is missing.");\n  return root;\n}\n\nfunction firstItem<T>(items: readonly T[], fallback: T): T {\n  return items[0] ?? fallback;\n}\n\nasync function start() {\n  const gateway = requireGateway();\n  const content = await gateway.getActivityContent<ActivityContent>();\n  const root = requireRoot();\n  const titleText = content.title || "Learning Activity";\n  const firstPracticeItem = firstItem(content.items ?? [], content.instructions || titleText);\n\n  root.innerHTML = "";\n  const title = document.createElement("h1");\n  title.dataset.test = "app-title";\n  title.textContent = titleText;\n\n  const prompt = document.createElement("p");\n  prompt.dataset.test = "practice-item";\n  prompt.textContent = firstPracticeItem;\n\n  const done = document.createElement("button");\n  done.type = "button";\n  done.dataset.test = "complete-button";\n  done.textContent = "Complete";\n  done.addEventListener("click", async () => {\n    await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });\n    await gateway.finalizeAttempt({ completionState: "completed" });\n  });\n\n  root.append(title, prompt, done);\n}\nvoid start();\n',
     },
   ];
+}
+
+function buildBrowserAutograderTypeScriptStarterSource(): string {
+  return `function requireGateway(): NonNullable<Window["GatewayApp"]> {
+  const gateway = window.GatewayApp;
+  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");
+  return gateway;
+}
+
+function requireRoot(): HTMLElement {
+  const root = document.querySelector("#app");
+  if (!(root instanceof HTMLElement)) throw new Error("App root is missing.");
+  return root;
+}
+
+function toStructuredEvidenceBody(value: unknown): string {
+  return btoa(JSON.stringify(value));
+}
+
+async function start() {
+  const gateway = requireGateway();
+  const content = await gateway.getActivityContent<ActivityContent>();
+  const root = requireRoot();
+  const titleText = content.title || "Browser Autograder";
+
+  root.innerHTML = "";
+  const title = document.createElement("h1");
+  title.dataset.test = "app-title";
+  title.textContent = titleText;
+
+  const instructions = document.createElement("p");
+  instructions.dataset.test = "instructions";
+  instructions.textContent = content.instructions || "Run the reviewed browser checks.";
+
+  const score = document.createElement("p");
+  score.dataset.test = "score";
+  score.textContent = "Waiting";
+
+  const runButton = document.createElement("button");
+  runButton.type = "button";
+  runButton.dataset.test = "run-checks";
+  runButton.textContent = "Run checks";
+  runButton.addEventListener("click", async () => {
+    const result = await gateway.runBrowserGrader();
+    score.textContent = String(result.scoreGiven);
+    await gateway.submitEvidenceArtifact({
+      kind: "structured_json",
+      contentType: "application/json",
+      fileName: "browser-check-result.json",
+      bodyBase64: toStructuredEvidenceBody({
+        checkedAt: new Date().toISOString(),
+        scoreGiven: result.scoreGiven,
+        scoreMaximum: result.scoreMaximum,
+      }),
+    });
+    await gateway.submitScoreProposal({
+      scoreGiven: result.scoreGiven,
+      scoreMaximum: result.scoreMaximum,
+    });
+    await gateway.finalizeAttempt({ completionState: "completed" });
+  });
+
+  root.append(title, instructions, score, runButton);
+}
+void start();
+`;
 }
 
 function buildSimpleActivityStarterFiles(): AppWriterWorkspaceFile[] {
@@ -172,17 +276,25 @@ function buildSimpleActivityStarterFiles(): AppWriterWorkspaceFile[] {
     {
       path: 'dist/index.html',
       contents:
-        '<!doctype html><html><head><meta charset="utf-8"><title>Starter Simple Activity</title><link rel="stylesheet" href="./app.css"></head><body><main id="app" data-test="app-root"></main><script src="./app.js"></script></body></html>\n',
+        '<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Starter Simple Activity</title><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./lantern-app.css"><link rel="stylesheet" href="./app.css"></head><body><main id="app" class="ln-app" data-test="app-root"></main><script src="./app.js"></script></body></html>\n',
+    },
+    {
+      path: 'dist/pico.min.css',
+      contents: PICO_CSS,
+    },
+    {
+      path: 'dist/lantern-app.css',
+      contents: LANTERN_APP_CSS,
     },
     {
       path: 'dist/app.js',
       contents:
-        'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");\n  const content = await gateway.getActivityContent();\n  const root = document.querySelector("#app");\n  if (!root) throw new Error("App root is missing.");\n  root.innerHTML = `<h1 data-test="app-title">${content.title ?? "Learning Activity"}</h1>`;\n}\nvoid start();\n',
+        'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");\n  const content = await gateway.getActivityContent();\n  const root = document.querySelector("#app");\n  if (!(root instanceof HTMLElement)) throw new Error("App root is missing.");\n  root.innerHTML = `<h1 data-test="app-title">${content.title ?? "Learning Activity"}</h1>`;\n}\nvoid start();\n',
     },
     {
       path: 'dist/app.css',
       contents:
-        ':root { color-scheme: light; } body { margin: 0; font-family: system-ui, sans-serif; background: #f7f8fa; color: #18202f; } main { max-width: 880px; margin: 0 auto; padding: 32px 20px; }\n',
+        '/* App-specific styles only. Pico and Lantern base styles are reviewed files. */\n',
     },
     {
       path: 'content/activity.json',
@@ -255,12 +367,25 @@ function buildBrowserAutograderStarterFiles(): AppWriterWorkspaceFile[] {
     {
       path: 'dist/index.html',
       contents:
-        '<!doctype html><html><head><meta charset="utf-8"><title>Starter Browser Autograder</title></head><body><main id="app" data-test="app-root"></main><script src="./app.js"></script></body></html>\n',
+        '<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Starter Browser Autograder</title><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./lantern-app.css"><link rel="stylesheet" href="./app.css"></head><body><main id="app" class="ln-app" data-test="app-root"></main><script src="./app.js"></script></body></html>\n',
+    },
+    {
+      path: 'dist/pico.min.css',
+      contents: PICO_CSS,
+    },
+    {
+      path: 'dist/lantern-app.css',
+      contents: LANTERN_APP_CSS,
+    },
+    {
+      path: 'dist/app.css',
+      contents:
+        '/* App-specific styles only. Pico and Lantern base styles are reviewed files. */\n',
     },
     {
       path: 'dist/app.js',
       contents:
-        'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");\n  const content = await gateway.getActivityContent();\n  const root = document.querySelector("#app");\n  if (!root) throw new Error("App root is missing.");\n  root.innerHTML = `<h1 data-test="app-title">${content.title ?? "Browser Autograder"}</h1><p data-test="score">Waiting</p>`;\n}\nvoid start();\n',
+        'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");\n  const content = await gateway.getActivityContent();\n  const root = document.querySelector("#app");\n  if (!(root instanceof HTMLElement)) throw new Error("App root is missing.");\n  root.innerHTML = `<h1 data-test="app-title">${content.title ?? "Browser Autograder"}</h1><p data-test="score">Waiting</p>`;\n}\nvoid start();\n',
     },
     {
       path: 'content/activity.json',

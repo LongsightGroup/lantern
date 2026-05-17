@@ -29,7 +29,12 @@ export function renderPackageOverviewPage(input: {
     heading: input.appTitle,
     intro: 'Versions, governed launch tools, and LMS settings for this app.',
     activePath: '/admin/packages',
-    breadcrumbs: [{ label: 'Apps', href: '/admin/packages' }, { label: input.appTitle }],
+    breadcrumbs: [
+      { label: 'Apps', href: '/admin/packages' },
+      {
+        label: input.appTitle,
+      },
+    ],
     notice: input.notice ?? null,
     pageNav: renderPackagePageNav({
       appId: input.appId,
@@ -184,11 +189,11 @@ function renderOverviewVersionRow(input: {
           version.appId,
         )}/versions/${escapeHtml(version.version)}">Open version</a>
         ${
-          version.approvalStatus === 'approved'
-            ? `<a class="button-ghost" href="/admin/packages/${escapeHtml(
+          version.approvalStatus === 'rejected'
+            ? ''
+            : `<a class="button-ghost" href="/admin/packages/${escapeHtml(
                 version.appId,
               )}/versions/${escapeHtml(version.version)}/preview">Test launch</a>`
-            : ''
         }
         ${
           version.approvalStatus !== 'approved' || !supportsAuthoringDrafts(version)

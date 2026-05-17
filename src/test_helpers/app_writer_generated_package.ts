@@ -1,4 +1,6 @@
 import type { AppWriterWorkspaceFile } from '../app_writer/types.ts';
+import { LANTERN_APP_CSS } from '../styles/lantern_app_css.ts';
+import { PICO_CSS } from '../styles/pico_css.ts';
 
 export function buildValidSimpleActivityFiles(): AppWriterWorkspaceFile[] {
   return [
@@ -35,7 +37,15 @@ export function buildValidSimpleActivityFiles(): AppWriterWorkspaceFile[] {
     {
       path: 'dist/index.html',
       contents:
-        '<!doctype html><html><head><title>Phonics Match</title><link rel="stylesheet" href="./app.css"></head><body><main data-test="app-title">Phonics Match</main><script src="./app.js"></script></body></html>\n',
+        '<!doctype html><html><head><title>Phonics Match</title><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./lantern-app.css"><link rel="stylesheet" href="./app.css"></head><body><main data-test="app-title">Phonics Match</main><script src="./app.js"></script></body></html>\n',
+    },
+    {
+      path: 'dist/pico.min.css',
+      contents: PICO_CSS,
+    },
+    {
+      path: 'dist/lantern-app.css',
+      contents: LANTERN_APP_CSS,
     },
     {
       path: 'dist/app.css',
@@ -122,7 +132,20 @@ export function buildValidBrowserAutograderFiles(): AppWriterWorkspaceFile[] {
     {
       path: 'dist/index.html',
       contents:
-        '<!doctype html><html><head><title>Web Check</title></head><body><main><h1 data-test="app-title">Web Check</h1><p data-test="score">Waiting</p></main><script src="./app.js"></script></body></html>\n',
+        '<!doctype html><html><head><title>Web Check</title><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./lantern-app.css"><link rel="stylesheet" href="./app.css"></head><body><main><h1 data-test="app-title">Web Check</h1><p data-test="score">Waiting</p></main><script src="./app.js"></script></body></html>\n',
+    },
+    {
+      path: 'dist/pico.min.css',
+      contents: PICO_CSS,
+    },
+    {
+      path: 'dist/lantern-app.css',
+      contents: LANTERN_APP_CSS,
+    },
+    {
+      path: 'dist/app.css',
+      contents:
+        '/* App-specific styles only. Pico and Lantern base styles are reviewed files. */\n',
     },
     {
       path: 'dist/app.js',

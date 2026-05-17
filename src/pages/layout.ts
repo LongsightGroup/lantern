@@ -16,13 +16,10 @@ export function renderLayout(title: string, body: string): string {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${safeTitle}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600;700&display=swap" rel="stylesheet">
     <style>
       :root {
         color-scheme: light;
-        --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
         --ink: #11253d;
         --secondary: #475c72;
         --muted: #708397;

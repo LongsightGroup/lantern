@@ -1,9 +1,7 @@
 import type { LocalPreviewAssertionRunResult } from '../authoring/local_preview_assertions.ts';
-import type {
-  AppGenerationValidationFinding,
-  AppPackagePreviewer,
-  AppWriterWorkspaceFile,
-} from './types.ts';
+import type { LocalPreviewLogEntry } from '../authoring/local_preview.ts';
+import { createMemoryPackageSource } from '../package_review/package_source.ts';
+import type { AppPackagePreviewer, AppPackagePreviewResult } from './types.ts';
 
 export function createLocalAppPackagePreviewer(
   input: {
@@ -12,18 +10,23 @@ export function createLocalAppPackagePreviewer(
 ): AppPackagePreviewer {
   return {
     async preview(previewInput) {
-      const packageRoot = await materializeWorkspace(previewInput.files);
+      const { runLocalPreviewAssertionsForSource } =
+        await import('../authoring/local_preview_assertions.ts');
+      const options =
+        input.settleTimeoutMs === undefined ? {} : { settleTimeoutMs: input.settleTimeoutMs };
+      const source = createMemoryPackageSource(
+        previewInput.files.map((file) => ({
+          relativePath: file.path,
+          bytes: file.contents,
+        })),
+      );
 
-      try {
-        const { runLocalPreviewAssertions } =
-          await import('../authoring/local_preview_assertions.ts');
-        const options =
-          input.settleTimeoutMs === undefined ? {} : { settleTimeoutMs: input.settleTimeoutMs };
-
-        return mapPreviewAssertionResult(await runLocalPreviewAssertions(packageRoot, options));
-      } finally {
-        await Deno.remove(packageRoot, { recursive: true });
-      }
+      return mapPreviewAssertionResult(
+        await runLocalPreviewAssertionsForSource(source, {
+          packageRoot: `memory://app-writer/${previewInput.generationId}`,
+          ...options,
+        }),
+      );
     },
   };
 }
@@ -41,33 +44,11 @@ export function createUnavailableAppPackagePreviewer(
 export const APP_PACKAGE_PREVIEWER_UNAVAILABLE_MESSAGE =
   'Lantern app package preview is not configured. Bind a platform-owned previewer before saving generated apps.';
 
-async function materializeWorkspace(files: readonly AppWriterWorkspaceFile[]): Promise<string> {
-  const packageRoot = await Deno.makeTempDir({ prefix: 'lantern-generated-preview-' });
-
-  try {
-    for (const file of files) {
-      const relativePath = normalizePreviewPath(file.path);
-      const parent = parentPath(relativePath);
-
-      if (parent !== '') {
-        await Deno.mkdir(`${packageRoot}/${parent}`, { recursive: true });
-      }
-
-      await Deno.writeTextFile(`${packageRoot}/${relativePath}`, file.contents);
-    }
-
-    return packageRoot;
-  } catch (error) {
-    await Deno.remove(packageRoot, { recursive: true });
-    throw error;
-  }
-}
-
 function mapPreviewAssertionResult(
   result: LocalPreviewAssertionRunResult,
-): AppGenerationValidationFinding[] {
+): AppPackagePreviewResult {
   if (result.ok) {
-    return result.results.flatMap((assertion) => {
+    const validationFindings = result.results.flatMap((assertion) => {
       if (assertion.passed) {
         return [];
       }
@@ -89,54 +70,67 @@ function mapPreviewAssertionResult(
         },
       ];
     });
+
+    return {
+      validationFindings,
+      assertionCount: result.results.length,
+      passedAssertionCount: result.passedCount,
+      runtimeLog: result.runtimeLog.map(mapPreviewRuntimeLogEntry),
+      summary:
+        validationFindings.length === 0
+          ? `Passed ${result.passedCount}/${result.results.length} preview assertions.`
+          : `Failed ${result.failedCount}/${result.results.length} preview assertions.`,
+    };
   }
 
   if (result.kind === 'validation_failed') {
-    return result.diagnostics.map((diagnostic) => ({
-      code: diagnostic.code,
-      severity: 'error',
-      message: diagnostic.message,
-      file: diagnostic.file ?? null,
-      field: diagnostic.field ?? null,
-      fix: diagnostic.fix,
-      detail: {},
-    }));
+    return {
+      validationFindings: result.diagnostics.map((diagnostic) => ({
+        code: diagnostic.code,
+        severity: 'error',
+        message: diagnostic.message,
+        file: diagnostic.file ?? null,
+        field: diagnostic.field ?? null,
+        fix: diagnostic.fix,
+        detail: {},
+      })),
+      assertionCount: 0,
+      passedAssertionCount: 0,
+      runtimeLog: [],
+      summary: `Preview package validation failed with ${result.diagnostics.length} diagnostics.`,
+    };
   }
 
-  return [
-    {
-      code: 'preview_runtime_failed',
-      severity: 'error',
-      message: result.message,
-      file: null,
-      field: null,
-      fix: 'Fix the generated browser code so it boots in Lantern preview without runtime errors.',
-      detail: {
-        details: result.details,
+  return {
+    validationFindings: [
+      {
+        code: 'preview_runtime_failed',
+        severity: 'error',
+        message: result.message,
+        file: null,
+        field: null,
+        fix: 'Fix the generated browser code so it boots in Lantern preview without runtime errors.',
+        detail: {
+          details: result.details,
+        },
       },
+    ],
+    assertionCount: 0,
+    passedAssertionCount: 0,
+    runtimeLog: result.runtimeLog.map(mapPreviewRuntimeLogEntry),
+    summary: 'Preview runtime failed before assertions completed.',
+  };
+}
+
+function mapPreviewRuntimeLogEntry(
+  entry: LocalPreviewLogEntry,
+): AppPackagePreviewResult['runtimeLog'][number] {
+  return {
+    level: 'info',
+    message: entry.eventType.replaceAll('.', ' '),
+    detail: {
+      ...entry.detail,
+      occurredAt: entry.occurredAt,
     },
-  ];
-}
-
-function normalizePreviewPath(path: string): string {
-  const trimmed = path.trim();
-
-  if (
-    trimmed === '' ||
-    trimmed.startsWith('/') ||
-    trimmed.includes('\\') ||
-    trimmed.split('/').includes('..')
-  ) {
-    throw new Error(`Generated preview file path ${path} must stay inside the package root.`);
-  }
-
-  return trimmed.replaceAll(/\/+/g, '/');
-}
-
-function parentPath(relativePath: string): string {
-  const parts = relativePath.split('/');
-
-  parts.pop();
-
-  return parts.join('/');
+  };
 }

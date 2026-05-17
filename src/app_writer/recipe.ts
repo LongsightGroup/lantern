@@ -2,10 +2,10 @@ import type { AppWriterAuthoringMode, AppWriterStarterId } from './types.ts';
 
 export const APP_WRITER_RECIPE_ID = 'lantern-learning-app-writer';
 export const APP_WRITER_RECIPE_VERSION = '0.1.0';
-export const APP_WRITER_INSTRUCTIONS_VERSION = '2026-05-15.dod-initialization';
-export const APP_WRITER_DEFINITION_OF_DONE_VERSION = '2026-05-15';
-export const APP_WRITER_PROMPT_CONTEXT_VERSION = 1;
-export const APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS = 3;
+export const APP_WRITER_INSTRUCTIONS_VERSION = '2026-05-16.pico-style-contract';
+export const APP_WRITER_DEFINITION_OF_DONE_VERSION = '2026-05-16';
+export const APP_WRITER_PROMPT_CONTEXT_VERSION = 2;
+export const APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS = 4;
 
 export const APP_WRITER_PUBLIC_CONTRACT_SOURCES = [
   'APP_PACKAGE_SPEC.md',
@@ -19,13 +19,18 @@ export const APP_WRITER_RECIPE_STARTER_SET = [
   'browser-autograder',
 ] as const satisfies readonly AppWriterStarterId[];
 
-export const APP_WRITER_RECIPE_OUTPUT_CONTRACTS = ['planning_json', 'raw_workspace_file'] as const;
+export const APP_WRITER_RECIPE_OUTPUT_CONTRACTS = [
+  'lantern_owned_plan',
+  'shell_workspace_snapshot',
+  'codemode_workspace_edit',
+] as const;
 
 export const APP_WRITER_RECIPE_PROOF_CHECKS = [
   'strict_typescript',
   'package_validation',
   'preview_runtime_assertions',
   'policy_checks',
+  'style_contract',
 ] as const;
 
 export interface AppWriterRecipe {

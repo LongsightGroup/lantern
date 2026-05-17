@@ -1,7 +1,15 @@
 export const ADMIN_LAYOUT_STYLE_TOKENS = `
       :root {
         color-scheme: light;
-        --font: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        --pico-font-family: var(--font);
+        --pico-primary: #153a61;
+        --pico-primary-hover: #102f4d;
+        --pico-primary-background: #153a61;
+        --pico-primary-hover-background: #102f4d;
+        --pico-primary-border: #153a61;
+        --pico-primary-hover-border: #102f4d;
+        --pico-border-radius: 0.375rem;
         --bg: #f4f7fa;
         --surface: #fcfdff;
         --ink: #11253d;

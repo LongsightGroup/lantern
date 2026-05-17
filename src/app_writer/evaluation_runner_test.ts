@@ -6,6 +6,8 @@ import type { AppWriterWorkspaceRunner } from './workspace_runner.ts';
 import type { AppPackageGenerationResult, AppWriterStarterId } from './types.ts';
 import { buildValidSimpleActivityFiles } from '../test_helpers/app_writer_generated_package.ts';
 import { createInMemoryPackageReviewRepository } from '../test_helpers/package_review.ts';
+import { LANTERN_APP_CSS } from '../styles/lantern_app_css.ts';
+import { PICO_CSS } from '../styles/pico_css.ts';
 
 Deno.test('app writer evaluation runner tracks harness outcomes across the prompt corpus', async () => {
   const results = [];
@@ -18,7 +20,13 @@ Deno.test('app writer evaluation runner tracks harness outcomes across the promp
         workspaceRunner: createCorpusFakeWorkspaceRunner(),
         previewer: {
           preview(_input) {
-            return Promise.resolve([]);
+            return Promise.resolve({
+              validationFindings: [],
+              assertionCount: 1,
+              passedAssertionCount: 1,
+              runtimeLog: [],
+              summary: 'Passed 1/1 preview assertions.',
+            });
           },
         },
         now: createClock([
@@ -168,7 +176,20 @@ function buildValidBrowserAutograderFiles(): AppPackageGenerationResult['files']
     {
       path: 'dist/index.html',
       contents:
-        '<!doctype html><html><body><main data-test="app-title">Web Check</main><script src="./app.js"></script></body></html>\n',
+        '<!doctype html><html><head><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./lantern-app.css"><link rel="stylesheet" href="./app.css"></head><body><main data-test="app-title">Web Check</main><script src="./app.js"></script></body></html>\n',
+    },
+    {
+      path: 'dist/pico.min.css',
+      contents: PICO_CSS,
+    },
+    {
+      path: 'dist/lantern-app.css',
+      contents: LANTERN_APP_CSS,
+    },
+    {
+      path: 'dist/app.css',
+      contents:
+        '/* App-specific styles only. Pico and Lantern base styles are reviewed files. */\n',
     },
     {
       path: 'dist/app.js',

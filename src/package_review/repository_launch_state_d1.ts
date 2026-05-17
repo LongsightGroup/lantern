@@ -224,9 +224,10 @@ export function createD1LaunchStateRepositoryMethods(
               launch_course_id,
               launch_assignment_id,
               launch_activity_id,
+              preview_session_id,
               created_at,
               expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             record.sessionId,
@@ -250,6 +251,7 @@ export function createD1LaunchStateRepositoryMethods(
             record.launch.courseId,
             record.launch.assignmentId ?? null,
             record.launch.activityId,
+            record.preview?.previewSessionId ?? null,
             record.createdAt,
             record.expiresAt,
           ],
@@ -509,6 +511,7 @@ const D1_RUNTIME_SESSION_SELECT = `
     launch_course_id AS launchCourseId,
     launch_assignment_id AS launchAssignmentId,
     launch_activity_id AS launchActivityId,
+    preview_session_id AS previewSessionId,
     created_at AS createdAt,
     expires_at AS expiresAt
   FROM runtime_sessions
@@ -597,6 +600,7 @@ interface D1RuntimeSessionRow extends Record<string, unknown> {
   launchCourseId: unknown;
   launchAssignmentId: unknown;
   launchActivityId: unknown;
+  previewSessionId: unknown;
   createdAt: unknown;
   expiresAt: unknown;
 }
@@ -773,6 +777,7 @@ function mapD1RuntimeSessionFields(row: D1RuntimeSessionRow): RuntimeSessionRow 
     launchCourseId: expectString(row.launchCourseId, 'launchCourseId'),
     launchAssignmentId: expectNullableString(row.launchAssignmentId, 'launchAssignmentId'),
     launchActivityId: expectString(row.launchActivityId, 'launchActivityId'),
+    previewSessionId: expectNullableString(row.previewSessionId, 'previewSessionId'),
     createdAt: expectString(row.createdAt, 'createdAt'),
     expiresAt: expectString(row.expiresAt, 'expiresAt'),
   };

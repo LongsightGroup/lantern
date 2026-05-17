@@ -35,6 +35,8 @@ export const ADMIN_LAYOUT_STYLE_SIDEBAR = `
         padding: 12px 10px;
         display: flex;
         flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
         gap: 2px;
         flex: 1;
       }

@@ -64,6 +64,57 @@ Deno.test('preview service loads preview.fixtures_file and validates required fi
   }
 });
 
+Deno.test('preview service prepares pending package versions for review test launch', async () => {
+  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+
+  try {
+    await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
+    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await Deno.writeTextFile(
+      `${snapshotRoot}/preview/fixtures.json`,
+      JSON.stringify({
+        launch: {
+          user_role: 'learner',
+          course_id: 'course-preview-42',
+          assignment_id: 'assignment-preview-7',
+          activity_id: 'activity-preview-9',
+        },
+        attempt_id: 'attempt-preview-pending',
+        local_state: null,
+      }),
+    );
+
+    const pendingPackage = buildPackageVersionRecord({
+      id: 13,
+      approvalStatus: 'pending',
+      artifact: {
+        snapshotRoot,
+        manifestPath: `${snapshotRoot}/manifest.json`,
+        entrypointPath: `${snapshotRoot}/dist/index.html`,
+        digest: 'sha256:preview-pending-test',
+      },
+      manifestJson: {
+        app_id: 'chapter-4-asteroids',
+        version: '0.2.0',
+        title: 'Chapter 4 Asteroids',
+      },
+    });
+
+    const prepared = await preparePreviewSession({
+      packageVersion: pendingPackage,
+      artifactStore,
+      now: () => new Date('2026-03-25T02:00:00Z'),
+      createOpaqueToken: () => 'opaque-1',
+    });
+
+    assertEquals(prepared.packageVersionId, 13);
+    assertEquals(prepared.launch.userRole, 'learner');
+    assertEquals(prepared.fixtureData.attempt_id, 'attempt-preview-pending');
+  } finally {
+    await Deno.remove(snapshotRoot, { recursive: true });
+  }
+});
+
 Deno.test('preview service fails clearly when preview fixtures are missing and does not fall back to runtime defaults', async () => {
   const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
 

@@ -69,12 +69,47 @@ Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and e
     false,
   );
   assertStringIncludes(body, 'Start test launch');
-  assertStringIncludes(body, 'Show reviewed runtime capabilities');
+  assertStringIncludes(body, 'Show runtime capabilities');
   assertStringIncludes(body, 'Recent test activity');
   assertStringIncludes(
     body,
     'No test activity has been recorded yet. Start a test launch to open the app.',
   );
+});
+
+Deno.test('renderPreviewPage labels pending versions as review test launches', () => {
+  const packageVersion = buildPackageVersionRecord({
+    id: 12,
+    appId: 'flashcard-practice',
+    version: '0.2.0',
+    title: 'Flashcard Practice',
+    approvalStatus: 'pending',
+  });
+  const previewSession = buildPreviewSessionRecord({
+    packageVersionId: packageVersion.id,
+    appId: packageVersion.appId,
+    packageVersion: packageVersion.version,
+    packageTitle: packageVersion.title,
+  });
+
+  const body = renderPreviewPage({
+    packageVersion,
+    savedDefaults: previewSession,
+    latestSession: null,
+    formValues: {
+      userRole: previewSession.launch.userRole,
+      courseId: previewSession.launch.courseId,
+      assignmentId: previewSession.launch.assignmentId ?? '',
+      activityId: previewSession.launch.activityId,
+    },
+    previewEvidence: [],
+  });
+
+  assertStringIncludes(body, 'Review Test Launch');
+  assertStringIncludes(body, 'Pending review');
+  assertStringIncludes(body, 'Start review test launch');
+  assertStringIncludes(body, 'before approval');
+  assertStringIncludes(body, 'never writes to the LMS');
 });
 
 Deno.test('renderPreviewPage shows durable test activity evidence in capability log timeline', () => {

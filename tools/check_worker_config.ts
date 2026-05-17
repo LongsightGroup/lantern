@@ -9,6 +9,12 @@ export function validateWorkerConfigBindings(configText: string): string[] {
   return [...missing, ...prohibited];
 }
 
+export function validateAppWriterPlatformConfigBindings(configText: string): string[] {
+  return APP_WRITER_PLATFORM_REQUIRED_BINDINGS.filter(
+    ({ pattern }) => !pattern.test(configText),
+  ).map(({ description }) => description);
+}
+
 const REQUIRED_BINDINGS = [
   {
     description: 'custom domain route lantern.appboundary.com',
@@ -64,10 +70,25 @@ const PROHIBITED_BINDINGS = [
   },
 ] as const;
 
+const APP_WRITER_PLATFORM_REQUIRED_BINDINGS = [
+  {
+    description: 'browser rendering binding BROWSER',
+    pattern: /"browser"\s*:\s*\{[\s\S]*?"binding"\s*:\s*"BROWSER"/,
+  },
+] as const;
+
 if (import.meta.main) {
   const configPath = new URL('../wrangler.jsonc', import.meta.url);
+  const appWriterPlatformConfigPath = new URL(
+    '../wrangler.app-writer-platform.jsonc',
+    import.meta.url,
+  );
   const configText = await Deno.readTextFile(configPath);
-  const failures = validateWorkerConfigBindings(configText);
+  const appWriterPlatformConfigText = await Deno.readTextFile(appWriterPlatformConfigPath);
+  const failures = [
+    ...validateWorkerConfigBindings(configText),
+    ...validateAppWriterPlatformConfigBindings(appWriterPlatformConfigText),
+  ];
 
   if (failures.length > 0) {
     throw new Error(
@@ -78,6 +99,6 @@ if (import.meta.main) {
   }
 
   console.log(
-    'Worker config keeps the production custom domain, DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, and app-writer service bindings wired.',
+    'Worker config keeps the production custom domain, DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, app-writer service bindings, and platform Browser Rendering binding wired.',
   );
 }

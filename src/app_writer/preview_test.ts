@@ -9,7 +9,7 @@ Deno.test({
   name: 'local app package previewer accepts a package that boots and passes assertions',
   permissions: previewPermissions(),
   async fn() {
-    const findings = await createLocalAppPackagePreviewer({
+    const result = await createLocalAppPackagePreviewer({
       settleTimeoutMs: 250,
     }).preview({
       generationId: 'generation-1',
@@ -17,7 +17,9 @@ Deno.test({
       files: buildValidSimpleActivityFiles(),
     });
 
-    assertEquals(findings, []);
+    assertEquals(result.validationFindings, []);
+    assertEquals(result.assertionCount, 1);
+    assertEquals(result.passedAssertionCount, 1);
   },
 });
 
@@ -42,7 +44,7 @@ Deno.test({
         : file,
     );
 
-    const findings = await createLocalAppPackagePreviewer({
+    const result = await createLocalAppPackagePreviewer({
       settleTimeoutMs: 250,
     }).preview({
       generationId: 'generation-1',
@@ -50,8 +52,10 @@ Deno.test({
       files,
     });
 
-    assertEquals(findings[0]?.code, 'preview_assertion_failed');
-    assertEquals(findings[0]?.file, '/preview/tests.json');
+    assertEquals(result.validationFindings[0]?.code, 'preview_assertion_failed');
+    assertEquals(result.validationFindings[0]?.file, '/preview/tests.json');
+    assertEquals(result.assertionCount, 1);
+    assertEquals(result.passedAssertionCount, 0);
   },
 });
 
@@ -59,7 +63,7 @@ Deno.test({
   name: 'local app package previewer runs the browser autograder path',
   permissions: previewPermissions(),
   async fn() {
-    const findings = await createLocalAppPackagePreviewer({
+    const result = await createLocalAppPackagePreviewer({
       settleTimeoutMs: 500,
     }).preview({
       generationId: 'generation-1',
@@ -67,7 +71,8 @@ Deno.test({
       files: buildValidBrowserAutograderFiles(),
     });
 
-    assertEquals(findings, []);
+    assertEquals(result.validationFindings, []);
+    assertEquals(result.assertionCount, 2);
   },
 });
 

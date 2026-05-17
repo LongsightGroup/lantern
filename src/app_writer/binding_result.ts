@@ -1,6 +1,9 @@
 import {
   APP_GENERATION_PROGRESS_STAGES,
   APP_WRITER_WORKSPACE_FILE_ROLES,
+  type AppGenerationModelRequestMetadata,
+  type AppGenerationModelRequestOutcome,
+  type AppGenerationModelRequestStoredStage,
   type AppGenerationProgressUpdate,
   type AppGenerationValidationFinding,
   type AppWriterWorkspaceFile,
@@ -68,6 +71,34 @@ export function parseValidationFindings(
   });
 }
 
+export function parseModelRequestMetadata(
+  value: unknown,
+  fieldName: string,
+): AppGenerationModelRequestMetadata[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return value.map((item, index) => {
+    const record = expectRecord(item, `${fieldName}[${index}]`);
+
+    return {
+      provider: expectString(record.provider, `${fieldName}[${index}].provider`),
+      model: expectNullableString(record.model, `${fieldName}[${index}].model`),
+      requestId: expectNullableString(record.requestId, `${fieldName}[${index}].requestId`),
+      durationMs: expectNullableNumber(record.durationMs, `${fieldName}[${index}].durationMs`),
+      responseCharacters: expectNullableNumber(
+        record.responseCharacters,
+        `${fieldName}[${index}].responseCharacters`,
+      ),
+      stage: expectModelStage(record.stage, `${fieldName}[${index}].stage`),
+      attempt: expectNumber(record.attempt, `${fieldName}[${index}].attempt`),
+      outcome: expectModelOutcome(record.outcome, `${fieldName}[${index}].outcome`),
+      errorCode: expectNullableString(record.errorCode, `${fieldName}[${index}].errorCode`),
+    };
+  });
+}
+
 export function expectRecord(value: unknown, fieldName: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${fieldName} must be an object.`);
@@ -90,6 +121,22 @@ export function expectNullableString(value: unknown, fieldName: string): string 
   }
 
   return expectString(value, fieldName);
+}
+
+export function expectNullableNumber(value: unknown, fieldName: string): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  return expectNumber(value, fieldName);
+}
+
+export function expectNumber(value: unknown, fieldName: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(`${fieldName} must be a finite number.`);
+  }
+
+  return value;
 }
 
 export function expectStringArray(value: unknown, fieldName: string): string[] {
@@ -132,4 +179,24 @@ function expectProgressStage(
   }
 
   throw new TypeError(`${fieldName} must be a supported generation progress stage.`);
+}
+
+function expectModelStage(value: unknown, fieldName: string): AppGenerationModelRequestStoredStage {
+  if (value === 'author' || value === 'repair') {
+    return value;
+  }
+
+  if (value === 'unknown') {
+    return value;
+  }
+
+  throw new TypeError(`${fieldName} must be author or repair.`);
+}
+
+function expectModelOutcome(value: unknown, fieldName: string): AppGenerationModelRequestOutcome {
+  if (value === 'succeeded' || value === 'failed' || value === 'timed_out' || value === 'unknown') {
+    return value;
+  }
+
+  throw new TypeError(`${fieldName} must be succeeded, failed, or timed_out.`);
 }

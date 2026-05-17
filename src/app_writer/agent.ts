@@ -1,6 +1,8 @@
 import { APP_GENERATION_AUDIT_EVENT_TYPES } from './service.ts';
 import { getWorkspaceFileRole } from './workspace_files.ts';
 import type {
+  AppGenerationModelRequestMetadata,
+  AppGenerationModelRequestStage,
   AppGenerationPlanningResult,
   AppGenerationPlanStep,
   AppGenerationPlanStepId,
@@ -68,6 +70,8 @@ interface StoredAppWriterAgentSession {
   ownerId: string;
   workflowInstanceId: string | null;
   observedAt: string;
+  currentModelStage?: AppGenerationModelRequestStage | null;
+  currentModelAttempt?: number | null;
 }
 
 export class AppWriterAgent {
@@ -111,7 +115,9 @@ export class AppWriterAgent {
         return jsonError(405, 'method_not_allowed', 'Workspace harness authoring requires POST.');
       }
 
-      return Response.json(await this.authorWorkspace(await readWorkspaceAuthorInput(request)));
+      return await this.handleWorkspaceHarnessRequest(async () =>
+        this.authorWorkspace(await readWorkspaceAuthorInput(request)),
+      );
     }
 
     if (url.pathname.endsWith('/workspace-harness/repair')) {
@@ -119,10 +125,46 @@ export class AppWriterAgent {
         return jsonError(405, 'method_not_allowed', 'Workspace harness repair requires POST.');
       }
 
-      return Response.json(await this.repairWorkspace(await readWorkspaceRepairInput(request)));
+      return await this.handleWorkspaceHarnessRequest(async () =>
+        this.repairWorkspace(await readWorkspaceRepairInput(request)),
+      );
     }
 
     return jsonError(404, 'not_found', 'App writer Agent endpoint was not found.');
+  }
+
+  private async handleWorkspaceHarnessRequest(
+    run: () => Promise<WorkspaceHarnessResponse>,
+  ): Promise<Response> {
+    try {
+      return Response.json(await run());
+    } catch (error) {
+      if (isAppWriterAgentHarnessError(error)) {
+        return Response.json(
+          {
+            error: {
+              code: error.code,
+              message: error.message,
+              notes: error.notes,
+              modelRequestMetadata: error.modelRequestMetadata,
+            },
+          },
+          { status: 500 },
+        );
+      }
+
+      return Response.json(
+        {
+          error: {
+            code: 'workspace_read_write_failed',
+            message: error instanceof Error ? error.message : 'Workspace harness failed.',
+            notes: [] as string[],
+            modelRequestMetadata: [] as AppGenerationModelRequestMetadata[],
+          },
+        },
+        { status: 500 },
+      );
+    }
   }
 
   private streamEvents(): Response {
@@ -185,17 +227,29 @@ export class AppWriterAgent {
 
     const workspace = await repository.getAppGenerationWorkspaceByGenerationId(generationId);
     const currentStep = workspace === null ? null : selectCurrentPlanStep(workspace.generationPlan);
+    const activitySummary = await summarizeGenerationActivityEvents(repository, generationId);
+    const latestModelRequest = [...run.modelRequestMetadata]
+      .reverse()
+      .find((metadata) => metadata.stage === 'author' || metadata.stage === 'repair');
 
     return {
       generationId,
       status: run.status,
       currentPlanStepId: currentStep?.id ?? null,
       currentPlanStepStatus: currentStep?.status ?? null,
+      currentPlanStepSummary: currentStep?.summary ?? null,
+      lastActivitySummary: activitySummary.lastSummary,
+      currentModelStage:
+        session.currentModelStage ??
+        (latestModelRequest?.stage === 'author' || latestModelRequest?.stage === 'repair'
+          ? latestModelRequest.stage
+          : null),
+      currentModelAttempt: session.currentModelAttempt ?? latestModelRequest?.attempt ?? null,
       workflowInstanceId: session.workflowInstanceId,
       packageVersionId: run.packageVersionId,
       repairAttemptCount: run.repairAttemptCount,
       validationFindingCount: run.validationFindings.length,
-      activityEventCount: await countGenerationActivityEvents(repository, generationId),
+      activityEventCount: activitySummary.count,
       updatedAt: run.updatedAt,
     };
   }
@@ -227,6 +281,7 @@ export class AppWriterAgent {
         },
       ],
       notes: result.notes,
+      modelRequestMetadata: result.modelRequestMetadata,
       validationFindings: [],
     };
   }
@@ -264,6 +319,7 @@ export class AppWriterAgent {
         },
       ],
       notes: result.notes,
+      modelRequestMetadata: result.modelRequestMetadata,
       validationFindings: [],
     };
   }
@@ -288,41 +344,78 @@ export class AppWriterAgent {
     workspace: ShellWorkspace;
     stage: 'author' | 'repair';
     prompt: Record<string, unknown>;
-  }): Promise<{ notes: string[] }> {
+  }): Promise<{
+    notes: string[];
+    modelRequestMetadata: AppGenerationModelRequestMetadata[];
+  }> {
     const executor = await this.createExecutor();
     const { normalizeCode, resolveProvider } = await import('@cloudflare/codemode');
     const { stateTools } = await import('@cloudflare/shell/workers');
     const stateProvider = stateTools(input.workspace);
-    const failures: Array<{ code: string; error: string; logs: string[] }> = [];
+    const failures: WorkspaceCodeFailure[] = [];
+    const modelRequestMetadata: AppGenerationModelRequestMetadata[] = [];
 
     for (let attempt = 1; attempt <= SHELL_CODE_ATTEMPT_LIMIT; attempt += 1) {
-      const rawCode = await this.runModelText({
-        messages: buildWorkspaceCodeMessages({
-          prompt: input.prompt,
+      await this.storeModelProgress(input.stage, attempt);
+      let rawCode: string;
+      try {
+        const modelResult = await this.runModelText({
+          messages: buildWorkspaceCodeMessages({
+            prompt: input.prompt,
+            stage: input.stage,
+            attempt,
+            failures,
+            toolTypes: readToolProviderTypes(stateProvider),
+          }),
           stage: input.stage,
           attempt,
-          failures,
-          toolTypes: readToolProviderTypes(stateProvider),
-        }),
-        stage: `${input.stage} code attempt ${attempt}`,
-      });
+        });
+        rawCode = modelResult.text;
+        modelRequestMetadata.push(modelResult.metadata);
+      } catch (error) {
+        if (isAppWriterAgentModelRequestError(error)) {
+          modelRequestMetadata.push(error.metadata);
+          failures.push({
+            errorCode: error.code,
+            error: error.message,
+            logs: [],
+          });
+          continue;
+        }
+
+        throw error;
+      }
       let code: string;
 
       try {
         code = normalizeWorkspaceCodeForExecution(rawCode, normalizeCode);
       } catch (error) {
+        updateLastMetadataFailure(modelRequestMetadata, 'code_normalization_failed');
         failures.push({
-          code: rawCode,
+          errorCode: 'code_normalization_failed',
           error: error instanceof Error ? error.message : 'Code normalization failed.',
           logs: [],
         });
         continue;
       }
 
-      const execution = await executor.execute(code, [resolveProvider(stateProvider)]);
+      let execution: Awaited<ReturnType<ShellExecutor['execute']>>;
+
+      try {
+        execution = await executor.execute(code, [resolveProvider(stateProvider)]);
+      } catch (error) {
+        failures.push({
+          errorCode: 'code_execution_failed',
+          error: error instanceof Error ? error.message : 'Workspace edit code execution failed.',
+          logs: [],
+        });
+        updateLastMetadataFailure(modelRequestMetadata, 'code_execution_failed');
+        continue;
+      }
 
       if (execution.error === undefined) {
         return {
+          modelRequestMetadata,
           notes: [
             `Workspace shell harness completed ${input.stage} on attempt ${attempt}.`,
             ...normalizeExecutionLogs(execution.logs),
@@ -331,17 +424,22 @@ export class AppWriterAgent {
       }
 
       failures.push({
-        code,
+        errorCode: 'code_execution_failed',
         error: execution.error,
         logs: normalizeExecutionLogs(execution.logs),
       });
+      updateLastMetadataFailure(modelRequestMetadata, 'code_execution_failed');
     }
 
-    throw new Error(
-      `Workspace shell harness failed during ${input.stage}: ${
-        failures.at(-1)?.error ?? 'unknown execution error'
+    const lastFailure = failures.at(-1);
+    throw createAppWriterAgentHarnessError({
+      code: lastFailure?.errorCode ?? 'code_execution_failed',
+      message: `Workspace shell harness failed during ${input.stage}: ${
+        lastFailure?.error ?? 'unknown execution error'
       }`,
-    );
+      modelRequestMetadata,
+      notes: buildHarnessFailureNotes(failures),
+    });
   }
 
   private async createExecutor(): Promise<ShellExecutor> {
@@ -361,8 +459,9 @@ export class AppWriterAgent {
 
   private async runModelText(input: {
     messages: CloudflareAiMessage[];
-    stage: string;
-  }): Promise<string> {
+    stage: AppGenerationModelRequestStage;
+    attempt: number;
+  }): Promise<{ text: string; metadata: AppGenerationModelRequestMetadata }> {
     const ai = this.env.AI;
 
     if (!isCloudflareAiBinding(ai)) {
@@ -375,18 +474,74 @@ export class AppWriterAgent {
       throw new Error('App writer shell harness requires APP_WRITER_MODEL.');
     }
 
-    return await withTimeout(
-      (async () => {
-        const response = await ai.run(model, {
-          messages: input.messages,
-          stream: true,
-        });
+    const startedAt = Date.now();
 
-        return await readCloudflareAiResponseText(response);
-      })(),
-      MODEL_TEXT_TIMEOUT_MS,
-      `Cloudflare AI model request timed out during app writer ${input.stage}.`,
-    );
+    try {
+      const text = await withTimeout(
+        (async () => {
+          const response = await ai.run(model, {
+            messages: input.messages,
+            stream: true,
+          });
+
+          return await readCloudflareAiResponseText(response);
+        })(),
+        MODEL_TEXT_TIMEOUT_MS,
+        `Cloudflare AI model request timed out during app writer ${input.stage} attempt ${input.attempt}.`,
+      );
+
+      return {
+        text,
+        metadata: {
+          provider: 'cloudflare',
+          model,
+          requestId: null,
+          durationMs: Date.now() - startedAt,
+          responseCharacters: text.length,
+          stage: input.stage,
+          attempt: input.attempt,
+          outcome: 'succeeded',
+          errorCode: null,
+        },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Workers AI request failed.';
+      const errorCode = isTimeoutMessage(message) ? 'model_timeout' : 'provider_error';
+
+      throw createAppWriterAgentModelRequestError({
+        code: errorCode,
+        message,
+        metadata: {
+          provider: 'cloudflare',
+          model,
+          requestId: null,
+          durationMs: Date.now() - startedAt,
+          responseCharacters: null,
+          stage: input.stage,
+          attempt: input.attempt,
+          outcome: errorCode === 'model_timeout' ? 'timed_out' : 'failed',
+          errorCode,
+        },
+      });
+    }
+  }
+
+  private async storeModelProgress(
+    stage: AppGenerationModelRequestStage,
+    attempt: number,
+  ): Promise<void> {
+    const session =
+      await this.state.storage.get<StoredAppWriterAgentSession>(AGENT_SESSION_STORAGE_KEY);
+
+    if (session === undefined) {
+      return;
+    }
+
+    await this.state.storage.put(AGENT_SESSION_STORAGE_KEY, {
+      ...session,
+      currentModelStage: stage,
+      currentModelAttempt: attempt,
+    });
   }
 }
 
@@ -427,7 +582,70 @@ interface WorkspaceHarnessResponse {
   files: AppWriterWorkspaceFile[];
   progressUpdates: Array<{ stage: 'building_package' | 'repairing_package'; message: string }>;
   notes: string[];
+  modelRequestMetadata: AppGenerationModelRequestMetadata[];
   validationFindings: AppGenerationWorkspaceRecord['validationFindings'];
+}
+
+interface WorkspaceCodeFailure {
+  errorCode: string;
+  error: string;
+  logs: string[];
+}
+
+interface AppWriterAgentHarnessError extends Error {
+  readonly kind: 'harness';
+  readonly code: string;
+  readonly modelRequestMetadata: AppGenerationModelRequestMetadata[];
+  readonly notes: string[];
+}
+
+interface AppWriterAgentModelRequestError extends Error {
+  readonly kind: 'model_request';
+  readonly code: 'model_timeout' | 'provider_error';
+  readonly metadata: AppGenerationModelRequestMetadata;
+}
+
+function createAppWriterAgentHarnessError(input: {
+  code: string;
+  message: string;
+  modelRequestMetadata: readonly AppGenerationModelRequestMetadata[];
+  notes: readonly string[];
+}): AppWriterAgentHarnessError {
+  return Object.assign(new Error(input.message), {
+    name: 'AppWriterAgentHarnessError',
+    kind: 'harness' as const,
+    code: input.code,
+    modelRequestMetadata: [...input.modelRequestMetadata],
+    notes: [...input.notes],
+  });
+}
+
+function createAppWriterAgentModelRequestError(input: {
+  code: 'model_timeout' | 'provider_error';
+  message: string;
+  metadata: AppGenerationModelRequestMetadata;
+}): AppWriterAgentModelRequestError {
+  return Object.assign(new Error(input.message), {
+    name: 'AppWriterAgentModelRequestError',
+    kind: 'model_request' as const,
+    code: input.code,
+    metadata: input.metadata,
+  });
+}
+
+function isAppWriterAgentHarnessError(error: unknown): error is AppWriterAgentHarnessError {
+  return (
+    error instanceof Error && (error as Partial<AppWriterAgentHarnessError>).kind === 'harness'
+  );
+}
+
+function isAppWriterAgentModelRequestError(
+  error: unknown,
+): error is AppWriterAgentModelRequestError {
+  return (
+    error instanceof Error &&
+    (error as Partial<AppWriterAgentModelRequestError>).kind === 'model_request'
+  );
 }
 
 async function readObserveInput(request: Request): Promise<AppWriterAgentObserveInput> {
@@ -538,7 +756,7 @@ function buildWorkspaceCodeMessages(input: {
   prompt: Record<string, unknown>;
   stage: 'author' | 'repair';
   attempt: number;
-  failures: ReadonlyArray<{ code: string; error: string; logs: readonly string[] }>;
+  failures: readonly WorkspaceCodeFailure[];
   toolTypes: string;
 }): CloudflareAiMessage[] {
   return [
@@ -723,6 +941,37 @@ function normalizeExecutionLogs(logs: readonly string[] | undefined): string[] {
   return (logs ?? []).filter((log) => log.trim() !== '').slice(0, 10);
 }
 
+function updateLastMetadataFailure(
+  metadata: AppGenerationModelRequestMetadata[],
+  errorCode: string,
+): void {
+  const last = metadata.at(-1);
+
+  if (last === undefined) {
+    return;
+  }
+
+  metadata.splice(metadata.length - 1, 1, {
+    ...last,
+    outcome: 'failed',
+    errorCode,
+  });
+}
+
+function buildHarnessFailureNotes(failures: readonly WorkspaceCodeFailure[]): string[] {
+  return failures.slice(-3).map((failure, index) => {
+    const logs = failure.logs.length === 0 ? '' : ` Logs: ${failure.logs.join(' | ')}`;
+
+    return `Harness failure ${index + 1}: ${failure.errorCode}: ${failure.error}${logs}`;
+  });
+}
+
+function isTimeoutMessage(message: string): boolean {
+  const normalized = message.toLowerCase();
+
+  return normalized.includes('timeout') || normalized.includes('timed out');
+}
+
 function isCloudflareAiBinding(value: unknown): value is CloudflareAiBinding {
   return (
     typeof value === 'object' &&
@@ -775,6 +1024,10 @@ function buildUnknownSnapshot(
     status: 'unknown',
     currentPlanStepId: null,
     currentPlanStepStatus: null,
+    currentPlanStepSummary: null,
+    lastActivitySummary: null,
+    currentModelStage: session?.currentModelStage ?? null,
+    currentModelAttempt: session?.currentModelAttempt ?? null,
     workflowInstanceId: session?.workflowInstanceId ?? null,
     packageVersionId: null,
     repairAttemptCount: 0,
@@ -784,15 +1037,18 @@ function buildUnknownSnapshot(
   };
 }
 
-function selectCurrentPlanStep(
-  plan: readonly AppGenerationPlanStep[],
-): { id: AppGenerationPlanStepId; status: AppGenerationPlanStepStatus } | null {
+function selectCurrentPlanStep(plan: readonly AppGenerationPlanStep[]): {
+  id: AppGenerationPlanStepId;
+  status: AppGenerationPlanStepStatus;
+  summary: string;
+} | null {
   const running = plan.find((step) => step.status === 'running');
 
   if (running !== undefined) {
     return {
       id: running.id,
       status: running.status,
+      summary: running.summary,
     };
   }
 
@@ -802,25 +1058,39 @@ function selectCurrentPlanStep(
     return {
       id: failed.id,
       status: failed.status,
+      summary: failed.summary,
     };
   }
 
   const active = [...plan].reverse().find((step) => step.status !== 'pending');
 
-  return active === undefined ? null : { id: active.id, status: active.status };
+  return active === undefined
+    ? null
+    : {
+        id: active.id,
+        status: active.status,
+        summary: active.summary,
+      };
 }
 
-async function countGenerationActivityEvents(
+async function summarizeGenerationActivityEvents(
   repository: Pick<PackageReviewRepository, 'listAuditEventsByEventType'>,
   generationId: string,
-): Promise<number> {
+): Promise<{ count: number; lastSummary: string | null }> {
   const eventBatches = await Promise.all(
     APP_GENERATION_AUDIT_EVENT_TYPES.map((eventType) =>
       repository.listAuditEventsByEventType(eventType),
     ),
   );
+  const events = eventBatches.flat().filter((event) => event.detail.generationId === generationId);
+  const latestEvent = [...events]
+    .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt))
+    .at(-1);
 
-  return eventBatches.flat().filter((event) => event.detail.generationId === generationId).length;
+  return {
+    count: events.length,
+    lastSummary: latestEvent?.summary ?? null,
+  };
 }
 
 function expectString(value: unknown, fieldName: string): string {

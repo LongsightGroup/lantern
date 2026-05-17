@@ -8,6 +8,7 @@ import type {
   AppPackageGenerationInput,
   AppWriterStarterId,
 } from './types.ts';
+import { readAppWriterRevisionContext } from './context.ts';
 
 interface PromptDetails {
   instruction: string;
@@ -20,22 +21,33 @@ export function buildLanternOwnedAppGenerationPlanningResult(
   input: AppPackageGenerationInput,
 ): AppGenerationPlanningResult {
   const prompt = parsePromptDetails(input.promptText);
+  const revision = readAppWriterRevisionContext(input.selectedContext);
   const activityType = inferActivityType(prompt.instruction);
-  const title = inferTitle({
-    promptText: prompt.instruction,
-    requestedAppId: input.requestedAppId,
-    starterId: input.selectedStarterId,
-    activityType,
-  });
-  const appId = normalizeAppId(input.requestedAppId ?? title);
-  const gradingMode = inferGradingMode({
-    starterId: input.selectedStarterId,
-    requestedMode: prompt.gradingMode,
-  });
-  const capabilities = selectCapabilities({
-    starterId: input.selectedStarterId,
-    gradingMode,
-  });
+  const title =
+    revision === null
+      ? inferTitle({
+          promptText: prompt.instruction,
+          requestedAppId: input.requestedAppId,
+          starterId: input.selectedStarterId,
+          activityType,
+        })
+      : revision.sourceTitle;
+  const appId =
+    revision === null ? normalizeAppId(input.requestedAppId ?? title) : revision.sourceAppId;
+  const gradingMode =
+    revision === null
+      ? inferGradingMode({
+          starterId: input.selectedStarterId,
+          requestedMode: prompt.gradingMode,
+        })
+      : revision.sourceGradingMode;
+  const capabilities =
+    revision === null
+      ? selectCapabilities({
+          starterId: input.selectedStarterId,
+          gradingMode,
+        })
+      : revision.sourceCapabilities;
   const learningGoal = inferLearningGoal(prompt.instruction, activityType);
   const audience = prompt.audience ?? 'Learners';
   const contentSummary = prompt.contentSummary ?? summarizePromptContent(prompt.instruction);
@@ -50,6 +62,12 @@ export function buildLanternOwnedAppGenerationPlanningResult(
       'Use GatewayApp local state for resumable learner progress when useful.',
       'Emit GatewayApp attempt events for learner actions that should appear in reports.',
       'Do not use localStorage, sessionStorage, external network calls, LMS APIs, or backend code.',
+      ...(revision === null
+        ? []
+        : [
+            `Preserve manifest app_id ${revision.sourceAppId}.`,
+            `Save this revision as manifest version ${revision.targetVersion}.`,
+          ]),
     ],
     missingInformation: [],
     safeToGenerate: true,
@@ -57,7 +75,7 @@ export function buildLanternOwnedAppGenerationPlanningResult(
   const appPlan: AppGenerationPlan = {
     appId,
     title,
-    description: buildDescription(title, audience, activityType),
+    description: revision?.sourceDescription ?? buildDescription(title, audience, activityType),
     learningGoal,
     audience,
     activityType,
@@ -71,7 +89,7 @@ export function buildLanternOwnedAppGenerationPlanningResult(
     capabilities,
     grading: {
       mode: gradingMode,
-      maxScore: 100,
+      maxScore: revision?.sourceMaxScore ?? 100,
       scoringSummary: buildScoringSummary(gradingMode),
     },
     attemptEvents: buildAttemptEvents(activityType, capabilities),
@@ -88,6 +106,12 @@ export function buildLanternOwnedAppGenerationPlanningResult(
     riskNotes: [
       'Generated app code must stay inside the browser package contract.',
       'Learner progress and reports must use Lantern gateway capabilities, not private storage.',
+      ...(revision === null
+        ? []
+        : [
+            `This is a revision of ${revision.sourceAppId}@${revision.sourceVersion}; do not change app_id.`,
+            `The manifest version must be ${revision.targetVersion}.`,
+          ]),
     ],
   };
 
@@ -102,7 +126,9 @@ export function buildLanternOwnedAppGenerationPlanningResult(
       },
     ],
     notes: [
-      'Lantern created the app plan deterministically from the initialized request and selected starter.',
+      revision === null
+        ? 'Lantern created the app plan deterministically from the initialized request and selected starter.'
+        : `Lantern created the revision plan from ${revision.sourceAppId}@${revision.sourceVersion} to ${revision.targetVersion}.`,
     ],
   };
 }

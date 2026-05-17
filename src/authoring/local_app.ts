@@ -47,6 +47,7 @@ export interface ValidatedLocalAppSourcePackage {
 
 export interface LocalAppPackage extends ValidatedLocalAppSourcePackage {
   rootPath: string;
+  source: PackageSource;
 }
 
 export type LocalAppPreflightResult =
@@ -183,19 +184,7 @@ export async function validateLocalAppPackage(rootPath: string): Promise<LocalAp
   try {
     const resolvedRoot = await Deno.realPath(rootPath);
     const source = createFileSystemPackageSource(resolvedRoot);
-    const result = await preflightLocalAppPackageSource(source);
-
-    if (!result.ok) {
-      return result;
-    }
-
-    return {
-      ...result,
-      appPackage: {
-        rootPath: resolvedRoot,
-        ...result.validatedPackage,
-      },
-    };
+    return await validateLocalAppPackageSource(source, resolvedRoot);
   } catch (error) {
     return buildValidationFailure([
       {
@@ -206,6 +195,26 @@ export async function validateLocalAppPackage(rootPath: string): Promise<LocalAp
       },
     ]);
   }
+}
+
+export async function validateLocalAppPackageSource(
+  source: PackageSource,
+  rootPath = 'memory://lantern-app-package',
+): Promise<LocalAppValidationResult> {
+  const result = await preflightLocalAppPackageSource(source);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  return {
+    ...result,
+    appPackage: {
+      rootPath,
+      source,
+      ...result.validatedPackage,
+    },
+  };
 }
 
 export function formatLocalAppDiagnostic(diagnostic: LocalAppValidationDiagnostic): string {

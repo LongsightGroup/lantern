@@ -31,6 +31,7 @@ import {
 } from './package_review/intake.ts';
 import type { PackageSource } from './package_review/package_source.ts';
 import { createFileSystemPackageSource } from './package_review/package_source_fs.ts';
+import type { PackageSnapshotStore } from './package_review/snapshot_store.ts';
 import { getDefaultPackageSnapshotStore } from './package_review/snapshot_store_fs.ts';
 import { type PackageReviewRepository } from './package_review/repository.ts';
 import type { OpsRepository } from './ops/repository.ts';
@@ -44,6 +45,7 @@ import type { AuthoringDraftRecord, PackageVersionRecord } from './package_revie
 
 export interface AppServices {
   env: EnvReader;
+  packageSnapshotStore: PackageSnapshotStore;
   runtimeArtifactStore: RuntimeArtifactStore;
   runtimeDelivery: RuntimeDelivery;
   evidenceArtifactStore: EvidenceArtifactStore;
@@ -94,7 +96,7 @@ const LOCAL_REPOSITORY_MESSAGE =
 export function resolveServices(services: Partial<AppServices>): AppServices {
   const env = services.env ?? getDefaultEnvReader();
   const getRepository = services.getRepository ?? getDefaultRepository;
-  const snapshotStore = getDefaultPackageSnapshotStore();
+  const snapshotStore = services.packageSnapshotStore ?? getDefaultPackageSnapshotStore();
   const runtimeArtifactStore = services.runtimeArtifactStore ?? getDefaultRuntimeArtifactStore();
   const importPackageFromSource =
     services.importPackageFromSource ??
@@ -117,6 +119,7 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
 
   return {
     env,
+    packageSnapshotStore: snapshotStore,
     appWriterWorkspaceRunner:
       services.appWriterWorkspaceRunner ?? createUnavailableAppWriterWorkspaceRunner(),
     appPackagePreviewer: services.appPackagePreviewer ?? createLocalAppPackagePreviewer(),

@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS runtime_sessions (
   launch_course_id TEXT NOT NULL,
   launch_assignment_id TEXT,
   launch_activity_id TEXT NOT NULL,
+  preview_session_id TEXT REFERENCES preview_sessions (session_id) ON DELETE SET NULL,
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
@@ -132,6 +133,9 @@ CREATE INDEX IF NOT EXISTS runtime_sessions_expires_at_idx
 
 CREATE INDEX IF NOT EXISTS runtime_sessions_attempt_lookup_idx
   ON runtime_sessions (attempt_id, created_at DESC, session_id DESC);
+
+CREATE INDEX IF NOT EXISTS runtime_sessions_preview_session_idx
+  ON runtime_sessions (preview_session_id);
 
 CREATE TABLE IF NOT EXISTS attempts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -216,6 +216,23 @@ export function injectBeforeClosingTag(
   return `${html.slice(0, index)}${injection}${html.slice(index)}`;
 }
 
+export function injectAfterOpeningTag(
+  html: string,
+  tagName: 'head' | 'body',
+  injection: string,
+): string {
+  const openingTagPattern = new RegExp(`<${tagName}\\b[^>]*>`, 'i');
+  const match = openingTagPattern.exec(html);
+
+  if (match === null) {
+    return `${injection}${html}`;
+  }
+
+  const index = match.index + match[0].length;
+
+  return `${html.slice(0, index)}${injection}${html.slice(index)}`;
+}
+
 export function injectBeforeFirstScriptOrClosingBody(html: string, injection: string): string {
   const scriptIndex = html.search(/<script\b/i);
 

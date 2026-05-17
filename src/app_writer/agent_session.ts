@@ -1,4 +1,8 @@
-import type { AppGenerationPlanStepId, AppGenerationStatus } from './types.ts';
+import type {
+  AppGenerationModelRequestStage,
+  AppGenerationPlanStepId,
+  AppGenerationStatus,
+} from './types.ts';
 
 export interface AppWriterAgentSessionCoordinator {
   observe(input: AppWriterAgentObserveInput): Promise<void>;
@@ -18,6 +22,10 @@ export interface AppWriterAgentSessionSnapshot {
   status: AppGenerationStatus | 'unknown';
   currentPlanStepId: AppGenerationPlanStepId | null;
   currentPlanStepStatus: string | null;
+  currentPlanStepSummary: string | null;
+  lastActivitySummary: string | null;
+  currentModelStage: AppGenerationModelRequestStage | null;
+  currentModelAttempt: number | null;
   workflowInstanceId: string | null;
   packageVersionId: number | null;
   repairAttemptCount: number;
@@ -46,6 +54,10 @@ export function createNoopAppWriterAgentSessionCoordinator(): AppWriterAgentSess
         status: 'unknown',
         currentPlanStepId: null,
         currentPlanStepStatus: null,
+        currentPlanStepSummary: null,
+        lastActivitySummary: null,
+        currentModelStage: null,
+        currentModelAttempt: null,
         workflowInstanceId: null,
         packageVersionId: null,
         repairAttemptCount: 0,

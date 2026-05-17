@@ -83,6 +83,46 @@ Deno.test('D1 deployment repository rejects unapproved package pins', async () =
   );
 });
 
+Deno.test('D1 deployment repository allows pending package pins for preview deployments', async () => {
+  const db = createPlannedD1Database({
+    firstResults: [
+      {
+        appId: 'chapter-4-asteroids',
+        approvalStatus: 'pending',
+        version: '0.2.0',
+      },
+      null,
+      buildD1DeploymentRow({
+        slug: 'chapter-4-asteroids-preview',
+        label: 'Chapter 4 Asteroids Preview',
+        enabledPackageVersionId: 2,
+        enabledPackageVersion: '0.2.0',
+        lmsType: 'preview',
+        canvasEnvironment: null,
+      }),
+    ],
+  });
+  const repository = createD1DeploymentRepositoryMethods(db);
+
+  const deployment = await repository.pinDeploymentVersion({
+    slug: 'chapter-4-asteroids-preview',
+    label: 'Chapter 4 Asteroids Preview',
+    appId: 'chapter-4-asteroids',
+    packageVersionId: 2,
+    lmsType: 'preview',
+  });
+
+  assertEquals(deployment.lmsType, 'preview');
+  assertEquals(deployment.enabledPackageVersionId, 2);
+  assertEquals(db.statements[2]?.parameters, [
+    'chapter-4-asteroids-preview',
+    'Chapter 4 Asteroids Preview',
+    'chapter-4-asteroids',
+    'preview',
+    2,
+  ]);
+});
+
 interface PlannedD1Options {
   allResults?: Array<Array<Record<string, unknown>>>;
   firstResults?: Array<Record<string, unknown> | null>;

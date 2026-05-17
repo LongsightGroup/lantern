@@ -24,6 +24,7 @@
   ],
   "vars": {
     "APP_ADMIN_TIME_ZONE": "America/New_York",
+    "APP_RUNTIME_ORIGIN": "https://lantern.appboundary.com",
     "APP_WRITER_MODEL": "@cf/moonshotai/kimi-k2.6",
   },
   "ai": {

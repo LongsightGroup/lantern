@@ -105,9 +105,9 @@ export function renderPackageDetailPage(input: {
             ${
               flaggedCapabilities.length > 0
                 ? `<div class="callout callout-review">
-              <h3>Review before approval</h3>
-              <p>Approve this version only if these actions match what you expect the app to do.</p>
-              <p class="micro muted">If not, reject it. Lantern will keep this version from going live, and you can leave the current approved version in place until a safer update is ready.</p>
+              <h3>Extra review</h3>
+              <p>This version asks for capabilities beyond ordinary progress, resume, and completion tracking.</p>
+              <p class="micro muted">Approve only if these actions match the assignment. Lantern keeps this version from going live until review is complete.</p>
               <ul class="capability-review-list">
                 ${flaggedCapabilities
                   .map(

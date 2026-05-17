@@ -17,15 +17,26 @@ Deno.test('renderPackageDetailPage shows status, exact version, owner, and acces
   assertStringIncludes(body, 'instructor_123');
   assertStringIncludes(body, 'What this app can access');
   assertStringIncludes(body, 'Finish attempt');
+  assertStringIncludes(body, 'Save progress');
   assertStringIncludes(body, 'Automatic scoring');
   assertStringIncludes(body, 'Show access notes, saved files, and manifest JSON');
   assertStringIncludes(body, 'capability-chip-basic');
-  assertStringIncludes(body, 'capability-chip-flagged');
+  assertEquals(body.includes('Extra review'), false);
+  assertEquals(body.includes('Stores submitted evidence'), false);
 });
 
 Deno.test('renderPackageDetailPage explains the approval decision for higher-access actions and saved file details', () => {
   const reviewedVersion = buildPackageVersionRecord({
     approvalStatus: 'approved',
+    capabilities: [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_attempt_event',
+      'submit_evidence_artifact',
+      'finalize_attempt',
+      'read_local_state',
+      'write_local_state',
+    ],
     reviewNotes: 'Ready for the pilot deployment.',
     accessibilityReview: buildAccessibilityReview({
       contrast: 'fail',
@@ -40,17 +51,18 @@ Deno.test('renderPackageDetailPage explains the approval decision for higher-acc
     history: [reviewedVersion],
   });
 
-  assertStringIncludes(body, 'Review before approval');
+  assertStringIncludes(body, 'Extra review');
   assertStringIncludes(
     body,
-    'Approve this version only if these actions match what you expect the app to do.',
+    'This version asks for capabilities beyond ordinary progress, resume, and completion tracking.',
   );
   assertStringIncludes(
     body,
-    'Lantern will keep this version from going live, and you can leave the current approved version in place until a safer update is ready.',
+    'Lantern keeps this version from going live until review is complete.',
   );
+  assertStringIncludes(body, 'Anonymous evidence return');
   assertStringIncludes(body, 'Finish attempt');
-  assertStringIncludes(body, 'Stores learner data');
+  assertStringIncludes(body, 'Stores submitted evidence');
   assertStringIncludes(body, 'callout-review');
   assertStringIncludes(body, 'capability-risk-chip');
   assertStringIncludes(body, 'Saved files');

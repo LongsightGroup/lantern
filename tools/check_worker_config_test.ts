@@ -1,5 +1,8 @@
 import { assertEquals } from '@std/assert';
-import { validateWorkerConfigBindings } from './check_worker_config.ts';
+import {
+  validateAppWriterPlatformConfigBindings,
+  validateWorkerConfigBindings,
+} from './check_worker_config.ts';
 
 Deno.test('validateWorkerConfigBindings accepts wrangler config with DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, and app-writer services', () => {
   const config = `{
@@ -135,4 +138,18 @@ Deno.test('validateWorkerConfigBindings rejects legacy Hyperdrive production bin
   }`;
 
   assertEquals(validateWorkerConfigBindings(config), ['legacy hyperdrive binding HYPERDRIVE']);
+});
+
+Deno.test('validateAppWriterPlatformConfigBindings requires Cloudflare Browser Rendering', () => {
+  assertEquals(
+    validateAppWriterPlatformConfigBindings(`{
+      "browser": {
+        "binding": "BROWSER"
+      }
+    }`),
+    [],
+  );
+  assertEquals(validateAppWriterPlatformConfigBindings(`{}`), [
+    'browser rendering binding BROWSER',
+  ]);
 });

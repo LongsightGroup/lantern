@@ -8,15 +8,25 @@ import type {
   AppWriterWorkspaceFile,
 } from './types.ts';
 import { selectPackageWorkspaceFiles } from './workspace_files.ts';
+import { LANTERN_APP_CSS } from '../styles/lantern_app_css.ts';
+import { PICO_CSS } from '../styles/pico_css.ts';
 
 const REQUIRED_BASELINE_FILES = [
   'manifest.json',
   'dist/index.html',
+  'dist/pico.min.css',
+  'dist/lantern-app.css',
+  'dist/app.css',
   'dist/app.js',
   'content/activity.json',
   'preview/fixtures.json',
   'preview/tests.json',
 ] as const;
+
+const PINNED_STYLE_FILES: Readonly<Record<string, string>> = {
+  'dist/pico.min.css': PICO_CSS,
+  'dist/lantern-app.css': LANTERN_APP_CSS,
+};
 
 const GATEWAY_METHOD_CAPABILITIES: Readonly<Record<string, Capability>> = {
   getLaunchContext: 'read_launch_context',
@@ -42,6 +52,7 @@ export async function validateGeneratedAppPackage(input: {
 
   findings.push(...validateRequiredFiles(normalizedFiles));
   findings.push(...validateAllowedPaths(input.selectedStarterId, normalizedFiles));
+  findings.push(...validatePinnedStyleFiles(normalizedFiles));
   findings.push(...validateStaticPolicy(normalizedFiles));
   findings.push(...validateSdkCapabilities(normalizedFiles));
 
@@ -69,6 +80,32 @@ export async function validateGeneratedAppPackage(input: {
         detail: {},
       })),
     );
+  }
+
+  return findings;
+}
+
+function validatePinnedStyleFiles(
+  files: ReadonlyMap<string, AppWriterWorkspaceFile>,
+): AppGenerationValidationFinding[] {
+  const findings: AppGenerationValidationFinding[] = [];
+
+  for (const [path, expectedContents] of Object.entries(PINNED_STYLE_FILES)) {
+    const file = files.get(path);
+
+    if (file === undefined || file.contents === expectedContents) {
+      continue;
+    }
+
+    findings.push({
+      code: 'pinned_style_file_modified',
+      severity: 'error',
+      message: `${path} is a Lantern-owned reviewed stylesheet and must not be modified.`,
+      file: path,
+      field: null,
+      fix: `Restore ${path} to the pinned Lantern-provided stylesheet and put app-specific styles in dist/app.css.`,
+      detail: {},
+    });
   }
 
   return findings;
@@ -327,6 +364,10 @@ function validateStaticPolicy(
       continue;
     }
 
+    if (isPinnedStylePath(file.path)) {
+      continue;
+    }
+
     findings.push(...findPolicyMatches(file, STATIC_POLICY_RULES));
   }
 
@@ -428,6 +469,10 @@ function isStaticSourceFile(path: string): boolean {
     path.endsWith('.css') ||
     path.endsWith('.json')
   );
+}
+
+function isPinnedStylePath(path: string): boolean {
+  return Object.hasOwn(PINNED_STYLE_FILES, path);
 }
 
 function findPolicyMatches(

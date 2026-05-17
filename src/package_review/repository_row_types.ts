@@ -124,6 +124,7 @@ export interface RuntimeSessionRow {
   launchCourseId: string;
   launchAssignmentId: string | null;
   launchActivityId: string;
+  previewSessionId: string | null;
   createdAt: Date | string;
   expiresAt: Date | string;
 }

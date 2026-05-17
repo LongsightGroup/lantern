@@ -1,9 +1,6 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
-import type {
-  AppGenerationValidationFinding,
-  AppPackageGenerationResult,
-} from './app_writer/types.ts';
+import type { AppPackageGenerationResult } from './app_writer/types.ts';
 import { buildValidSimpleActivityFiles } from './test_helpers/app_writer_generated_package.ts';
 import {
   createStaticAppWriterWorkspaceRunner,
@@ -65,7 +62,13 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
     }),
     appPackagePreviewer: {
       preview(_input) {
-        return Promise.resolve([] satisfies AppGenerationValidationFinding[]);
+        return Promise.resolve({
+          validationFindings: [],
+          assertionCount: 1,
+          passedAssertionCount: 1,
+          runtimeLog: [],
+          summary: 'Passed 1/1 preview assertions.',
+        });
       },
     },
     importPackageFromSource(_source) {
@@ -121,6 +124,8 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   assertStringIncludes(runningDetailBody, 'Lantern is still working.');
   assertStringIncludes(runningDetailBody, 'window.setTimeout');
   assertStringIncludes(runningDetailBody, 'Generation progress');
+  assertStringIncludes(runningDetailBody, 'data-app-writer-live-progress');
+  assertStringIncludes(runningDetailBody, 'data-app-writer-live-step');
 
   await waitForGenerationToStart(() => generationControl.complete);
   const completeGeneration = generationControl.complete;
@@ -140,10 +145,12 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   assertStringIncludes(detailBody, 'Recipe lantern-learning-app-writer@0.1.0');
   assertStringIncludes(detailBody, 'Grade 1 readers');
   assertStringIncludes(detailBody, 'Generated files');
-  assertStringIncludes(detailBody, 'Review before test launch');
+  assertStringIncludes(detailBody, 'Test pending version');
   assertStringIncludes(detailBody, 'Started an app writer generation run.');
   assertStringIncludes(detailBody, 'Planning a phonics game with student progress reporting.');
   assertStringIncludes(detailBody, 'planning app');
+  assertStringIncludes(detailBody, 'Preview summary');
+  assertStringIncludes(detailBody, 'Generation preview completed: Passed 1/1 preview assertions.');
 
   await repository.createReviewedPlacement(
     buildReviewedPlacementRecord({

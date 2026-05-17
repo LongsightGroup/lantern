@@ -1,4 +1,8 @@
 import type { Hono } from '@hono/hono';
+import {
+  type RunAppPackageGenerationResult,
+  startAppPackageRevisionRun,
+} from './app_writer/service.ts';
 import { preflightLocalAppPackageSource } from './authoring/local_app.ts';
 import {
   handleReviewDecision,
@@ -14,6 +18,7 @@ import { renderPackageImportPage } from './admin/package_import_page.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
 import { renderPackageOverviewPage } from './admin/package_overview.ts';
 import { renderReferencePackagePage } from './admin/package_reference_page.ts';
+import { renderAppRevisionPage } from './admin/app_revision_page.ts';
 import { isReferencePackageId } from './package_review/intake.ts';
 import {
   createMemoryPackageSource,
@@ -233,6 +238,169 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
     }
   });
 
+  app.get('/admin/packages/:appId/versions/:version/revise', async (context) => {
+    try {
+      const repository = services.getRepository();
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        context.req.param('appId'),
+        context.req.param('version'),
+      );
+
+      if (!packageVersion) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: [],
+            notice: {
+              tone: 'error',
+              title: 'Version not found',
+              detail: 'Lantern could not find that app version.',
+            },
+          }),
+          404,
+        );
+      }
+
+      const history = await repository.listPackageVersionsByApp(packageVersion.appId);
+
+      return context.html(
+        renderAppRevisionPage({
+          packageVersion,
+          history,
+          targetVersion: nextRevisionVersion(packageVersion.version, history),
+        }),
+      );
+    } catch (error) {
+      return context.html(
+        renderPackageIndexPage({
+          versions: [],
+          notice: createErrorNotice('Revision form unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.post('/admin/packages/:appId/versions/:version/revise', async (context) => {
+    let promptText = '';
+    let targetVersion = '';
+
+    try {
+      const repository = services.getRepository();
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        context.req.param('appId'),
+        context.req.param('version'),
+      );
+
+      if (!packageVersion) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: [],
+            notice: {
+              tone: 'error',
+              title: 'Version not found',
+              detail: 'Lantern could not find that app version.',
+            },
+          }),
+          404,
+        );
+      }
+
+      const formData = await context.req.formData();
+      promptText = requireTrimmedFormValue(
+        formData.get('promptText'),
+        'Describe the changes Lantern should make.',
+      );
+      targetVersion = requireVersionString(formData.get('targetVersion'));
+
+      if (targetVersion === packageVersion.version) {
+        throw new Error('Choose a new version number for the revision.');
+      }
+
+      const existingTarget = await repository.getPackageVersionByAppVersion(
+        packageVersion.appId,
+        targetVersion,
+      );
+
+      if (existingTarget !== null) {
+        throw new Error(`Package version ${packageVersion.appId}@${targetVersion} already exists.`);
+      }
+
+      const generationId = `generation-${crypto.randomUUID()}`;
+      const started = await startAppPackageRevisionRun({
+        repository,
+        workspaceRunner: services.appWriterWorkspaceRunner,
+        packageSnapshotStore: services.packageSnapshotStore,
+        previewer: services.appPackagePreviewer,
+        sourceCompiler: services.appPackageSourceCompiler,
+        savePackage: {
+          importPackageFromSource: services.importPackageFromSource,
+        },
+        generationId,
+        ownerId: 'admin',
+        promptText,
+        requestedAppId: packageVersion.appId,
+        sourcePackageVersion: packageVersion,
+        targetVersion,
+      });
+      const scheduleResult = await services.appGenerationRunScheduler.schedule({
+        generationId: started.run.generationId,
+      });
+
+      if (scheduleResult.mode === 'workflow') {
+        await recordRevisionWorkflowQueuedEvent({
+          repository,
+          run: started.run,
+          workflowInstanceId: scheduleResult.workflowInstanceId,
+        });
+      } else {
+        scheduleRevisionContinuation(
+          context,
+          started.continueGeneration(),
+          started.run.generationId,
+        );
+      }
+
+      await services.appWriterAgentSessions.observe({
+        generationId: started.run.generationId,
+        ownerId: started.run.ownerId,
+        workflowInstanceId:
+          scheduleResult.mode === 'workflow' ? scheduleResult.workflowInstanceId : null,
+        observedAt: started.run.updatedAt,
+      });
+
+      return context.redirect(`/admin/app-writer/runs/${started.run.generationId}`, 303);
+    } catch (error) {
+      const repository = services.getRepository();
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        context.req.param('appId'),
+        context.req.param('version'),
+      );
+      const history =
+        packageVersion === null
+          ? []
+          : await repository.listPackageVersionsByApp(packageVersion.appId);
+
+      return context.html(
+        packageVersion === null
+          ? renderPackageIndexPage({
+              versions: await repository.listPackageVersions(),
+              notice: createErrorNotice('Revision blocked', error),
+            })
+          : renderAppRevisionPage({
+              packageVersion,
+              history,
+              promptText,
+              targetVersion:
+                targetVersion === ''
+                  ? nextRevisionVersion(packageVersion.version, history)
+                  : targetVersion,
+              notice: createErrorNotice('Revision blocked', error),
+            }),
+        statusForError(error),
+      );
+    }
+  });
+
   app.post('/admin/packages/:id/approve', async (context) => {
     return await handleReviewDecision(context, services, 'approve');
   });
@@ -254,6 +422,110 @@ function requireSupportedReferencePackageId(value: FormDataEntryValue | null): s
 
 async function createUploadedPackageSource(formData: FormData) {
   return createMemoryPackageSource(await collectUploadedPackageFiles(formData));
+}
+
+async function recordRevisionWorkflowQueuedEvent(input: {
+  repository: ReturnType<AppServices['getRepository']>;
+  run: Awaited<ReturnType<typeof startAppPackageRevisionRun>>['run'];
+  workflowInstanceId: string | null;
+}): Promise<void> {
+  await input.repository.recordAuditEvent({
+    eventType: 'app_generation.generating',
+    actorType: 'user',
+    actorId: input.run.ownerId,
+    deploymentRecordId: null,
+    packageVersionId: input.run.packageVersionId,
+    attemptId: null,
+    lineItemBindingId: null,
+    status: 'accepted',
+    summary: 'Queued app writer revision in Cloudflare Workflow.',
+    detail: {
+      generationId: input.run.generationId,
+      generationStatus: input.run.status,
+      requestedAppId: input.run.requestedAppId,
+      generatedAppId: input.run.generatedAppId,
+      selectedStarterId: input.run.selectedStarterId,
+      repairAttemptCount: input.run.repairAttemptCount,
+      findingCount: input.run.validationFindings.length,
+      workflowInstanceId: input.workflowInstanceId,
+      backgroundRunner: 'workflow',
+    },
+    occurredAt: input.run.updatedAt,
+  });
+}
+
+function scheduleRevisionContinuation(
+  context: unknown,
+  continuation: Promise<RunAppPackageGenerationResult>,
+  generationId: string,
+): void {
+  const handled = continuation
+    .then(() => {})
+    .catch((error) => {
+      console.error(`App writer revision ${generationId} failed in background.`, error);
+    });
+  const executionContext = readExecutionContext(context);
+
+  if (executionContext !== null) {
+    executionContext.waitUntil(handled);
+    return;
+  }
+
+  void handled;
+}
+
+function readExecutionContext(
+  context: unknown,
+): { waitUntil(promise: Promise<void>): void } | null {
+  try {
+    const candidate = (context as { executionCtx?: unknown }).executionCtx;
+
+    if (
+      candidate !== null &&
+      typeof candidate === 'object' &&
+      typeof (candidate as { waitUntil?: unknown }).waitUntil === 'function'
+    ) {
+      return candidate as { waitUntil(promise: Promise<void>): void };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function requireVersionString(value: FormDataEntryValue | null): string {
+  const version = requireTrimmedFormValue(value, 'Choose a target version for the revision.');
+
+  if (!/^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?$/.test(version)) {
+    throw new Error('Revision target version must be a semantic version like 0.2.0.');
+  }
+
+  return version;
+}
+
+function nextRevisionVersion(
+  sourceVersion: string,
+  history: readonly { version: string }[],
+): string {
+  let candidate = incrementMinorVersion(sourceVersion);
+  const existingVersions = new Set(history.map((version) => version.version));
+
+  while (existingVersions.has(candidate)) {
+    candidate = incrementMinorVersion(candidate);
+  }
+
+  return candidate;
+}
+
+function incrementMinorVersion(version: string): string {
+  const match = version.match(/^([0-9]+)\.([0-9]+)\.[0-9]+/);
+
+  if (match === null) {
+    return '0.2.0';
+  }
+
+  return `${match[1]}.${Number(match[2]) + 1}.0`;
 }
 
 async function collectUploadedPackageFiles(formData: FormData): Promise<MemoryPackageSourceFile[]> {
