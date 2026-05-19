@@ -67,7 +67,7 @@ Deno.test('generated app validation rejects external network and storage fallbac
       ? {
         ...file,
         contents:
-          `${file.contents}\nfetch("https://example.com");\nlocalStorage.setItem("x", "1");\n`,
+          `${file.contents}\nfetch("https://example.com");\nlocalStorage.setItem("x", "1");\nindexedDB.open("x");\ndocument.cookie = "x=1";\neval("console.log(1)");\nnew Function("return 1");\n`,
       }
       : file
   );
@@ -82,6 +82,80 @@ Deno.test('generated app validation rejects external network and storage fallbac
   );
   assertEquals(
     findings.some((finding) => finding.code === 'browser_storage_forbidden'),
+    true,
+  );
+  assertEquals(
+    findings.some((finding) => finding.code === 'browser_persistent_storage_forbidden'),
+    true,
+  );
+  assertEquals(
+    findings.some((finding) => finding.code === 'dynamic_code_execution_forbidden'),
+    true,
+  );
+});
+
+Deno.test('generated app validation rejects Worker and Durable Object platform code', async () => {
+  const files = buildValidSimpleActivityFiles().map((file) =>
+    file.path === 'dist/app.js'
+      ? {
+        ...file,
+        contents: `${file.contents}
+export default {
+  async fetch(request, env, ctx) {
+    const objectId = env.STUDENT_PROGRESS.idFromName("course-1");
+    return env.STUDENT_PROGRESS.get(objectId).fetch(request);
+  },
+};
+class StudentProgress extends DurableObject {
+  async fetch() {
+    return new Response("ok");
+  }
+}
+`,
+      }
+      : file
+  );
+  const findings = await validateGeneratedAppPackage({
+    selectedStarterId: 'simple-activity',
+    files,
+  });
+
+  assertEquals(
+    findings.some((finding) => finding.code === 'module_exports_forbidden'),
+    true,
+  );
+  assertEquals(
+    findings.some((finding) => finding.code === 'worker_entrypoint_forbidden'),
+    true,
+  );
+  assertEquals(
+    findings.some((finding) => finding.code === 'durable_object_forbidden'),
+    true,
+  );
+});
+
+Deno.test('generated app validation rejects direct SCORM, xAPI, cmi5, and LRS runtimes', async () => {
+  const files = buildValidSimpleActivityFiles().map((file) =>
+    file.path === 'dist/app.js'
+      ? {
+        ...file,
+        contents: `${file.contents}
+window.API.LMSInitialize("");
+window.API.LMSSetValue("cmi.core.lesson_status", "completed");
+sendXAPIStatement({ verb: "answered" });
+fetch("https://lrs.example.test/xapi");
+const launchMode = "cmi5";
+`,
+      }
+      : file
+  );
+  const findings = await validateGeneratedAppPackage({
+    selectedStarterId: 'simple-activity',
+    files,
+  });
+
+  assertEquals(
+    findings.some((finding) => finding.code === 'standards_runtime_forbidden'),
     true,
   );
 });
@@ -122,6 +196,31 @@ Deno.test('generated app validation rejects modified pinned style files', async 
 
   assertEquals(
     findings.some((finding) => finding.code === 'pinned_style_file_modified'),
+    true,
+  );
+});
+
+Deno.test('generated app validation rejects missing Lantern design shell', async () => {
+  const files = buildValidSimpleActivityFiles().map((file) =>
+    file.path === 'dist/index.html'
+      ? {
+        ...file,
+        contents:
+          '<!doctype html><html><head><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./app.css"></head><body><main data-test="app-title">Phonics Match</main><script src="./app.js"></script></body></html>\n',
+      }
+      : file
+  );
+  const findings = await validateGeneratedAppPackage({
+    selectedStarterId: 'simple-activity',
+    files,
+  });
+
+  assertEquals(
+    findings.some((finding) => finding.code === 'design_stylesheet_missing'),
+    true,
+  );
+  assertEquals(
+    findings.some((finding) => finding.code === 'design_app_shell_missing'),
     true,
   );
 });

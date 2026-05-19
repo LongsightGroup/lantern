@@ -55,6 +55,17 @@ export function formatDateTime(value: string | null): string {
   }).format(new Date(value));
 }
 
+export function formatDate(value: string | null): string {
+  if (value === null) {
+    return 'Not recorded yet';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeZone: readAdminTimeZone(),
+  }).format(new Date(value));
+}
+
 function readAdminTimeZone(): string {
   const configured = readOptionalEnvIdentityValue('APP_ADMIN_TIME_ZONE');
 

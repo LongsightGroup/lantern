@@ -67,6 +67,10 @@ export function mapAttemptEventRow(row: AttemptEventRow | undefined): AttemptEve
     attemptId: row.attemptId,
     sequence: row.sequence,
     eventType: row.eventType,
+    learningVerb: row.learningVerb,
+    objectId: row.objectId,
+    objectType: row.objectType,
+    result: row.result,
     event: row.event,
     receivedAt: normalizeTimestamp(row.receivedAt),
   };

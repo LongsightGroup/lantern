@@ -174,7 +174,7 @@ function buildValidBrowserAutograderFiles(): AppPackageGenerationResult['files']
     {
       path: 'dist/index.html',
       contents:
-        '<!doctype html><html><head><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./lantern-app.css"><link rel="stylesheet" href="./app.css"></head><body><main data-test="app-title">Web Check</main><script src="./app.js"></script></body></html>\n',
+        '<!doctype html><html><head><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./lantern-app.css"><link rel="stylesheet" href="./app.css"></head><body><main id="app" class="ln-app" data-test="app-root"><h1 data-test="app-title">Web Check</h1></main><script src="./app.js"></script></body></html>\n',
     },
     {
       path: 'dist/pico.min.css',

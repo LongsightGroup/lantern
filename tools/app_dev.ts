@@ -21,6 +21,9 @@ try {
       getState() {
         return state;
       },
+      getBaseUrl() {
+        return baseUrl;
+      },
     }),
   );
   const address = server.addr as Deno.NetAddr;
@@ -38,7 +41,7 @@ try {
   try {
     await runWatchMode({
       iterator: watcher[Symbol.asyncIterator](),
-      once: false,
+      once: args.once,
       debounceMs: args.debounceMs,
       log: (message) => console.log(message),
       async runCycle(changedPaths) {
@@ -74,13 +77,20 @@ interface AppDevArgs {
   packageRoot: string;
   port: number;
   debounceMs: number;
+  once: boolean;
 }
 
 function readArgs(args: string[]): AppDevArgs {
   let packageRoot: string | null = null;
   let port = 8420;
+  let once = false;
 
   for (const arg of args) {
+    if (arg === '--once') {
+      once = true;
+      continue;
+    }
+
     if (arg.startsWith('--port=')) {
       port = parsePort(arg.slice('--port='.length));
       continue;
@@ -95,13 +105,14 @@ function readArgs(args: string[]): AppDevArgs {
   }
 
   if (packageRoot === null) {
-    throw new Error('Usage: deno task app:dev <package-root> [--port=8420]');
+    throw new Error('Usage: deno task app:dev <package-root> [--port=8420] [--once]');
   }
 
   return {
     packageRoot,
     port,
     debounceMs: getDefaultWatchDebounceMs(),
+    once,
   };
 }
 

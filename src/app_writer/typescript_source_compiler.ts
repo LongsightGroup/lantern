@@ -11,7 +11,10 @@ const SOURCE_CONTENT_MODEL_PATH = 'source/content_model.ts';
 const GENERATED_SDK_DECLARATION_PATH = 'source/lantern-sdk.d.ts';
 const DIST_APP_PATH = 'dist/app.js';
 const TYPESCRIPT_LIBRARY_BASE_URL = 'https://esm.sh/typescript@5.9.3/lib/';
-const TYPESCRIPT_ROOT_LIBRARY_FILES = ['lib.es2022.d.ts', 'lib.dom.d.ts'] as const;
+const TYPESCRIPT_ROOT_LIBRARY_FILES = [
+  'lib.es2022.d.ts',
+  'lib.dom.d.ts',
+] as const;
 const TYPESCRIPT_LIBRARY_REFERENCE_PATTERN = /\/\/\/\s*<reference\s+lib="([^"]+)"/g;
 
 let compilerLibraryFilesPromise: Promise<ReadonlyMap<string, string>> | null = null;
@@ -66,7 +69,10 @@ async function compileTypeScriptWorkspace(
     [SOURCE_CONTENT_MODEL_PATH, contentModel.contents],
     [GENERATED_SDK_DECLARATION_PATH, buildSdkDeclaration(appPlan)],
   ]);
-  const diagnostics = collectTypeScriptDiagnostics(sourceFiles, await loadCompilerLibraryFiles());
+  const diagnostics = collectTypeScriptDiagnostics(
+    sourceFiles,
+    await loadCompilerLibraryFiles(),
+  );
 
   if (diagnostics.length > 0) {
     return {
@@ -93,7 +99,9 @@ async function compileTypeScriptWorkspace(
         contents: `${output.outputText.trim()}\n`,
       },
     ],
-    notes: ['Compiled TypeScript authoring source to reviewed browser JavaScript.'],
+    notes: [
+      'Compiled TypeScript authoring source to reviewed browser JavaScript.',
+    ],
     validationFindings: [],
   };
 }
@@ -119,7 +127,12 @@ function collectTypeScriptDiagnostics(
           defaultHost.readFile(fileName)
       );
     },
-    getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile) {
+    getSourceFile(
+      fileName,
+      languageVersion,
+      onError,
+      shouldCreateNewSourceFile,
+    ) {
       const normalized = normalizeWorkspacePath(fileName);
       const sourceText = sourceFiles.get(normalized);
 
@@ -130,7 +143,12 @@ function collectTypeScriptDiagnostics(
       const libraryText = libraryFiles.get(normalizeLibraryPath(fileName));
 
       if (libraryText !== undefined) {
-        return ts.createSourceFile(fileName, libraryText, languageVersion, true);
+        return ts.createSourceFile(
+          fileName,
+          libraryText,
+          languageVersion,
+          true,
+        );
       }
 
       return defaultHost.getSourceFile(
@@ -146,7 +164,11 @@ function collectTypeScriptDiagnostics(
     writeFile() {},
   };
   const program = ts.createProgram(
-    [SOURCE_APP_PATH, SOURCE_CONTENT_MODEL_PATH, GENERATED_SDK_DECLARATION_PATH],
+    [
+      SOURCE_APP_PATH,
+      SOURCE_CONTENT_MODEL_PATH,
+      GENERATED_SDK_DECLARATION_PATH,
+    ],
     compilerOptions(),
     host,
   );
@@ -157,7 +179,9 @@ function collectTypeScriptDiagnostics(
     .map(mapDiagnosticToFinding);
 }
 
-async function loadCompilerLibraryFiles(): Promise<ReadonlyMap<string, string>> {
+async function loadCompilerLibraryFiles(): Promise<
+  ReadonlyMap<string, string>
+> {
   if (compilerLibraryFilesPromise === null) {
     compilerLibraryFilesPromise = fetchCompilerLibraryFiles();
   }
@@ -165,7 +189,9 @@ async function loadCompilerLibraryFiles(): Promise<ReadonlyMap<string, string>> 
   return await compilerLibraryFilesPromise;
 }
 
-async function fetchCompilerLibraryFiles(): Promise<ReadonlyMap<string, string>> {
+async function fetchCompilerLibraryFiles(): Promise<
+  ReadonlyMap<string, string>
+> {
   const files = new Map<string, string>();
   const pending: string[] = [...TYPESCRIPT_ROOT_LIBRARY_FILES];
 
@@ -207,7 +233,9 @@ function listReferencedLibraryFiles(contents: string): string[] {
   );
 }
 
-function mapDiagnosticToFinding(diagnostic: ts.Diagnostic): AppGenerationValidationFinding {
+function mapDiagnosticToFinding(
+  diagnostic: ts.Diagnostic,
+): AppGenerationValidationFinding {
   const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
   const file = diagnostic.file?.fileName ?? null;
   const position = diagnostic.file && diagnostic.start !== undefined
@@ -292,7 +320,7 @@ function buildSdkDeclaration(appPlan: AppGenerationPlan): string {
       ? '    submitEvidenceArtifact(input: EvidenceArtifactUpload): Promise<GatewayMutationResult>;'
       : null,
     appPlan.capabilities.includes('finalize_attempt')
-      ? '    finalizeAttempt(input?: { completionState?: "completed" | "abandoned" }): Promise<GatewayMutationResult>;'
+      ? '    finalizeAttempt(input: { completionState: "completed" | "abandoned"; browserGraderResult?: BrowserGraderResult }): Promise<GatewayMutationResult>;'
       : null,
     appPlan.capabilities.includes('finalize_attempt')
       ? '    runBrowserGrader(): Promise<BrowserGraderResult>;'
@@ -311,7 +339,15 @@ interface LaunchContext {
   submissionMode: "standard" | "anonymous_submission";
 }
 type AttemptEvent =
-  | { type: "answer"; questionId: string; answer: string | string[]; timestamp: string }
+  | {
+      type: "answer";
+      questionId: string;
+      answer: string | string[];
+      correct?: boolean;
+      scoreGiven?: number;
+      scoreMaximum?: number;
+      timestamp: string;
+    }
   | { type: "progress"; checkpoint: string; value: number; timestamp: string }
   | { type: "complete"; timestamp: string };
 interface GatewayMutationResult { accepted: boolean }

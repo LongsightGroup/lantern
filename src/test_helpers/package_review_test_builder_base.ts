@@ -11,6 +11,7 @@ import type {
   LineItemBindingRecord,
   PackageVersionRecord,
 } from '../package_review/types.ts';
+import { normalizeAttemptEvent } from '../runtime/attempt_event_normalization.ts';
 import {
   DEFAULT_IMPORTED_AT,
   DEFAULT_PHASE3_AT,
@@ -198,17 +199,24 @@ export function buildAttemptRecord(overrides: Partial<AttemptRecord> = {}): Atte
 export function buildAttemptEventRecord(
   overrides: Partial<AttemptEventRecord> = {},
 ): AttemptEventRecord {
+  const event: AttemptEventRecord['event'] = overrides.event ?? {
+    type: 'answer',
+    questionId: 'q1',
+    answer: 'asteroid',
+    timestamp: DEFAULT_PHASE3_AT,
+  };
+  const normalizedEvent = normalizeAttemptEvent(event);
+
   return {
     id: overrides.id ?? 1,
     attemptId: overrides.attemptId ?? 'attempt-123',
     sequence: overrides.sequence ?? 1,
-    eventType: overrides.eventType ?? 'answer',
-    event: overrides.event ?? {
-      type: 'answer',
-      questionId: 'q1',
-      answer: 'asteroid',
-      timestamp: DEFAULT_PHASE3_AT,
-    },
+    eventType: overrides.eventType ?? event.type,
+    learningVerb: overrides.learningVerb ?? normalizedEvent.learningVerb,
+    objectId: overrides.objectId ?? normalizedEvent.objectId,
+    objectType: overrides.objectType ?? normalizedEvent.objectType,
+    result: overrides.result ?? normalizedEvent.result,
+    event,
     receivedAt: overrides.receivedAt ?? DEFAULT_PHASE3_AT,
   };
 }

@@ -20,7 +20,7 @@ interface PromptContextScoreInput {
   referenceAppIds: ReadonlySet<string>;
 }
 
-const MAX_PROMPT_CONTEXT_EXCERPTS = 8;
+const MAX_PROMPT_CONTEXT_EXCERPTS = 10;
 
 export function selectPromptContextExcerpts(input: {
   promptText: string;
@@ -89,6 +89,14 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
       'Generate a reviewed Lantern app package, not a Cloudflare Worker, LMS tool, or backend service. Published packages contain manifest.json, dist/index.html, dist/pico.min.css, dist/lantern-app.css, dist/app.css, dist/app.js, content/activity.json, preview/fixtures.json, and preview/tests.json. In TypeScript authoring mode, write source/app.ts and source/content_model.ts; Lantern compiles source/app.ts into dist/app.js.',
   },
   {
+    id: 'generated-app-contract',
+    title: 'Generated app contract',
+    source: 'GENERATED_APP_CONTRACT.md',
+    required: true,
+    content:
+      'Generated apps are reviewed browser activity packages. Lantern owns LMS launch, identity, storage, grading, runtime delivery, logs, and approval. The generated app owns only UI, lesson content, learner interaction logic, preview assertions, and structured GatewayApp calls. Required package files are manifest.json, dist/index.html, dist/pico.min.css, dist/lantern-app.css, dist/app.css, dist/app.js, content/activity.json, preview/fixtures.json, and preview/tests.json. Instruction, contract, source, and diagnostics files are not package artifacts.',
+  },
+  {
     id: 'runtime-boundary',
     title: 'Runtime and security boundary',
     source: 'AUTHORING_FOR_LLMS.md#Hard Rules',
@@ -105,12 +113,20 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
       'Generated apps use a self-contained style stack: dist/pico.min.css is a pinned Pico base, dist/lantern-app.css is a pinned Lantern learning-app layer, and dist/app.css is the only model-editable app-specific stylesheet. Use semantic HTML and Pico defaults for ordinary controls. Use Lantern classes such as ln-app, ln-panel, ln-flashcard, ln-choice-grid, ln-choice, ln-feedback, ln-progress-summary, ln-report-table, and ln-visually-hidden for learning-specific UI. Do not modify dist/pico.min.css or dist/lantern-app.css. Do not load external fonts, stylesheets, icons, images, scripts, or CDNs.',
   },
   {
+    id: 'design-contract',
+    title: 'Lantern learning app design contract',
+    source: '.lantern/contracts/design-contract.md',
+    required: true,
+    content:
+      'Design generated apps as task-first learning tools, not landing pages. Use a single clear activity frame: focused practice, choice grid, matching/sorting, simulation, instructor report, or browser autograder. The first screen must show an h1, concise instructions, current task or progress, and the next safe action. Include visible loading, feedback, error, completion, and resume states when relevant. Keep controls semantic and keyboard reachable, use aria-live or output for feedback, keep layouts readable at 360px iframe width, and write preview tests that prove the title, primary task, interaction feedback, and completion/report state render.',
+  },
+  {
     id: 'gateway-sdk-surface',
     title: 'GatewayApp SDK surface',
     source: 'sdk/app-sdk.ts#GatewayAppClient',
     required: true,
     content:
-      'Use window.GatewayApp as the only runtime API. In TypeScript, assign const gateway = window.GatewayApp and immediately guard it with if (!gateway) throw before calling methods. Available methods are getLaunchContext(), getActivityContent<T>(), readLocalState<T>(), writeLocalState<T>(value), emitAttemptEvent(event), submitEvidenceArtifact(input), submitScoreProposal(input), runBrowserGrader(), and finalizeAttempt(input). Manifest capabilities must be the minimum exact capability strings that match SDK calls. The emitAttemptEvent() method requires manifest capability submit_attempt_event; never write emit_attempt_event. submitEvidenceArtifact() must receive { kind, contentType, fileName, bodyBase64 }; for structured JSON use kind "structured_json", contentType "application/json", and bodyBase64: btoa(JSON.stringify(data)). Never pass raw evidence objects such as { html, timestamp }.',
+      'Use window.GatewayApp as the only runtime API. In TypeScript, assign const gateway = window.GatewayApp and immediately guard it with if (!gateway) throw before calling methods. Available methods are getLaunchContext(), getActivityContent<T>(), readLocalState<T>(), writeLocalState<T>(value), emitAttemptEvent(event), submitEvidenceArtifact(input), submitScoreProposal(input), runBrowserGrader(), and finalizeAttempt(input). Manifest capabilities must be the minimum exact capability strings that match SDK calls. The emitAttemptEvent() method requires manifest capability submit_attempt_event; never write emit_attempt_event. finalizeAttempt() requires an explicit completionState such as { completionState: "completed" }. submitEvidenceArtifact() must receive { kind, contentType, fileName, bodyBase64 }; for structured JSON use kind "structured_json", contentType "application/json", and bodyBase64: btoa(JSON.stringify(data)). Never pass raw evidence objects such as { html, timestamp }. Do not use SCORM, xAPI, cmi5, LRS, direct LMS calls, or arbitrary fetch; Lantern maps GatewayApp events into normalized learning records behind the gateway.',
   },
   {
     id: 'runtime-source-authoring',
@@ -138,7 +154,7 @@ const PROMPT_CONTEXT_BANK: readonly PromptContextEntry[] = [
       'usage',
     ],
     content:
-      'For per-student usage or progress, do not invent a database or browser storage. Use readLocalState() and writeLocalState() for resumable per-attempt UI state. Use emitAttemptEvent() for durable reportable facts: answer events use type, questionId, answer, and timestamp; progress events use type, checkpoint, numeric value, and timestamp; complete events use only type and timestamp. Do not put questionId, answer, checkpoint, or value on complete events. Lantern aggregates events and finalized attempts for instructor reports.',
+      'For per-student usage or progress, do not invent a database or browser storage. Use readLocalState() and writeLocalState() for resumable per-attempt UI state. Use emitAttemptEvent() for durable reportable facts: answer events use type, questionId, answer, timestamp, and optional correct/score fields; progress events use type, checkpoint, numeric value, and timestamp; complete events use only type and timestamp. Do not put questionId, answer, checkpoint, or value on complete events. Lantern stores normalized answered/progressed/completed event metadata for instructor reports and future standards-shaped export, without exposing SCORM, xAPI, cmi5, LRS credentials, direct LMS calls, or arbitrary fetch.',
   },
   {
     id: 'simple-activity-starter',

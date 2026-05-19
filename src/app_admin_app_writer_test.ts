@@ -35,7 +35,58 @@ Deno.test('GET /admin/app-writer renders the app writer prompt form', async () =
   assertStringIncludes(body, 'data-app-writer-form');
   assertStringIncludes(body, 'data-app-writer-submit');
   assertStringIncludes(body, 'aria-live="polite"');
-  assertStringIncludes(body, 'Generating app. Lantern is calling the model');
+  assertStringIncludes(body, 'Preview plan');
+  assertStringIncludes(body, 'The model is not called until you confirm the plan.');
+});
+
+Deno.test('POST /admin/app-writer previews the deterministic plan before generation', async () => {
+  const scheduledGenerationIds: string[] = [];
+  let workspaceRunnerCallCount = 0;
+  const formData = new FormData();
+  formData.set('promptText', 'Create phonics flashcards with progress tracking.');
+  formData.set('audience', 'Grade 1 readers');
+  formData.set('contentSummary', 'CVC words and blends.');
+  formData.set('gradingMode', 'completion');
+  formData.set('requestedAppId', 'phonics-flashcards');
+
+  const response = await createApp({
+    getRepository: () => createInMemoryPackageReviewRepository(),
+    appWriterWorkspaceRunner: {
+      ...createUnavailableAppWriterWorkspaceRunner('Plan preview must not call the harness.'),
+      initialize(_input) {
+        workspaceRunnerCallCount += 1;
+        throw new Error('Plan preview must not call the harness.');
+      },
+    },
+    appGenerationRunScheduler: {
+      schedule(input) {
+        scheduledGenerationIds.push(input.generationId);
+
+        return Promise.resolve({
+          mode: 'workflow',
+          workflowInstanceId: 'workflow-should-not-run',
+        });
+      },
+    },
+  }).request('https://lantern.example/admin/app-writer', {
+    method: 'POST',
+    headers: { Origin: 'https://lantern.example' },
+    body: formData,
+  });
+  const body = await response.text();
+
+  assertEquals(response.status, 200);
+  assertEquals(workspaceRunnerCallCount, 0);
+  assertEquals(scheduledGenerationIds, []);
+  assertStringIncludes(body, 'Review app plan');
+  assertStringIncludes(body, 'Deterministic plan');
+  assertStringIncludes(body, 'Phonics Flashcards');
+  assertStringIncludes(body, 'GatewayApp local progress');
+  assertStringIncludes(body, 'submit_attempt_event');
+  assertStringIncludes(body, 'Attempt events');
+  assertStringIncludes(body, 'Preview assertions');
+  assertStringIncludes(body, 'name="appWriterAction" value="generate"');
+  assertStringIncludes(body, 'Lantern is not calling the model yet.');
 });
 
 Deno.test('POST /admin/app-writer runs generation and redirects to the run detail page', async () => {
@@ -50,6 +101,7 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   formData.set('contentSummary', 'One hundred CVC and blend words.');
   formData.set('gradingMode', 'completion');
   formData.set('requestedAppId', 'phonics-match');
+  formData.set('appWriterAction', 'generate');
 
   const app = createApp({
     getRepository: () => repository,
@@ -142,7 +194,7 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   assertStringIncludes(detailBody, 'saved pending version');
   assertStringIncludes(detailBody, 'Open pending version');
   assertStringIncludes(detailBody, 'Generation request details');
-  assertStringIncludes(detailBody, 'Recipe lantern-learning-app-writer@0.1.0');
+  assertStringIncludes(detailBody, 'Recipe lantern-learning-app-writer@0.1.2');
   assertStringIncludes(detailBody, 'Grade 1 readers');
   assertStringIncludes(detailBody, 'Generated files');
   assertStringIncludes(detailBody, 'Test pending version');
@@ -182,6 +234,7 @@ Deno.test('POST /admin/app-writer redirects even without a Worker execution cont
   const repository = createInMemoryPackageReviewRepository();
   const formData = new FormData();
   formData.set('promptText', 'Create a phonics flashcard app.');
+  formData.set('appWriterAction', 'generate');
 
   const app = createApp({
     getRepository: () => repository,
@@ -217,6 +270,7 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
   let workspaceRunnerCallCount = 0;
   const formData = new FormData();
   formData.set('promptText', 'Create a phonics flashcard app.');
+  formData.set('appWriterAction', 'generate');
 
   const app = createApp({
     getRepository: () => repository,

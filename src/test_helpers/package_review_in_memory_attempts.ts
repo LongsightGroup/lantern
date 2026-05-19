@@ -6,6 +6,7 @@ type AttemptRepository = Pick<
   PackageReviewRepository,
   | 'createAttempt'
   | 'getAttemptById'
+  | 'listAttemptsByApp'
   | 'createAttemptEvidenceArtifact'
   | 'getAttemptEvidenceArtifactById'
   | 'listAttemptEvidenceArtifacts'
@@ -40,6 +41,24 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
     getAttemptById(attemptId) {
       const record = state.attempts.find((candidate) => candidate.attemptId === attemptId);
       return Promise.resolve(record ? cloneRecord(record) : null);
+    },
+
+    listAttemptsByApp(appId) {
+      return Promise.resolve(
+        state.attempts
+          .filter((candidate) => candidate.appId === appId)
+          .filter((candidate) => {
+            const deployment = state.deployments.find(
+              (deploymentRecord) => deploymentRecord.id === candidate.deploymentRecordId,
+            );
+
+            return deployment?.lmsType !== 'preview';
+          })
+          .sort(
+            (left, right) => right.startedAt.localeCompare(left.startedAt) || right.id - left.id,
+          )
+          .map(cloneRecord),
+      );
     },
 
     createAttemptEvidenceArtifact(input) {
@@ -124,6 +143,10 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         attemptId: input.attemptId,
         sequence,
         eventType: input.event.type,
+        learningVerb: input.normalizedEvent.learningVerb,
+        objectId: input.normalizedEvent.objectId,
+        objectType: input.normalizedEvent.objectType,
+        result: input.normalizedEvent.result,
         event: input.event,
         receivedAt: input.receivedAt,
       });

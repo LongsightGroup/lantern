@@ -213,6 +213,120 @@ export const ADMIN_LAYOUT_STYLE_DETAIL_TABLES = `
         color: color-mix(in srgb, var(--warning) 82%, var(--ink));
       }
 
+      .capability-privacy {
+        display: grid;
+        gap: 18px;
+      }
+
+      .capability-group {
+        display: grid;
+        gap: 14px;
+      }
+
+      .capability-group + .capability-group {
+        padding-top: 16px;
+        border-top: 1px solid var(--line-light);
+      }
+
+      .capability-group-sensitive {
+        padding: 16px;
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--warning-soft) 46%, var(--surface));
+      }
+
+      .capability-group-blocked {
+        padding: 14px 16px;
+        border-radius: var(--radius);
+        background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+      }
+
+      .capability-group-header,
+      .capability-card-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .capability-group-header h3,
+      .capability-card h4 {
+        margin: 0;
+        font-size: 13.5px;
+        font-weight: 650;
+      }
+
+      .capability-group-header p,
+      .capability-card p {
+        margin: 2px 0 0;
+        color: var(--secondary);
+        font-size: 13.5px;
+      }
+
+      .capability-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+      }
+
+      .capability-card {
+        display: grid;
+        gap: 12px;
+        min-width: 0;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: var(--surface);
+      }
+
+      .capability-meta {
+        display: grid;
+        gap: 8px;
+        margin: 0;
+      }
+
+      .capability-meta div {
+        display: grid;
+        gap: 2px;
+      }
+
+      .capability-meta dt {
+        color: var(--muted);
+        font-size: 11.5px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .capability-meta dd {
+        margin: 0;
+        color: var(--secondary);
+        font-size: 13px;
+      }
+
+      .capability-classification {
+        font-size: 11.5px;
+        font-weight: 700;
+      }
+
+      .capability-classification-standard {
+        background: color-mix(in srgb, var(--success-soft) 82%, white);
+        border-color: color-mix(in srgb, var(--success) 18%, var(--line));
+        color: color-mix(in srgb, var(--success) 78%, var(--ink));
+      }
+
+      .capability-classification-sensitive {
+        background: color-mix(in srgb, var(--warning-soft) 84%, white);
+        border-color: color-mix(in srgb, var(--warning) 24%, var(--line));
+        color: color-mix(in srgb, var(--warning) 80%, var(--ink));
+      }
+
+      .capability-classification-blocked {
+        background: color-mix(in srgb, var(--accent-soft) 72%, white);
+        border-color: color-mix(in srgb, var(--accent) 18%, var(--line));
+        color: color-mix(in srgb, var(--accent) 76%, var(--ink));
+      }
+
       .chip-status {
         font-weight: 600;
         letter-spacing: 0.01em;

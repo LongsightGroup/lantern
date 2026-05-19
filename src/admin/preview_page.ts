@@ -147,8 +147,17 @@ export function renderPreviewPage(input: {
         .map(
           (capability) =>
             `<article class="line-item">
-              <p class="line-title">${escapeHtml(capability.label)}</p>
+              <p class="line-title">${
+              escapeHtml(
+                capability.label,
+              )
+            } <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span></p>
               <p class="line-copy">${escapeHtml(capability.detail)}</p>
+              <p class="micro muted">${escapeHtml(capability.purpose)} ${
+              escapeHtml(
+                capability.dataScope,
+              )
+            }</p>
             </article>`,
         )
         .join('')

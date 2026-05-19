@@ -31,6 +31,7 @@ import {
 } from './gateway_parsing.ts';
 import { publishRuntimeAttemptScore } from './gateway_publication.ts';
 import { readReviewedBrowserGraderConfig } from './browser_grader.ts';
+import { normalizeAttemptEvent } from './attempt_event_normalization.ts';
 import type {
   FinalizeAttemptInput,
   FinalizeAttemptResult,
@@ -197,9 +198,11 @@ export async function acceptAttemptEvent(input: {
   try {
     requireRuntimeCapability(input.session, 'submit_attempt_event');
     const event = parseAttemptEvent(input.payload);
+    const normalizedEvent = normalizeAttemptEvent(event);
     const attemptEvent = await input.repository.appendAttemptEvent({
       attemptId: input.session.attemptId,
       event,
+      normalizedEvent,
       receivedAt: occurredAt,
     });
 
@@ -213,6 +216,9 @@ export async function acceptAttemptEvent(input: {
           attemptId: input.session.attemptId,
           sequence: attemptEvent.sequence,
           eventType: attemptEvent.eventType,
+          learningVerb: attemptEvent.learningVerb,
+          objectId: attemptEvent.objectId,
+          objectType: attemptEvent.objectType,
         },
         occurredAt,
       });

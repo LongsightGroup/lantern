@@ -23,6 +23,7 @@ export function parseAttemptEvent(payload: unknown): AttemptEvent {
           type,
           questionId: requireString(record.questionId, 'Attempt answer questionId is required.'),
           answer: requireAnswerValue(record.answer),
+          ...parseOptionalAnswerEvaluation(record),
           timestamp: requireTimestamp(record.timestamp, 'Attempt answer timestamp is required.'),
         };
       case 'progress':
@@ -66,20 +67,14 @@ export function parseAttemptEvent(payload: unknown): AttemptEvent {
 export function parseFinalizeAttemptInput(payload: unknown): FinalizeAttemptInput {
   try {
     if (payload === null || payload === undefined) {
-      return {
-        completionState: 'completed',
-        browserGraderResult: null,
-      };
+      throw new Error('Finalize payload must include completionState.');
     }
 
     const record = requireRecord(payload, 'Finalize payload must be an object when provided.');
     const completionState = record.completionState;
 
     if (completionState === undefined) {
-      return {
-        completionState: 'completed',
-        browserGraderResult: parseOptionalBrowserGraderResult(record.browserGraderResult),
-      };
+      throw new Error('Finalize completionState is required.');
     }
 
     if (completionState !== 'completed' && completionState !== 'abandoned') {
@@ -290,11 +285,56 @@ function requireAnswerValue(value: unknown): string | string[] {
 }
 
 function requireNumber(value: unknown, message: string): number {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     throw new TypeError(message);
   }
 
   return value;
+}
+
+function parseOptionalAnswerEvaluation(
+  record: Record<string, unknown>,
+): Partial<Extract<AttemptEvent, { type: 'answer' }>> {
+  const evaluation: Partial<Extract<AttemptEvent, { type: 'answer' }>> = {};
+
+  if (record.correct !== undefined) {
+    if (typeof record.correct !== 'boolean') {
+      throw new TypeError('Attempt answer correct must be a boolean when provided.');
+    }
+
+    evaluation.correct = record.correct;
+  }
+
+  const hasScoreGiven = record.scoreGiven !== undefined;
+  const hasScoreMaximum = record.scoreMaximum !== undefined;
+
+  if (hasScoreGiven !== hasScoreMaximum) {
+    throw new TypeError('Attempt answer scoreGiven and scoreMaximum must be provided together.');
+  }
+
+  if (hasScoreGiven && hasScoreMaximum) {
+    const scoreGiven = requireNumber(
+      record.scoreGiven,
+      'Attempt answer scoreGiven must be a finite number.',
+    );
+    const scoreMaximum = requireNumber(
+      record.scoreMaximum,
+      'Attempt answer scoreMaximum must be a finite number.',
+    );
+
+    if (scoreMaximum <= 0) {
+      throw new TypeError('Attempt answer scoreMaximum must be greater than zero.');
+    }
+
+    if (scoreGiven < 0 || scoreGiven > scoreMaximum) {
+      throw new TypeError('Attempt answer scoreGiven must stay between zero and scoreMaximum.');
+    }
+
+    evaluation.scoreGiven = scoreGiven;
+    evaluation.scoreMaximum = scoreMaximum;
+  }
+
+  return evaluation;
 }
 
 function requireTimestamp(value: unknown, message: string): string {

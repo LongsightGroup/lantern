@@ -149,6 +149,7 @@ export interface PackageReviewRepository {
   ): Promise<RuntimeSessionRecord | null>;
   createAttempt(record: Omit<AttemptRecord, 'id'>): Promise<AttemptRecord>;
   getAttemptById(attemptId: string): Promise<AttemptRecord | null>;
+  listAttemptsByApp(appId: string): Promise<AttemptRecord[]>;
   createAttemptEvidenceArtifact(
     input: Omit<AttemptEvidenceArtifactRecord, 'sequence'>,
   ): Promise<AttemptEvidenceArtifactRecord>;
@@ -157,6 +158,10 @@ export interface PackageReviewRepository {
   appendAttemptEvent(input: {
     attemptId: string;
     event: AttemptEventRecord['event'];
+    normalizedEvent: Pick<
+      AttemptEventRecord,
+      'learningVerb' | 'objectId' | 'objectType' | 'result'
+    >;
     receivedAt: string;
   }): Promise<AttemptEventRecord>;
   listAttemptEvents(attemptId: string): Promise<AttemptEventRecord[]>;

@@ -3,6 +3,8 @@ import { renderPackageDetailPage } from './package_detail.ts';
 import {
   buildAccessibilityReview,
   buildPackageVersionRecord,
+  buildPreviewEvidenceRecord,
+  buildPreviewSessionRecord,
 } from '../test_helpers/package_review.ts';
 
 Deno.test('renderPackageDetailPage shows status, exact version, owner, and access details above the fold', () => {
@@ -15,17 +17,88 @@ Deno.test('renderPackageDetailPage shows status, exact version, owner, and acces
   assertStringIncludes(body, 'Pending review');
   assertStringIncludes(body, 'Version 0.1.0');
   assertStringIncludes(body, 'instructor_123');
-  assertStringIncludes(body, 'What this app can access');
-  assertStringIncludes(body, 'Finish attempt');
-  assertStringIncludes(body, 'Save progress');
+  assertStringIncludes(body, 'What it can do');
+  assertStringIncludes(body, 'Standard learning activity');
+  assertStringIncludes(
+    body,
+    'Expected LMS-style features for participation, resume, and completion tracking.',
+  );
+  assertStringIncludes(body, 'Attempt completion');
+  assertStringIncludes(body, 'Save resumable progress');
+  assertStringIncludes(body, 'Normal learning telemetry');
+  assertStringIncludes(body, 'Blocked by Lantern');
+  assertStringIncludes(body, 'direct grade-write authority');
   assertStringIncludes(body, 'Automatic scoring');
+  assertStringIncludes(body, 'Reviewed scoring rules');
+  assertStringIncludes(body, 'Affects grades');
   assertStringIncludes(body, 'Show access notes, saved files, and manifest JSON');
-  assertStringIncludes(body, 'capability-chip-basic');
   assertEquals(body.includes('Extra review'), false);
-  assertEquals(body.includes('Stores submitted evidence'), false);
+  assertEquals(body.includes('Sensitive learner evidence'), false);
 });
 
-Deno.test('renderPackageDetailPage explains the approval decision for higher-access actions and saved file details', () => {
+Deno.test('renderPackageDetailPage gives pending reviewers changes, launch, runtime, and safety context', () => {
+  const previousVersion = buildPackageVersionRecord({
+    id: 1,
+    version: '0.1.0',
+    approvalStatus: 'approved',
+    reviewedAt: '2026-05-15T12:00:00.000Z',
+  });
+  const pendingVersion = buildPackageVersionRecord({
+    id: 2,
+    version: '0.2.0',
+    approvalStatus: 'pending',
+  });
+  const previewSession = buildPreviewSessionRecord({
+    sessionId: 'preview-session-review',
+    packageVersionId: pendingVersion.id,
+    appId: pendingVersion.appId,
+    packageVersion: pendingVersion.version,
+    packageTitle: pendingVersion.title,
+    launch: {
+      userId: 'preview-user',
+      userRole: 'learner',
+      courseId: 'review-course',
+      assignmentId: 'review-assignment',
+      activityId: 'review-activity',
+    },
+  });
+  const body = renderPackageDetailPage({
+    packageVersion: pendingVersion,
+    history: [pendingVersion, previousVersion],
+    latestPreviewSession: previewSession,
+    previewEvidence: [
+      buildPreviewEvidenceRecord({
+        previewSessionId: previewSession.sessionId,
+        eventType: 'preview.launch',
+        summary: "Started a test launch in Lantern's runtime.",
+      }),
+      buildPreviewEvidenceRecord({
+        id: 2,
+        sequence: 2,
+        previewSessionId: previewSession.sessionId,
+        eventType: 'preview.attempt_event',
+        capability: 'submit_attempt_event',
+        summary: 'Recorded a review progress event.',
+      }),
+    ],
+  });
+
+  assertStringIncludes(body, 'Review before approval');
+  assertStringIncludes(body, 'What changed');
+  assertStringIncludes(body, 'Version 0.2.0 is pending review against previous version 0.1.0.');
+  assertStringIncludes(body, '/admin/packages/chapter-4-asteroids/versions/0.2.0/diff');
+  assertStringIncludes(body, 'Open review test launch');
+  assertStringIncludes(body, 'Latest review test launch preview-session-review');
+  assertStringIncludes(body, 'Runtime log');
+  assertStringIncludes(body, 'Received app progress update');
+  assertStringIncludes(body, 'submit_attempt_event');
+  assertStringIncludes(body, 'Why this is safe');
+  assertStringIncludes(body, 'raw LMS tokens');
+  assertStringIncludes(body, 'direct storage');
+  assertStringIncludes(body, 'direct grade writes');
+});
+
+Deno.test('renderPackageDetailPage distinguishes ordinary progress from sensitive evidence and saved file details', () => {
   const reviewedVersion = buildPackageVersionRecord({
     approvalStatus: 'approved',
     capabilities: [
@@ -51,20 +124,21 @@ Deno.test('renderPackageDetailPage explains the approval decision for higher-acc
     history: [reviewedVersion],
   });
 
-  assertStringIncludes(body, 'Extra review');
-  assertStringIncludes(
-    body,
-    'This version asks for capabilities beyond ordinary progress, resume, and completion tracking.',
-  );
-  assertStringIncludes(
-    body,
-    'Lantern keeps this version from going live until review is complete.',
-  );
-  assertStringIncludes(body, 'Anonymous evidence return');
-  assertStringIncludes(body, 'Finish attempt');
-  assertStringIncludes(body, 'Stores submitted evidence');
-  assertStringIncludes(body, 'callout-review');
-  assertStringIncludes(body, 'capability-risk-chip');
+  assertStringIncludes(body, 'Standard learning activity');
+  assertStringIncludes(body, 'Participation and progress');
+  assertStringIncludes(body, 'Normal learning telemetry');
+  assertStringIncludes(body, 'Resume saved progress');
+  assertStringIncludes(body, 'Sensitive review items');
+  assertStringIncludes(body, 'These can affect grading or store learner-submitted evidence.');
+  assertStringIncludes(body, 'Submitted evidence artifacts');
+  assertStringIncludes(body, 'Sensitive learner evidence');
+  assertStringIncludes(body, 'Sensitive evidence');
+  assertStringIncludes(body, 'Purpose');
+  assertStringIncludes(body, 'Data scope');
+  assertStringIncludes(body, 'Retention');
+  assertStringIncludes(body, 'Sensitivity');
+  assertStringIncludes(body, 'the generated app cannot write directly to the LMS gradebook');
+  assertStringIncludes(body, 'capability-classification-sensitive');
   assertStringIncludes(body, 'Saved files');
   assertStringIncludes(body, 'Ready for the pilot deployment.');
   assertStringIncludes(body, 'Flagged review');

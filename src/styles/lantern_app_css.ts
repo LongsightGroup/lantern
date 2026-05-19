@@ -1,4 +1,4 @@
-export const LANTERN_APP_CSS_VERSION = '0.1.0';
+export const LANTERN_APP_CSS_VERSION = '0.2.0';
 
 export const LANTERN_APP_CSS = `:root {
   color-scheme: light;
@@ -37,6 +37,17 @@ main,
   gap: 1rem;
 }
 
+.ln-stack,
+.ln-task {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.ln-instructions {
+  max-width: 68ch;
+  color: var(--ln-muted);
+}
+
 .ln-panel,
 .ln-flashcard,
 .ln-instructor-panel {
@@ -44,6 +55,11 @@ main,
   border-radius: var(--ln-radius);
   background: var(--ln-surface);
   padding: 1rem;
+}
+
+.ln-flashcard {
+  display: grid;
+  gap: 0.75rem;
 }
 
 .ln-activity-header,
@@ -54,6 +70,18 @@ main,
   gap: 0.75rem;
   align-items: center;
   justify-content: space-between;
+}
+
+.ln-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.ln-progress-label {
+  color: var(--ln-muted);
+  font-size: 0.95rem;
 }
 
 .ln-choice-grid,
@@ -106,8 +134,39 @@ main,
   color: var(--ln-danger);
 }
 
+.ln-report-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+}
+
+.ln-stat {
+  border: 1px solid var(--ln-line);
+  border-radius: var(--ln-radius);
+  background: var(--ln-accent-soft);
+  padding: 0.75rem;
+}
+
+.ln-stat strong {
+  display: block;
+  font-size: 1.25rem;
+}
+
 .ln-report-table {
   width: 100%;
+}
+
+.ln-empty-state,
+.ln-error-state {
+  border: 1px dashed var(--ln-line);
+  border-radius: var(--ln-radius);
+  padding: 1rem;
+  color: var(--ln-muted);
+}
+
+.ln-error-state {
+  border-color: color-mix(in srgb, var(--ln-danger) 36%, var(--ln-line));
+  color: var(--ln-danger);
 }
 
 .ln-visually-hidden {
@@ -120,5 +179,12 @@ main,
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+@media (max-width: 480px) {
+  main,
+  .ln-app {
+    padding: 1rem 0.75rem;
+  }
 }
 `;

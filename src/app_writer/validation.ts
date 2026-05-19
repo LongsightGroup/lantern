@@ -53,6 +53,7 @@ export async function validateGeneratedAppPackage(input: {
   findings.push(...validateRequiredFiles(normalizedFiles));
   findings.push(...validateAllowedPaths(input.selectedStarterId, normalizedFiles));
   findings.push(...validatePinnedStyleFiles(normalizedFiles));
+  findings.push(...validateDesignContract(normalizedFiles));
   findings.push(...validateStaticPolicy(normalizedFiles));
   findings.push(...validateSdkCapabilities(normalizedFiles));
 
@@ -105,6 +106,51 @@ function validatePinnedStyleFiles(
       field: null,
       fix:
         `Restore ${path} to the pinned Lantern-provided stylesheet and put app-specific styles in dist/app.css.`,
+      detail: {},
+    });
+  }
+
+  return findings;
+}
+
+function validateDesignContract(
+  files: ReadonlyMap<string, AppWriterWorkspaceFile>,
+): AppGenerationValidationFinding[] {
+  const html = files.get('dist/index.html')?.contents;
+
+  if (html === undefined) {
+    return [];
+  }
+
+  const findings: AppGenerationValidationFinding[] = [];
+
+  for (const href of ['./pico.min.css', './lantern-app.css', './app.css']) {
+    if (hasStylesheetLink(html, href)) {
+      continue;
+    }
+
+    findings.push({
+      code: 'design_stylesheet_missing',
+      severity: 'error',
+      message: `Generated app shell must load ${href}.`,
+      file: 'dist/index.html',
+      field: null,
+      fix: `Add <link rel="stylesheet" href="${href}"> inside dist/index.html <head>.`,
+      detail: {
+        href,
+      },
+    });
+  }
+
+  if (!hasLanternAppRoot(html)) {
+    findings.push({
+      code: 'design_app_shell_missing',
+      severity: 'error',
+      message: 'Generated app shell must keep the Lantern app root.',
+      file: 'dist/index.html',
+      field: null,
+      fix:
+        'Use <main id="app" class="ln-app" data-test="app-root"></main> as the reviewed app root.',
       detail: {},
     });
   }
@@ -481,6 +527,27 @@ function isPinnedStylePath(path: string): boolean {
   return Object.hasOwn(PINNED_STYLE_FILES, path);
 }
 
+function hasStylesheetLink(html: string, href: string): boolean {
+  const hrefPattern = href.startsWith('./')
+    ? `(?:\\./)?${escapeRegExp(href.slice(2))}`
+    : escapeRegExp(href);
+  return new RegExp(
+    `<link\\b(?=[^>]*\\brel=["']stylesheet["'])(?=[^>]*\\bhref=["']${hrefPattern}["'])[^>]*>`,
+    'i',
+  ).test(html);
+}
+
+function hasLanternAppRoot(html: string): boolean {
+  return /<main\b(?=[^>]*\bclass=["'][^"']*\bln-app\b[^"']*["'])(?=[^>]*\bdata-test=["']app-root["'])[^>]*>/i
+    .test(
+      html,
+    );
+}
+
+function escapeRegExp(value: string): string {
+  return value.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function findPolicyMatches(
   file: AppWriterWorkspaceFile,
   rules: readonly StaticPolicyRule[],
@@ -536,6 +603,12 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
     fix: 'Use plain browser JavaScript and the Lantern GatewayApp SDK.',
   },
   {
+    code: 'module_exports_forbidden',
+    pattern: /(^|\n)\s*export\s+(?:default|class|const|function|let|var|\{)/,
+    message: 'Generated apps cannot use module exports.',
+    fix: 'Keep reviewed app code as plain browser JavaScript loaded by dist/index.html.',
+  },
+  {
     code: 'browser_storage_forbidden',
     pattern: /\b(?:localStorage|sessionStorage)\b/,
     message: 'Generated apps cannot use localStorage or sessionStorage.',
@@ -543,11 +616,47 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
       'Use GatewayApp.readLocalState() and GatewayApp.writeLocalState() when local state is declared.',
   },
   {
+    code: 'browser_persistent_storage_forbidden',
+    pattern: /\bindexedDB\b|\bdocument\s*\.\s*cookie\b/,
+    message: 'Generated apps cannot use browser persistent storage outside the Lantern gateway.',
+    fix: 'Use GatewayApp local state and attempt events instead of cookies or IndexedDB.',
+  },
+  {
+    code: 'dynamic_code_execution_forbidden',
+    pattern: /\beval\s*\(|\bnew\s+Function\s*\(/,
+    message: 'Generated apps cannot use dynamic code execution.',
+    fix: 'Use plain reviewed browser code with no eval or Function constructor.',
+  },
+  {
+    code: 'worker_entrypoint_forbidden',
+    pattern:
+      /(?:^|\n)\s*export\s+default\s*\{[\s\S]{0,400}\bfetch\s*\(|(?:^|\n)\s*addEventListener\s*\(\s*["']fetch["']|\b(?:WorkerEntrypoint|ExportedHandler|ExecutionContext|ScheduledController|MessageBatch)\b/,
+    message: 'Generated apps cannot define Cloudflare Worker entrypoints.',
+    fix:
+      'Keep Worker, routing, scheduling, and queue code in Lantern platform code. Generated apps must use window.GatewayApp only.',
+  },
+  {
+    code: 'durable_object_forbidden',
+    pattern:
+      /\b(?:DurableObject|DurableObjectNamespace|DurableObjectState|Durable Object|Durable Objects|ctx\.storage|state\.storage|env\s*\.\s*[A-Z][A-Z0-9_]*\b)/i,
+    message: 'Generated apps cannot reference Durable Objects or platform storage bindings.',
+    fix:
+      'Use GatewayApp local state and attempt events. Lantern may implement those capabilities with Durable Objects or D1 behind the gateway.',
+  },
+  {
     code: 'platform_boundary_forbidden',
     pattern:
-      /\b(?:canvas\.instructure|canvas lms|moodle|sakai|lti|access_token|line_item|lineItem|writeGrade|gradePassback|D1|R2)\b/i,
+      /\b(?:canvas\.instructure|canvas lms|moodle|sakai|lti|access_token|line_item|lineItem|writeGrade|gradePassback|Cloudflare|Workers?|D1|R2|Worker Loader)\b/i,
     message:
       'Generated apps cannot reference LMS, grade passback, or Cloudflare platform internals.',
     fix: 'Keep LMS, grading, storage, and Cloudflare concerns behind Lantern.',
+  },
+  {
+    code: 'standards_runtime_forbidden',
+    pattern:
+      /\b(?:SCORM|LMSInitialize|LMSSetValue|LMSGetValue|LMSCommit|LMSFinish|API_1484_11|TinCan|xAPI|LRS|Learning Record Store|cmi5)\b/i,
+    message: 'Generated apps cannot use SCORM, xAPI, cmi5, or LRS APIs directly.',
+    fix:
+      'Use Lantern GatewayApp local state, attempt events, and finalizeAttempt(). Lantern may export standards-shaped records behind the gateway later.',
   },
 ];

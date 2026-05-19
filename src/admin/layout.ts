@@ -10,7 +10,7 @@ import {
 } from './layout_support.ts';
 
 export type { AdminBreadcrumb, AdminNotice, NavChildItem, NavItem } from './layout_support.ts';
-export { escapeHtml, formatDateTime } from './layout_support.ts';
+export { escapeHtml, formatDate, formatDateTime } from './layout_support.ts';
 
 export function renderAdminLayout(input: {
   title: string;

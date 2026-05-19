@@ -92,9 +92,14 @@ Rules:
 - Use GatewayApp local state for learner progress and GatewayApp attempt events
   for reportable learner actions.
 - Keep all package files inside the Lantern allowlist.
+- Follow .lantern/contracts/generated-app-contract.md as the app-facing trust
+  boundary. The generated app is a reviewed browser activity package, not an
+  LMS integration or backend service.
 - Keep styling self-contained. Use the vendored Pico base stylesheet and
   Lantern learning-app primitives already present in the package. Do not modify
   dist/pico.min.css or load external fonts, stylesheets, images, or scripts.
+- Follow .lantern/contracts/design-contract.md for the app shell, activity
+  frame, learner states, responsive behavior, and preview proof.
 - Leave AGENTS.md and .lantern/** as instruction/contract files only; they are
   not package artifact files.
 
@@ -151,6 +156,11 @@ function buildInstructionFiles(input: {
       },
     ]),
     {
+      path: '.lantern/contracts/generated-app-contract.md',
+      role: 'contract',
+      contents: buildGeneratedAppContract(),
+    },
+    {
       path: '.lantern/contracts/gateway-app-sdk.d.ts',
       role: 'contract',
       contents: buildGatewayAppSdkContract(),
@@ -170,7 +180,75 @@ function buildInstructionFiles(input: {
       role: 'contract',
       contents: buildStyleContract(),
     },
+    {
+      path: '.lantern/contracts/design-contract.md',
+      role: 'contract',
+      contents: buildDesignContract(),
+    },
   ];
+}
+
+function buildGeneratedAppContract(): string {
+  return `# Generated App Contract
+
+Contract id: lantern-generated-app-contract@0.1.0
+
+The generated app is a reviewed browser activity package. Lantern owns LMS
+launch, identity, storage, grading, runtime delivery, logs, and approval.
+
+## Package Boundary
+
+Required package files:
+
+- manifest.json
+- dist/index.html
+- dist/pico.min.css
+- dist/lantern-app.css
+- dist/app.css
+- dist/app.js
+- content/activity.json
+- preview/fixtures.json
+- preview/tests.json
+
+Optional package files:
+
+- scoring/rubric.json
+- grading/specs/*.js for browser autograder packages
+- evidence/example-output.json for browser autograder packages
+
+AGENTS.md, .lantern/contracts/**, source/**, diagnostics, and run evidence are
+workspace context, not package artifact files.
+
+## Runtime Boundary
+
+Use only browser code and window.GatewayApp. Generated apps must not receive or
+invent raw LMS tokens, LTI logic, direct LMS APIs, direct storage, Cloudflare
+bindings, backend services, Worker entrypoints, Durable Objects, arbitrary
+outbound network calls, or direct grade writes.
+
+Lantern may implement gateway capabilities with Workers, D1, R2, Dynamic
+Workers, Worker Loader, or Durable Objects behind the platform boundary. Those
+implementation details do not become generated app capabilities.
+
+## State And Reporting
+
+Use GatewayApp local state for resumable learner progress. Use GatewayApp
+attempt events for durable reportable facts. Lantern maps those events into a
+small standards-inspired vocabulary: answers become answered question events,
+progress becomes progressed checkpoint events, and completion becomes a
+completed activity event. Use finalizeAttempt({ completionState: "completed" })
+when the activity is done. Instructor reports come from Lantern aggregating
+gateway-managed state and attempt events; do not invent a class-wide database.
+Do not call SCORM, xAPI, cmi5, LRS, LMS, or grade APIs directly.
+
+## Design And Preview
+
+Use the pinned Pico and Lantern stylesheet stack. Keep app-specific styles in
+dist/app.css. Render one focused task-first learning surface, not a landing
+page, LMS clone, or dashboard shell. Preview tests must prove the title,
+instructions or task, a meaningful interaction or status update, and completion,
+report, score, or evidence state when the prompt asks for it.
+`;
 }
 
 function buildGatewayAppSdkContract(): string {
@@ -178,9 +256,27 @@ function buildGatewayAppSdkContract(): string {
 // Generated apps run in the browser and use only window.GatewayApp. Do not
 // import the Lantern SDK and do not call LMS or Cloudflare APIs directly.
 type AttemptEvent =
-  | { type: "answer"; questionId: string; answer: string | string[]; timestamp: string }
+  | {
+      type: "answer";
+      questionId: string;
+      answer: string | string[];
+      correct?: boolean;
+      scoreGiven?: number;
+      scoreMaximum?: number;
+      timestamp: string;
+    }
   | { type: "progress"; checkpoint: string; value: number; timestamp: string }
   | { type: "complete"; timestamp: string };
+type AttemptEventLearningVerb = "answered" | "progressed" | "completed";
+type AttemptEventObjectType = "question" | "checkpoint" | "activity";
+interface NormalizedAttemptEvent {
+  eventType: AttemptEvent["type"];
+  learningVerb: AttemptEventLearningVerb;
+  objectId: string;
+  objectType: AttemptEventObjectType;
+  result: Record<string, unknown>;
+  timestamp: string;
+}
 
 interface GatewayMutationResult { accepted: boolean }
 interface LaunchContext {
@@ -207,8 +303,8 @@ interface GatewayAppClient {
   submitEvidenceArtifact?(input: EvidenceArtifactUpload): Promise<GatewayMutationResult>;
   submitScoreProposal?(input: ScoreProposal): Promise<GatewayMutationResult>;
   runBrowserGrader?(): Promise<BrowserGraderResult>;
-  finalizeAttempt?(input?: {
-    completionState?: "completed" | "abandoned";
+  finalizeAttempt?(input: {
+    completionState: "completed" | "abandoned";
     browserGraderResult?: BrowserGraderResult;
   }): Promise<GatewayMutationResult>;
 }
@@ -226,21 +322,26 @@ function buildDefinitionOfDoneContract(): string {
 
 Every generated app must pass the same proof loop before Lantern saves it:
 
-1. TypeScript authoring source passes strict typecheck when source files exist.
-2. TypeScript compiles to dist/app.js with no imports or package installs.
-3. Styling is self-contained: dist/pico.min.css is the pinned Pico base,
+1. The workspace follows .lantern/contracts/generated-app-contract.md.
+2. TypeScript authoring source passes strict typecheck when source files exist.
+3. TypeScript compiles to dist/app.js with no imports or package installs.
+4. Styling is self-contained: dist/pico.min.css is the pinned Pico base,
    dist/lantern-app.css is the pinned Lantern learning-app layer, and
    app-specific styling lives in dist/app.css.
-4. manifest.json, content files, preview fixtures, and preview tests validate.
-5. The app boots in Lantern preview without runtime errors.
-6. All preview assertions pass.
-7. Policy checks pass: browser-only package, allowed files only, no external
+5. manifest.json, content files, preview fixtures, and preview tests validate.
+6. The app boots in Lantern preview without runtime errors.
+7. All preview assertions pass.
+8. Design contract checks pass: the package keeps the Lantern app shell,
+   self-contained styling, semantic controls, visible feedback, and responsive
+   iframe-safe layout.
+9. Policy checks pass: browser-only package, allowed files only, no external
    network, no LMS APIs, no raw grade passback, no D1/R2/Durable Object/Worker
    code, no localStorage/sessionStorage.
-8. Learner progress uses GatewayApp local state and attempt events only when the
-   declared capabilities allow it.
-9. Completion calls use finalizeAttempt({ completionState: "completed" }).
-10. Evidence artifacts use submitEvidenceArtifact({
+10. Learner progress uses GatewayApp local state and constrained attempt events
+   only when the declared capabilities allow it. Do not use SCORM, xAPI, cmi5,
+   LRS, direct LMS calls, or arbitrary fetch for learning records.
+11. Completion calls use finalizeAttempt({ completionState: "completed" }).
+12. Evidence artifacts use submitEvidenceArtifact({
    kind: "structured_json", contentType: "application/json", fileName,
    bodyBase64 }) with bodyBase64 set to btoa(JSON.stringify(data)); never pass
    raw objects like { html, timestamp }.
@@ -261,9 +362,10 @@ Package files are the only files that become the reviewed app artifact:
 - dist/pico.min.css
 - dist/lantern-app.css
 - dist/app.js
-- dist/app.css when needed
-- content/**
-- preview/**
+- dist/app.css
+- content/activity.json
+- preview/fixtures.json
+- preview/tests.json
 - grading/** for browser-autograder packages
 - evidence/** examples for browser-autograder packages
 
@@ -303,5 +405,97 @@ Rules:
 - Do not assume Canvas, Moodle, Sakai, Blackboard, or LMS page CSS.
 - Support iframe widths from 360px to desktop.
 - Preserve visible focus states and readable contrast.
+- See .lantern/contracts/design-contract.md for the layout, component, state,
+  and preview-proof decisions every generated app must follow.
+`;
+}
+
+function buildDesignContract(): string {
+  return `# Design Contract
+
+Generated Lantern apps are task-first learning tools. They are not landing
+pages, dashboards, LMS pages, or general app shells. The design goal is a calm,
+clear activity surface that works inside an LMS iframe and makes the next
+learning action obvious.
+
+## Required App Shell
+
+- Keep dist/index.html on the reviewed shell:
+  <main id="app" class="ln-app" data-test="app-root"></main>.
+- Render one h1 on the first usable screen with data-test="app-title".
+- Show concise learner instructions near the title.
+- Show the current task, current progress, and the next safe action without
+  requiring the learner to hunt.
+- Use semantic controls: button for actions, fieldset and legend for grouped
+  choices, label for inputs, table for reports, progress for numeric progress,
+  output or an aria-live region for feedback.
+- Do not create a marketing hero, decorative dashboard, nested card layout, or
+  LMS-themed page chrome.
+
+## Activity Frames
+
+Choose the smallest frame that matches the instructor prompt:
+
+- Focused practice or flashcards: use .ln-activity-header, .ln-progress-summary,
+  article.ln-flashcard, .ln-choice-grid, button.ln-choice, and .ln-feedback.
+  Show one focused prompt at a time unless the instructor explicitly asks for a
+  review grid.
+- Matching or sorting: use fieldset and legend for the task, .ln-match-grid or
+  .ln-sort-grid for the working area, and buttons or native form controls for
+  all learner moves. Never require drag-only interaction.
+- Simulation: keep controls in a labeled form or .ln-toolbar, keep outputs in a
+  readable section, and provide text feedback for important state changes. Use
+  canvas only when the simulation genuinely needs it and mirror the essential
+  state in accessible text.
+- Instructor report: use section.ln-instructor-panel, .ln-report-summary, and
+  table.ln-report-table. Show only data available through Lantern content,
+  local state, attempt events, preview fixtures, or reviewed package data. Do
+  not fake class-wide analytics.
+- Browser autograder: show instructions, one clear run/check action, score or
+  status output, and evidence summary. Keep grading mechanics behind
+  GatewayApp.
+
+## Required States
+
+Handle the states the prompt implies:
+
+- Loading: show short text while GatewayApp content or state loads.
+- Ready: show the current task and primary action.
+- Feedback: after every meaningful answer, update visible feedback with
+  .ln-feedback and an output or aria-live region.
+- Resume: if local state exists, restore the learner's position and progress.
+- Error: show a clear recoverable message if content is missing or malformed.
+- Completion: show what was completed before calling finalizeAttempt({
+  completionState: "completed" }).
+
+## Responsive And Accessible Defaults
+
+- Work at 360px iframe width without horizontal scrolling.
+- Keep tap targets large enough for ordinary touch use.
+- Preserve Pico focus rings and visible keyboard focus.
+- Do not hide native radios or checkboxes. Let Pico style them.
+- Do not rely on color alone for correctness or status.
+- Avoid text inside fixed-width containers unless it can wrap cleanly.
+- Prefer system fonts through Pico and Lantern; do not load fonts.
+
+## App-Specific CSS
+
+Use dist/app.css only for small app-specific layout adjustments. Do not
+globally restyle body, button, input, select, textarea, table, [type=radio], or
+[type=checkbox] unless the change is narrowly scoped under a generated app
+class and preserves Pico control behavior.
+
+## Preview Proof
+
+preview/tests.json should prove the designed experience, not just package
+existence. For every generated app, include assertions for:
+
+- app title
+- primary learner task or instructions
+- at least one meaningful interaction or status update
+- completion state, report state, or score/status state when the prompt asks
+  for completion, reporting, or grading
+
+Use stable data-test selectors for these proof points.
 `;
 }

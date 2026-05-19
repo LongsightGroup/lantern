@@ -1,15 +1,17 @@
 import type { AppWriterAuthoringMode, AppWriterStarterId } from './types.ts';
 
 export const APP_WRITER_RECIPE_ID = 'lantern-learning-app-writer';
-export const APP_WRITER_RECIPE_VERSION = '0.1.0';
-export const APP_WRITER_INSTRUCTIONS_VERSION = '2026-05-16.pico-style-contract';
-export const APP_WRITER_DEFINITION_OF_DONE_VERSION = '2026-05-16';
-export const APP_WRITER_PROMPT_CONTEXT_VERSION = 2;
+export const APP_WRITER_RECIPE_VERSION = '0.1.2';
+export const APP_WRITER_INSTRUCTIONS_VERSION = '2026-05-17.generated-app-contract';
+export const APP_WRITER_DEFINITION_OF_DONE_VERSION = '2026-05-17';
+export const APP_WRITER_PROMPT_CONTEXT_VERSION = 4;
 export const APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS = 4;
 
 export const APP_WRITER_PUBLIC_CONTRACT_SOURCES = [
+  'GENERATED_APP_CONTRACT.md',
   'APP_PACKAGE_SPEC.md',
   'AUTHORING_FOR_LLMS.md',
+  'DESIGN.md',
   'schemas/app-manifest.schema.json',
   'sdk/app-sdk.ts',
 ] as const;
@@ -30,6 +32,8 @@ export const APP_WRITER_RECIPE_PROOF_CHECKS = [
   'package_validation',
   'preview_runtime_assertions',
   'policy_checks',
+  'generated_app_contract',
+  'design_contract',
   'style_contract',
 ] as const;
 

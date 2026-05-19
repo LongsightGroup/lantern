@@ -8,6 +8,10 @@ human author follows.
 Produce one browser-only app package that runs through Lantern's governed
 runtime surface and matches one of the shipped starter shapes.
 
+Generated apps must follow the stricter public contract in
+[GENERATED_APP_CONTRACT.md](GENERATED_APP_CONTRACT.md). If this guide and the
+generated app contract disagree, follow the generated app contract.
+
 ## Starter Choice
 
 Use exactly one of these starter IDs:
@@ -37,6 +41,9 @@ my-app/
   manifest.json
   dist/
     index.html
+    pico.min.css
+    lantern-app.css
+    app.css
     app.js
   content/
     activity.json
@@ -52,6 +59,9 @@ my-app/
   manifest.json
   dist/
     index.html
+    pico.min.css
+    lantern-app.css
+    app.css
     app.js
   content/
     activity.json
@@ -72,9 +82,15 @@ my-app/
 - Do not add backend code.
 - Do not call LMS APIs directly.
 - Do not fetch arbitrary external URLs.
+- Do not create Cloudflare Worker entrypoints, Durable Objects, D1, R2, KV,
+  Queue, or service-binding code.
 - Do not write grades directly.
 - Do not add a standalone fallback runtime path.
+- Do not use localStorage, sessionStorage, cookies, IndexedDB, imports, module
+  exports, eval, or new Function.
 - Put lesson-specific data in `content/activity.json`.
+- Keep app-specific styles in `dist/app.css`; do not modify `dist/pico.min.css`
+  or `dist/lantern-app.css`.
 - Keep the app small, obvious, and easy to review.
 
 ## Manifest Rules
@@ -100,7 +116,16 @@ The app may use:
 - `window.GatewayApp.emitAttemptEvent(event)`
 - `window.GatewayApp.submitEvidenceArtifact(input)`
 - `window.GatewayApp.submitScoreProposal(input)`
+- `window.GatewayApp.runBrowserGrader()`
 - `window.GatewayApp.finalizeAttempt(input)`
+
+`finalizeAttempt()` must receive an explicit completion state, for example
+`finalizeAttempt({ completionState: "completed" })`.
+
+`emitAttemptEvent(event)` is Lantern-native, not raw xAPI. Use the constrained
+event shapes below and let Lantern normalize them into answered, progressed, and
+completed learning records for reports and future standards export. Do not call
+SCORM, xAPI, cmi5, LRS, LMS, grade, or external reporting APIs directly.
 
 If anonymous evidence is part of the reviewed package, prefer structured JSON as
 the primary evidence artifact and use `screenshot_png` only as supplemental
@@ -205,10 +230,13 @@ For a simpler reviewed activity, use the same constraints but match the
 After generating the package, run:
 
 ```sh
+deno task app:dev /path/to/app
 deno task app:validate /path/to/app
 deno task app:test-preview /path/to/app
 deno task app:preview /path/to/app
 ```
 
-Use `app:preview` when you need a live browser URL. `app:test-preview` is the
-faster contract check for `preview/tests.json`.
+Use `app:dev` for the normal edit loop: it keeps one preview URL open, reruns
+validation plus preview assertions on save, and recovers automatically after an
+invalid save is fixed. Use `app:test-preview` when you only need the faster
+contract check for `preview/tests.json`.

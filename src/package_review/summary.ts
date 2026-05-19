@@ -15,6 +15,11 @@ export interface CapabilitySummary {
   detail: string;
   flagged: boolean;
   flagLabel: string | null;
+  purpose: string;
+  dataScope: string;
+  retention: string;
+  sensitivityLabel: string;
+  sensitivityDetail: string;
 }
 
 export interface AccessibilityReviewSummary {
@@ -27,53 +32,98 @@ export interface AccessibilityReviewSummary {
 const CAPABILITY_COPY: Record<Capability, CapabilitySummary> = {
   read_launch_context: {
     id: 'read_launch_context',
-    label: 'Course and assignment details',
-    detail: 'Reads the course, assignment, and user details the LMS sends when the app opens.',
+    label: 'Launch context',
+    detail:
+      'Uses the course, assignment, role, and launch identity the LMS sends when the app opens.',
     flagged: false,
     flagLabel: null,
+    purpose: 'Open the correct course activity and label Lantern runtime records.',
+    dataScope:
+      'Launch-scoped course, assignment, activity, role, and user identifiers from the LMS.',
+    retention: 'Stored with the launch, attempt, and audit records for the reviewed app version.',
+    sensitivityLabel: 'Standard launch data',
+    sensitivityDetail: 'Normal LTI context. The app does not receive LMS credentials.',
   },
   read_activity_content: {
     id: 'read_activity_content',
-    label: 'App content',
-    detail: 'Reads the approved app content for this version.',
+    label: 'Reviewed app content',
+    detail: 'Reads the approved content file saved with this reviewed version.',
     flagged: false,
     flagLabel: null,
+    purpose: 'Load the prompts, questions, fixtures, or activity content that reviewers approved.',
+    dataScope: 'Package content owned by this app version, not LMS data.',
+    retention: 'Stored as part of the immutable reviewed package snapshot.',
+    sensitivityLabel: 'Package data',
+    sensitivityDetail: 'Expected app operation. This does not expose learner records.',
   },
   submit_attempt_event: {
     id: 'submit_attempt_event',
-    label: 'Progress updates',
-    detail: 'Records learner answers and progress in Lantern while the activity is in use.',
+    label: 'Participation and progress',
+    detail: 'Records learner answers, checkpoints, and progress events in Lantern.',
     flagged: false,
     flagLabel: null,
+    purpose: 'Support normal instructor reporting, progress review, and activity troubleshooting.',
+    dataScope: 'Attempt-bound answer, progress, and completion events emitted by this app.',
+    retention: 'Stored in Lantern with the learner attempt and governed audit trail.',
+    sensitivityLabel: 'Normal learning telemetry',
+    sensitivityDetail: 'Expected LMS-style participation tracking, scoped to this activity.',
   },
   submit_evidence_artifact: {
     id: 'submit_evidence_artifact',
-    label: 'Anonymous evidence return',
+    label: 'Submitted evidence artifacts',
     detail:
-      'Lets the app send reviewed evidence artifacts back to Lantern. Lantern still owns submission binding, storage, and any later grade publication.',
+      'Lets the app send reviewed evidence artifacts back to Lantern. Lantern owns storage, submission binding, audit, and any later grade publication.',
     flagged: true,
-    flagLabel: 'Stores submitted evidence',
+    flagLabel: 'Sensitive evidence',
+    purpose:
+      'Collect reviewed learner work artifacts for submission review or browser-grader workflows.',
+    dataScope:
+      'Reviewed structured JSON or screenshot files submitted by this app, scoped to one attempt.',
+    retention:
+      'Stored in Lantern artifact storage and linked to the attempt, review, and audit records.',
+    sensitivityLabel: 'Sensitive learner evidence',
+    sensitivityDetail:
+      'Can contain learner work and may support grading, so reviewers should confirm it matches the assignment.',
   },
   finalize_attempt: {
     id: 'finalize_attempt',
-    label: 'Finish attempt',
-    detail: 'Reports that the learner finished so Lantern can complete scoring when configured.',
+    label: 'Attempt completion',
+    detail:
+      'Reports that the learner finished so Lantern can close the attempt and apply reviewed scoring when configured.',
     flagged: false,
     flagLabel: null,
+    purpose: 'Mark an activity attempt as completed or abandoned.',
+    dataScope:
+      'Completion state, timestamp, and reviewed scoring result when the package is configured for scoring.',
+    retention: 'Stored with the attempt record and audit trail.',
+    sensitivityLabel: 'Normal completion signal',
+    sensitivityDetail:
+      'Expected LMS behavior. The app still cannot write directly to the LMS gradebook.',
   },
   read_local_state: {
     id: 'read_local_state',
-    label: 'Read saved progress',
-    detail: 'Reads saved learner progress from Lantern.',
+    label: 'Resume saved progress',
+    detail: 'Reads saved learner progress for this activity from Lantern.',
     flagged: false,
     flagLabel: null,
+    purpose: 'Let learners continue where they left off.',
+    dataScope: 'Attempt-local state previously saved by this same app.',
+    retention: 'Retained with the learner attempt so the activity can resume later.',
+    sensitivityLabel: 'Normal progress state',
+    sensitivityDetail: 'Scoped to this app attempt, not a broad learner profile.',
   },
   write_local_state: {
     id: 'write_local_state',
-    label: 'Save progress',
+    label: 'Save resumable progress',
     detail: 'Saves learner progress in Lantern so the learner can continue later.',
     flagged: false,
     flagLabel: null,
+    purpose: 'Persist in-progress UI state between launches.',
+    dataScope: 'App-defined JSON state scoped to this learner attempt.',
+    retention:
+      'Stored by Lantern for resume behavior and replaced as the app saves newer progress.',
+    sensitivityLabel: 'Normal progress state',
+    sensitivityDetail: 'Expected learning-app behavior when an activity supports resume.',
   },
 };
 

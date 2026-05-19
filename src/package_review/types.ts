@@ -1,4 +1,9 @@
-import type { AttemptEvent, Capability, UserRole } from '../../sdk/app-sdk.ts';
+import type {
+  AttemptEvent,
+  Capability,
+  NormalizedAttemptEvent,
+  UserRole,
+} from '../../sdk/app-sdk.ts';
 import type { LtiProfileId } from '../lti/profile.ts';
 import type { DeploymentBinding, PersistedDeploymentLmsType } from '../lti/types.ts';
 
@@ -195,6 +200,10 @@ export interface AttemptEventRecord {
   attemptId: string;
   sequence: number;
   eventType: AttemptEvent['type'];
+  learningVerb: NormalizedAttemptEvent['learningVerb'];
+  objectId: string;
+  objectType: NormalizedAttemptEvent['objectType'];
+  result: NormalizedAttemptEvent['result'];
   event: AttemptEvent;
   receivedAt: string;
 }

@@ -33,9 +33,8 @@ deno task local:start
 
 Then open the localhost URL printed by Wrangler.
 
-For arbitrary reviewed packages, use
-`/admin/packages/import`. Reference apps remain available at
-`/admin/packages/reference`.
+For arbitrary reviewed packages, use `/admin/packages/import`. Reference apps
+remain available at `/admin/packages/reference`.
 
 What these commands do:
 
@@ -59,6 +58,7 @@ Start with:
 
 - [AUTHORING.md](AUTHORING.md)
 - [AUTHORING_FOR_LLMS.md](AUTHORING_FOR_LLMS.md)
+- [GENERATED_APP_CONTRACT.md](GENERATED_APP_CONTRACT.md)
 - [BROWSER_AUTOGRADER_COOKBOOK.md](BROWSER_AUTOGRADER_COOKBOOK.md)
 - [examples/apps/template/README.md](examples/apps/template/README.md)
 - [examples/apps/web-checkup/README.md](examples/apps/web-checkup/README.md)
@@ -68,10 +68,13 @@ Common path:
 
 ```sh
 deno task app:new /tmp/my-lantern-app --starter=simple-activity --app-id=my-app --title="My App"
-deno task app:validate /tmp/my-lantern-app
-deno task app:test-preview /tmp/my-lantern-app
-deno task app:preview /tmp/my-lantern-app
+deno task app:dev /tmp/my-lantern-app
 ```
+
+`app:dev` starts one local loop with a stable preview URL. It reruns package
+validation and preview assertions after file saves, shows blocked package
+diagnostics clearly, and reloads the blocked preview page after the next valid
+save.
 
 Use `--starter=browser-autograder` when the reviewed package needs
 `grading/specs/*.js` plus `evidence/example-output.json`.
@@ -86,6 +89,12 @@ Use `--starter=browser-autograder` when the reviewed package needs
 - publishing grades and roster checks from the server
 - giving admins one place to inspect deployments, retries, and audit records
 
+For the plain-language trust promise behind this model, see
+[TRUST_MODEL.md](TRUST_MODEL.md).
+
+For the exact boundary App Writer-generated packages must stay inside, see
+[GENERATED_APP_CONTRACT.md](GENERATED_APP_CONTRACT.md).
+
 ## What Lantern Is Not
 
 - a general app hosting platform
@@ -97,8 +106,8 @@ Use `--starter=browser-autograder` when the reviewed package needs
 
 ## Security Model
 
-Lantern's answer to institution-built and AI-built learning tools is not to
-give every tool its own LMS integration. App code runs as reviewed, browser-first
+Lantern's answer to institution-built and AI-built learning tools is not to give
+every tool its own LMS integration. App code runs as reviewed, browser-first
 packages behind Lantern's gateway. Lantern owns the LTI boundary, runtime
 session, storage bridge, grading flow, evidence trail, and audit record.
 
@@ -262,8 +271,8 @@ To run the Worker locally:
 - keep the `LOADER` Worker Loader binding present; Lantern uses it for the
   governed Dynamic Worker envelope around immutable reviewed runtime delivery
 - keep the `DB` D1 binding present; it is the Worker persistence binding
-- apply D1 migrations from `src/db/d1_migrations` before using
-  repository-backed Worker routes
+- apply D1 migrations from `src/db/d1_migrations` before using repository-backed
+  Worker routes
 - if you want the demo import path to work on Workers, provision the curated
   reference sources into the same bucket first with
   `deno task reference:sync --bucket=<bucket-name>` or
@@ -354,6 +363,7 @@ Common commands:
 - `deno task start`
 - `deno task app:new --list-starters`
 - `deno task app:new <output-root> --starter=<id> --app-id=<app-id> --title="<title>"`
+- `deno task app:dev <package-root>`
 - `deno task app:validate <package-root>`
 - `deno task app:test-preview <package-root>`
 - `deno task app:preview <package-root>`

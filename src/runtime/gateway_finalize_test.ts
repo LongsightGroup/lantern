@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from '@std/assert';
-import { finalizeRuntimeAttempt } from './gateway.ts';
+import { finalizeRuntimeAttempt, parseFinalizeAttemptInput } from './gateway.ts';
 import { RuntimeBrokerDenialError } from './gateway_errors.ts';
 import {
   buildDeploymentBinding,
@@ -23,6 +23,16 @@ import {
 } from './gateway_test_helpers.ts';
 
 const WEB_CHECKUP_SNAPSHOT_ROOT = 'examples/apps/web-checkup';
+
+Deno.test('runtime gateway requires explicit finalize completion state', async () => {
+  const error = (await assertRejects(
+    () => Promise.resolve().then(() => parseFinalizeAttemptInput({})),
+    RuntimeBrokerDenialError,
+  )) as RuntimeBrokerDenialError;
+
+  assertEquals(error.code, 'invalid_finalize_request');
+  assertEquals(error.capability, 'finalize_attempt');
+});
 
 Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubric and stays idempotent', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');

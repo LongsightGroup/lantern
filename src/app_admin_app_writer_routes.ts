@@ -5,13 +5,20 @@ import {
   startAppPackageGenerationRun,
 } from './app_writer/service.ts';
 import type { RunAppPackageGenerationResult } from './app_writer/service.ts';
-import { renderAppGenerationRunPage, renderAppWriterPage } from './admin/app_writer_page.ts';
+import {
+  renderAppGenerationRunPage,
+  renderAppWriterPage,
+  renderAppWriterPlanPreviewPage,
+} from './admin/app_writer_page.ts';
 import { createErrorNotice } from './app_notice_support.ts';
 import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
 import { formValueAsString, requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { selectAppWriterContext } from './app_writer/context.ts';
+import { buildLanternOwnedAppGenerationPlanningResult } from './app_writer/planning.ts';
 import type { AppGenerationRunRecord } from './app_writer/types.ts';
+import type { AppGenerationPlanningResult, AppWriterAuthoringMode } from './app_writer/types.ts';
 import type { PackageReviewRepository } from './package_review/repository.ts';
 
 export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): void {
@@ -37,13 +44,34 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       contentSummary = normalizeOptionalFormValue(formData.get('contentSummary'));
       gradingMode = normalizeOptionalGradingMode(formData.get('gradingMode'));
       requestedAppId = normalizeOptionalFormValue(formData.get('requestedAppId'));
-      const generationId = `generation-${crypto.randomUUID()}`;
+      const action = normalizeAppWriterAction(formData.get('appWriterAction'));
       const generationPromptText = formatGenerationPromptText({
         promptText,
         audience,
         contentSummary,
         gradingMode,
       });
+      const planPreview = buildDeterministicPlanPreview({
+        services,
+        promptText: generationPromptText,
+        requestedAppId: requestedAppId === '' ? null : requestedAppId,
+      });
+
+      if (action === 'preview') {
+        return context.html(
+          renderAppWriterPlanPreviewPage({
+            promptText,
+            audience,
+            contentSummary,
+            gradingMode,
+            requestedAppId,
+            planning: planPreview.planning,
+            selectedContext: planPreview.selectedContext,
+          }),
+        );
+      }
+
+      const generationId = `generation-${crypto.randomUUID()}`;
 
       const started = await startAppPackageGenerationRun({
         repository,
@@ -255,6 +283,20 @@ async function listGenerationActivityEvents(
     });
 }
 
+function normalizeAppWriterAction(value: FormDataEntryValue | null): 'preview' | 'generate' {
+  const normalized = normalizeOptionalFormValue(value);
+
+  if (normalized === '' || normalized === 'preview') {
+    return 'preview';
+  }
+
+  if (normalized === 'generate') {
+    return 'generate';
+  }
+
+  throw new Error('Choose whether to preview the app plan or generate the app.');
+}
+
 function normalizeOptionalFormValue(value: FormDataEntryValue | null): string {
   return formValueAsString(value)?.trim() ?? '';
 }
@@ -291,4 +333,40 @@ function formatGenerationPromptText(input: {
   }
 
   return `${input.promptText}\n\nGeneration request details:\n${details.join('\n')}`;
+}
+
+function buildDeterministicPlanPreview(input: {
+  services: AppServices;
+  promptText: string;
+  requestedAppId: string | null;
+}): {
+  planning: AppGenerationPlanningResult;
+  selectedContext: Record<string, unknown>;
+} {
+  const authoringMode = selectAuthoringModeForPlanPreview(input.services);
+  const contextSelection = selectAppWriterContext({
+    promptText: input.promptText,
+    requestedAppId: input.requestedAppId,
+    authoringMode,
+  });
+
+  return {
+    selectedContext: contextSelection.selectedContext,
+    planning: buildLanternOwnedAppGenerationPlanningResult({
+      generationId: 'plan-preview',
+      ownerId: 'admin',
+      promptText: input.promptText,
+      requestedAppId: input.requestedAppId,
+      selectedStarterId: contextSelection.starterId,
+      selectedContext: contextSelection.selectedContext,
+      authoringMode,
+      createdAt: new Date(0).toISOString(),
+    }),
+  };
+}
+
+function selectAuthoringModeForPlanPreview(services: AppServices): AppWriterAuthoringMode {
+  return services.appPackageSourceCompiler.supportsTypeScriptAuthoring
+    ? 'typescript'
+    : 'javascript';
 }

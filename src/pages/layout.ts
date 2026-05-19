@@ -25,7 +25,6 @@ export function renderLayout(title: string, body: string): string {
         --muted: #708397;
         --accent: #153a61;
         --accent-hover: #102f4d;
-        --brand-warm: #c7771d;
         --line: #dbe4ec;
         --surface: #fcfdff;
       }
@@ -36,6 +35,7 @@ export function renderLayout(title: string, body: string): string {
       }
 
       body {
+        min-height: 100vh;
         margin: 0;
         color: var(--ink);
         font: 16px/1.6 var(--font);
@@ -44,98 +44,71 @@ export function renderLayout(title: string, body: string): string {
       }
 
       .home {
-        width: min(1080px, 100% - 40px);
+        width: calc(100% - 40px);
+        max-width: 760px;
         margin: 0 auto;
-        padding: 56px 0 64px;
+        padding: 64px 0;
       }
 
       .home-hero {
-        padding: 20px 0 34px;
-        margin-bottom: 20px;
+        padding-bottom: 28px;
         border-bottom: 1px solid var(--line);
       }
 
       .eyebrow {
+        margin-bottom: 10px;
         color: var(--accent);
         font-size: 0.82rem;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        margin-bottom: 10px;
       }
 
       h1 {
-        font-size: 2.75rem;
-        line-height: 1.2;
-        letter-spacing: 0;
         margin-bottom: 14px;
+        font-size: clamp(2rem, 5vw, 2.75rem);
+        line-height: 1.18;
+        letter-spacing: 0;
       }
 
-      .home-hero p {
-        color: var(--secondary);
-        max-width: 68ch;
-      }
-
-      .home-grid {
-        display: grid;
-        gap: 16px;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      }
-
-      .home-card {
-        background: var(--surface);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 18px 18px 16px;
-        box-shadow: 0 2px 8px rgba(10, 37, 64, 0.05);
-      }
-
-      h2 {
-        font-size: 1.05rem;
-        margin-bottom: 8px;
-      }
-
-      .home-card p {
+      p {
         color: var(--secondary);
       }
 
-      ul,
-      ol {
-        color: var(--secondary);
-        padding-left: 20px;
-        display: grid;
-        gap: 6px;
+      .route-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding-top: 24px;
       }
 
-      .home-cta {
-        margin-top: 12px;
-      }
-
-      .cta-primary {
+      .route-list a {
         display: inline-flex;
         align-items: center;
         justify-content: center;
         min-height: 40px;
         padding: 0 14px;
+        border: 1px solid var(--accent);
         border-radius: 8px;
-        background: var(--accent);
-        color: #fdfefe;
+        color: var(--accent);
         text-decoration: none;
         font-weight: 600;
       }
 
-      .cta-primary:hover {
-        background: var(--accent-hover);
+      .route-list a:hover {
+        background: var(--accent);
+        color: var(--surface);
       }
 
       @media (max-width: 640px) {
         .home {
-          width: min(1080px, 100% - 28px);
-          padding-top: 32px;
+          width: calc(100% - 28px);
+          padding-top: 40px;
         }
 
-        h1 {
-          font-size: 2rem;
+        .route-list {
+          flex-direction: column;
+          align-items: stretch;
         }
       }
     </style>

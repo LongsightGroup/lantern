@@ -48,6 +48,11 @@ Deno.test('app writer context selector includes prompt-safe state and reporting 
   assert(excerpts.some((excerpt) => excerpt.content.includes('emitAttemptEvent()')));
   assert(excerpts.some((excerpt) => excerpt.content.includes('complete events use only type')));
   assert(
+    excerpts.some((excerpt) =>
+      excerpt.content.includes('without exposing SCORM, xAPI, cmi5, LRS credentials')
+    ),
+  );
+  assert(
     excerpts.every(
       (excerpt) => !excerpt.source.includes('private/') && !excerpt.content.includes('private/'),
     ),
@@ -71,6 +76,20 @@ Deno.test('app writer context selector records TypeScript authoring mode', () =>
       excerpt.content.includes('source/app.ts')
     ),
   );
+  assert(
+    selection.selectedContext.promptContextExcerpts.some(
+      (excerpt) =>
+        excerpt.id === 'generated-app-contract' &&
+        excerpt.content.includes('reviewed browser activity packages'),
+    ),
+  );
+  assert(
+    selection.selectedContext.promptContextExcerpts.some(
+      (excerpt) =>
+        excerpt.id === 'design-contract' &&
+        excerpt.content.includes('Design generated apps as task-first learning tools'),
+    ),
+  );
 });
 
 Deno.test('app writer context selector records the versioned app writer recipe', () => {
@@ -92,6 +111,8 @@ Deno.test('app writer context selector records the versioned app writer recipe',
     'package_validation',
     'preview_runtime_assertions',
     'policy_checks',
+    'generated_app_contract',
+    'design_contract',
     'style_contract',
   ]);
   assertEquals(selection.selectedContext.recipe.runtimeApi, 'window.GatewayApp');

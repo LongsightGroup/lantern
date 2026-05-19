@@ -3,7 +3,7 @@ import { createApp } from './app.ts';
 import { renderHomePage } from './pages/home.ts';
 import { createInMemoryPackageReviewRepository } from './test_helpers/package_review.ts';
 
-Deno.test('GET / serves the public capability story page from renderHomePage', async () => {
+Deno.test('GET / serves the operational entry page from renderHomePage', async () => {
   const response = await createApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request('http://localhost/');
@@ -13,7 +13,15 @@ Deno.test('GET / serves the public capability story page from renderHomePage', a
 
   const body = await response.text();
   assertEquals(body, renderHomePage());
-  assertStringIncludes(body, 'Least privilege by default');
+  assertStringIncludes(body, 'Lantern runtime');
+});
+
+Deno.test('GET /why-it-can-say-yes is not owned by the app Worker', async () => {
+  const response = await createApp({
+    getRepository: () => createInMemoryPackageReviewRepository(),
+  }).request('http://localhost/why-it-can-say-yes');
+
+  assertEquals(response.status, 404);
 });
 
 Deno.test('GET /health responds with ok', async () => {

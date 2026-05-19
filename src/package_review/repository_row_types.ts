@@ -270,6 +270,10 @@ export interface AttemptEventRow {
   attemptId: string;
   sequence: number;
   eventType: AttemptEventRecord['eventType'];
+  learningVerb: AttemptEventRecord['learningVerb'];
+  objectId: string;
+  objectType: AttemptEventRecord['objectType'];
+  result: AttemptEventRecord['result'];
   event: AttemptEventRecord['event'];
   receivedAt: Date | string;
 }

@@ -1,15 +1,17 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { renderHomePage } from './home.ts';
 
-Deno.test('renderHomePage includes the public capability story sections and evaluator next step', () => {
+Deno.test('renderHomePage includes only the operational app entry points', () => {
   const html = renderHomePage();
 
-  assertStringIncludes(html, 'Security-first learning app runtime');
-  assertStringIncludes(html, 'Least privilege by default');
-  assertStringIncludes(html, 'Cloudflare containment');
-  assertStringIncludes(html, 'Review before runtime');
-  assertStringIncludes(html, 'Evaluator next step');
+  assertStringIncludes(html, 'Lantern runtime');
+  assertStringIncludes(html, 'Governed learning app runtime and control plane');
+  assertStringIncludes(html, 'Institution-facing product pages live in the marketing site.');
   assertStringIncludes(html, 'href="/admin/packages"');
+  assertStringIncludes(html, 'href="/admin/deployments"');
+  assertStringIncludes(html, 'href="/health"');
+  assertEquals(html.includes('why-it-can-say-yes'), false);
+  assertEquals(html.includes('Why IT can say yes'), false);
 });
 
 Deno.test('renderHomePage excludes tenant-private identifiers from public output', () => {

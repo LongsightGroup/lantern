@@ -56,6 +56,9 @@ export type AttemptEvent =
     type: 'answer';
     questionId: string;
     answer: string | string[];
+    correct?: boolean;
+    scoreGiven?: number;
+    scoreMaximum?: number;
     timestamp: string;
   }
   | {
@@ -68,6 +71,32 @@ export type AttemptEvent =
     type: 'complete';
     timestamp: string;
   };
+
+export type AttemptEventLearningVerb = 'answered' | 'progressed' | 'completed';
+export type AttemptEventObjectType = 'question' | 'checkpoint' | 'activity';
+
+export type AttemptEventResult =
+  | {
+    response: string | string[];
+    success: boolean | null;
+    scoreGiven: number | null;
+    scoreMaximum: number | null;
+  }
+  | {
+    value: number;
+  }
+  | {
+    completionState: 'completed';
+  };
+
+export interface NormalizedAttemptEvent {
+  eventType: AttemptEvent['type'];
+  learningVerb: AttemptEventLearningVerb;
+  objectId: string;
+  objectType: AttemptEventObjectType;
+  result: AttemptEventResult;
+  timestamp: string;
+}
 
 export type GatewayBrokerDenialCategory = 'specInvalid' | 'policyDenied';
 export type GatewayBrokerDetailValue = string | number | boolean | null;
@@ -156,8 +185,8 @@ export interface GatewayAppClient {
   submitEvidenceArtifact(input: EvidenceArtifactUpload): Promise<GatewayEvidenceArtifactResult>;
   submitScoreProposal(input: ScoreProposal): Promise<GatewayScoreProposalResult>;
   runBrowserGrader(): Promise<BrowserGraderResult>;
-  finalizeAttempt(input?: {
-    completionState?: 'completed' | 'abandoned';
+  finalizeAttempt(input: {
+    completionState: 'completed' | 'abandoned';
     browserGraderResult?: BrowserGraderResult;
   }): Promise<GatewayFinalizeResult>;
 }

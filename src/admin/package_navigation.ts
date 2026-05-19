@@ -1,7 +1,14 @@
 import type { PackageVersionRecord } from '../package_review/types.ts';
 import { escapeHtml } from './layout.ts';
 
-export type PackagePageSection = 'overview' | 'version' | 'settings' | 'preview' | 'authoring';
+export type PackagePageSection =
+  | 'overview'
+  | 'version'
+  | 'diff'
+  | 'settings'
+  | 'reports'
+  | 'preview'
+  | 'authoring';
 
 export function renderPackagePageNav(input: {
   appId: string;
@@ -13,6 +20,9 @@ export function renderPackagePageNav(input: {
   const currentVersion = input.currentVersion ?? latestVersion;
   const actionVersion = resolveActionVersion(input.history, input.currentVersion ?? null);
   const authoringVersion = resolveAuthoringVersion(input.history, input.currentVersion ?? null);
+  const diffBaseVersion = currentVersion === null
+    ? null
+    : resolvePreviousVersion(input.history, currentVersion);
   const links = [
     renderNavLink({
       label: 'Overview',
@@ -30,10 +40,24 @@ export function renderPackagePageNav(input: {
       }`,
       current: input.currentSection === 'version',
     }),
+    currentVersion === null || diffBaseVersion === null ? '' : renderNavLink({
+      label: 'Changes',
+      href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${
+        encodeURIComponent(
+          currentVersion.version,
+        )
+      }/diff`,
+      current: input.currentSection === 'diff',
+    }),
     renderNavLink({
       label: 'Settings',
       href: `/admin/packages/${encodeURIComponent(input.appId)}/deployment`,
       current: input.currentSection === 'settings',
+    }),
+    renderNavLink({
+      label: 'Reports',
+      href: `/admin/packages/${encodeURIComponent(input.appId)}/reports`,
+      current: input.currentSection === 'reports',
     }),
     actionVersion === null ? '' : renderNavLink({
       label: 'Test launch',
@@ -102,6 +126,19 @@ function resolveAuthoringVersion(
       (version) => version.approvalStatus === 'approved' && supportsAuthoringDrafts(version),
     ) ?? null
   );
+}
+
+function resolvePreviousVersion(
+  history: PackageVersionRecord[],
+  currentVersion: PackageVersionRecord,
+): PackageVersionRecord | null {
+  const currentIndex = history.findIndex((version) => version.id === currentVersion.id);
+
+  if (currentIndex < 0) {
+    return null;
+  }
+
+  return history[currentIndex + 1] ?? null;
 }
 
 function renderNavLink(input: { label: string; href: string; current: boolean }): string {

@@ -12,18 +12,24 @@ import {
 import { createErrorNotice, packageOverviewPath } from './app_notice_support.ts';
 import { requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
+import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
 import type { AppServices } from './app_services.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
+import { renderPackageDiffPage } from './admin/package_diff_page.ts';
 import { renderPackageImportPage } from './admin/package_import_page.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
 import { renderPackageOverviewPage } from './admin/package_overview.ts';
+import { renderPackageReportsPage } from './admin/package_reports.ts';
 import { renderReferencePackagePage } from './admin/package_reference_page.ts';
 import { renderAppRevisionPage } from './admin/app_revision_page.ts';
 import { isReferencePackageId } from './package_review/intake.ts';
+import { comparePackageVersions } from './package_review/package_diff.ts';
 import {
   createMemoryPackageSource,
   type MemoryPackageSourceFile,
 } from './package_review/package_source.ts';
+import type { PackageVersionRecord } from './package_review/types.ts';
+import { buildInstructorReport } from './reports/instructor_report.ts';
 
 export function registerAdminInventoryRoutes(app: Hono, services: AppServices): void {
   app.get('/admin/packages', async (context) => {
@@ -187,6 +193,52 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
     }
   });
 
+  app.get('/admin/packages/:appId/reports', async (context) => {
+    const appId = context.req.param('appId');
+
+    try {
+      const repository = services.getRepository();
+      const history = await repository.listPackageVersionsByApp(appId);
+
+      if (history.length === 0) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: await repository.listPackageVersions(),
+            notice: {
+              tone: 'error',
+              title: 'App not found',
+              detail: 'Lantern could not find that app.',
+            },
+          }),
+          404,
+        );
+      }
+
+      const report = await buildInstructorReport({
+        repository,
+        appId,
+        generatedAt: new Date().toISOString(),
+      });
+
+      return context.html(
+        renderPackageReportsPage({
+          appId,
+          appTitle: history[0]?.title ?? appId,
+          history,
+          report,
+        }),
+      );
+    } catch (error) {
+      return context.html(
+        renderPackageIndexPage({
+          versions: [],
+          notice: createErrorNotice('Instructor reports unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
   app.get('/admin/packages/:appId/versions/:version', async (context) => {
     try {
       const repository = services.getRepository();
@@ -216,6 +268,10 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       const reviewedPlacements = await repository.listReviewedPlacementsByPackageVersion(
         packageVersion.id,
       );
+      const runtimeLog = await loadPreviewCapabilityLog({
+        repository,
+        packageVersionId: packageVersion.id,
+      });
 
       return context.html(
         renderPackageDetailPage({
@@ -225,6 +281,8 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
             (event) => event.packageVersionId === packageVersion.id,
           ),
           reviewedPlacements,
+          latestPreviewSession: runtimeLog.session,
+          previewEvidence: runtimeLog.evidence,
         }),
       );
     } catch (error) {
@@ -232,6 +290,69 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
         renderPackageIndexPage({
           versions: [],
           notice: createErrorNotice('Version details unavailable', error),
+        }),
+        statusForError(error),
+      );
+    }
+  });
+
+  app.get('/admin/packages/:appId/versions/:version/diff', async (context) => {
+    try {
+      const repository = services.getRepository();
+      const packageVersion = await repository.getPackageVersionByAppVersion(
+        context.req.param('appId'),
+        context.req.param('version'),
+      );
+
+      if (!packageVersion) {
+        return context.html(
+          renderPackageIndexPage({
+            versions: [],
+            notice: {
+              tone: 'error',
+              title: 'Version not found',
+              detail: 'Lantern could not find that app version.',
+            },
+          }),
+          404,
+        );
+      }
+
+      const history = await repository.listPackageVersionsByApp(packageVersion.appId);
+      const baseVersion = resolvePreviousPackageVersion(history, packageVersion);
+
+      if (baseVersion === null) {
+        return context.html(
+          renderPackageDetailPage({
+            packageVersion,
+            history,
+            notice: {
+              tone: 'note',
+              title: 'No earlier version to compare',
+              detail: 'Lantern needs at least two saved versions before it can show changes.',
+            },
+          }),
+          404,
+        );
+      }
+
+      const diff = await comparePackageVersions({
+        snapshotStore: services.packageSnapshotStore,
+        baseVersion,
+        targetVersion: packageVersion,
+      });
+
+      return context.html(
+        renderPackageDiffPage({
+          diff,
+          history,
+        }),
+      );
+    } catch (error) {
+      return context.html(
+        renderPackageIndexPage({
+          versions: [],
+          notice: createErrorNotice('Version changes unavailable', error),
         }),
         statusForError(error),
       );
@@ -525,6 +646,19 @@ function incrementMinorVersion(version: string): string {
   }
 
   return `${match[1]}.${Number(match[2]) + 1}.0`;
+}
+
+function resolvePreviousPackageVersion(
+  history: readonly PackageVersionRecord[],
+  packageVersion: PackageVersionRecord,
+): PackageVersionRecord | null {
+  const currentIndex = history.findIndex((version) => version.id === packageVersion.id);
+
+  if (currentIndex < 0) {
+    return null;
+  }
+
+  return history[currentIndex + 1] ?? null;
 }
 
 async function collectUploadedPackageFiles(formData: FormData): Promise<MemoryPackageSourceFile[]> {

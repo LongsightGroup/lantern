@@ -66,6 +66,11 @@ export function renderPackageOverviewPage(input: {
         input.appId,
       )
     }/deployment">Open settings</a>
+            <a class="button-ghost" href="/admin/packages/${
+      escapeHtml(
+        input.appId,
+      )
+    }/reports">Reports</a>
             ${
       latestApprovedVersion === null
         ? ''

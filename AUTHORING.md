@@ -84,8 +84,8 @@ app/
 ```
 
 `grading/` plus `evidence/` are part of the `browser-autograder` starter. The
-`simple-activity` starter omits them. Optional folders like `scoring/` and
-extra files under `dist/` are fine, but this is the baseline to optimize for.
+`simple-activity` starter omits them. Optional folders like `scoring/` and extra
+files under `dist/` are fine, but this is the baseline to optimize for.
 
 ## What To Edit
 
@@ -146,19 +146,29 @@ Scaffold one package:
 deno task app:new /path/to/app --starter=simple-activity --app-id=my-app --title="My App"
 ```
 
-Validate one package:
+Run the authoring dev loop:
+
+```sh
+deno task app:dev /path/to/app
+```
+
+`app:dev` serves a stable local preview URL, reruns validation and preview
+assertions after saves, and keeps invalid package diagnostics visible until the
+next valid save reloads the preview.
+
+Validate one package without serving a preview:
 
 ```sh
 deno task app:validate /path/to/app
 ```
 
-Execute preview assertions:
+Execute preview assertions without serving a preview:
 
 ```sh
 deno task app:test-preview /path/to/app
 ```
 
-Start preview on the default port:
+Start the runtime preview without the validation loop:
 
 ```sh
 deno task app:preview /path/to/app

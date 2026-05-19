@@ -3,14 +3,18 @@ import { createApp } from './app.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import {
   buildAccessibilityReview,
+  buildAttemptEventRecord,
+  buildAttemptRecord,
   buildBrokerVerificationStatus,
   buildControlPlaneDeploymentInventoryRow,
   buildDeploymentRecord,
+  buildGradePublicationRecord,
   buildImportedPackageVersion,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildCanvasDeploymentBinding } from './test_helpers/lti.ts';
+import type { PackageSnapshotStore } from './package_review/snapshot_store.ts';
 
 Deno.test('GET /admin/packages renders the generic package import action when no versions exist', async () => {
   const response = await createAdminApp({
@@ -153,6 +157,227 @@ Deno.test('GET /admin/packages/:appId renders the app overview with versions and
   assertEquals(body.includes('<p class="micro muted">App ID chapter-4-asteroids</p>'), false);
   assertStringIncludes(body, 'page-nav-link-current');
   assertStringIncludes(body, 'Latest version');
+});
+
+Deno.test('GET /admin/packages/:appId/versions/:version/diff renders package snapshot changes', async () => {
+  const baseVersion = buildPackageVersionRecord({
+    id: 1,
+    version: '0.1.0',
+    importedAt: '2026-05-16T13:00:00.000Z',
+    approvalStatus: 'approved',
+    reviewedAt: '2026-05-16T14:00:00.000Z',
+    artifact: {
+      snapshotRoot: 'snapshots/chapter-4-asteroids/0.1.0',
+      manifestPath: 'snapshots/chapter-4-asteroids/0.1.0/manifest.json',
+      entrypointPath: 'snapshots/chapter-4-asteroids/0.1.0/dist/index.html',
+      digest: 'sha256:base',
+    },
+    manifestJson: {
+      app_id: 'chapter-4-asteroids',
+      version: '0.1.0',
+      title: 'Chapter 4 Asteroids',
+      entrypoint: '/dist/index.html',
+    },
+  });
+  const targetVersion = buildPackageVersionRecord({
+    id: 2,
+    version: '0.2.0',
+    title: 'Chapter 4 Asteroids Practice',
+    importedAt: '2026-05-17T13:00:00.000Z',
+    artifact: {
+      snapshotRoot: 'snapshots/chapter-4-asteroids/0.2.0',
+      manifestPath: 'snapshots/chapter-4-asteroids/0.2.0/manifest.json',
+      entrypointPath: 'snapshots/chapter-4-asteroids/0.2.0/dist/index.html',
+      digest: 'sha256:target',
+    },
+    manifestJson: {
+      app_id: 'chapter-4-asteroids',
+      version: '0.2.0',
+      title: 'Chapter 4 Asteroids Practice',
+      entrypoint: '/dist/index.html',
+    },
+  });
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [targetVersion, baseVersion],
+  });
+  const snapshotStore = createMemoryPackageSnapshotStore({
+    [baseVersion.artifact.snapshotRoot]: {
+      'manifest.json': JSON.stringify(baseVersion.manifestJson),
+      'dist/index.html': '<main>Old practice</main>',
+      'content/activity.json': '{"rounds":1}',
+    },
+    [targetVersion.artifact.snapshotRoot]: {
+      'manifest.json': JSON.stringify(targetVersion.manifestJson),
+      'dist/index.html': '<main>New practice</main>',
+      'content/activity.json': '{"rounds":2}',
+      'dist/app.css': 'main { color: #123; }',
+    },
+  });
+  const response = await createAdminApp({
+    getRepository: () => repository,
+    packageSnapshotStore: snapshotStore,
+  }).request('http://localhost/admin/packages/chapter-4-asteroids/versions/0.2.0/diff');
+
+  assertEquals(response.status, 200);
+  const body = await response.text();
+
+  assertStringIncludes(body, 'Version 0.2.0 from 0.1.0');
+  assertStringIncludes(body, 'Contract changes');
+  assertStringIncludes(body, 'Chapter 4 Asteroids Practice');
+  assertStringIncludes(body, 'dist/app.css');
+  assertStringIncludes(body, 'Added');
+  assertStringIncludes(body, 'Modified');
+});
+
+Deno.test('GET /admin/packages/:appId/reports renders instructor progress from learner attempts only', async () => {
+  const repository = createInMemoryPackageReviewRepository({
+    packageVersions: [
+      buildPackageVersionRecord({
+        appId: 'phonics-match',
+        title: 'Phonics Match',
+        capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+      }),
+    ],
+    deployments: [
+      buildDeploymentRecord({
+        id: 1,
+        appId: 'phonics-match',
+        slug: 'phonics-match-canvas',
+        lmsType: 'canvas',
+        binding: buildCanvasDeploymentBinding(),
+      }),
+      buildDeploymentRecord({
+        id: 2,
+        appId: 'phonics-match',
+        slug: 'phonics-match-preview',
+        lmsType: 'preview',
+        binding: null,
+      }),
+    ],
+    attempts: [
+      buildAttemptRecord({
+        id: 1,
+        attemptId: 'attempt-ada',
+        appId: 'phonics-match',
+        deploymentRecordId: 1,
+        deploymentSlug: 'phonics-match-canvas',
+        userId: 'student-ada',
+        userDisplayName: 'Ada Learner',
+        userEmail: 'ada@example.edu',
+        status: 'completed',
+        completionState: 'completed',
+        startedAt: '2026-05-16T13:00:00.000Z',
+        finalizedAt: '2026-05-16T13:08:00.000Z',
+      }),
+      buildAttemptRecord({
+        id: 2,
+        attemptId: 'attempt-bea',
+        appId: 'phonics-match',
+        deploymentRecordId: 1,
+        deploymentSlug: 'phonics-match-canvas',
+        userId: 'student-bea',
+        userDisplayName: 'Bea Learner',
+        status: 'in_progress',
+        startedAt: '2026-05-16T14:00:00.000Z',
+      }),
+      buildAttemptRecord({
+        id: 3,
+        attemptId: 'attempt-preview',
+        appId: 'phonics-match',
+        deploymentRecordId: 2,
+        deploymentSlug: 'phonics-match-preview',
+        userId: 'preview-user',
+        userDisplayName: 'Preview Student',
+        status: 'completed',
+        completionState: 'completed',
+      }),
+    ],
+    attemptEvents: [
+      buildAttemptEventRecord({
+        id: 1,
+        attemptId: 'attempt-ada',
+        sequence: 1,
+        eventType: 'answer',
+        event: {
+          type: 'answer',
+          questionId: 'card-1',
+          answer: 'cat',
+          timestamp: '2026-05-16T13:02:00.000Z',
+        },
+        receivedAt: '2026-05-16T13:02:00.000Z',
+      }),
+      buildAttemptEventRecord({
+        id: 2,
+        attemptId: 'attempt-ada',
+        sequence: 2,
+        eventType: 'progress',
+        event: {
+          type: 'progress',
+          checkpoint: 'card-count',
+          value: 10,
+          timestamp: '2026-05-16T13:07:00.000Z',
+        },
+        receivedAt: '2026-05-16T13:07:00.000Z',
+      }),
+      buildAttemptEventRecord({
+        id: 3,
+        attemptId: 'attempt-ada',
+        sequence: 3,
+        eventType: 'complete',
+        event: {
+          type: 'complete',
+          timestamp: '2026-05-16T13:08:00.000Z',
+        },
+        receivedAt: '2026-05-16T13:08:00.000Z',
+      }),
+      buildAttemptEventRecord({
+        id: 4,
+        attemptId: 'attempt-bea',
+        sequence: 1,
+        eventType: 'answer',
+        event: {
+          type: 'answer',
+          questionId: 'card-2',
+          answer: 'bat',
+          timestamp: '2026-05-16T14:03:00.000Z',
+        },
+        receivedAt: '2026-05-16T14:03:00.000Z',
+      }),
+    ],
+    gradePublications: [
+      buildGradePublicationRecord({
+        attemptId: 'attempt-ada',
+        scoreGiven: 90,
+        scoreMaximum: 100,
+      }),
+    ],
+  });
+
+  const response = await createAdminApp({
+    getRepository: () => repository,
+  }).request('http://localhost/admin/packages/phonics-match/reports');
+
+  assertEquals(response.status, 200);
+  const body = await response.text();
+
+  assertStringIncludes(body, 'Instructor reports');
+  assertStringIncludes(body, 'Learner progress from Lantern-managed attempts');
+  assertStringIncludes(body, 'Class health');
+  assertStringIncludes(body, 'Instructor takeaways');
+  assertStringIncludes(body, 'Student progress');
+  assertStringIncludes(body, 'Attempts by day');
+  assertStringIncludes(body, 'Score distribution');
+  assertStringIncludes(body, 'Event mix');
+  assertStringIncludes(body, 'Most practiced items');
+  assertStringIncludes(body, 'Needs follow-up');
+  assertStringIncludes(body, 'Ada Learner');
+  assertStringIncludes(body, 'Bea Learner');
+  assertStringIncludes(body, 'card-1');
+  assertStringIncludes(body, 'Average score');
+  assertStringIncludes(body, 'Completion rate');
+  assertStringIncludes(body, '90%');
+  assertStringIncludes(body, 'page-nav-link-current');
+  assertEquals(body.includes('Preview Student'), false);
 });
 
 Deno.test('GET /admin/packages/:appId/versions/:version/revise renders App Writer revision form', async () => {
@@ -583,6 +808,50 @@ function createAdminApp(services: Parameters<typeof createApp>[0] = {}) {
     }),
     ...services,
   });
+}
+
+function createMemoryPackageSnapshotStore(
+  roots: Record<string, Record<string, string>>,
+): PackageSnapshotStore {
+  const files = new Map<string, Map<string, Uint8Array>>();
+
+  for (const [root, rootFiles] of Object.entries(roots)) {
+    files.set(
+      root,
+      new Map(
+        Object.entries(rootFiles).map(([path, contents]) => [
+          path,
+          new TextEncoder().encode(contents),
+        ]),
+      ),
+    );
+  }
+
+  return {
+    readBytes(snapshotRoot, relativePath) {
+      const bytes = files.get(snapshotRoot)?.get(relativePath) ?? null;
+
+      if (bytes === null) {
+        throw new Error(`Snapshot file ${snapshotRoot}/${relativePath} was not found.`);
+      }
+
+      return Promise.resolve(bytes.slice());
+    },
+    writeBytes(snapshotRoot, relativePath, bytes) {
+      const rootFiles = files.get(snapshotRoot) ?? new Map<string, Uint8Array>();
+
+      rootFiles.set(relativePath, bytes.slice());
+      files.set(snapshotRoot, rootFiles);
+
+      return Promise.resolve();
+    },
+    fileExists(snapshotRoot, relativePath) {
+      return Promise.resolve(files.get(snapshotRoot)?.has(relativePath) ?? false);
+    },
+    listFiles(snapshotRoot) {
+      return Promise.resolve([...(files.get(snapshotRoot)?.keys() ?? [])].sort());
+    },
+  };
 }
 
 function buildPackageImportFormData(

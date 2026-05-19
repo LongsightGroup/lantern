@@ -45,6 +45,10 @@ Deno.test('runtime gateway accepts authenticated attempt-event writes and persis
     assertEquals(events.length, 1);
     assertEquals(events[0]?.sequence, 1);
     assertEquals(events[0]?.eventType, 'progress');
+    assertEquals(events[0]?.learningVerb, 'progressed');
+    assertEquals(events[0]?.objectId, 'wave-1');
+    assertEquals(events[0]?.objectType, 'checkpoint');
+    assertEquals(events[0]?.result, { value: 0.5 });
     const runtimeAuditEvents = await repository.listAuditEventsByEventType(
       'runtime.capability.allowed',
     );
@@ -129,6 +133,23 @@ Deno.test('runtime gateway validates attempt event payloads and capabilities', a
     }).type,
     'complete',
   );
+  assertObjectMatch(
+    parseAttemptEvent({
+      type: 'answer',
+      questionId: 'q1',
+      answer: 'asteroid',
+      correct: true,
+      scoreGiven: 1,
+      scoreMaximum: 1,
+      timestamp: '2026-03-24T02:30:00Z',
+    }),
+    {
+      type: 'answer',
+      correct: true,
+      scoreGiven: 1,
+      scoreMaximum: 1,
+    },
+  );
   await assertRejects(
     () =>
       Promise.resolve().then(() =>
@@ -181,5 +202,14 @@ Deno.test('runtime gateway helper appends attempt events directly against the du
   });
 
   assertEquals(appended.sequence, 1);
+  assertEquals(appended.learningVerb, 'answered');
+  assertEquals(appended.objectId, 'q1');
+  assertEquals(appended.objectType, 'question');
+  assertEquals(appended.result, {
+    response: 'asteroid',
+    success: null,
+    scoreGiven: null,
+    scoreMaximum: null,
+  });
   assertEquals(appended.receivedAt, '2026-03-24T02:31:00.000Z');
 });

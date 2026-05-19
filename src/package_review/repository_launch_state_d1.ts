@@ -35,6 +35,7 @@ export function createD1LaunchStateRepositoryMethods(
   | 'getLatestRuntimeSessionByDeploymentId'
   | 'createAttempt'
   | 'getAttemptById'
+  | 'listAttemptsByApp'
   | 'appendAttemptEvent'
   | 'listAttemptEvents'
   | 'finalizeAttempt'
@@ -364,6 +365,23 @@ export function createD1LaunchStateRepositoryMethods(
       return mapOptionalAttempt(row === null ? undefined : mapD1AttemptFields(row));
     },
 
+    async listAttemptsByApp(appId) {
+      const rows = await queryD1Objects<D1AttemptRow>(
+        db,
+        `
+          ${D1_ATTEMPT_SELECT}
+          LEFT JOIN deployments
+            ON deployments.id = attempts.deployment_record_id
+          WHERE attempts.app_id = ?
+            AND COALESCE(deployments.lms_type, 'canvas') <> 'preview'
+          ORDER BY attempts.started_at DESC, attempts.id DESC
+        `,
+        [appId],
+      );
+
+      return rows.map((row) => mapAttemptRow(mapD1AttemptFields(row)));
+    },
+
     async appendAttemptEvent(input) {
       const attempt = await queryD1First<{ attemptId: string }>(
         db,
@@ -397,11 +415,25 @@ export function createD1LaunchStateRepositoryMethods(
             attempt_id,
             sequence,
             event_type,
+            learning_verb,
+            object_id,
+            object_type,
+            result,
             event,
             received_at
-          ) VALUES (?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
-        [input.attemptId, nextSequence, input.event.type, input.event, input.receivedAt],
+        [
+          input.attemptId,
+          nextSequence,
+          input.event.type,
+          input.normalizedEvent.learningVerb,
+          input.normalizedEvent.objectId,
+          input.normalizedEvent.objectType,
+          input.normalizedEvent.result,
+          input.event,
+          input.receivedAt,
+        ],
       );
 
       return await requireAttemptEvent(db, input.attemptId, nextSequence);
@@ -519,26 +551,26 @@ const D1_RUNTIME_SESSION_SELECT = `
 
 const D1_ATTEMPT_SELECT = `
   SELECT
-    id,
-    attempt_id AS attemptId,
-    deployment_record_id AS deploymentRecordId,
-    deployment_slug AS deploymentSlug,
-    app_id AS appId,
-    package_version_id AS packageVersionId,
-    package_version AS packageVersion,
-    user_id AS userId,
-    user_display_name AS userDisplayName,
-    user_email AS userEmail,
-    user_login AS userLogin,
-    user_role AS userRole,
-    context_id AS contextId,
-    resource_link_id AS resourceLinkId,
-    activity_id AS activityId,
-    status,
-    completion_state AS completionState,
-    local_state AS localState,
-    started_at AS startedAt,
-    finalized_at AS finalizedAt
+    attempts.id,
+    attempts.attempt_id AS attemptId,
+    attempts.deployment_record_id AS deploymentRecordId,
+    attempts.deployment_slug AS deploymentSlug,
+    attempts.app_id AS appId,
+    attempts.package_version_id AS packageVersionId,
+    attempts.package_version AS packageVersion,
+    attempts.user_id AS userId,
+    attempts.user_display_name AS userDisplayName,
+    attempts.user_email AS userEmail,
+    attempts.user_login AS userLogin,
+    attempts.user_role AS userRole,
+    attempts.context_id AS contextId,
+    attempts.resource_link_id AS resourceLinkId,
+    attempts.activity_id AS activityId,
+    attempts.status,
+    attempts.completion_state AS completionState,
+    attempts.local_state AS localState,
+    attempts.started_at AS startedAt,
+    attempts.finalized_at AS finalizedAt
   FROM attempts
 `;
 
@@ -548,6 +580,10 @@ const D1_ATTEMPT_EVENT_SELECT = `
     attempt_id AS attemptId,
     sequence,
     event_type AS eventType,
+    learning_verb AS learningVerb,
+    object_id AS objectId,
+    object_type AS objectType,
+    result,
     event,
     received_at AS receivedAt
   FROM attempt_events
@@ -633,6 +669,10 @@ interface D1AttemptEventRow extends Record<string, unknown> {
   attemptId: unknown;
   sequence: unknown;
   eventType: unknown;
+  learningVerb: unknown;
+  objectId: unknown;
+  objectType: unknown;
+  result: unknown;
   event: unknown;
   receivedAt: unknown;
 }
@@ -817,6 +857,18 @@ function mapD1AttemptEventFields(row: D1AttemptEventRow): AttemptEventRow {
     attemptId: expectString(row.attemptId, 'attemptId'),
     sequence: expectNumber(row.sequence, 'sequence'),
     eventType: expectString(row.eventType, 'eventType') as AttemptEventRow['eventType'],
+    learningVerb: expectStringLiteral(row.learningVerb, 'learningVerb', [
+      'answered',
+      'progressed',
+      'completed',
+    ]),
+    objectId: expectString(row.objectId, 'objectId'),
+    objectType: expectStringLiteral(row.objectType, 'objectType', [
+      'question',
+      'checkpoint',
+      'activity',
+    ]),
+    result: parseJsonField(row.result, 'result') as AttemptEventRow['result'],
     event: parseJsonField(row.event, 'event') as AttemptEventRow['event'],
     receivedAt: expectString(row.receivedAt, 'receivedAt'),
   };

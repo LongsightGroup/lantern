@@ -120,12 +120,17 @@ Rules:
   Lantern learning-app primitives in dist/lantern-app.css, and app-specific
   overrides in dist/app.css. Do not modify dist/pico.min.css or load external
   fonts, stylesheets, images, or scripts.
+- Follow the design contract for the app shell, activity frame, learner states,
+  responsive behavior, accessible controls, and preview proof.
 - Use stable data-test selectors for preview tests.
 - Emit GatewayApp attempt events for reportable learner actions.
 - Attempt event shapes are strict: answer events have questionId and answer,
-  progress events have checkpoint and numeric value, complete events have only
-  type and timestamp.
+  optional correct/score fields, and timestamp; progress events have checkpoint
+  and numeric value; complete events have only type and timestamp. Lantern maps
+  them into a constrained answered/progressed/completed event vocabulary for
+  reports and future standards export.
 - Use GatewayApp local state for resumable per-student progress when the plan declares it.
+- Do not call SCORM, xAPI, cmi5, LRS, LMS, grade, or external reporting APIs.
 
 Definition of Done:
 - The workspace must pass Lantern's strict TypeScript check when source files are present.
@@ -133,7 +138,9 @@ Definition of Done:
 - The app must boot and pass preview assertions in Lantern's runtime path.
 - If any typing, validation, preview, runtime, or policy check fails, Lantern will send diagnostics back for targeted repair and rerun the full loop.
 
-See .lantern/contracts/definition-of-done.md and
+See .lantern/contracts/generated-app-contract.md,
+.lantern/contracts/definition-of-done.md,
+.lantern/contracts/design-contract.md, and
 .lantern/contracts/gateway-app-sdk.d.ts before editing. They are the narrowed
 contract for generated learning apps.
 `;
@@ -172,10 +179,90 @@ function buildStarterFilesForAuthoringMode(
     },
     {
       path: 'source/app.ts',
-      contents:
-        'function requireGateway(): NonNullable<Window["GatewayApp"]> {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");\n  return gateway;\n}\n\nfunction requireRoot(): HTMLElement {\n  const root = document.querySelector("#app");\n  if (!(root instanceof HTMLElement)) throw new Error("App root is missing.");\n  return root;\n}\n\nfunction firstItem<T>(items: readonly T[], fallback: T): T {\n  return items[0] ?? fallback;\n}\n\nasync function start() {\n  const gateway = requireGateway();\n  const content = await gateway.getActivityContent<ActivityContent>();\n  const root = requireRoot();\n  const titleText = content.title || "Learning Activity";\n  const firstPracticeItem = firstItem(content.items ?? [], content.instructions || titleText);\n\n  root.innerHTML = "";\n  const title = document.createElement("h1");\n  title.dataset.test = "app-title";\n  title.textContent = titleText;\n\n  const prompt = document.createElement("p");\n  prompt.dataset.test = "practice-item";\n  prompt.textContent = firstPracticeItem;\n\n  const done = document.createElement("button");\n  done.type = "button";\n  done.dataset.test = "complete-button";\n  done.textContent = "Complete";\n  done.addEventListener("click", async () => {\n    await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });\n    await gateway.finalizeAttempt({ completionState: "completed" });\n  });\n\n  root.append(title, prompt, done);\n}\nvoid start();\n',
+      contents: buildSimpleActivityTypeScriptStarterSource(),
     },
   ];
+}
+
+function buildSimpleActivityTypeScriptStarterSource(): string {
+  return `function requireGateway(): NonNullable<Window["GatewayApp"]> {
+  const gateway = window.GatewayApp;
+  if (!gateway) throw new Error("Lantern injects window.GatewayApp.");
+  return gateway;
+}
+
+function requireRoot(): HTMLElement {
+  const root = document.querySelector("#app");
+  if (!(root instanceof HTMLElement)) throw new Error("App root is missing.");
+  return root;
+}
+
+function firstItem<T>(items: readonly T[], fallback: T): T {
+  return items[0] ?? fallback;
+}
+
+async function start() {
+  const gateway = requireGateway();
+  const content = await gateway.getActivityContent<ActivityContent>();
+  const root = requireRoot();
+  const titleText = content.title || "Learning Activity";
+  const firstPracticeItem = firstItem(content.items ?? [], content.instructions || titleText);
+
+  root.innerHTML = "";
+
+  const header = document.createElement("section");
+  header.className = "ln-activity-header";
+
+  const title = document.createElement("h1");
+  title.dataset.test = "app-title";
+  title.textContent = titleText;
+
+  const progress = document.createElement("p");
+  progress.className = "ln-progress-label";
+  progress.dataset.test = "progress-summary";
+  progress.textContent = "1 practice item";
+
+  header.append(title, progress);
+
+  const card = document.createElement("article");
+  card.className = "ln-flashcard";
+  card.dataset.test = "practice-card";
+
+  const instructions = document.createElement("p");
+  instructions.className = "ln-instructions";
+  instructions.dataset.test = "instructions";
+  instructions.textContent = content.instructions || "Complete the practice item.";
+
+  const prompt = document.createElement("p");
+  prompt.dataset.test = "practice-item";
+  prompt.textContent = firstPracticeItem;
+
+  const feedback = document.createElement("output");
+  feedback.className = "ln-feedback";
+  feedback.dataset.test = "feedback";
+  feedback.setAttribute("aria-live", "polite");
+  feedback.textContent = "Ready";
+
+  const actions = document.createElement("div");
+  actions.className = "ln-button-row";
+
+  const done = document.createElement("button");
+  done.type = "button";
+  done.dataset.test = "complete-button";
+  done.textContent = "Complete";
+  done.addEventListener("click", async () => {
+    feedback.className = "ln-feedback ln-feedback-success";
+    feedback.textContent = "Completed.";
+    await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });
+    await gateway.finalizeAttempt({ completionState: "completed" });
+  });
+
+  actions.append(done);
+  card.append(instructions, prompt, feedback, actions);
+  root.append(header, card);
+}
+void start();
+`;
 }
 
 function buildBrowserAutograderTypeScriptStarterSource(): string {

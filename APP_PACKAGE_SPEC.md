@@ -7,6 +7,7 @@ Companion artifacts:
 - manifest schema:
   [schemas/app-manifest.schema.json](schemas/app-manifest.schema.json)
 - SDK contract: [sdk/app-sdk.ts](sdk/app-sdk.ts)
+- generated app profile: [GENERATED_APP_CONTRACT.md](GENERATED_APP_CONTRACT.md)
 - sample packages:
   [examples/apps/chapter-4-asteroids/README.md](examples/apps/chapter-4-asteroids/README.md)
   and [examples/apps/quick-study/README.md](examples/apps/quick-study/README.md)
@@ -19,6 +20,12 @@ The goal is simple:
 - make unsafe shortcuts impossible by default
 
 This spec is intentionally narrow. It is for Tier 0 apps only.
+
+App Writer output follows the stricter generated app profile in
+[GENERATED_APP_CONTRACT.md](GENERATED_APP_CONTRACT.md). In particular, generated
+packages must include Lantern's pinned Pico and learning-app stylesheets, use
+only `window.GatewayApp`, provide preview proof, and avoid Cloudflare Worker,
+Durable Object, direct storage, direct LMS, and arbitrary network code.
 
 ## v1 Scope
 
@@ -337,6 +344,9 @@ type AttemptEvent =
     type: 'answer';
     questionId: string;
     answer: string | string[];
+    correct?: boolean;
+    scoreGiven?: number;
+    scoreMaximum?: number;
     timestamp: string;
   }
   | {
@@ -351,11 +361,18 @@ type AttemptEvent =
   };
 
 declare function emitAttemptEvent(event: AttemptEvent): Promise<void>;
-declare function finalizeAttempt(input?: {
-  completionState?: 'completed' | 'abandoned';
+declare function finalizeAttempt(input: {
+  completionState: 'completed' | 'abandoned';
 }): Promise<{ accepted: true }>;
 declare function writeLocalState<T = unknown>(value: T): Promise<void>;
 ```
+
+Lantern normalizes these package events into a constrained learning-event
+ledger: `answer` becomes an answered question event, `progress` becomes a
+progressed checkpoint event, and `complete` becomes a completed activity event.
+That gives Lantern enough structured data for instructor reports and later
+standards-shaped export without exposing SCORM, xAPI, cmi5, LRS credentials,
+direct LMS calls, or arbitrary network access to the package.
 
 ## Explicitly Forbidden SDK Surface
 
@@ -373,11 +390,11 @@ If we add those, we have broken the trust boundary.
 ## Runtime Backend Note
 
 This spec defines the app-facing capability contract. Lantern's checked-in
-runtime implementation is Cloudflare-native: Workers, D1, R2, and Worker
-Loader / Dynamic Workers.
+runtime implementation is Cloudflare-native: Workers, D1, R2, and Worker Loader
+/ Dynamic Workers.
 
-Lantern realizes this contract through a capability-based Dynamic Worker
-sandbox that:
+Lantern realizes this contract through a capability-based Dynamic Worker sandbox
+that:
 
 - block arbitrary outbound Internet access
 - inject only explicit typed bindings that match Lantern capabilities

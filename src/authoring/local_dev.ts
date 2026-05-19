@@ -46,6 +46,30 @@ export type LocalDevState =
     warnings: string[];
   };
 
+export interface LocalDevStatus {
+  ok: boolean;
+  kind: LocalDevState['kind'];
+  checkedAt: string;
+  previewUrl: string | null;
+  app: {
+    appId: string;
+    version: string;
+    title: string;
+    entrypoint: string;
+    capabilities: string[];
+    previewTestCount: number;
+  } | null;
+  previewCheck: {
+    kind: 'passed' | 'failed' | 'runtime_failed' | 'not_available';
+    assertionCount: number;
+    passedAssertionCount: number;
+    failedAssertionCount: number;
+    summary: string;
+  };
+  diagnostics: LocalAppValidationDiagnostic[];
+  warnings: string[];
+}
+
 export async function loadLocalDevState(
   packageRoot: string,
   input: {
@@ -94,15 +118,76 @@ export async function loadLocalDevState(
 
 export function createLocalDevRequestHandler(input: {
   getState(): LocalDevState;
+  getBaseUrl?: () => string;
+  getCheckedAt?: () => string;
 }): (request: Request) => Promise<Response> {
   return async (request) => {
+    const url = new URL(request.url);
     const state = input.getState();
+
+    if (url.pathname === '/__lantern/dev/status') {
+      return Response.json(
+        serializeLocalDevStatus({
+          state,
+          baseUrl: input.getBaseUrl?.() ?? url.origin,
+          checkedAt: input.getCheckedAt?.() ?? new Date().toISOString(),
+        }),
+        {
+          headers: {
+            'cache-control': 'no-store',
+          },
+        },
+      );
+    }
 
     if (state.kind === 'valid') {
       return await state.harness.handle(request);
     }
 
     return renderInvalidLocalDevResponse(request, state);
+  };
+}
+
+export function serializeLocalDevStatus(input: {
+  state: LocalDevState;
+  baseUrl: string;
+  checkedAt: string;
+}): LocalDevStatus {
+  if (input.state.kind === 'invalid') {
+    return {
+      ok: false,
+      kind: 'invalid',
+      checkedAt: input.checkedAt,
+      previewUrl: null,
+      app: null,
+      previewCheck: {
+        kind: 'not_available',
+        assertionCount: 0,
+        passedAssertionCount: 0,
+        failedAssertionCount: 0,
+        summary: 'Preview checks are blocked until package validation passes.',
+      },
+      diagnostics: input.state.diagnostics,
+      warnings: input.state.warnings,
+    };
+  }
+
+  return {
+    ok: input.state.previewCheck.kind === 'passed',
+    kind: 'valid',
+    checkedAt: input.checkedAt,
+    previewUrl: new URL('/', input.baseUrl).toString(),
+    app: {
+      appId: input.state.appPackage.reviewData.appId,
+      version: input.state.appPackage.reviewData.version,
+      title: input.state.appPackage.reviewData.title,
+      entrypoint: input.state.appPackage.manifest.entrypoint,
+      capabilities: input.state.appPackage.reviewData.capabilities,
+      previewTestCount: input.state.appPackage.previewTests.length,
+    },
+    previewCheck: summarizePreviewCheck(input.state.previewCheck),
+    diagnostics: [],
+    warnings: input.state.warnings,
   };
 }
 
@@ -267,6 +352,37 @@ function renderInvalidLocalDevPage(state: Extract<LocalDevState, { kind: 'invali
         font-family: ui-monospace, SFMono-Regular, monospace;
       }
     </style>
+    <script>
+      let lanternLocalDevReloading = false;
+
+      async function pollLanternLocalDevStatus() {
+        if (lanternLocalDevReloading) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/__lantern/dev/status', {
+            cache: 'no-store',
+            headers: { accept: 'application/json' }
+          });
+
+          if (!response.ok) {
+            return;
+          }
+
+          const status = await response.json();
+
+          if (status && status.kind === 'valid') {
+            lanternLocalDevReloading = true;
+            window.location.reload();
+          }
+        } catch (_error) {
+          // The dev server may be restarting after a file save. Poll again.
+        }
+      }
+
+      window.setInterval(pollLanternLocalDevStatus, 1000);
+    </script>
   </head>
   <body>
     <main>
@@ -311,6 +427,30 @@ function renderInvalidLocalDevPage(state: Extract<LocalDevState, { kind: 'invali
     </main>
   </body>
 </html>`;
+}
+
+function summarizePreviewCheck(check: LocalDevPreviewCheck): LocalDevStatus['previewCheck'] {
+  if (check.kind === 'runtime_failed') {
+    return {
+      kind: 'runtime_failed',
+      assertionCount: 0,
+      passedAssertionCount: 0,
+      failedAssertionCount: 0,
+      summary: check.result.message,
+    };
+  }
+
+  const assertionCount = check.result.results.length;
+
+  return {
+    kind: check.kind,
+    assertionCount,
+    passedAssertionCount: check.result.passedCount,
+    failedAssertionCount: check.result.failedCount,
+    summary: check.kind === 'passed'
+      ? `Lantern preview assertions passed. ${check.result.passedCount}/${assertionCount} checks passed.`
+      : `Lantern preview assertions failed. ${check.result.passedCount} passed, ${check.result.failedCount} failed.`,
+  };
 }
 
 function escapeHtml(value: string): string {
