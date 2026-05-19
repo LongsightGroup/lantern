@@ -52,14 +52,14 @@ export interface ManifestReviewData {
 
 export type ManifestValidationResult =
   | {
-      ok: true;
-      issues: [];
-      reviewData: ManifestReviewData;
-    }
+    ok: true;
+    issues: [];
+    reviewData: ManifestReviewData;
+  }
   | {
-      ok: false;
-      issues: ValidationIssue[];
-    };
+    ok: false;
+    issues: ValidationIssue[];
+  };
 
 type RequiredKeywordParams = {
   missingProperty: string;

@@ -171,10 +171,9 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
         );
       }
 
-      const controlPlaneDetail =
-        canvasDeployment === null
-          ? null
-          : await opsRepository.getControlPlaneDeploymentDetail(canvasDeployment.id);
+      const controlPlaneDetail = canvasDeployment === null
+        ? null
+        : await opsRepository.getControlPlaneDeploymentDetail(canvasDeployment.id);
 
       return context.html(
         renderDeploymentDetailPage({

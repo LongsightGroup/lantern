@@ -57,8 +57,9 @@ const reviewedRubricSchema = {
   },
 } as const;
 
-const reviewedRubricValidator: ValidateFunction<RawReviewedRubric> =
-  ajv.compile<RawReviewedRubric>(reviewedRubricSchema);
+const reviewedRubricValidator: ValidateFunction<RawReviewedRubric> = ajv.compile<RawReviewedRubric>(
+  reviewedRubricSchema,
+);
 
 export async function loadReviewedRubric(input: {
   snapshotRoot: string;

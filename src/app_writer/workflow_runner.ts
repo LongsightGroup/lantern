@@ -23,13 +23,13 @@ export interface AppGenerationWorkflowResult {
 
 export type AppGenerationWorkflowStageResult<T> =
   | {
-      ok: true;
-      value: T;
-    }
+    ok: true;
+    value: T;
+  }
   | {
-      ok: false;
-      result: AppGenerationWorkflowResult;
-    };
+    ok: false;
+    result: AppGenerationWorkflowResult;
+  };
 
 export async function runAppGenerationWorkflow(input: {
   bindings: WorkerBindings;

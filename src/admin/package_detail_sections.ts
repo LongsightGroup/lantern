@@ -28,9 +28,9 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
             <p class="micro muted">
               Record the required accessibility evidence for this version. Use "Not applicable" only when the reviewed interaction does not apply.
             </p>
-            ${ACCESSIBILITY_REVIEW_FIELDS.map((field) =>
-              renderAccessibilityReviewField(field),
-            ).join('')}
+            ${
+      ACCESSIBILITY_REVIEW_FIELDS.map((field) => renderAccessibilityReviewField(field)).join('')
+    }
             <div class="field">
               <label for="accessibility-failure-notes">Accessibility failure notes (optional)</label>
               <textarea
@@ -53,18 +53,26 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
             <textarea id="review-notes" name="reviewNotes" placeholder="Record why this version is ready, or what still needs to change."></textarea>
           </div>
           <div class="button-row">
-            <a class="button-secondary" href="/admin/packages/${escapeHtml(
-              packageVersion.appId,
-            )}/versions/${escapeHtml(packageVersion.version)}/preview">Test pending version</a>
-            <button type="submit" class="button-primary" formaction="/admin/packages/${escapeHtml(
-              String(packageVersion.id),
-            )}/approve">Approve version</button>
-            <button type="submit" class="button-danger" formaction="/admin/packages/${escapeHtml(
-              String(packageVersion.id),
-            )}/reject">Reject version</button>
-            <a class="button-secondary" href="/admin/packages/${escapeHtml(
-              packageVersion.appId,
-            )}/versions/${escapeHtml(packageVersion.version)}/revise">Revise with AI</a>
+            <a class="button-secondary" href="/admin/packages/${
+      escapeHtml(
+        packageVersion.appId,
+      )
+    }/versions/${escapeHtml(packageVersion.version)}/preview">Test pending version</a>
+            <button type="submit" class="button-primary" formaction="/admin/packages/${
+      escapeHtml(
+        String(packageVersion.id),
+      )
+    }/approve">Approve version</button>
+            <button type="submit" class="button-danger" formaction="/admin/packages/${
+      escapeHtml(
+        String(packageVersion.id),
+      )
+    }/reject">Reject version</button>
+            <a class="button-secondary" href="/admin/packages/${
+      escapeHtml(
+        packageVersion.appId,
+      )
+    }/versions/${escapeHtml(packageVersion.version)}/revise">Revise with AI</a>
           </div>
         </form>
       </div>
@@ -77,26 +85,34 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
       <h2>${escapeHtml(approvalStatusLabel(packageVersion.approvalStatus))}</h2>
       <p>${escapeHtml(approvalStatusDetail(packageVersion.approvalStatus))}</p>
       ${
-        packageVersion.approvalStatus === 'approved'
-          ? `<div class="button-row">
-            <a class="button-primary" href="/admin/packages/${escapeHtml(
-              packageVersion.appId,
-            )}/versions/${escapeHtml(packageVersion.version)}/preview">Open test launch</a>
-            <a class="button-secondary" href="/admin/packages/${escapeHtml(
-              packageVersion.appId,
-            )}/versions/${escapeHtml(packageVersion.version)}/revise">Revise with AI</a>
+    packageVersion.approvalStatus === 'approved'
+      ? `<div class="button-row">
+            <a class="button-primary" href="/admin/packages/${
+        escapeHtml(
+          packageVersion.appId,
+        )
+      }/versions/${escapeHtml(packageVersion.version)}/preview">Open test launch</a>
+            <a class="button-secondary" href="/admin/packages/${
+        escapeHtml(
+          packageVersion.appId,
+        )
+      }/versions/${escapeHtml(packageVersion.version)}/revise">Revise with AI</a>
             ${
-              supportsAuthoringDrafts(packageVersion)
-                ? `<a class="button-secondary" href="/admin/packages/${escapeHtml(
-                    packageVersion.appId,
-                  )}/versions/${escapeHtml(
-                    packageVersion.version,
-                  )}/authoring">Open authoring draft</a>`
-                : ''
-            }
-          </div>`
+        supportsAuthoringDrafts(packageVersion)
+          ? `<a class="button-secondary" href="/admin/packages/${
+            escapeHtml(
+              packageVersion.appId,
+            )
+          }/versions/${
+            escapeHtml(
+              packageVersion.version,
+            )
+          }/authoring">Open authoring draft</a>`
           : ''
       }
+          </div>`
+      : ''
+  }
       <div class="facts">
         <div class="fact">
           <span class="fact-label">Reviewed at</span>
@@ -104,9 +120,11 @@ export function renderDecisionSection(packageVersion: PackageVersionRecord): str
         </div>
         <div class="fact">
           <span class="fact-label">Review notes</span>
-          <span class="fact-value">${escapeHtml(
-            packageVersion.reviewNotes ?? 'No review notes recorded.',
-          )}</span>
+          <span class="fact-value">${
+    escapeHtml(
+      packageVersion.reviewNotes ?? 'No review notes recorded.',
+    )
+  }</span>
         </div>
       </div>
       ${renderAccessibilityReviewSection(packageVersion)}
@@ -123,19 +141,25 @@ export function renderHistoryRow(
   return `<article class="table-row">
     <div class="table-row-top">
       <p class="line-title">
-        <a href="/admin/packages/${escapeHtml(version.appId)}/versions/${escapeHtml(
-          version.version,
-        )}">Version ${escapeHtml(version.version)}</a>
-        <span class="${approvalStatusClass(version.approvalStatus)}">${escapeHtml(
-          approvalStatusLabel(version.approvalStatus),
-        )}</span>
+        <a href="/admin/packages/${escapeHtml(version.appId)}/versions/${
+    escapeHtml(
+      version.version,
+    )
+  }">Version ${escapeHtml(version.version)}</a>
+        <span class="${approvalStatusClass(version.approvalStatus)}">${
+    escapeHtml(
+      approvalStatusLabel(version.approvalStatus),
+    )
+  }</span>
         ${isCurrent ? `<span class="chip">Current version</span>` : ''}
       </p>
       <p class="micro muted">${escapeHtml(formatDateTime(version.importedAt))}</p>
     </div>
-    <p class="line-copy">${escapeHtml(
+    <p class="line-copy">${
+    escapeHtml(
       version.reviewNotes ?? approvalStatusDetail(version.approvalStatus),
-    )}</p>
+    )
+  }</p>
   </article>`;
 }
 
@@ -199,18 +223,22 @@ function renderAccessibilityReviewSection(packageVersion: PackageVersionRecord):
       </div>
     </div>
     <div class="line-list">
-      ${ACCESSIBILITY_REVIEW_FIELDS.map((field) =>
-        renderAccessibilityReviewItem(review, field.key, field.label),
-      ).join('')}
+      ${
+    ACCESSIBILITY_REVIEW_FIELDS.map((field) =>
+      renderAccessibilityReviewItem(review, field.key, field.label)
+    ).join('')
+  }
       <article class="line-item">
         <p class="line-title">Failure notes</p>
         <p class="line-copy">${escapeHtml(review.failureNotes ?? 'No failure notes recorded.')}</p>
       </article>
       <article class="line-item">
         <p class="line-title">Exception note</p>
-        <p class="line-copy">${escapeHtml(
-          review.exceptionNote ?? 'No exception note recorded.',
-        )}</p>
+        <p class="line-copy">${
+    escapeHtml(
+      review.exceptionNote ?? 'No exception note recorded.',
+    )
+  }</p>
       </article>
     </div>
   </section>`;

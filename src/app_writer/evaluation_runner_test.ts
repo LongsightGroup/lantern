@@ -111,10 +111,9 @@ function buildGenerationResult(starterId: AppWriterStarterId): AppPackageGenerat
       activityType: starterId === 'browser-autograder' ? 'practice' : 'matching',
       learnerFlow: ['Open activity.', 'Complete task.'],
       contentModel: {},
-      capabilities:
-        starterId === 'browser-autograder'
-          ? ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt']
-          : ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+      capabilities: starterId === 'browser-autograder'
+        ? ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt']
+        : ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
       grading: {
         mode: starterId === 'browser-autograder' ? 'browser' : 'completion',
         maxScore: 100,
@@ -132,10 +131,9 @@ function buildGenerationResult(starterId: AppWriterStarterId): AppPackageGenerat
       riskNotes: [],
     },
     selectedStarterId: starterId,
-    files:
-      starterId === 'browser-autograder'
-        ? buildValidBrowserAutograderFiles()
-        : buildValidSimpleActivityFiles(),
+    files: starterId === 'browser-autograder'
+      ? buildValidBrowserAutograderFiles()
+      : buildValidSimpleActivityFiles(),
     progressUpdates: [
       {
         stage: 'planning_app',

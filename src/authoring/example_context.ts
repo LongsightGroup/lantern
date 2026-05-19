@@ -15,7 +15,7 @@ export async function loadBrowserAutograderDraftReferenceExamples(): Promise<
 > {
   return await Promise.all(
     BROWSER_AUTOGRADER_DRAFT_REFERENCE_APP_IDS.map((appId) =>
-      loadBrowserAutograderDraftReferenceExample(appId),
+      loadBrowserAutograderDraftReferenceExample(appId)
     ),
   );
 }

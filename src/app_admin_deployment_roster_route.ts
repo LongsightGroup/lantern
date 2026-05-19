@@ -65,33 +65,33 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
         deployment: canvasDeployment,
       });
       const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
-        .retryServiceUnauthorizedOnce
+          .retryServiceUnauthorizedOnce
         ? async () => {
-            await recordInteropPathUsed({
-              repository,
-              scope: 'service',
-              path: 'service_401_retry',
-              actorType: 'system',
-              deploymentRecordId: canvasDeployment.id,
-              packageVersionId: canvasDeployment.enabledPackageVersionId,
-              attemptId: latestSession.attemptId,
-              summary: 'Lantern retried an LMS service request after a 401.',
-              detail: {
-                lms: 'canvas',
-                deploymentSlug: canvasDeployment.slug,
-              },
-              ltiProfile,
-            });
-            const refreshed = await requestCanvasServiceAccessToken({
-              issuer: canvasDeployment.binding!.issuer,
-              clientId: canvasDeployment.binding!.clientId,
-              deploymentId: canvasDeployment.binding!.deploymentId,
-              scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
-              env: services.env,
-            });
+          await recordInteropPathUsed({
+            repository,
+            scope: 'service',
+            path: 'service_401_retry',
+            actorType: 'system',
+            deploymentRecordId: canvasDeployment.id,
+            packageVersionId: canvasDeployment.enabledPackageVersionId,
+            attemptId: latestSession.attemptId,
+            summary: 'Lantern retried an LMS service request after a 401.',
+            detail: {
+              lms: 'canvas',
+              deploymentSlug: canvasDeployment.slug,
+            },
+            ltiProfile,
+          });
+          const refreshed = await requestCanvasServiceAccessToken({
+            issuer: canvasDeployment.binding!.issuer,
+            clientId: canvasDeployment.binding!.clientId,
+            deploymentId: canvasDeployment.binding!.deploymentId,
+            scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
+            env: services.env,
+          });
 
-            return refreshed.accessToken;
-          }
+          return refreshed.accessToken;
+        }
         : undefined;
 
       const token = await requestCanvasServiceAccessToken({
@@ -139,13 +139,10 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
         }),
       );
       const canvasDeployment = detail.canvasDeployment;
-      const ltiProfile =
-        canvasDeployment === null
-          ? null
-          : await resolveLtiProfileForDeployment({
-              repository,
-              deployment: canvasDeployment,
-            });
+      const ltiProfile = canvasDeployment === null ? null : await resolveLtiProfileForDeployment({
+        repository,
+        deployment: canvasDeployment,
+      });
 
       if (canvasDeployment !== null) {
         await repository.recordAuditEvent({
@@ -165,10 +162,9 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
           occurredAt: new Date().toISOString(),
         });
       }
-      const nrpsVerification =
-        canvasDeployment === null
-          ? detail.nrpsVerification
-          : await getLatestNrpsVerification(repository, canvasDeployment.id);
+      const nrpsVerification = canvasDeployment === null
+        ? detail.nrpsVerification
+        : await getLatestNrpsVerification(repository, canvasDeployment.id);
 
       if (detail.history.length === 0) {
         return context.html(

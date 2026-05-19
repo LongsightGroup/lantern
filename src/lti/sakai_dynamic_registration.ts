@@ -158,8 +158,7 @@ function extractSakaiDeploymentBinding(
     registrationResponse[SAKAI_TOOL_CONFIGURATION_CLAIM],
     'Sakai registration response did not include tool configuration.',
   );
-  const deploymentId =
-    readOptionalString(toolConfiguration, 'deployment_id') ??
+  const deploymentId = readOptionalString(toolConfiguration, 'deployment_id') ??
     new URL(openidConfigurationUrl).searchParams.get('deploymentId');
 
   if (!deploymentId) {

@@ -43,18 +43,17 @@ export async function handleReviewDecision(
     const reviewNotes = normalizeOptionalString(formData.get('reviewNotes'));
     const accessibilityReview = readAccessibilityReviewForm(formData);
     const repository = services.getRepository();
-    const packageVersion =
-      decision === 'approve'
-        ? await repository.approvePackageVersion({
-            id,
-            reviewNotes,
-            accessibilityReview,
-          })
-        : await repository.rejectPackageVersion({
-            id,
-            reviewNotes,
-            accessibilityReview,
-          });
+    const packageVersion = decision === 'approve'
+      ? await repository.approvePackageVersion({
+        id,
+        reviewNotes,
+        accessibilityReview,
+      })
+      : await repository.rejectPackageVersion({
+        id,
+        reviewNotes,
+        accessibilityReview,
+      });
     await repository.recordAuditEvent({
       eventType: decision === 'approve' ? 'package.approved' : 'package.rejected',
       actorType: 'user',
@@ -64,10 +63,9 @@ export async function handleReviewDecision(
       attemptId: null,
       lineItemBindingId: null,
       status: 'succeeded',
-      summary:
-        decision === 'approve'
-          ? 'Approved the reviewed package version.'
-          : 'Rejected the reviewed package version.',
+      summary: decision === 'approve'
+        ? 'Approved the reviewed package version.'
+        : 'Rejected the reviewed package version.',
       detail: {
         appId: packageVersion.appId,
         version: packageVersion.version,
@@ -188,8 +186,8 @@ export async function renderVerificationPage(
   const deployments = await opsRepository.listControlPlaneDeployments();
   const latestBrokerVerification = await opsRepository.getLatestBrokerVerificationStatus();
   const certificationWorkflowStatuses = await opsRepository.listCertificationWorkflowStatuses();
-  const latestOfficialCertificationEvidence =
-    await opsRepository.getLatestOfficialCertificationEvidence();
+  const latestOfficialCertificationEvidence = await opsRepository
+    .getLatestOfficialCertificationEvidence();
   const ltiProfileSettings = await services.getRepository().getLanternLtiProfileSettings();
 
   return context.html(
@@ -299,10 +297,9 @@ export async function renderDeploymentError(
         moodleDynamicRegistrationUrl: detailState.moodleDynamicRegistrationUrl,
         sakaiDynamicRegistrationUrl: detailState.sakaiDynamicRegistrationUrl,
         supportedCanvasEnvironments: listCanvasEnvironments(),
-        notice:
-          input.editorState === undefined || input.editorState === null
-            ? combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error))
-            : canvasConfigUrl.notice,
+        notice: input.editorState === undefined || input.editorState === null
+          ? combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error))
+          : canvasConfigUrl.notice,
       }),
       statusForError(error),
     );

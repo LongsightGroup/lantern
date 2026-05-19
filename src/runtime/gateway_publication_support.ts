@@ -93,9 +93,9 @@ export async function requestAccessToken(input: {
 }): Promise<
   | string
   | Pick<
-      FinalizeAttemptResult,
-      'lineItemBinding' | 'gradePublication' | 'gradePublishedNow' | 'publishError'
-    >
+    FinalizeAttemptResult,
+    'lineItemBinding' | 'gradePublication' | 'gradePublishedNow' | 'publishError'
+  >
 > {
   try {
     const requestToken = input.requestToken ?? requestServiceAccessToken;
@@ -140,9 +140,9 @@ export async function ensureLineItemBinding(
 ): Promise<
   | Awaited<ReturnType<PackageReviewRepository['saveLineItemBinding']>>
   | Pick<
-      FinalizeAttemptResult,
-      'lineItemBinding' | 'gradePublication' | 'gradePublishedNow' | 'publishError'
-    >
+    FinalizeAttemptResult,
+    'lineItemBinding' | 'gradePublication' | 'gradePublishedNow' | 'publishError'
+  >
 > {
   if (existingBinding !== null) {
     return existingBinding;

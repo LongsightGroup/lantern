@@ -198,10 +198,9 @@ async function runBrowserPreview(input: {
       assertionCount: results.length,
       passedAssertionCount: results.length - failedCount,
       runtimeLog: runtimeLog.map(mapRuntimeLogEntry),
-      summary:
-        failedCount === 0
-          ? `Passed ${results.length}/${results.length} preview assertions in Cloudflare Browser Rendering.`
-          : `Failed ${failedCount}/${results.length} preview assertions in Cloudflare Browser Rendering.`,
+      summary: failedCount === 0
+        ? `Passed ${results.length}/${results.length} preview assertions in Cloudflare Browser Rendering.`
+        : `Failed ${failedCount}/${results.length} preview assertions in Cloudflare Browser Rendering.`,
     };
   } catch (error) {
     return mapRuntimeFailure([formatUnknownError(error), ...runtimeErrors], runtimeLog);
@@ -390,7 +389,8 @@ function mapRuntimeFailure(
         message,
         file: null,
         field: null,
-        fix: 'Fix the generated browser code so it boots in Lantern preview without runtime errors.',
+        fix:
+          'Fix the generated browser code so it boots in Lantern preview without runtime errors.',
         detail: {
           details: boundedDetails,
         },

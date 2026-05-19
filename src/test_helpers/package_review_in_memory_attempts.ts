@@ -59,10 +59,9 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         );
       }
 
-      const sequence =
-        state.attemptEvidenceArtifacts
-          .filter((candidate) => candidate.attemptId === input.attemptId)
-          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence = state.attemptEvidenceArtifacts
+        .filter((candidate) => candidate.attemptId === input.attemptId)
+        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = cloneRecord({
         ...input,
         sequence,
@@ -117,10 +116,9 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         throw new Error(`Attempt ${input.attemptId} was not found.`);
       }
 
-      const sequence =
-        state.attemptEvents
-          .filter((candidate) => candidate.attemptId === input.attemptId)
-          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence = state.attemptEvents
+        .filter((candidate) => candidate.attemptId === input.attemptId)
+        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = cloneRecord({
         id: nextId(state.attemptEvents),
         attemptId: input.attemptId,
@@ -269,20 +267,19 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
           detail.inventory.deploymentId === nextRecord.deploymentRecordId
             ? {
-                ...detail,
-                latestAgsSmoke: {
-                  status: nextRecord.status === 'succeeded' ? 'succeeded' : 'failed',
-                  occurredAt: nextRecord.occurredAt,
-                  summary: nextRecord.summary,
-                  attemptId: nextRecord.attemptId,
-                  contextId:
-                    typeof nextRecord.detail.contextId === 'string'
-                      ? nextRecord.detail.contextId
-                      : null,
-                  detail: cloneRecord(nextRecord.detail),
-                },
-              }
-            : detail,
+              ...detail,
+              latestAgsSmoke: {
+                status: nextRecord.status === 'succeeded' ? 'succeeded' : 'failed',
+                occurredAt: nextRecord.occurredAt,
+                summary: nextRecord.summary,
+                attemptId: nextRecord.attemptId,
+                contextId: typeof nextRecord.detail.contextId === 'string'
+                  ? nextRecord.detail.contextId
+                  : null,
+                detail: cloneRecord(nextRecord.detail),
+              },
+            }
+            : detail
         );
       }
 

@@ -367,7 +367,7 @@ Deno.test('validateLaunchRequest rejects unsupported message types with a stable
       idToken: messageMismatchToken,
       now: () => new Date('2026-03-23T22:45:00Z'),
       loadJwks: () => Promise.resolve(getTestCanvasJwks()),
-    }),
+    })
   );
   const rejection = expectLaunchRejection(error);
 
@@ -411,7 +411,7 @@ Deno.test('validateLaunchRequest rejects missing context.id as an explicit gover
       idToken,
       now: () => new Date('2026-03-23T22:45:00Z'),
       loadJwks: () => Promise.resolve(getTestCanvasJwks()),
-    }),
+    })
   );
   const rejection = expectLaunchRejection(error);
 

@@ -118,10 +118,11 @@ function collectLimitedKeys(keys: Iterable<string>): string[] {
 
 function readMaskedClientIp(context: Context): string | null {
   const forwardedFor = context.req.header('x-forwarded-for');
-  const firstForwardedIp =
-    forwardedFor === undefined ? null : (forwardedFor.split(',')[0]?.trim() ?? null);
-  const candidate =
-    context.req.header('cf-connecting-ip') ?? context.req.header('x-real-ip') ?? firstForwardedIp;
+  const firstForwardedIp = forwardedFor === undefined
+    ? null
+    : (forwardedFor.split(',')[0]?.trim() ?? null);
+  const candidate = context.req.header('cf-connecting-ip') ?? context.req.header('x-real-ip') ??
+    firstForwardedIp;
 
   if (candidate === null || candidate === undefined || candidate.trim() === '') {
     return null;

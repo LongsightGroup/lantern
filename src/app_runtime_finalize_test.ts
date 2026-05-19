@@ -125,14 +125,18 @@ Deno.test('POST /runtime/sessions/:id/finalize finalizes the durable attempt and
           };
           const secondBody = (await secondResponse.json()) as typeof firstBody;
           const attempt = await repository.getAttemptById('attempt-123');
-          const attemptAuditEvents =
-            await repository.listAuditEventsByEventType('attempt.finalized');
-          const gradeAuditEvents =
-            await repository.listAuditEventsByEventType('grade_publish.succeeded');
-          const runtimeExitEvents =
-            await repository.listAuditEventsByEventType('runtime.session.exited');
-          const failedGradeAuditEvents =
-            await repository.listAuditEventsByEventType('grade_publish.failed');
+          const attemptAuditEvents = await repository.listAuditEventsByEventType(
+            'attempt.finalized',
+          );
+          const gradeAuditEvents = await repository.listAuditEventsByEventType(
+            'grade_publish.succeeded',
+          );
+          const runtimeExitEvents = await repository.listAuditEventsByEventType(
+            'runtime.session.exited',
+          );
+          const failedGradeAuditEvents = await repository.listAuditEventsByEventType(
+            'grade_publish.failed',
+          );
           const lineItemBinding = await repository.getLineItemBinding({
             deploymentRecordId: 1,
             packageVersionId: 1,
@@ -326,8 +330,9 @@ Deno.test('POST /runtime/sessions/:id/finalize accepts browser grader results wh
             scoreMaximum: 100,
             gradePublished: true,
           });
-          const attemptAuditEvents =
-            await repository.listAuditEventsByEventType('attempt.finalized');
+          const attemptAuditEvents = await repository.listAuditEventsByEventType(
+            'attempt.finalized',
+          );
 
           assertEquals(attemptAuditEvents.length, 1);
           assertObjectMatch(attemptAuditEvents[0]?.detail ?? {}, {
@@ -571,10 +576,12 @@ Deno.test('POST /runtime/sessions/:id/finalize records a failed grade publish wh
 
           assertEquals(response.status, 500);
 
-          const attemptAuditEvents =
-            await repository.listAuditEventsByEventType('attempt.finalized');
-          const failedGradeAuditEvents =
-            await repository.listAuditEventsByEventType('grade_publish.failed');
+          const attemptAuditEvents = await repository.listAuditEventsByEventType(
+            'attempt.finalized',
+          );
+          const failedGradeAuditEvents = await repository.listAuditEventsByEventType(
+            'grade_publish.failed',
+          );
           const attempt = await repository.getAttemptById('attempt-123');
 
           assertEquals(attempt?.status, 'completed');

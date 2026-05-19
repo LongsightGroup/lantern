@@ -322,7 +322,7 @@ function resolvePreviewRuntimeContentPath(snapshotRoot: string, contentPath: str
 
 function buildPreviewLaunchSummary(previewSession: PreviewSessionRecord): string {
   return previewSession.origin === 'deepLinkingAuthoring' ||
-    previewSession.origin === 'adminAuthoringDraft'
+      previewSession.origin === 'adminAuthoringDraft'
     ? "Started an authoring preview in Lantern's runtime."
     : "Started a test launch in Lantern's runtime.";
 }
@@ -336,13 +336,12 @@ function buildPreviewLaunchDetail(
     origin: previewSession.origin,
     contentPath: previewSession.contentPath,
     deepLinkingSessionId: previewSession.deepLinkingSessionId,
-    route:
-      previewSession.origin === 'deepLinkingAuthoring'
-        ? previewSession.deepLinkingSessionId === null
-          ? null
-          : `/lti/deep-linking/sessions/${previewSession.deepLinkingSessionId}/preview`
-        : previewSession.origin === 'adminAuthoringDraft'
-          ? `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/authoring`
-          : `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/preview`,
+    route: previewSession.origin === 'deepLinkingAuthoring'
+      ? previewSession.deepLinkingSessionId === null
+        ? null
+        : `/lti/deep-linking/sessions/${previewSession.deepLinkingSessionId}/preview`
+      : previewSession.origin === 'adminAuthoringDraft'
+      ? `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/authoring`
+      : `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/preview`,
   };
 }

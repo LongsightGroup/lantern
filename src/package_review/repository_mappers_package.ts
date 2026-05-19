@@ -59,8 +59,9 @@ export function mapPackageVersionRow(row: PackageVersionRow | undefined): Packag
     },
     approvalStatus: row.approvalStatus,
     reviewNotes: row.reviewNotes,
-    accessibilityReview:
-      row.accessibilityReview === null ? null : parseAccessibilityReview(row.accessibilityReview),
+    accessibilityReview: row.accessibilityReview === null
+      ? null
+      : parseAccessibilityReview(row.accessibilityReview),
     reviewedAt: normalizeOptionalTimestamp(row.reviewedAt),
     validationIssues: row.validationIssues ?? [],
     manifestJson: row.manifestJson,

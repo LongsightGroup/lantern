@@ -26,14 +26,13 @@ export function aggregatePilotUsage(deployments: ControlPlaneDeploymentInventory
       totalLaunches: summary.totalLaunches + deployment.pilotUsage.totalLaunches,
       attemptsStarted: summary.attemptsStarted + deployment.pilotUsage.attemptsStarted,
       attemptsCompleted: summary.attemptsCompleted + deployment.pilotUsage.attemptsCompleted,
-      gradePublishesSucceeded:
-        summary.gradePublishesSucceeded + deployment.pilotUsage.gradePublishesSucceeded,
-      gradePublishesFailed:
-        summary.gradePublishesFailed + deployment.pilotUsage.gradePublishesFailed,
+      gradePublishesSucceeded: summary.gradePublishesSucceeded +
+        deployment.pilotUsage.gradePublishesSucceeded,
+      gradePublishesFailed: summary.gradePublishesFailed +
+        deployment.pilotUsage.gradePublishesFailed,
       recentActiveUsers: summary.recentActiveUsers + deployment.pilotUsage.recentActiveUsers,
       lastLaunchAt: pickLatestTimestamp(summary.lastLaunchAt, deployment.pilotUsage.lastLaunchAt),
-      measuredAt:
-        pickLatestTimestamp(summary.measuredAt, deployment.pilotUsage.measuredAt) ??
+      measuredAt: pickLatestTimestamp(summary.measuredAt, deployment.pilotUsage.measuredAt) ??
         new Date().toISOString(),
     }),
     {
@@ -89,10 +88,9 @@ export function resolveOfficialEvidenceDisplay(input: {
   return {
     state: official.state,
     checkedAt: official.checkedAt,
-    summary:
-      official.state === 'notCertified'
-        ? 'Latest recorded 1EdTech evidence does not show a certification listing.'
-        : 'Latest recorded 1EdTech evidence shows the listed certification state.',
+    summary: official.state === 'notCertified'
+      ? 'Latest recorded 1EdTech evidence does not show a certification listing.'
+      : 'Latest recorded 1EdTech evidence shows the listed certification state.',
     directoryUrl: official.directoryUrl,
     workflowLabel: null,
   };
@@ -159,9 +157,11 @@ export function buildDeploymentActivityHref(
     ? `?lms=${encodeURIComponent(deployment.binding.lms)}&view=activity`
     : '?view=activity';
 
-  return `/admin/packages/${encodeURIComponent(
-    deployment.appId,
-  )}/deployment${activityQuery}#activity-details`;
+  return `/admin/packages/${
+    encodeURIComponent(
+      deployment.appId,
+    )
+  }/deployment${activityQuery}#activity-details`;
 }
 
 export function describeEnablementState(deployment: ControlPlaneDeploymentInventoryRow): string {

@@ -6,20 +6,21 @@ import type {
 } from './package_review_in_memory_shared.ts';
 import { cloneRecord } from './package_review_in_memory_shared.ts';
 
-type SessionRepository = Pick<
-  PackageReviewRepository,
-  | 'createLoginState'
-  | 'getLoginStateByState'
-  | 'consumeLoginState'
-  | 'createDynamicRegistrationState'
-  | 'getDynamicRegistrationStateByState'
-  | 'consumeDynamicRegistrationState'
-  | 'createRuntimeSession'
-  | 'getRuntimeSessionById'
-  | 'getLatestRuntimeSessionByDeploymentId'
-> &
-  InMemoryDeepLinkingRepository &
-  Pick<InMemoryOpsRepository, 'getRuntimeSessionByAttemptId'>;
+type SessionRepository =
+  & Pick<
+    PackageReviewRepository,
+    | 'createLoginState'
+    | 'getLoginStateByState'
+    | 'consumeLoginState'
+    | 'createDynamicRegistrationState'
+    | 'getDynamicRegistrationStateByState'
+    | 'consumeDynamicRegistrationState'
+    | 'createRuntimeSession'
+    | 'getRuntimeSessionById'
+    | 'getLatestRuntimeSessionByDeploymentId'
+  >
+  & InMemoryDeepLinkingRepository
+  & Pick<InMemoryOpsRepository, 'getRuntimeSessionByAttemptId'>;
 
 export function createInMemorySessionRepository(state: InMemoryRepositoryState): SessionRepository {
   return {

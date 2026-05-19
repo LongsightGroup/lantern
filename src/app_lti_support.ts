@@ -58,7 +58,7 @@ export async function handleLoginInitiation(context: Context, services: AppServi
             deploymentId: result.loginState.deploymentId,
           },
           ltiProfile: result.ltiProfile,
-        }),
+        })
       ),
     );
 
@@ -94,28 +94,21 @@ export async function recordRejectedLaunchAudit(input: {
   error: unknown;
   request: RequestAuditEnvelope;
 }): Promise<void> {
-  const loginState =
-    input.state === null
-      ? null
-      : await input.repository.getLoginStateByState(input.state).catch(() => null);
-  const deployment =
-    loginState === null
-      ? null
-      : await input.repository
-          .getDeploymentByBinding({
-            lms: loginState.lms,
-            issuer: loginState.issuer,
-            clientId: loginState.clientId,
-            deploymentId: loginState.deploymentId,
-          })
-          .catch(() => null);
-  const ltiProfile =
-    deployment === null
-      ? null
-      : await resolveLtiProfileForDeployment({
-          repository: input.repository,
-          deployment,
-        });
+  const loginState = input.state === null
+    ? null
+    : await input.repository.getLoginStateByState(input.state).catch(() => null);
+  const deployment = loginState === null ? null : await input.repository
+    .getDeploymentByBinding({
+      lms: loginState.lms,
+      issuer: loginState.issuer,
+      clientId: loginState.clientId,
+      deploymentId: loginState.deploymentId,
+    })
+    .catch(() => null);
+  const ltiProfile = deployment === null ? null : await resolveLtiProfileForDeployment({
+    repository: input.repository,
+    deployment,
+  });
   const rejection = readLaunchRejection(input.error);
 
   await input.repository.recordAuditEvent({

@@ -60,7 +60,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         failRuntimeOutcome({
           type: 'integrity_failure',
           code: 'package_version_missing',
-          message: `Runtime session package version id ${runtime.session.packageVersionId} was not found.`,
+          message:
+            `Runtime session package version id ${runtime.session.packageVersionId} was not found.`,
           status: 409,
           detail: {
             packageVersionId: runtime.session.packageVersionId,
@@ -446,8 +447,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const url = new URL(context.req.url);
-      const token =
-        readBearerToken(context.req.header('authorization')) ?? url.searchParams.get('token');
+      const token = readBearerToken(context.req.header('authorization')) ??
+        url.searchParams.get('token');
 
       authorizeRuntimeSession({
         token: requireTrimmedString(token, 'Runtime session token is required.'),
@@ -712,7 +713,8 @@ function requireRuntimePackageVersionCanRun(
   failRuntimeOutcome({
     type: 'integrity_failure',
     code: 'package_version_not_approved',
-    message: `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+    message:
+      `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
     status: 409,
     detail: {
       packageVersionId: packageVersion.id,

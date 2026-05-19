@@ -30,18 +30,18 @@ Deno.test({
     const files = buildValidSimpleActivityFiles().map((file) =>
       file.path === 'preview/tests.json'
         ? {
-            ...file,
-            contents: JSON.stringify([
-              {
-                name: 'missing title',
-                assert: {
-                  selector: '[data-test="missing-title"]',
-                  text: 'Phonics Match',
-                },
+          ...file,
+          contents: JSON.stringify([
+            {
+              name: 'missing title',
+              assert: {
+                selector: '[data-test="missing-title"]',
+                text: 'Phonics Match',
               },
-            ]),
-          }
-        : file,
+            },
+          ]),
+        }
+        : file
     );
 
     const result = await createLocalAppPackagePreviewer({

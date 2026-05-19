@@ -1,7 +1,7 @@
 import type {
   AppPackageSourceCompileInput,
-  AppPackageSourceCompileResult,
   AppPackageSourceCompiler,
+  AppPackageSourceCompileResult,
 } from './types.ts';
 import {
   expectRecord,

@@ -78,23 +78,23 @@ function mapLaunchServices(input: {
   nrpsContextMembershipsUrl: string | null;
   nrpsServiceVersions: string[];
 }): LaunchServiceClaims {
-  const hasAgs =
-    input.agsScope.length > 0 || input.agsLineitemsUrl !== null || input.agsLineitemUrl !== null;
+  const hasAgs = input.agsScope.length > 0 || input.agsLineitemsUrl !== null ||
+    input.agsLineitemUrl !== null;
   const hasNrps = input.nrpsContextMembershipsUrl !== null;
 
   return {
     ags: hasAgs
       ? {
-          scope: input.agsScope,
-          lineitemsUrl: input.agsLineitemsUrl,
-          lineitemUrl: input.agsLineitemUrl,
-        }
+        scope: input.agsScope,
+        lineitemsUrl: input.agsLineitemsUrl,
+        lineitemUrl: input.agsLineitemUrl,
+      }
       : null,
     nrps: hasNrps
       ? {
-          contextMembershipsUrl: input.nrpsContextMembershipsUrl!,
-          serviceVersions: input.nrpsServiceVersions,
-        }
+        contextMembershipsUrl: input.nrpsContextMembershipsUrl!,
+        serviceVersions: input.nrpsServiceVersions,
+      }
       : null,
   };
 }

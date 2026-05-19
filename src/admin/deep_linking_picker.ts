@@ -26,10 +26,12 @@ export function renderDeepLinkingPickerPage(input: {
     placement: 'assignment_selection',
   };
   const scopeLabel = session.placement === 'resource_selection' ? 'course' : 'assignment';
-  const scopeResourceLabel =
-    session.placement === 'resource_selection' ? 'course resource' : 'assignment resource';
-  const placementLabel =
-    session.placement === 'resource_selection' ? 'course placement' : 'assignment placement';
+  const scopeResourceLabel = session.placement === 'resource_selection'
+    ? 'course resource'
+    : 'assignment resource';
+  const placementLabel = session.placement === 'resource_selection'
+    ? 'course placement'
+    : 'assignment placement';
   const saveAction = input.sessionId
     ? `/lti/deep-linking/sessions/${encodeURIComponent(input.sessionId)}`
     : '#';
@@ -40,16 +42,16 @@ export function renderDeepLinkingPickerPage(input: {
     ? `/lti/deep-linking/sessions/${encodeURIComponent(input.sessionId)}/preview`
     : '#';
   const canSave = input.resources.length > 0;
-  const canReturn =
-    input.selection !== null && input.sessionId !== undefined && input.token !== undefined;
+  const canReturn = input.selection !== null && input.sessionId !== undefined &&
+    input.token !== undefined;
   const canPreview = canReturn;
-  const returnStateCopy =
-    input.selection === null
-      ? `Save one reviewed ${scopeResourceLabel} before returning it to the LMS.`
-      : input.sessionId === undefined || input.token === undefined
-        ? 'Return to LMS is unavailable until Lantern can verify this session.'
-        : `Ready to return this reviewed ${scopeResourceLabel} to the LMS.`;
-  const previewStateCopy = `Open this reviewed ${scopeResourceLabel} in Lantern preview without consuming the LMS return.`;
+  const returnStateCopy = input.selection === null
+    ? `Save one reviewed ${scopeResourceLabel} before returning it to the LMS.`
+    : input.sessionId === undefined || input.token === undefined
+    ? 'Return to LMS is unavailable until Lantern can verify this session.'
+    : `Ready to return this reviewed ${scopeResourceLabel} to the LMS.`;
+  const previewStateCopy =
+    `Open this reviewed ${scopeResourceLabel} in Lantern preview without consuming the LMS return.`;
 
   return `<!doctype html>
 <html lang="en" data-theme="light">
@@ -87,9 +89,11 @@ export function renderDeepLinkingPickerPage(input: {
             </div>
             <div class="fact">
               <span class="fact-label">Session expiry</span>
-              <span class="fact-value">${escapeHtml(
-                formatDateTime(session.expiresAt ?? null),
-              )}</span>
+              <span class="fact-value">${
+    escapeHtml(
+      formatDateTime(session.expiresAt ?? null),
+    )
+  }</span>
             </div>
           </div>
           ${renderNotice(input.notice ?? null)}
@@ -98,70 +102,74 @@ export function renderDeepLinkingPickerPage(input: {
           <section class="selection-panel">
             <p class="section-label">Selection state</p>
             ${
-              input.selection === null
-                ? `<div class="selection-summary">
+    input.selection === null
+      ? `<div class="selection-summary">
               <strong>No reviewed resource selected yet.</strong>
               <p>Choose one approved ${scopeLabel} resource below. Lantern will store the reviewed version and canonical content path explicitly.</p>
             </div>`
-                : `<div class="selection-summary">
-              <strong>${escapeHtml(input.selection.packageTitle)} ${escapeHtml(
-                input.selection.packageVersion,
-              )}</strong>
+      : `<div class="selection-summary">
+              <strong>${escapeHtml(input.selection.packageTitle)} ${
+        escapeHtml(
+          input.selection.packageVersion,
+        )
+      }</strong>
               <p>${escapeHtml(input.selection.contentTitle ?? input.selection.contentPath)}</p>
               <p class="resource-path">${escapeHtml(input.selection.contentPath)}</p>
             </div>`
-            }
+  }
           </section>
           <section class="resource-panel">
             <p class="section-label">Reviewed resources</p>
             <form method="post" action="${escapeHtml(saveAction)}">
               ${
-                input.token === undefined
-                  ? ''
-                  : `<input type="hidden" name="token" value="${escapeHtml(input.token)}">`
-              }
+    input.token === undefined
+      ? ''
+      : `<input type="hidden" name="token" value="${escapeHtml(input.token)}">`
+  }
               ${
-                input.resources.length === 0
-                  ? `<div class="empty">
+    input.resources.length === 0
+      ? `<div class="empty">
               No approved ${scopeLabel}-scope reviewed resources are available for this app yet.
             </div>`
-                  : `<div class="resource-list">
-              ${input.resources
-                .map((resource) => renderResourceCard(resource, input.selection))
-                .join('')}
+      : `<div class="resource-list">
+              ${
+        input.resources
+          .map((resource) => renderResourceCard(resource, input.selection))
+          .join('')
+      }
             </div>`
-              }
+  }
               <div class="actions">
                 <button type="submit" class="button-primary" ${
-                  canSave ? '' : 'disabled'
-                }>Save reviewed selection</button>
+    canSave ? '' : 'disabled'
+  }>Save reviewed selection</button>
               </div>
             </form>
             ${
-              canPreview
-                ? `<form method="post" action="${escapeHtml(previewAction)}" target="_blank">
+    canPreview
+      ? `<form method="post" action="${escapeHtml(previewAction)}" target="_blank">
               ${
-                input.token === undefined
-                  ? ''
-                  : `<input type="hidden" name="token" value="${escapeHtml(input.token)}">`
-              }
+        input.token === undefined
+          ? ''
+          : `<input type="hidden" name="token" value="${escapeHtml(input.token)}">`
+      }
               <div class="actions">
                 <button type="submit" class="button-primary">Preview in Lantern</button>
                 <span class="phase-note">${escapeHtml(previewStateCopy)}</span>
               </div>
             </form>`
-                : ''
-            }
+      : ''
+  }
             <form method="post" action="${escapeHtml(submitAction)}">
               ${
-                input.token === undefined
-                  ? ''
-                  : `<input type="hidden" name="token" value="${escapeHtml(input.token)}">`
-              }
+    input.token === undefined
+      ? ''
+      : `<input type="hidden" name="token" value="${escapeHtml(input.token)}">`
+  }
               <div class="actions">
                 <button type="submit" class="button-primary" ${
-                  canReturn ? '' : 'disabled'
-                }>Return to LMS</button>
+    canReturn ? '' : 'disabled'
+  }>Return to LMS</button>
                 <span class="phase-note">${escapeHtml(returnStateCopy)}</span>
               </div>
             </form>
@@ -188,8 +196,7 @@ function renderResourceCard(
   resource: DeepLinkingResourceOption,
   selection: DeepLinkingResourceSelection | null,
 ): string {
-  const checked =
-    selection !== null &&
+  const checked = selection !== null &&
     selection.packageVersionId === resource.packageVersionId &&
     selection.contentPath === resource.contentPath;
 
@@ -197,12 +204,14 @@ function renderResourceCard(
     <input
       type="radio"
       name="selection"
-      value="${escapeHtml(
-        buildDeepLinkingSelectionValue({
-          packageVersionId: resource.packageVersionId,
-          contentPath: resource.contentPath,
-        }),
-      )}"
+      value="${
+    escapeHtml(
+      buildDeepLinkingSelectionValue({
+        packageVersionId: resource.packageVersionId,
+        contentPath: resource.contentPath,
+      }),
+    )
+  }"
       ${checked ? 'checked' : ''}
     >
     <div>

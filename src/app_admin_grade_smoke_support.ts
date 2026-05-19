@@ -91,42 +91,40 @@ export async function runGradeSmokeVerification(input: {
       publicationStatus: 'not_attempted',
       lineItemUrl: null,
       code: accessToken.publishError?.code ?? 'token_request_failed',
-      message:
-        accessToken.publishError?.message ??
+      message: accessToken.publishError?.message ??
         'Lantern could not get a service token for this grade return check.',
     });
   }
 
   let lineItemUrl: string | null = null;
-  const retryUnauthorized =
-    input.ltiProfile !== null &&
-    input.ltiProfile !== undefined &&
-    !getLtiProfileDefinition(input.ltiProfile.id).behavior.retryServiceUnauthorizedOnce
-      ? undefined
-      : async () => {
-          await recordInteropPathUsed({
-            repository: input.repository,
-            scope: 'service',
-            path: 'service_401_retry',
-            actorType: 'system',
-            deploymentRecordId: input.session.deploymentRecordId,
-            packageVersionId: input.session.packageVersionId,
-            attemptId: input.attempt.attemptId,
-            summary: 'Lantern retried an LMS service request after a 401.',
-            detail: {
-              lms: input.binding.lms,
-              deploymentSlug: input.session.deploymentSlug,
-            },
-            ltiProfile: input.ltiProfile ?? null,
-          });
-          const refreshed = await requestServiceAccessToken({
-            binding: input.binding,
-            scopes: ags.scope,
-            env: input.env,
-          });
+  const retryUnauthorized = input.ltiProfile !== null &&
+      input.ltiProfile !== undefined &&
+      !getLtiProfileDefinition(input.ltiProfile.id).behavior.retryServiceUnauthorizedOnce
+    ? undefined
+    : async () => {
+      await recordInteropPathUsed({
+        repository: input.repository,
+        scope: 'service',
+        path: 'service_401_retry',
+        actorType: 'system',
+        deploymentRecordId: input.session.deploymentRecordId,
+        packageVersionId: input.session.packageVersionId,
+        attemptId: input.attempt.attemptId,
+        summary: 'Lantern retried an LMS service request after a 401.',
+        detail: {
+          lms: input.binding.lms,
+          deploymentSlug: input.session.deploymentSlug,
+        },
+        ltiProfile: input.ltiProfile ?? null,
+      });
+      const refreshed = await requestServiceAccessToken({
+        binding: input.binding,
+        scopes: ags.scope,
+        env: input.env,
+      });
 
-          return refreshed.accessToken;
-        };
+      return refreshed.accessToken;
+    };
 
   try {
     const ensuredLineItem = await ensureManagedLineItem({

@@ -2,18 +2,15 @@ function normalizeActivity(value) {
   const raw = value && typeof value === 'object' ? value : {};
 
   return {
-    title:
-      typeof raw.title === 'string' && raw.title.trim() !== ''
-        ? raw.title.trim()
-        : 'Simple Activity Starter',
-    instructions:
-      typeof raw.instructions === 'string' && raw.instructions.trim() !== ''
-        ? raw.instructions.trim()
-        : 'Edit content/activity.json first and keep the activity small.',
-    prompt:
-      typeof raw.prompt === 'string' && raw.prompt.trim() !== ''
-        ? raw.prompt.trim()
-        : 'Replace this prompt with your lesson content.',
+    title: typeof raw.title === 'string' && raw.title.trim() !== ''
+      ? raw.title.trim()
+      : 'Simple Activity Starter',
+    instructions: typeof raw.instructions === 'string' && raw.instructions.trim() !== ''
+      ? raw.instructions.trim()
+      : 'Edit content/activity.json first and keep the activity small.',
+    prompt: typeof raw.prompt === 'string' && raw.prompt.trim() !== ''
+      ? raw.prompt.trim()
+      : 'Replace this prompt with your lesson content.',
   };
 }
 
@@ -21,8 +18,9 @@ function normalizeState(value) {
   const raw = value && typeof value === 'object' ? value : {};
 
   return {
-    progressCount:
-      typeof raw.progressCount === 'number' && raw.progressCount >= 0 ? raw.progressCount : 0,
+    progressCount: typeof raw.progressCount === 'number' && raw.progressCount >= 0
+      ? raw.progressCount
+      : 0,
     finalized: typeof raw.finalized === 'string' ? raw.finalized : 'Not finished',
   };
 }

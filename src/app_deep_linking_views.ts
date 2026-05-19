@@ -56,14 +56,12 @@ export function renderDeepLinkingSubmitStatusPage(input: {
   const session = input.session ?? null;
   const selection = input.selection ?? null;
   const submission = input.submission ?? null;
-  const selectionSummaryLabel =
-    session?.placement === 'resource_selection'
-      ? 'Saved reviewed course resource'
-      : 'Saved reviewed assignment resource';
-  const returnSummaryLabel =
-    session?.placement === 'resource_selection'
-      ? 'Course resource return'
-      : 'Assignment resource return';
+  const selectionSummaryLabel = session?.placement === 'resource_selection'
+    ? 'Saved reviewed course resource'
+    : 'Saved reviewed assignment resource';
+  const returnSummaryLabel = session?.placement === 'resource_selection'
+    ? 'Course resource return'
+    : 'Assignment resource return';
 
   return `<!doctype html>
 <html lang="en">
@@ -230,59 +228,59 @@ export function renderDeepLinkingSubmitStatusPage(input: {
         </section>
         <div class="layout">
           ${
-            session === null
-              ? ''
-              : `<section class="summary-card">
+    session === null ? '' : `<section class="summary-card">
           <p class="summary-label">Session</p>
-          <p class="summary-item"><strong>Course context</strong>${escapeHtml(
-            session.contextTitle ?? 'LMS context',
-          )}</p>
+          <p class="summary-item"><strong>Course context</strong>${
+      escapeHtml(
+        session.contextTitle ?? 'LMS context',
+      )
+    }</p>
           <p class="summary-item"><strong>Bound app</strong>${escapeHtml(session.appId)}</p>
-          <p class="summary-item"><strong>Deployment</strong>${escapeHtml(
-            session.deploymentSlug,
-          )}</p>
+          <p class="summary-item"><strong>Deployment</strong>${
+      escapeHtml(
+        session.deploymentSlug,
+      )
+    }</p>
         </section>`
-          }
+  }
           ${
-            selection === null
-              ? ''
-              : `<section class="summary-card">
+    selection === null ? '' : `<section class="summary-card">
           <p class="summary-label">${escapeHtml(selectionSummaryLabel)}</p>
-          <p class="summary-item"><strong>${escapeHtml(
-            selection.contentTitle ?? `${selection.packageVersion} reviewed activity`,
-          )}</strong>${escapeHtml(selection.packageVersion)}</p>
+          <p class="summary-item"><strong>${
+      escapeHtml(
+        selection.contentTitle ?? `${selection.packageVersion} reviewed activity`,
+      )
+    }</strong>${escapeHtml(selection.packageVersion)}</p>
           <p class="summary-item resource-path">${escapeHtml(selection.contentPath)}</p>
         </section>`
-          }
+  }
           ${
-            submission === null
-              ? ''
-              : `<section class="summary-card">
+    submission === null ? '' : `<section class="summary-card">
           <p class="summary-label">${escapeHtml(returnSummaryLabel)}</p>
           <p class="summary-item"><strong>Signed Deep Linking response</strong>Lantern is posting the reviewed placement back now.</p>
           <form id="lms-return-form" method="post" action="${escapeHtml(submission.returnUrl)}">
-            ${Object.entries(submission.formFields)
-              .map(
-                ([name, value]) =>
-                  `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`,
-              )
-              .join('')}
+            ${
+      Object.entries(submission.formFields)
+        .map(
+          ([name, value]) =>
+            `<input type="hidden" name="${escapeHtml(name)}" value="${escapeHtml(value)}">`,
+        )
+        .join('')
+    }
             <button type="submit" class="button-primary">Return to LMS</button>
           </form>
           <p class="helper-copy">If the LMS does not resume automatically, use the button above.</p>
         </section>`
-          }
+  }
         </div>
       </div>
       ${
-        submission === null
-          ? ''
-          : `<script>
+    submission === null ? '' : `<script>
         window.addEventListener("load", () => {
           document.getElementById("lms-return-form")?.submit();
         }, { once: true });
       </script>`
-      }
+  }
     </main>
   </body>
 </html>`;

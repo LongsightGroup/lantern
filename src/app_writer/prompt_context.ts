@@ -56,7 +56,7 @@ function scorePromptContextEntry(
 
   if (
     entry.referenceAppIds?.some((referenceAppId) => input.referenceAppIds.has(referenceAppId)) ===
-    true
+      true
   ) {
     score += 90;
   }

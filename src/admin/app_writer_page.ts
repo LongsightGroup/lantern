@@ -39,21 +39,27 @@ export function renderAppWriterPage(
         <form class="stack app-writer-form" method="post" action="/admin/app-writer" data-app-writer-form>
           <label class="field">
             <span>Prompt</span>
-            <textarea name="promptText" rows="8" required>${escapeHtml(
-              input.promptText ?? '',
-            )}</textarea>
+            <textarea name="promptText" rows="8" required>${
+      escapeHtml(
+        input.promptText ?? '',
+      )
+    }</textarea>
           </label>
           <label class="field">
             <span>Audience</span>
-            <input name="audience" value="${escapeHtml(
-              input.audience ?? '',
-            )}" placeholder="Grade 4 algebra students">
+            <input name="audience" value="${
+      escapeHtml(
+        input.audience ?? '',
+      )
+    }" placeholder="Grade 4 algebra students">
           </label>
           <label class="field">
             <span>Content</span>
-            <textarea name="contentSummary" rows="4" placeholder="Vocabulary list, concepts, source passage, or practice items">${escapeHtml(
-              input.contentSummary ?? '',
-            )}</textarea>
+            <textarea name="contentSummary" rows="4" placeholder="Vocabulary list, concepts, source passage, or practice items">${
+      escapeHtml(
+        input.contentSummary ?? '',
+      )
+    }</textarea>
           </label>
           <label class="field">
             <span>Grading</span>
@@ -66,9 +72,11 @@ export function renderAppWriterPage(
           </label>
           <label class="field">
             <span>Requested app ID</span>
-            <input name="requestedAppId" value="${escapeHtml(
-              input.requestedAppId ?? '',
-            )}" placeholder="optional-app-id">
+            <input name="requestedAppId" value="${
+      escapeHtml(
+        input.requestedAppId ?? '',
+      )
+    }" placeholder="optional-app-id">
           </label>
           <div class="button-row">
             <button class="button-primary app-writer-submit-button" type="submit" data-app-writer-submit>
@@ -155,15 +163,17 @@ export function renderAppGenerationRunPage(input: {
           ${renderGenerationProgress(run.status)}
           ${renderLiveProgress({ run, workspace })}
           ${
-            refreshWhileRunning
-              ? `<p class="line-copy">Lantern is still working. This page refreshes while generation runs, and the run URL can be reopened later.</p>
+      refreshWhileRunning
+        ? `<p class="line-copy">Lantern is still working. This page refreshes while generation runs, and the run URL can be reopened later.</p>
                 <div class="button-row">
-                  <a class="button-secondary" href="/admin/app-writer/runs/${escapeHtml(
-                    run.generationId,
-                  )}">Refresh status</a>
+                  <a class="button-secondary" href="/admin/app-writer/runs/${
+          escapeHtml(
+            run.generationId,
+          )
+        }">Refresh status</a>
                 </div>`
-              : ''
-          }
+        : ''
+    }
           <p>${escapeHtml(run.promptText)}</p>
           <div class="facts">
             <div class="fact">
@@ -188,32 +198,42 @@ export function renderAppGenerationRunPage(input: {
           <section class="fact">
             <span class="fact-label">Package version</span>
             ${
-              packageVersion === null
-                ? `<strong class="fact-value">Not saved</strong>`
-                : `<a class="button-secondary" href="/admin/packages/${escapeHtml(
-                    packageVersion.appId,
-                  )}/versions/${escapeHtml(packageVersion.version)}">${escapeHtml(
-                    packageVersion.approvalStatus === 'approved'
-                      ? 'Open approved version'
-                      : 'Open pending version',
-                  )}</a>`
-            }
+      packageVersion === null
+        ? `<strong class="fact-value">Not saved</strong>`
+        : `<a class="button-secondary" href="/admin/packages/${
+          escapeHtml(
+            packageVersion.appId,
+          )
+        }/versions/${escapeHtml(packageVersion.version)}">${
+          escapeHtml(
+            packageVersion.approvalStatus === 'approved'
+              ? 'Open approved version'
+              : 'Open pending version',
+          )
+        }</a>`
+    }
           </section>
           <section class="fact">
             <span class="fact-label">Preview action</span>
             ${
-              packageVersion === null
-                ? '<strong class="fact-value">Not available</strong><p class="micro muted">Lantern saves previewable packages only after validation and preview checks pass.</p>'
-                : packageVersion.approvalStatus === 'approved'
-                  ? `<a class="button-secondary" href="/admin/packages/${escapeHtml(
-                      packageVersion.appId,
-                    )}/versions/${escapeHtml(packageVersion.version)}/preview">Test launch</a>`
-                  : `<a class="button-secondary" href="/admin/packages/${escapeHtml(
-                      packageVersion.appId,
-                    )}/versions/${escapeHtml(
-                      packageVersion.version,
-                    )}/preview">Test pending version</a>`
-            }
+      packageVersion === null
+        ? '<strong class="fact-value">Not available</strong><p class="micro muted">Lantern saves previewable packages only after validation and preview checks pass.</p>'
+        : packageVersion.approvalStatus === 'approved'
+        ? `<a class="button-secondary" href="/admin/packages/${
+          escapeHtml(
+            packageVersion.appId,
+          )
+        }/versions/${escapeHtml(packageVersion.version)}/preview">Test launch</a>`
+        : `<a class="button-secondary" href="/admin/packages/${
+          escapeHtml(
+            packageVersion.appId,
+          )
+        }/versions/${
+          escapeHtml(
+            packageVersion.version,
+          )
+        }/preview">Test pending version</a>`
+    }
           </section>
           <section class="fact">
             <span class="fact-label">Selected context</span>
@@ -226,9 +246,9 @@ export function renderAppGenerationRunPage(input: {
       <div class="panel-body stack">
         <p class="section-label">Plan</p>
         ${
-          run.appPlan === null
-            ? '<p class="line-copy">No plan was recorded.</p>'
-            : `<div class="line-list">
+      run.appPlan === null
+        ? '<p class="line-copy">No plan was recorded.</p>'
+        : `<div class="line-list">
                 <article class="line-item">
                   <p class="line-title">${escapeHtml(run.appPlan.title)}</p>
                   <p class="line-copy">${escapeHtml(run.appPlan.description)}</p>
@@ -242,7 +262,7 @@ export function renderAppGenerationRunPage(input: {
                   <p class="line-copy">${escapeHtml(run.appPlan.capabilities.join(', '))}</p>
                 </article>
               </div>`
-        }
+    }
       </div>
     </section>
     <section class="panel">
@@ -276,12 +296,14 @@ export function renderAppGenerationRunPage(input: {
         ${renderActivity(run, input.activityEvents ?? [])}
       </div>
     </section>
-    ${renderGeneratedPackageRuntimeLog({
-      packageVersion,
-      workspace,
-      latestPreviewSession,
-      previewEvidence,
-    })}
+    ${
+      renderGeneratedPackageRuntimeLog({
+        packageVersion,
+        workspace,
+        latestPreviewSession,
+        previewEvidence,
+      })
+    }
     ${refreshWhileRunning ? renderGenerationRefreshScript(run.generationId) : ''}`,
   });
 }
@@ -302,10 +324,14 @@ function renderGenerationProgress(status: AppGenerationStatus): string {
   const activeIndex = progressIndexForStatus(status);
 
   return `<ol class="generation-progress" aria-label="Generation progress">
-    ${steps
+    ${
+    steps
       .map((step, index) => {
-        const stateClass =
-          index < activeIndex ? 'is-complete' : index === activeIndex ? 'is-current' : 'is-pending';
+        const stateClass = index < activeIndex
+          ? 'is-complete'
+          : index === activeIndex
+          ? 'is-current'
+          : 'is-pending';
 
         return `<li class="${stateClass}" aria-current="${
           index === activeIndex ? 'step' : 'false'
@@ -314,7 +340,8 @@ function renderGenerationProgress(status: AppGenerationStatus): string {
           <span>${escapeHtml(step.label)}</span>
         </li>`;
       })
-      .join('')}
+      .join('')
+  }
   </ol>`;
 }
 
@@ -327,23 +354,29 @@ function renderLiveProgress(input: {
 
   return `<div class="line-list app-writer-live-progress" data-app-writer-live-progress>
     <article class="line-item">
-      <p class="line-title">Live progress <span class="status-badge status-pending" data-app-writer-live-status>${escapeHtml(
-        formatStatus(input.run.status),
-      )}</span></p>
-      <p class="line-copy" data-app-writer-live-step>${escapeHtml(
-        currentStep === null
-          ? 'No generation plan step is active yet.'
-          : `${formatProgressStage(currentStep.id)}: ${currentStep.summary}`,
-      )}</p>
-      <p class="micro muted" data-app-writer-live-detail>${escapeHtml(
-        [
-          `Repairs ${input.run.repairAttemptCount}`,
-          `Findings ${input.run.validationFindings.length}`,
-          modelAttempt === undefined
-            ? 'Model attempt unknown'
-            : `Model ${modelAttempt.stage} attempt ${modelAttempt.attempt} ${modelAttempt.outcome}`,
-        ].join(' · '),
-      )}</p>
+      <p class="line-title">Live progress <span class="status-badge status-pending" data-app-writer-live-status>${
+    escapeHtml(
+      formatStatus(input.run.status),
+    )
+  }</span></p>
+      <p class="line-copy" data-app-writer-live-step>${
+    escapeHtml(
+      currentStep === null
+        ? 'No generation plan step is active yet.'
+        : `${formatProgressStage(currentStep.id)}: ${currentStep.summary}`,
+    )
+  }</p>
+      <p class="micro muted" data-app-writer-live-detail>${
+    escapeHtml(
+      [
+        `Repairs ${input.run.repairAttemptCount}`,
+        `Findings ${input.run.validationFindings.length}`,
+        modelAttempt === undefined
+          ? 'Model attempt unknown'
+          : `Model ${modelAttempt.stage} attempt ${modelAttempt.attempt} ${modelAttempt.outcome}`,
+      ].join(' · '),
+    )
+  }</p>
     </article>
   </div>`;
 }
@@ -449,7 +482,8 @@ function renderGeneratedFilesSummary(input: {
     }));
 
     return `<div class="line-list">
-      ${fileRows
+      ${
+      fileRows
         .map(
           (row) =>
             `<article class="line-item">
@@ -457,19 +491,26 @@ function renderGeneratedFilesSummary(input: {
             <p class="line-copy">${escapeHtml(row.path)}</p>
           </article>`,
         )
-        .join('')}
+        .join('')
+    }
     </div>
-    <p class="micro muted">Workspace captured after repair attempt ${escapeHtml(
-      String(input.workspace.repairAttemptCount),
-    )}; ${escapeHtml(
-      String(input.workspace.validationFindings.length),
-    )} validation or preview findings currently attached.</p>
+    <p class="micro muted">Workspace captured after repair attempt ${
+      escapeHtml(
+        String(input.workspace.repairAttemptCount),
+      )
+    }; ${
+      escapeHtml(
+        String(input.workspace.validationFindings.length),
+      )
+    } validation or preview findings currently attached.</p>
     ${
       input.packageVersion === null
         ? '<p class="micro muted">No immutable package version has been saved yet.</p>'
-        : `<p class="micro muted">Saved package checksum ${escapeHtml(
+        : `<p class="micro muted">Saved package checksum ${
+          escapeHtml(
             input.packageVersion.artifact.digest,
-          )}.</p>`
+          )
+        }.</p>`
     }`;
   }
 
@@ -495,7 +536,8 @@ function renderGeneratedFilesSummary(input: {
   ];
 
   return `<div class="line-list">
-    ${fileRows
+    ${
+    fileRows
       .map(
         (row) =>
           `<article class="line-item">
@@ -503,7 +545,8 @@ function renderGeneratedFilesSummary(input: {
           <p class="line-copy">${escapeHtml(row.path)}</p>
         </article>`,
       )
-      .join('')}
+      .join('')
+  }
   </div>
   <p class="micro muted">Checksum ${escapeHtml(input.packageVersion.artifact.digest)}.</p>`;
 }
@@ -514,23 +557,31 @@ function renderGenerationPlan(workspace: AppGenerationWorkspaceRecord | null): s
   }
 
   return `<div class="line-list">
-    ${workspace.generationPlan
+    ${
+    workspace.generationPlan
       .map(
         (step) =>
           `<article class="line-item">
-          <p class="line-title">${escapeHtml(
-            formatProgressStage(step.id),
-          )} <span class="status-badge ${escapeHtml(
-            statusClassForPlanStep(step.status),
-          )}">${escapeHtml(step.status)}</span></p>
+          <p class="line-title">${
+            escapeHtml(
+              formatProgressStage(step.id),
+            )
+          } <span class="status-badge ${
+            escapeHtml(
+              statusClassForPlanStep(step.status),
+            )
+          }">${escapeHtml(step.status)}</span></p>
           <p class="line-copy">${escapeHtml(step.summary)}</p>
-          <p class="micro muted">${escapeHtml(renderPlanStepTiming(step))} · ${escapeHtml(
-            String(step.diagnosticCount),
-          )} diagnostics.</p>
+          <p class="micro muted">${escapeHtml(renderPlanStepTiming(step))} · ${
+            escapeHtml(
+              String(step.diagnosticCount),
+            )
+          } diagnostics.</p>
           ${renderPlanStepResult(step)}
         </article>`,
       )
-      .join('')}
+      .join('')
+  }
   </div>`;
 }
 
@@ -545,9 +596,11 @@ function renderPreviewSummary(workspace: AppGenerationWorkspaceRecord | null): s
     <article class="line-item">
       <p class="line-title">Preview summary</p>
       <p class="line-copy">${escapeHtml(previewResult.summary)}</p>
-      <p class="micro muted">${escapeHtml(
-        `${previewResult.passedAssertionCount}/${previewResult.assertionCount} assertions passed · ${previewResult.runtimeLogCount} runtime log entries`,
-      )}</p>
+      <p class="micro muted">${
+    escapeHtml(
+      `${previewResult.passedAssertionCount}/${previewResult.assertionCount} assertions passed · ${previewResult.runtimeLogCount} runtime log entries`,
+    )
+  }</p>
     </article>
   </div>`;
 }
@@ -555,10 +608,12 @@ function renderPreviewSummary(workspace: AppGenerationWorkspaceRecord | null): s
 function renderPlanStepTiming(
   step: AppGenerationWorkspaceRecord['generationPlan'][number],
 ): string {
-  const started =
-    step.startedAt === null ? 'not started' : `started ${formatDateTime(step.startedAt)}`;
-  const completed =
-    step.completedAt === null ? 'not completed' : `completed ${formatDateTime(step.completedAt)}`;
+  const started = step.startedAt === null
+    ? 'not started'
+    : `started ${formatDateTime(step.startedAt)}`;
+  const completed = step.completedAt === null
+    ? 'not completed'
+    : `completed ${formatDateTime(step.completedAt)}`;
 
   return `${started}; ${completed}`;
 }
@@ -572,11 +627,13 @@ function renderPlanStepResult(
     const assertionCount = readUnknownNumber(step.result.assertionCount);
     const passedAssertionCount = readUnknownNumber(step.result.passedAssertionCount);
 
-    return `<p class="micro muted">${escapeHtml(
-      assertionCount === null || passedAssertionCount === null
-        ? summary
-        : `${summary} Assertions ${passedAssertionCount}/${assertionCount}.`,
-    )}</p>`;
+    return `<p class="micro muted">${
+      escapeHtml(
+        assertionCount === null || passedAssertionCount === null
+          ? summary
+          : `${summary} Assertions ${passedAssertionCount}/${assertionCount}.`,
+      )
+    }</p>`;
   }
 
   const keys = Object.keys(step.result);
@@ -585,13 +642,15 @@ function renderPlanStepResult(
     return '';
   }
 
-  return `<p class="micro muted">Result: ${escapeHtml(
-    keys
-      .filter((key) => key !== 'runtimeLog')
-      .slice(0, 4)
-      .map((key) => `${key}=${formatResultValue(step.result[key])}`)
-      .join(', '),
-  )}</p>`;
+  return `<p class="micro muted">Result: ${
+    escapeHtml(
+      keys
+        .filter((key) => key !== 'runtimeLog')
+        .slice(0, 4)
+        .map((key) => `${key}=${formatResultValue(step.result[key])}`)
+        .join(', '),
+    )
+  }</p>`;
 }
 
 function statusClassForPlanStep(status: string): string {
@@ -616,9 +675,9 @@ function selectCurrentGenerationPlanStep(
 
   return (
     workspace.generationPlan.find((step) => step.status === 'running') ??
-    workspace.generationPlan.find((step) => step.status === 'failed') ??
-    [...workspace.generationPlan].reverse().find((step) => step.status !== 'pending') ??
-    null
+      workspace.generationPlan.find((step) => step.status === 'failed') ??
+      [...workspace.generationPlan].reverse().find((step) => step.status !== 'pending') ??
+      null
   );
 }
 
@@ -690,28 +749,38 @@ function renderModelRequestMetadata(run: AppGenerationRunRecord): string {
   }
 
   return `<div class="line-list">
-    ${run.modelRequestMetadata
+    ${
+    run.modelRequestMetadata
       .map(
         (metadata) =>
           `<article class="line-item">
-          <p class="line-title">${escapeHtml(metadata.stage)} attempt ${escapeHtml(
-            String(metadata.attempt),
-          )} <span class="status-badge ${escapeHtml(
-            statusClassForModelOutcome(metadata.outcome),
-          )}">${escapeHtml(metadata.outcome)}</span></p>
+          <p class="line-title">${escapeHtml(metadata.stage)} attempt ${
+            escapeHtml(
+              String(metadata.attempt),
+            )
+          } <span class="status-badge ${
+            escapeHtml(
+              statusClassForModelOutcome(metadata.outcome),
+            )
+          }">${escapeHtml(metadata.outcome)}</span></p>
           <p class="line-copy">${escapeHtml(metadata.provider)}${
             metadata.model === null ? '' : ` · ${escapeHtml(metadata.model)}`
           }</p>
-          <p class="micro muted">Request ${escapeHtml(
-            metadata.requestId ?? 'not provided',
-          )}; ${escapeHtml(
-            formatNullableNumber(metadata.responseCharacters),
-          )} characters; ${escapeHtml(formatNullableNumber(metadata.durationMs))} ms${
+          <p class="micro muted">Request ${
+            escapeHtml(
+              metadata.requestId ?? 'not provided',
+            )
+          }; ${
+            escapeHtml(
+              formatNullableNumber(metadata.responseCharacters),
+            )
+          } characters; ${escapeHtml(formatNullableNumber(metadata.durationMs))} ms${
             metadata.errorCode === null ? '' : `; ${escapeHtml(metadata.errorCode)}`
           }.</p>
         </article>`,
       )
-      .join('')}
+      .join('')
+  }
   </div>`;
 }
 
@@ -733,7 +802,8 @@ function renderFindings(run: AppGenerationRunRecord): string {
   }
 
   return `<div class="line-list">
-    ${run.validationFindings
+    ${
+    run.validationFindings
       .map(
         (finding) =>
           `<article class="line-item">
@@ -745,7 +815,8 @@ function renderFindings(run: AppGenerationRunRecord): string {
           }
         </article>`,
       )
-      .join('')}
+      .join('')
+  }
   </div>`;
 }
 
@@ -759,14 +830,16 @@ function renderFindingDetail(
     return '';
   }
 
-  return `<p class="micro muted">Detail: ${escapeHtml(
-    [
-      harnessError === null ? null : `harness=${harnessError}`,
-      modelRequestCount === null ? null : `model requests=${modelRequestCount}`,
-    ]
-      .filter((part): part is string => part !== null)
-      .join(', '),
-  )}</p>`;
+  return `<p class="micro muted">Detail: ${
+    escapeHtml(
+      [
+        harnessError === null ? null : `harness=${harnessError}`,
+        modelRequestCount === null ? null : `model requests=${modelRequestCount}`,
+      ]
+        .filter((part): part is string => part !== null)
+        .join(', '),
+    )
+  }</p>`;
 }
 
 function readManifestRecord(record: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -818,16 +891,19 @@ function renderActivity(run: AppGenerationRunRecord, events: AuditEventRecord[])
 
 function renderActivityEvent(event: AuditEventRecord): string {
   const progressStage = readAuditString(event.detail, 'modelProgressStage');
-  const progressLabel =
-    progressStage === null
-      ? ''
-      : ` <span class="status-badge status-pending">${escapeHtml(
-          formatProgressStage(progressStage),
-        )}</span>`;
+  const progressLabel = progressStage === null
+    ? ''
+    : ` <span class="status-badge status-pending">${
+      escapeHtml(
+        formatProgressStage(progressStage),
+      )
+    }</span>`;
 
-  return `<strong>${escapeHtml(
-    formatDateTime(event.occurredAt),
-  )}</strong>${progressLabel} ${escapeHtml(event.summary)}`;
+  return `<strong>${
+    escapeHtml(
+      formatDateTime(event.occurredAt),
+    )
+  }</strong>${progressLabel} ${escapeHtml(event.summary)}`;
 }
 
 function renderGeneratedPackageRuntimeLog(input: {
@@ -840,37 +916,47 @@ function renderGeneratedPackageRuntimeLog(input: {
     return '';
   }
 
-  const previewHref = `/admin/packages/${escapeHtml(
-    input.packageVersion.appId,
-  )}/versions/${escapeHtml(input.packageVersion.version)}/preview`;
+  const previewHref = `/admin/packages/${
+    escapeHtml(
+      input.packageVersion.appId,
+    )
+  }/versions/${escapeHtml(input.packageVersion.version)}/preview`;
 
   return `<section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Runtime log</p>
         ${
-          input.latestPreviewSession === null
-            ? `<p class="line-copy">${escapeHtml(
-                readPreviewStepResult(input.workspace) === null
-                  ? 'No manual runtime preview session has been recorded for this generated package yet.'
-                  : `Generation preview completed: ${
-                      readPreviewStepResult(input.workspace)?.summary ?? ''
-                    } No manual test launch has been opened yet.`,
-              )}</p>
+    input.latestPreviewSession === null
+      ? `<p class="line-copy">${
+        escapeHtml(
+          readPreviewStepResult(input.workspace) === null
+            ? 'No manual runtime preview session has been recorded for this generated package yet.'
+            : `Generation preview completed: ${
+              readPreviewStepResult(input.workspace)?.summary ?? ''
+            } No manual test launch has been opened yet.`,
+        )
+      }</p>
               <div class="button-row">
                 <a class="button-secondary" href="${previewHref}">Open test launch</a>
               </div>`
-            : `<p class="line-copy">Latest test launch <strong>${escapeHtml(
-                input.latestPreviewSession.sessionId,
-              )}</strong> ran as ${escapeHtml(
-                input.latestPreviewSession.launch.userRole,
-              )} in course <span class="inline-code">${escapeHtml(
-                input.latestPreviewSession.launch.courseId,
-              )}</span>.</p>
+      : `<p class="line-copy">Latest test launch <strong>${
+        escapeHtml(
+          input.latestPreviewSession.sessionId,
+        )
+      }</strong> ran as ${
+        escapeHtml(
+          input.latestPreviewSession.launch.userRole,
+        )
+      } in course <span class="inline-code">${
+        escapeHtml(
+          input.latestPreviewSession.launch.courseId,
+        )
+      }</span>.</p>
               ${renderPreviewEvidence(input.previewEvidence)}
               <div class="button-row">
                 <a class="button-secondary" href="${previewHref}">Open full test launch log</a>
               </div>`
-        }
+  }
       </div>
     </section>`;
 }
@@ -881,7 +967,8 @@ function renderPreviewEvidence(records: PreviewEvidenceRecord[]): string {
   }
 
   return `<div class="line-list">
-    ${records
+    ${
+    records
       .map(
         (record) =>
           `<article class="line-item">
@@ -894,7 +981,8 @@ function renderPreviewEvidence(records: PreviewEvidenceRecord[]): string {
           <p class="line-copy">${escapeHtml(record.summary)}</p>
         </article>`,
       )
-      .join('')}
+      .join('')
+  }
   </div>`;
 }
 

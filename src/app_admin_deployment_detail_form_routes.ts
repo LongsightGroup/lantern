@@ -47,9 +47,11 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
             notice: {
               tone: 'error',
               title: `${formatLmsLabel(lms)} version picker unavailable`,
-              detail: `Import the app package before you attempt to save the ${formatLmsLabel(
-                lms,
-              )} deployment pin.`,
+              detail: `Import the app package before you attempt to save the ${
+                formatLmsLabel(
+                  lms,
+                )
+              } deployment pin.`,
             },
           }),
           404,
@@ -81,9 +83,11 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         attemptId: null,
         lineItemBindingId: null,
         status: 'succeeded',
-        summary: `Pinned an exact reviewed package version for the ${formatLmsLabel(
-          lms,
-        )} deployment.`,
+        summary: `Pinned an exact reviewed package version for the ${
+          formatLmsLabel(
+            lms,
+          )
+        } deployment.`,
         detail: {
           lms,
           deploymentSlug: deployment.slug,
@@ -111,7 +115,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
               error,
             ),
           },
-        ),
+        )
       );
     }
   });
@@ -141,9 +145,11 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
             notice: {
               tone: 'error',
               title: `${formatLmsLabel(lms)} install unavailable`,
-              detail: `Import the app package before you attempt to save the ${formatLmsLabel(
-                lms,
-              )} binding.`,
+              detail: `Import the app package before you attempt to save the ${
+                formatLmsLabel(
+                  lms,
+                )
+              } binding.`,
             },
           }),
           404,
@@ -197,7 +203,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
               error,
             ),
           },
-        ),
+        )
       );
     }
   });
@@ -243,11 +249,10 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
             : `${formatLmsLabel(lms)} LTI profile update blocked`,
           error,
           {
-            selectedLms:
-              lms ??
+            selectedLms: lms ??
               parseOptionalManagedDeploymentLms(new URL(context.req.url).searchParams.get('lms')),
           },
-        ),
+        )
       );
     }
   });

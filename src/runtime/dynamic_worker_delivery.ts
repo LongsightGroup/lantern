@@ -253,8 +253,8 @@ async function readRuntimeWorkerAssetResponse(input: {
 
   return {
     bytes: new Uint8Array(await input.response.arrayBuffer()),
-    contentType:
-      input.response.headers.get('content-type') ?? contentTypeForRuntimePath(input.relativePath),
+    contentType: input.response.headers.get('content-type') ??
+      contentTypeForRuntimePath(input.relativePath),
   };
 }
 

@@ -4,11 +4,11 @@
   "compatibility_date": "2026-04-06",
   "compatibility_flags": ["nodejs_compat"],
   "browser": {
-    "binding": "BROWSER",
+    "binding": "BROWSER"
   },
   "build": {
     "command": "deno task build:app-writer-platform",
-    "watch_dir": ["src", "sdk", "schemas", "deno.json", "deno.lock"],
+    "watch_dir": ["src", "sdk", "schemas", "deno.json", "deno.lock"]
   },
-  "no_bundle": true,
+  "no_bundle": true
 }

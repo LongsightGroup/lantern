@@ -159,10 +159,9 @@ async function requireApprovedLaunchPackageVersion(input: {
 }
 
 function readReviewedPlacementId(customClaim: unknown): string | null {
-  const custom =
-    customClaim === undefined
-      ? null
-      : requireRecordClaim(customClaim, 'Launch custom claim must be an object when provided.');
+  const custom = customClaim === undefined
+    ? null
+    : requireRecordClaim(customClaim, 'Launch custom claim must be an object when provided.');
 
   if (!custom || custom[LANTERN_PLACEMENT_CUSTOM_KEY] === undefined) {
     return null;
@@ -177,9 +176,9 @@ function readReviewedPlacementId(customClaim: unknown): string | null {
 function resolveCanonicalContentPath(packageVersion: PackageVersionRecord): string {
   const contentFiles = Array.isArray(packageVersion.manifestJson.content_files)
     ? packageVersion.manifestJson.content_files
-        .filter((item): item is string => typeof item === 'string')
-        .map((item) => item.trim())
-        .filter((item) => item !== '')
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter((item) => item !== '')
     : [];
   const firstContentFile = contentFiles[0];
 

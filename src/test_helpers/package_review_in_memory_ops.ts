@@ -98,32 +98,30 @@ export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryStat
 
     recordBrokerVerificationRun(input) {
       assertBrokerVerificationRunInput(input);
-      const official: OfficialBrokerCertificationStatus =
-        input.source === '1edtech'
-          ? {
-              state: input.certificationState ?? 'notCertified',
-              checkedAt: input.checkedAt,
-              directoryUrl: input.detailUrl,
-            }
-          : latestOfficialForScope(state, input.scope);
-      const nextRecord =
-        input.source === '1edtech'
-          ? buildBrokerVerificationStatus({
-              supportedPath: input.scope,
-              internal: null,
-              official,
-            })
-          : buildBrokerVerificationStatus({
-              supportedPath: input.scope,
-              internal: {
-                source: input.source,
-                status: input.status as 'failed' | 'passed' | 'pending',
-                checkedAt: input.checkedAt,
-                summary: input.summary,
-                evidenceUrl: input.detailUrl,
-              },
-              official,
-            });
+      const official: OfficialBrokerCertificationStatus = input.source === '1edtech'
+        ? {
+          state: input.certificationState ?? 'notCertified',
+          checkedAt: input.checkedAt,
+          directoryUrl: input.detailUrl,
+        }
+        : latestOfficialForScope(state, input.scope);
+      const nextRecord = input.source === '1edtech'
+        ? buildBrokerVerificationStatus({
+          supportedPath: input.scope,
+          internal: null,
+          official,
+        })
+        : buildBrokerVerificationStatus({
+          supportedPath: input.scope,
+          internal: {
+            source: input.source,
+            status: input.status as 'failed' | 'passed' | 'pending',
+            checkedAt: input.checkedAt,
+            summary: input.summary,
+            evidenceUrl: input.detailUrl,
+          },
+          official,
+        });
 
       state.brokerVerifications.push(cloneRecord(nextRecord));
 
@@ -151,53 +149,53 @@ export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryStat
         state.certificationWorkflowStatuses = state.certificationWorkflowStatuses
           .map((workflowStatus) =>
             workflowStatus.workflowKey === input.workflowKey &&
-            shouldReplaceWorkflowEvidence(
-              workflowStatus.latestInternal?.checkedAt ?? null,
-              input.checkedAt,
-            )
+              shouldReplaceWorkflowEvidence(
+                workflowStatus.latestInternal?.checkedAt ?? null,
+                input.checkedAt,
+              )
               ? {
-                  workflowKey: workflowStatus.workflowKey,
-                  latestInternal: {
-                    deploymentRecordId,
-                    deploymentLabel: resolveDeploymentLabel(state, deploymentRecordId),
-                    status: input.status as 'failed' | 'passed' | 'pending',
-                    checkedAt: input.checkedAt,
-                    summary: input.summary,
-                    evidenceUrl: input.detailUrl,
-                  },
-                }
-              : workflowStatus,
+                workflowKey: workflowStatus.workflowKey,
+                latestInternal: {
+                  deploymentRecordId,
+                  deploymentLabel: resolveDeploymentLabel(state, deploymentRecordId),
+                  status: input.status as 'failed' | 'passed' | 'pending',
+                  checkedAt: input.checkedAt,
+                  summary: input.summary,
+                  evidenceUrl: input.detailUrl,
+                },
+              }
+              : workflowStatus
           )
           .map(cloneRecord);
       }
 
       if (input.source === '1edtech') {
         state.controlPlaneDeployments = state.controlPlaneDeployments.map((deployment) =>
-          applyOfficialVerificationToDeployment(deployment, input.scope, official),
+          applyOfficialVerificationToDeployment(deployment, input.scope, official)
         );
         state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
-          applyOfficialVerificationToDetail(detail, input.scope, official),
+          applyOfficialVerificationToDetail(detail, input.scope, official)
         );
       } else if (input.deploymentRecordId !== null) {
         state.controlPlaneDeployments = state.controlPlaneDeployments.map((deployment) =>
           deployment.deploymentId === input.deploymentRecordId
             ? {
-                ...deployment,
-                brokerVerification: cloneRecord(nextRecord),
-              }
-            : deployment,
+              ...deployment,
+              brokerVerification: cloneRecord(nextRecord),
+            }
+            : deployment
         );
         state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
           detail.inventory.deploymentId === input.deploymentRecordId
             ? {
-                ...detail,
-                inventory: {
-                  ...detail.inventory,
-                  brokerVerification: cloneRecord(nextRecord),
-                },
+              ...detail,
+              inventory: {
+                ...detail.inventory,
                 brokerVerification: cloneRecord(nextRecord),
-              }
-            : detail,
+              },
+              brokerVerification: cloneRecord(nextRecord),
+            }
+            : detail
         );
       }
 
@@ -251,17 +249,17 @@ export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryStat
           binding: deployment?.binding ?? null,
           runtimeSession: runtimeSession
             ? buildRetryRuntimeSessionLookup({
-                sessionId: runtimeSession.sessionId,
-                attemptId: runtimeSession.attemptId,
-                deploymentRecordId: runtimeSession.deploymentRecordId,
-                deploymentSlug: runtimeSession.deploymentSlug,
-                appId: runtimeSession.appId,
-                packageVersionId: runtimeSession.packageVersionId,
-                packageVersion: runtimeSession.packageVersion,
-                services: runtimeSession.services,
-                createdAt: runtimeSession.createdAt,
-                expiresAt: runtimeSession.expiresAt,
-              })
+              sessionId: runtimeSession.sessionId,
+              attemptId: runtimeSession.attemptId,
+              deploymentRecordId: runtimeSession.deploymentRecordId,
+              deploymentSlug: runtimeSession.deploymentSlug,
+              appId: runtimeSession.appId,
+              packageVersionId: runtimeSession.packageVersionId,
+              packageVersion: runtimeSession.packageVersion,
+              services: runtimeSession.services,
+              createdAt: runtimeSession.createdAt,
+              expiresAt: runtimeSession.expiresAt,
+            })
             : null,
         }),
       );

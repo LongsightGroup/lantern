@@ -95,9 +95,10 @@ export interface InMemoryDeepLinkingRepository {
   ): Promise<DeepLinkingResourceOption[]>;
 }
 
-export type InMemoryRepository = PackageReviewRepository &
-  InMemoryOpsRepository &
-  InMemoryDeepLinkingRepository;
+export type InMemoryRepository =
+  & PackageReviewRepository
+  & InMemoryOpsRepository
+  & InMemoryDeepLinkingRepository;
 
 export type InMemoryPackageReviewRepositoryOptions = {
   packageVersions?: PackageVersionRecord[];
@@ -234,12 +235,11 @@ export function reviewPackageVersion(
     );
   }
 
-  const normalizedAccessibilityReview =
-    accessibilityReview === null
-      ? (() => {
-          throw new Error('Accessibility review is required for new review decisions.');
-        })()
-      : parseAccessibilityReview(accessibilityReview);
+  const normalizedAccessibilityReview = accessibilityReview === null
+    ? (() => {
+      throw new Error('Accessibility review is required for new review decisions.');
+    })()
+    : parseAccessibilityReview(accessibilityReview);
 
   const nextRecord = cloneRecord({
     ...existing,

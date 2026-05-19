@@ -30,8 +30,8 @@ export async function seedReferencePackages(input: {
 }): Promise<LocalSeedSummary> {
   const storageRoot = input.storageRoot;
   const snapshotStore = input.snapshotStore ?? getDefaultPackageSnapshotStore();
-  const reviewNotes =
-    input.reviewNotes ?? 'Approved by Lantern local seed for shipped reference packages.';
+  const reviewNotes = input.reviewNotes ??
+    'Approved by Lantern local seed for shipped reference packages.';
   const accessibilityReview = input.accessibilityReview ?? defaultApprovedAccessibilityReview();
   let importedCount = 0;
   let reusedSnapshotCount = 0;

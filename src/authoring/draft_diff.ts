@@ -30,7 +30,7 @@ export function buildDraftDiff(input: {
         after: generatedByPath.get(path) ?? '',
         hasBefore: currentByPath.has(path),
         hasAfter: generatedByPath.has(path),
-      }),
+      })
     );
 }
 

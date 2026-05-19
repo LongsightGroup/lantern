@@ -19,7 +19,7 @@ Deno.test('Moodle dynamic registration falls back to deployment_id embedded in t
 
         if (
           url ===
-          'https://moodle.example/mod/lti/openid-configuration.php?deployment_id=moodle-deployment-777'
+            'https://moodle.example/mod/lti/openid-configuration.php?deployment_id=moodle-deployment-777'
         ) {
           return Promise.resolve(
             new Response(

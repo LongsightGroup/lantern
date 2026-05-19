@@ -45,10 +45,12 @@ export interface InventoryQueryRow {
   internalBrokerVerificationCheckedAt: Date | string | null;
   officialBrokerVerificationScope: BrokerVerificationStatus['supportedPath'] | null;
   officialBrokerVerificationStatus: PersistedBrokerVerificationRunStatus | null;
-  officialBrokerVerificationCertificationState: Exclude<
-    OfficialCertificationState,
-    'notCertified'
-  > | null;
+  officialBrokerVerificationCertificationState:
+    | Exclude<
+      OfficialCertificationState,
+      'notCertified'
+    >
+    | null;
   officialBrokerVerificationDetailUrl: string | null;
   officialBrokerVerificationCheckedAt: Date | string | null;
   bindingCanvasEnvironment: string | null;

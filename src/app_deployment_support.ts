@@ -63,10 +63,9 @@ export async function loadDeploymentDetailState(
   });
   const primaryDeployment = getPrimaryManagedDeployment(slots);
   const canvasDeployment = getPersistedManagedDeployment(slots, 'canvas');
-  const nrpsVerification =
-    canvasDeployment === null
-      ? null
-      : await getLatestNrpsVerification(repository, canvasDeployment.id);
+  const nrpsVerification = canvasDeployment === null
+    ? null
+    : await getLatestNrpsVerification(repository, canvasDeployment.id);
   const [canvasDynamicRegistrationUrl, moodleDynamicRegistrationUrl, sakaiDynamicRegistrationUrl] =
     await Promise.all([
       getCanvasDynamicRegistrationUrlSafe(repository, appId, appOrigin),
@@ -191,8 +190,9 @@ export async function getLatestNrpsVerification(
     return null;
   }
 
-  const memberCount =
-    typeof event.detail.memberCount === 'number' ? event.detail.memberCount : null;
+  const memberCount = typeof event.detail.memberCount === 'number'
+    ? event.detail.memberCount
+    : null;
   const contextId = typeof event.detail.contextId === 'string' ? event.detail.contextId : null;
 
   return {

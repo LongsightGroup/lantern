@@ -95,17 +95,27 @@ Deno.test('GET /lti/login persists login state and redirects to the Canvas autho
   const response = await createApp({
     getRepository: () => repository,
   }).request(
-    `http://localhost/lti/login?iss=${encodeURIComponent(
-      loginRequest.iss,
-    )}&login_hint=${encodeURIComponent(
-      loginRequest.loginHint,
-    )}&target_link_uri=${encodeURIComponent(
-      loginRequest.targetLinkUri ?? '',
-    )}&client_id=${encodeURIComponent(
-      loginRequest.clientId ?? '',
-    )}&deployment_id=${encodeURIComponent(
-      loginRequest.deploymentId,
-    )}&lti_message_hint=${encodeURIComponent(loginRequest.ltiMessageHint ?? '')}`,
+    `http://localhost/lti/login?iss=${
+      encodeURIComponent(
+        loginRequest.iss,
+      )
+    }&login_hint=${
+      encodeURIComponent(
+        loginRequest.loginHint,
+      )
+    }&target_link_uri=${
+      encodeURIComponent(
+        loginRequest.targetLinkUri ?? '',
+      )
+    }&client_id=${
+      encodeURIComponent(
+        loginRequest.clientId ?? '',
+      )
+    }&deployment_id=${
+      encodeURIComponent(
+        loginRequest.deploymentId,
+      )
+    }&lti_message_hint=${encodeURIComponent(loginRequest.ltiMessageHint ?? '')}`,
   );
 
   assertEquals(response.status, 302);
@@ -141,15 +151,23 @@ Deno.test('GET /lti/login returns a top-level launch escape page for iframe-embe
   const response = await createApp({
     getRepository: () => repository,
   }).request(
-    `http://localhost/lti/login?iss=${encodeURIComponent(
-      loginRequest.iss,
-    )}&login_hint=${encodeURIComponent(
-      loginRequest.loginHint,
-    )}&target_link_uri=${encodeURIComponent(
-      loginRequest.targetLinkUri ?? '',
-    )}&client_id=${encodeURIComponent(
-      loginRequest.clientId ?? '',
-    )}&deployment_id=${encodeURIComponent(loginRequest.deploymentId)}`,
+    `http://localhost/lti/login?iss=${
+      encodeURIComponent(
+        loginRequest.iss,
+      )
+    }&login_hint=${
+      encodeURIComponent(
+        loginRequest.loginHint,
+      )
+    }&target_link_uri=${
+      encodeURIComponent(
+        loginRequest.targetLinkUri ?? '',
+      )
+    }&client_id=${
+      encodeURIComponent(
+        loginRequest.clientId ?? '',
+      )
+    }&deployment_id=${encodeURIComponent(loginRequest.deploymentId)}`,
     {
       headers: {
         'sec-fetch-dest': 'iframe',
@@ -178,17 +196,27 @@ Deno.test('GET /lti/login uses LTI platform storage when the LMS advertises lti_
   const response = await createApp({
     getRepository: () => repository,
   }).request(
-    `http://localhost/lti/login?iss=${encodeURIComponent(
-      loginRequest.iss,
-    )}&login_hint=${encodeURIComponent(
-      loginRequest.loginHint,
-    )}&target_link_uri=${encodeURIComponent(
-      loginRequest.targetLinkUri ?? '',
-    )}&client_id=${encodeURIComponent(
-      loginRequest.clientId ?? '',
-    )}&deployment_id=${encodeURIComponent(
-      loginRequest.deploymentId,
-    )}&lti_storage_target=post_message_forwarding`,
+    `http://localhost/lti/login?iss=${
+      encodeURIComponent(
+        loginRequest.iss,
+      )
+    }&login_hint=${
+      encodeURIComponent(
+        loginRequest.loginHint,
+      )
+    }&target_link_uri=${
+      encodeURIComponent(
+        loginRequest.targetLinkUri ?? '',
+      )
+    }&client_id=${
+      encodeURIComponent(
+        loginRequest.clientId ?? '',
+      )
+    }&deployment_id=${
+      encodeURIComponent(
+        loginRequest.deploymentId,
+      )
+    }&lti_storage_target=post_message_forwarding`,
     {
       headers: {
         'sec-fetch-dest': 'iframe',
@@ -235,15 +263,23 @@ Deno.test('GET /lti/login accepts Sakai-style login initiation and redirects to 
   const response = await createApp({
     getRepository: () => repository,
   }).request(
-    `http://localhost/lti/login?iss=${encodeURIComponent(
-      loginRequest.iss,
-    )}&login_hint=${encodeURIComponent(
-      loginRequest.loginHint,
-    )}&target_link_uri=${encodeURIComponent(
-      loginRequest.targetLinkUri ?? '',
-    )}&client_id=${encodeURIComponent(
-      loginRequest.clientId ?? '',
-    )}&lti_deployment_id=${encodeURIComponent(loginRequest.deploymentId)}`,
+    `http://localhost/lti/login?iss=${
+      encodeURIComponent(
+        loginRequest.iss,
+      )
+    }&login_hint=${
+      encodeURIComponent(
+        loginRequest.loginHint,
+      )
+    }&target_link_uri=${
+      encodeURIComponent(
+        loginRequest.targetLinkUri ?? '',
+      )
+    }&client_id=${
+      encodeURIComponent(
+        loginRequest.clientId ?? '',
+      )
+    }&lti_deployment_id=${encodeURIComponent(loginRequest.deploymentId)}`,
   );
 
   assertEquals(response.status, 302);

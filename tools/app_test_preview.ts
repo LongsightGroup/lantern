@@ -1,7 +1,7 @@
 import { runLocalPreviewAssertions } from '../src/authoring/local_preview_assertions.ts';
 import {
-  renderPreviewAssertionResult,
   type RenderedPreviewAssertionResult,
+  renderPreviewAssertionResult,
 } from '../src/authoring/local_preview_assertion_report.ts';
 import { getDefaultWatchDebounceMs, runWatchMode } from '../src/authoring/watch.ts';
 
@@ -88,8 +88,9 @@ async function runWatchCommand(args: AppTestPreviewArgs): Promise<number> {
       debounceMs: args.debounceMs,
       log: (message) => console.log(message),
       runCycle: async (changedPaths) => {
-        const label =
-          changedPaths.length === 0 ? 'initial' : `rerun for ${changedPaths.join(', ')}`;
+        const label = changedPaths.length === 0
+          ? 'initial'
+          : `rerun for ${changedPaths.join(', ')}`;
         console.log(`\n[lantern-preview-test] ${label}`);
 
         const rendered = await runOneShotCycle(args.packageRoot);

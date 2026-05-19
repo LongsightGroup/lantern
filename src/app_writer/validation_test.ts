@@ -65,10 +65,11 @@ Deno.test('generated app validation rejects external network and storage fallbac
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'dist/app.js'
       ? {
-          ...file,
-          contents: `${file.contents}\nfetch("https://example.com");\nlocalStorage.setItem("x", "1");\n`,
-        }
-      : file,
+        ...file,
+        contents:
+          `${file.contents}\nfetch("https://example.com");\nlocalStorage.setItem("x", "1");\n`,
+      }
+      : file
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -89,10 +90,10 @@ Deno.test('generated app validation rejects SDK capability mismatches', async ()
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'manifest.json'
       ? {
-          ...file,
-          contents: file.contents.replace('"submit_attempt_event",', ''),
-        }
-      : file,
+        ...file,
+        contents: file.contents.replace('"submit_attempt_event",', ''),
+      }
+      : file
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -109,10 +110,10 @@ Deno.test('generated app validation rejects modified pinned style files', async 
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'dist/pico.min.css'
       ? {
-          ...file,
-          contents: `${file.contents}\nbody { background: red; }\n`,
-        }
-      : file,
+        ...file,
+        contents: `${file.contents}\nbody { background: red; }\n`,
+      }
+      : file
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -129,12 +130,12 @@ Deno.test('generated app validation rejects manifest drift from the app plan', (
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'manifest.json'
       ? {
-          ...file,
-          contents: file.contents
-            .replace('"app_id": "phonics-match"', '"app_id": "starter-simple-activity"')
-            .replace('"finalize_attempt"', '"write_local_state"'),
-        }
-      : file,
+        ...file,
+        contents: file.contents
+          .replace('"app_id": "phonics-match"', '"app_id": "starter-simple-activity"')
+          .replace('"finalize_attempt"', '"write_local_state"'),
+      }
+      : file
   );
   const findings = validateGeneratedAppPackagePlanAlignment({
     appPlan: buildPlan(),

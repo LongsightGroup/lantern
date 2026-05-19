@@ -29,7 +29,9 @@ const failures = forbiddenPatterns
 
 if (failures.length > 0) {
   throw new Error(
-    `Worker bundle includes Deno-only runtime references:\n${failures.map((value) => `- ${value}`).join('\n')}`,
+    `Worker bundle includes Deno-only runtime references:\n${
+      failures.map((value) => `- ${value}`).join('\n')
+    }`,
   );
 }
 

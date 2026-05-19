@@ -27,8 +27,8 @@ const TEST_SIGNING_ENV = {
     return name === 'LTI_TOOL_PRIVATE_JWK'
       ? getTestToolPrivateJwkEnvValue()
       : name === 'APP_RUNTIME_ORIGIN'
-        ? 'https://runtime.lantern.example'
-        : undefined;
+      ? 'https://runtime.lantern.example'
+      : undefined;
   },
 };
 
@@ -167,7 +167,7 @@ Deno.test('missing or expired runtime session tokens are blocked before artifact
             expiresAt: '2026-03-23T22:40:00Z',
           }),
           now: () => new Date('2026-03-23T22:45:00Z'),
-        }),
+        })
       ),
     Error,
     'Runtime session token did not match the requested session.',
@@ -181,7 +181,7 @@ Deno.test('missing or expired runtime session tokens are blocked before artifact
             expiresAt: '2026-03-23T22:40:00Z',
           }),
           now: () => new Date('2026-03-23T22:45:00Z'),
-        }),
+        })
       ),
     Error,
     'Runtime session has expired.',

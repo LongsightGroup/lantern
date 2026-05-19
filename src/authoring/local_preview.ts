@@ -235,8 +235,7 @@ export function createLocalPreviewHarness(input: {
           authorizeRequest(request, sessionToken);
           requireCapability(input.appPackage, 'finalize_attempt');
           const finalizeInput = parseFinalizeAttemptInput(await request.json());
-          const scoreMaximum =
-            latestScoreProposal?.scoreMaximum ??
+          const scoreMaximum = latestScoreProposal?.scoreMaximum ??
             input.appPackage.reviewData.grading.maxScore ??
             100;
           const scoreGiven = latestScoreProposal?.scoreGiven ?? 0;
@@ -400,10 +399,9 @@ async function serveStaticFile(input: {
       return new Response('Preview file not found.', { status: 404 });
     }
 
-    const body =
-      bytes.buffer instanceof ArrayBuffer
-        ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-        : new Uint8Array(bytes).buffer;
+    const body = bytes.buffer instanceof ArrayBuffer
+      ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+      : new Uint8Array(bytes).buffer;
 
     return new Response(body, {
       status: 200,

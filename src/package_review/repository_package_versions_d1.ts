@@ -37,9 +37,11 @@ export function createD1PackageReviewRepository(db: D1Database): PackageReviewRe
 
       return () => {
         throw new Error(
-          `D1 repository method ${String(
-            property,
-          )} is not ported yet. Continue the Cloudflare D1 repository migration before using this route on Workers.`,
+          `D1 repository method ${
+            String(
+              property,
+            )
+          } is not ported yet. Continue the Cloudflare D1 repository migration before using this route on Workers.`,
         );
       };
     },

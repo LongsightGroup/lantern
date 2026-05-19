@@ -93,16 +93,15 @@ function buildDeepLinkingResponseContentItem(input: {
   packageVersion: PackageVersionRecord;
   appOrigin?: string;
 }): DeepLinkingResponseContentItem {
-  const title =
-    input.placement.contentTitle ??
+  const title = input.placement.contentTitle ??
     `${input.placement.packageTitle} ${input.placement.packageVersion}`;
   const lineItem =
     input.session.acceptLineItem && input.session.placement === 'assignment_selection'
       ? buildOptionalLineItem({
-          placement: input.placement,
-          packageVersion: input.packageVersion,
-          title,
-        })
+        placement: input.placement,
+        packageVersion: input.packageVersion,
+        title,
+      })
       : null;
   const presentationDocumentTarget = resolvePresentationDocumentTarget(
     input.session.acceptPresentationDocumentTargets,
@@ -116,13 +115,11 @@ function buildDeepLinkingResponseContentItem(input: {
     custom: {
       [LANTERN_PLACEMENT_CUSTOM_KEY]: input.placement.placementId,
     },
-    ...(presentationDocumentTarget === null
-      ? {}
-      : {
-          presentation: {
-            documentTarget: presentationDocumentTarget,
-          },
-        }),
+    ...(presentationDocumentTarget === null ? {} : {
+      presentation: {
+        documentTarget: presentationDocumentTarget,
+      },
+    }),
     ...(lineItem === null ? {} : { lineItem }),
   };
 }

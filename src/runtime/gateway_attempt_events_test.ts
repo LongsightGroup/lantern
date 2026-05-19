@@ -136,7 +136,7 @@ Deno.test('runtime gateway validates attempt event payloads and capabilities', a
           type: 'answer',
           answer: 'asteroid',
           timestamp: '2026-03-24T02:30:00Z',
-        }),
+        })
       ),
     RuntimeBrokerDenialError,
   );
@@ -148,7 +148,7 @@ Deno.test('runtime gateway validates attempt event payloads and capabilities', a
             capabilities: ['read_launch_context'],
           }),
           'submit_attempt_event',
-        ),
+        )
       ),
     RuntimeBrokerDenialError,
   )) as RuntimeBrokerDenialError;

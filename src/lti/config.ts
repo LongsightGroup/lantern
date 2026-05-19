@@ -41,23 +41,23 @@ const APP_ORIGIN_ENV = 'APP_ORIGIN';
 
 export type CanvasConfigPlacement =
   | {
-      placement: 'course_navigation';
-      message_type: typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE;
-      target_link_uri: string;
-      text: string;
-    }
+    placement: 'course_navigation';
+    message_type: typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE;
+    target_link_uri: string;
+    text: string;
+  }
   | {
-      placement: typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
-      message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
-      target_link_uri: string;
-      text: string;
-    }
+    placement: typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
+    message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
+    target_link_uri: string;
+    text: string;
+  }
   | {
-      placement: typeof LTI_RESOURCE_SELECTION_PLACEMENT;
-      message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
-      target_link_uri: string;
-      text: string;
-    };
+    placement: typeof LTI_RESOURCE_SELECTION_PLACEMENT;
+    message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
+    target_link_uri: string;
+    text: string;
+  };
 
 export function requireAppOrigin(): string {
   const appOrigin = readEnv(APP_ORIGIN_ENV)?.trim();
@@ -74,12 +74,11 @@ export function requireAppOrigin(): string {
 export function listCanvasEnvironments(): CanvasEnvironmentOption[] {
   return listCanvasPlatforms().map((platform) => ({
     id: platform.environment,
-    label:
-      platform.environment === 'production'
-        ? 'Production Canvas'
-        : platform.environment === 'beta'
-          ? 'Beta Canvas'
-          : 'Test Canvas',
+    label: platform.environment === 'production'
+      ? 'Production Canvas'
+      : platform.environment === 'beta'
+      ? 'Beta Canvas'
+      : 'Test Canvas',
     issuer: platform.issuer,
   }));
 }

@@ -179,7 +179,8 @@ export async function ensureLineItem(input: EnsureLineItemInput): Promise<Ensure
       fetch(lineItemsUrl, {
         headers: createServiceHeaders({
           Authorization: `Bearer ${accessToken}`,
-          Accept: `${LINE_ITEM_CONTAINER_CONTENT_TYPE}, ${LINE_ITEM_CONTENT_TYPE}, application/json`,
+          Accept:
+            `${LINE_ITEM_CONTAINER_CONTENT_TYPE}, ${LINE_ITEM_CONTENT_TYPE}, application/json`,
         }),
       }),
   });
@@ -231,13 +232,10 @@ export async function ensureLineItem(input: EnsureLineItemInput): Promise<Ensure
   }
 
   const created = await readMaybeJson(createResponse);
-  const lineItemUrl =
-    created && typeof created.id === 'string'
-      ? created.id
-      : requireTrimmedString(
-          createResponse.headers.get('location'),
-          'Line item create response did not include an id or location.',
-        );
+  const lineItemUrl = created && typeof created.id === 'string' ? created.id : requireTrimmedString(
+    createResponse.headers.get('location'),
+    'Line item create response did not include an id or location.',
+  );
 
   return {
     lineItemsUrl,
@@ -245,10 +243,9 @@ export async function ensureLineItem(input: EnsureLineItemInput): Promise<Ensure
     resourceId: input.resourceId,
     tag: input.tag,
     label: created && typeof created.label === 'string' ? created.label : input.label,
-    scoreMaximum:
-      created && typeof created.scoreMaximum === 'number'
-        ? created.scoreMaximum
-        : input.scoreMaximum,
+    scoreMaximum: created && typeof created.scoreMaximum === 'number'
+      ? created.scoreMaximum
+      : input.scoreMaximum,
     created: true,
   };
 }

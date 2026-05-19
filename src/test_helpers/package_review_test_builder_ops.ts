@@ -58,8 +58,7 @@ export function buildControlPlaneDeploymentHealth(
 ): ControlPlaneDeploymentHealth {
   return {
     overallStatus: overrides.overallStatus ?? 'attention',
-    summary:
-      overrides.summary ??
+    summary: overrides.summary ??
       'Deployment is readable in the control plane and needs one operator follow-up.',
     dimensions: overrides.dimensions ?? {
       review: buildControlPlaneHealthDimension({
@@ -142,8 +141,7 @@ export function buildControlPlaneDiagnosticItem(
     code: overrides.code ?? 'canvas_score_rejected',
     boundaryDenialCategory: overrides.boundaryDenialCategory ?? null,
     summary: overrides.summary ?? 'Canvas rejected the score publish.',
-    operatorSummary:
-      overrides.operatorSummary ??
+    operatorSummary: overrides.operatorSummary ??
       'Grade publish failed and can be retried from the control plane.',
     retryable: overrides.retryable ?? false,
     detail: overrides.detail ?? { httpStatus: 422 },
@@ -207,21 +205,20 @@ export function buildControlPlaneRuntimeEvidenceSnapshot(
     eventType: overrides.eventType ?? 'runtime.session.started',
     status: overrides.status ?? 'succeeded',
     occurredAt: overrides.occurredAt ?? DEFAULT_PHASE4_AT,
-    summary:
-      overrides.summary ??
+    summary: overrides.summary ??
       "Started the reviewed runtime session inside Lantern's contained browser boundary.",
     attemptId: overrides.attemptId ?? 'attempt-123',
     sessionId: overrides.sessionId ?? 'runtime-session-123',
     packageVersionId: overrides.packageVersionId ?? 1,
     packageVersion: overrides.packageVersion ?? '0.1.0',
     artifactDigest: overrides.artifactDigest ?? 'sha256:chapter-4-asteroids-0.1.0',
-    runtimeContractSignature:
-      overrides.runtimeContractSignature ?? 'test-reviewed-runtime-contract-signature',
+    runtimeContractSignature: overrides.runtimeContractSignature ??
+      'test-reviewed-runtime-contract-signature',
     sandboxModel: overrides.sandboxModel ?? 'contained_browser_runtime',
     boundary: overrides.boundary ?? 'app_runtime_origin',
     deliverySubstrate: overrides.deliverySubstrate ?? 'dynamic_worker',
-    deliveryWorkerId:
-      overrides.deliveryWorkerId ?? 'reviewed-runtime:v1:test-reviewed-runtime-contract-signature',
+    deliveryWorkerId: overrides.deliveryWorkerId ??
+      'reviewed-runtime:v1:test-reviewed-runtime-contract-signature',
     deliveryState: overrides.deliveryState ?? 'started',
     route: overrides.route ?? 'session',
     capability: overrides.capability ?? null,
@@ -242,8 +239,7 @@ export function buildControlPlaneAnonymousEvidenceArtifact(
     byteSize: overrides.byteSize ?? 128,
     sha256: overrides.sha256 ?? 'sha256:artifact-001',
     createdAt: overrides.createdAt ?? DEFAULT_PHASE4_AT,
-    artifactUrl:
-      overrides.artifactUrl ??
+    artifactUrl: overrides.artifactUrl ??
       '/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001',
   };
 }
@@ -255,8 +251,7 @@ export function buildInternalBrokerVerificationStatus(
     source: overrides.source ?? 'manual',
     status: overrides.status ?? 'passed',
     checkedAt: overrides.checkedAt ?? DEFAULT_PHASE4_AT,
-    summary:
-      overrides.summary ??
+    summary: overrides.summary ??
       'Canvas launch, AGS publish, and NRPS verification all passed for the supported broker path.',
     evidenceUrl: overrides.evidenceUrl ?? 'https://example.test/verification/internal-run',
   };
@@ -333,10 +328,9 @@ export function buildControlPlaneDeploymentInventoryRow(
     lastNrpsReadStatus: overrides.lastNrpsReadStatus ?? 'succeeded',
     pilotUsage: overrides.pilotUsage ?? buildPilotUsageMetrics(),
     health: overrides.health ?? buildControlPlaneDeploymentHealth(),
-    brokerVerification:
-      overrides.brokerVerification === undefined
-        ? buildBrokerVerificationStatus()
-        : overrides.brokerVerification,
+    brokerVerification: overrides.brokerVerification === undefined
+      ? buildBrokerVerificationStatus()
+      : overrides.brokerVerification,
   };
 }
 
@@ -346,8 +340,7 @@ export function buildControlPlaneDeploymentDetailSnapshot(
   return {
     inventory: overrides.inventory ?? buildControlPlaneDeploymentInventoryRow(),
     latestInstallEvidence: overrides.latestInstallEvidence ?? null,
-    latestLaunch:
-      overrides.latestLaunch ??
+    latestLaunch: overrides.latestLaunch ??
       buildDeploymentActivitySnapshot({
         summary: 'Latest launch completed and reached the runtime handoff.',
       }),
@@ -357,19 +350,17 @@ export function buildControlPlaneDeploymentDetailSnapshot(
     recentLaunches: overrides.recentLaunches ?? [buildDeploymentRecentLaunch()],
     latestCompatibilityPath: overrides.latestCompatibilityPath ?? null,
     latestAgsSmoke: overrides.latestAgsSmoke ?? null,
-    latestNrpsRead:
-      overrides.latestNrpsRead ??
+    latestNrpsRead: overrides.latestNrpsRead ??
       buildDeploymentActivitySnapshot({
         summary: 'Latest roster verification succeeded.',
       }),
     latestGradePublish: overrides.latestGradePublish ?? buildDeploymentGradePublicationSnapshot(),
     pilotUsage: overrides.pilotUsage ?? buildPilotUsageMetrics(),
     diagnostics: overrides.diagnostics ?? [buildControlPlaneDiagnosticItem()],
-    retryableGradePublication:
-      overrides.retryableGradePublication ?? buildRetryableGradePublicationLookup(),
-    brokerVerification:
-      overrides.brokerVerification === undefined
-        ? buildBrokerVerificationStatus()
-        : overrides.brokerVerification,
+    retryableGradePublication: overrides.retryableGradePublication ??
+      buildRetryableGradePublicationLookup(),
+    brokerVerification: overrides.brokerVerification === undefined
+      ? buildBrokerVerificationStatus()
+      : overrides.brokerVerification,
   };
 }

@@ -697,18 +697,17 @@ Deno.test('deep linking validator accepts Moodle and Sakai launches when the sav
         buildDeploymentRecord({
           id: 7,
           appId: 'chapter-4-asteroids',
-          binding:
-            testCase.lms === 'moodle'
-              ? buildMoodleDeploymentBinding({
-                  issuer: testCase.issuer,
-                  clientId: testCase.clientId,
-                  deploymentId: testCase.deploymentId,
-                })
-              : buildSakaiDeploymentBinding({
-                  issuer: testCase.issuer,
-                  clientId: testCase.clientId,
-                  deploymentId: testCase.deploymentId,
-                }),
+          binding: testCase.lms === 'moodle'
+            ? buildMoodleDeploymentBinding({
+              issuer: testCase.issuer,
+              clientId: testCase.clientId,
+              deploymentId: testCase.deploymentId,
+            })
+            : buildSakaiDeploymentBinding({
+              issuer: testCase.issuer,
+              clientId: testCase.clientId,
+              deploymentId: testCase.deploymentId,
+            }),
         }),
       ],
       loginStates: [

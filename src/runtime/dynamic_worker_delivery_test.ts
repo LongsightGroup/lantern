@@ -223,8 +223,8 @@ function createLoaderStub() {
       callback: () =>
         | Promise<{ modules: Record<string, string> }>
         | {
-            modules: Record<string, string>;
-          },
+          modules: Record<string, string>;
+        },
     ) {
       return {
         getEntrypoint() {

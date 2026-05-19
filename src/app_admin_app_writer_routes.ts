@@ -79,8 +79,9 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       await services.appWriterAgentSessions.observe({
         generationId: started.run.generationId,
         ownerId: started.run.ownerId,
-        workflowInstanceId:
-          scheduleResult.mode === 'workflow' ? scheduleResult.workflowInstanceId : null,
+        workflowInstanceId: scheduleResult.mode === 'workflow'
+          ? scheduleResult.workflowInstanceId
+          : null,
         observedAt: started.run.updatedAt,
       });
 
@@ -124,19 +125,17 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
         );
       }
 
-      const packageVersion =
-        run.packageVersionId === null
-          ? null
-          : await repository.getPackageVersionById(run.packageVersionId);
+      const packageVersion = run.packageVersionId === null
+        ? null
+        : await repository.getPackageVersionById(run.packageVersionId);
       const workspace = await repository.getAppGenerationWorkspaceByGenerationId(generationId);
       const activityEvents = await listGenerationActivityEvents(repository, generationId);
-      const runtimeLog =
-        packageVersion === null
-          ? { session: null, evidence: [] }
-          : await loadPreviewCapabilityLog({
-              repository,
-              packageVersionId: packageVersion.id,
-            });
+      const runtimeLog = packageVersion === null
+        ? { session: null, evidence: [] }
+        : await loadPreviewCapabilityLog({
+          repository,
+          packageVersionId: packageVersion.id,
+        });
 
       return context.html(
         renderAppGenerationRunPage({
@@ -242,7 +241,7 @@ async function listGenerationActivityEvents(
 ) {
   const eventBatches = await Promise.all(
     APP_GENERATION_AUDIT_EVENT_TYPES.map((eventType) =>
-      repository.listAuditEventsByEventType(eventType),
+      repository.listAuditEventsByEventType(eventType)
     ),
   );
 

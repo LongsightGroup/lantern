@@ -170,31 +170,31 @@ export async function publishRuntimeAttemptScore(input: {
   }
 
   const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
-    .retryServiceUnauthorizedOnce
+      .retryServiceUnauthorizedOnce
     ? async () => {
-        await recordInteropPathUsed({
-          repository: input.repository,
-          scope: 'service',
-          path: 'service_401_retry',
-          actorType: 'system',
-          deploymentRecordId: deployment.id,
-          packageVersionId: deployment.enabledPackageVersionId,
-          attemptId: input.attempt.attemptId,
-          summary: 'Lantern retried an LMS service request after a 401.',
-          detail: {
-            lms: deployment.binding!.lms,
-            deploymentSlug: deployment.slug,
-          },
-          ltiProfile,
-        });
-        const refreshed = await requestServiceAccessToken({
-          binding: deployment.binding!,
-          scopes: ags.scope,
-          env: input.env,
-        });
+      await recordInteropPathUsed({
+        repository: input.repository,
+        scope: 'service',
+        path: 'service_401_retry',
+        actorType: 'system',
+        deploymentRecordId: deployment.id,
+        packageVersionId: deployment.enabledPackageVersionId,
+        attemptId: input.attempt.attemptId,
+        summary: 'Lantern retried an LMS service request after a 401.',
+        detail: {
+          lms: deployment.binding!.lms,
+          deploymentSlug: deployment.slug,
+        },
+        ltiProfile,
+      });
+      const refreshed = await requestServiceAccessToken({
+        binding: deployment.binding!,
+        scopes: ags.scope,
+        env: input.env,
+      });
 
-        return refreshed.accessToken;
-      }
+      return refreshed.accessToken;
+    }
     : undefined;
 
   const lineItemBinding = await ensureLineItemBinding(existingBinding, accessToken, {
@@ -219,8 +219,7 @@ export async function publishRuntimeAttemptScore(input: {
     };
   }
 
-  const gradePublication =
-    existingPublication ??
+  const gradePublication = existingPublication ??
     (await input.repository.createGradePublication({
       attemptId: input.attempt.attemptId,
       lineItemBindingId: lineItemBinding.id,

@@ -61,9 +61,11 @@ export function renderTopLevelLaunchPage(input: { location: string }): string {
     <main>
       <h1>Continue the LMS launch</h1>
       <p>Lantern is reopening this LTI login at the top level so the LMS can complete the browser handoff more reliably.</p>
-      <p><a href="${escapeHtml(
-        input.location,
-      )}" target="_top" rel="noreferrer">Continue launch</a></p>
+      <p><a href="${
+    escapeHtml(
+      input.location,
+    )
+  }" target="_top" rel="noreferrer">Continue launch</a></p>
     </main>
     <script>
       const nextLocation = ${locationJson};

@@ -34,13 +34,13 @@ export function createInitializedGenerationPlan(input: {
   return GENERATION_PLAN_STEP_ORDER.map((id) =>
     id === 'initialize_workspace'
       ? buildGenerationPlanStep({
-          id,
-          status: 'succeeded',
-          startedAt: input.startedAt,
-          completedAt: input.completedAt,
-          result: input.result,
-        })
-      : buildGenerationPlanStep({ id, status: 'pending' }),
+        id,
+        status: 'succeeded',
+        startedAt: input.startedAt,
+        completedAt: input.completedAt,
+        result: input.result,
+      })
+      : buildGenerationPlanStep({ id, status: 'pending' })
   );
 }
 
@@ -61,8 +61,7 @@ export function updateGenerationPlanStep(input: {
     return {
       ...step,
       status: input.status,
-      startedAt:
-        step.startedAt ??
+      startedAt: step.startedAt ??
         (input.status === 'running' || input.status === 'succeeded' ? input.now : null),
       completedAt:
         input.status === 'succeeded' || input.status === 'failed' || input.status === 'skipped'
@@ -83,10 +82,10 @@ export function normalizeGenerationPlan(
   return GENERATION_PLAN_STEP_ORDER.map(
     (id) =>
       existing.get(id) ??
-      buildGenerationPlanStep({
-        id,
-        status: 'pending',
-      }),
+        buildGenerationPlanStep({
+          id,
+          status: 'pending',
+        }),
   );
 }
 

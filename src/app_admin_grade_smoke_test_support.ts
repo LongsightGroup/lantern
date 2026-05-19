@@ -76,14 +76,12 @@ export function buildSmokeRouteFixture(lms: 'moodle' | 'sakai'): SmokeRouteFixtu
   const deploymentId = lms === 'moodle' ? 2 : 3;
   const deploymentSlug = `chapter-4-asteroids-${lms}`;
   const attemptId = `${lms}-attempt-123`;
-  const finalGradeLineItemUrl =
-    lms === 'moodle'
-      ? 'https://moodle.example/mod/lti/services.php/2/lineitems/final-grade'
-      : 'https://sakai.example/direct/lti/lineitems/course-42/items/final-grade';
-  const smokeLineItemUrl =
-    lms === 'moodle'
-      ? 'https://moodle.example/mod/lti/services.php/2/lineitems/9'
-      : 'https://sakai.example/direct/lti/lineitems/course-42/items/9';
+  const finalGradeLineItemUrl = lms === 'moodle'
+    ? 'https://moodle.example/mod/lti/services.php/2/lineitems/final-grade'
+    : 'https://sakai.example/direct/lti/lineitems/course-42/items/final-grade';
+  const smokeLineItemUrl = lms === 'moodle'
+    ? 'https://moodle.example/mod/lti/services.php/2/lineitems/9'
+    : 'https://sakai.example/direct/lti/lineitems/course-42/items/9';
 
   return {
     ...base,
@@ -152,17 +150,17 @@ export function createSmokeRouteRepository(
     runtimeSessions: [fixture.session],
     controlPlaneDeploymentDetails: input.includeControlPlaneDetail
       ? [
-          buildControlPlaneDeploymentDetailSnapshot({
-            inventory: buildControlPlaneDeploymentInventoryRow({
-              deploymentId: fixture.deploymentId,
-              deploymentSlug: fixture.deploymentSlug,
-              binding: fixture.binding,
-              enabledPackageVersionId: 1,
-              enabledPackageVersion: '0.1.0',
-            }),
-            latestAgsSmoke: null,
+        buildControlPlaneDeploymentDetailSnapshot({
+          inventory: buildControlPlaneDeploymentInventoryRow({
+            deploymentId: fixture.deploymentId,
+            deploymentSlug: fixture.deploymentSlug,
+            binding: fixture.binding,
+            enabledPackageVersionId: 1,
+            enabledPackageVersion: '0.1.0',
           }),
-        ]
+          latestAgsSmoke: null,
+        }),
+      ]
       : [],
   });
 }

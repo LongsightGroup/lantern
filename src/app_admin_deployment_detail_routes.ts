@@ -75,8 +75,8 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
       const viewedSlot = getSelectedManagedDeploymentSlot(detail.slots, selectedLms);
       const controlPlaneDetail = viewedSlot.persisted
         ? await services
-            .getOpsRepository()
-            .getControlPlaneDeploymentDetail(viewedSlot.deployment.id)
+          .getOpsRepository()
+          .getControlPlaneDeploymentDetail(viewedSlot.deployment.id)
         : null;
 
       return context.html(

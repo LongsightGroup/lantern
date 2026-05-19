@@ -54,8 +54,7 @@ function buildTypeScriptWorkspaceFiles(
     },
     {
       path: 'source/app.ts',
-      contents:
-        input.appSource ??
+      contents: input.appSource ??
         'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("missing gateway");\n  const content = await gateway.getActivityContent<ActivityContent>();\n  document.body.textContent = content.title;\n  await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });\n  await gateway.finalizeAttempt({ completionState: "completed" });\n}\nvoid start();\n',
     },
     {

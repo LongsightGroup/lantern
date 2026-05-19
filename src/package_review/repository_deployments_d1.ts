@@ -339,8 +339,9 @@ export function createD1DeploymentRepositoryMethods(
     },
 
     async saveDeploymentLtiProfileOverride(input) {
-      const ltiProfileOverride =
-        input.ltiProfileOverride === null ? null : requireLtiProfileId(input.ltiProfileOverride);
+      const ltiProfileOverride = input.ltiProfileOverride === null
+        ? null
+        : requireLtiProfileId(input.ltiProfileOverride);
       const existing = await requireDeploymentById(db, input.deploymentId);
 
       await runD1(
@@ -541,9 +542,11 @@ async function assertBindingAvailable(
 
   if (conflictingBinding !== null) {
     throw new Error(
-      `${formatBindingLabel(
-        input.lmsType,
-      )} ${input.clientId} / ${input.deploymentId} already belongs to another deployment.`,
+      `${
+        formatBindingLabel(
+          input.lmsType,
+        )
+      } ${input.clientId} / ${input.deploymentId} already belongs to another deployment.`,
     );
   }
 }

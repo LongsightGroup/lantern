@@ -62,10 +62,9 @@ export function createInMemoryDeploymentRepository(
           candidate.binding?.deploymentId === input.deploymentId,
       );
 
-      const matchingDeployments =
-        input.clientId === null
-          ? deployments
-          : deployments.filter((candidate) => candidate.binding?.clientId === input.clientId);
+      const matchingDeployments = input.clientId === null
+        ? deployments
+        : deployments.filter((candidate) => candidate.binding?.clientId === input.clientId);
 
       if (matchingDeployments.length === 0) {
         if (input.clientId !== null) {
@@ -166,9 +165,11 @@ export function createInMemoryDeploymentRepository(
 
       if (conflicting) {
         throw new Error(
-          `${formatBindingLabel(
-            input.binding.lms,
-          )} ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
+          `${
+            formatBindingLabel(
+              input.binding.lms,
+            )
+          } ${input.binding.clientId} / ${input.binding.deploymentId} already belongs to another deployment.`,
         );
       }
 

@@ -176,8 +176,7 @@ function buildPackageFiles(
     },
     {
       relativePath: 'dist/index.html',
-      bytes:
-        input.entrypointHtml ??
+      bytes: input.entrypointHtml ??
         '<!doctype html><html lang="en"><body><main>Uploaded Quiz</main></body></html>',
     },
     {
@@ -255,8 +254,9 @@ function buildManifest(): Record<string, unknown> {
 }
 
 function buildDiagnostic(
-  input: Partial<LocalAppValidationDiagnostic> &
-    Pick<LocalAppValidationDiagnostic, 'message' | 'fix'>,
+  input:
+    & Partial<LocalAppValidationDiagnostic>
+    & Pick<LocalAppValidationDiagnostic, 'message' | 'fix'>,
 ): LocalAppValidationDiagnostic {
   return {
     code: input.code ?? 'manual',

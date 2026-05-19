@@ -204,8 +204,9 @@ function toD1PackageVersionRow(record: PackageVersionRecord): D1Row {
     gradingMaxScore: record.grading.maxScore,
     approvalStatus: record.approvalStatus,
     reviewNotes: record.reviewNotes,
-    accessibilityReview:
-      record.accessibilityReview === null ? null : JSON.stringify(record.accessibilityReview),
+    accessibilityReview: record.accessibilityReview === null
+      ? null
+      : JSON.stringify(record.accessibilityReview),
     reviewedAt: record.reviewedAt,
     validationIssues: JSON.stringify(record.validationIssues),
     manifestJson: JSON.stringify(record.manifestJson),

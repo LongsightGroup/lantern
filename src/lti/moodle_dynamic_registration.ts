@@ -200,8 +200,7 @@ function requireDeploymentId(
     },
     {
       source: 'openid_query' as const,
-      value:
-        openidConfiguration.searchParams.get('deployment_id') ??
+      value: openidConfiguration.searchParams.get('deployment_id') ??
         openidConfiguration.searchParams.get('deploymentId'),
     },
   ];

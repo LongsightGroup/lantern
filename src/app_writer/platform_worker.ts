@@ -13,14 +13,13 @@ export default {
   fetch(request: Request, env: PlatformWorkerEnv): Promise<Response> {
     return createAppWriterPlatformServicesHandler({
       sourceCompiler,
-      previewer:
-        env.BROWSER === undefined
-          ? createUnavailableAppPackagePreviewer(
-              'Lantern app package preview requires a Cloudflare Browser Rendering binding named BROWSER.',
-            )
-          : createCloudflareBrowserAppPackagePreviewer({
-              browser: env.BROWSER,
-            }),
+      previewer: env.BROWSER === undefined
+        ? createUnavailableAppPackagePreviewer(
+          'Lantern app package preview requires a Cloudflare Browser Rendering binding named BROWSER.',
+        )
+        : createCloudflareBrowserAppPackagePreviewer({
+          browser: env.BROWSER,
+        }),
     }).fetch(request);
   },
 };

@@ -221,8 +221,9 @@ function toD1AppGenerationRunRow(record: AppGenerationRunRecord): Record<string,
     generatedVersion: record.generatedVersion,
     packageVersionId: record.packageVersionId,
     promptText: record.promptText,
-    normalizedRequestJson:
-      record.normalizedRequest === null ? null : JSON.stringify(record.normalizedRequest),
+    normalizedRequestJson: record.normalizedRequest === null
+      ? null
+      : JSON.stringify(record.normalizedRequest),
     appPlanJson: record.appPlan === null ? null : JSON.stringify(record.appPlan),
     selectedStarterId: record.selectedStarterId,
     selectedContextJson: JSON.stringify(record.selectedContext),

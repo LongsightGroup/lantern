@@ -68,14 +68,13 @@ export function deriveDeploymentHealth(input: DeploymentHealthInput): ControlPla
     brokerVerification,
   };
   const statuses = Object.values(dimensions).map((dimension) => dimension.status);
-  const overallStatus =
-    review.status === 'failed'
-      ? 'failed'
-      : statuses.every((status) => status === 'healthy')
-        ? 'healthy'
-        : statuses.some((status) => status === 'failed' || status === 'attention')
-          ? 'attention'
-          : 'unknown';
+  const overallStatus = review.status === 'failed'
+    ? 'failed'
+    : statuses.every((status) => status === 'healthy')
+    ? 'healthy'
+    : statuses.some((status) => status === 'failed' || status === 'attention')
+    ? 'attention'
+    : 'unknown';
 
   return {
     overallStatus,

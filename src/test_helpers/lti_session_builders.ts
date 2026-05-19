@@ -44,8 +44,7 @@ export function buildValidatedLaunch(overrides: Partial<ValidatedLaunch> = {}): 
     targetLinkUri: overrides.targetLinkUri ?? 'http://localhost:8417/lti/launch',
     returnUrl: overrides.returnUrl ?? 'https://canvas.example/return',
     activityId: overrides.activityId ?? 'activity-123',
-    services:
-      overrides.services ??
+    services: overrides.services ??
       buildLaunchServiceClaims({
         lms: identity.lms,
       }),
@@ -69,8 +68,8 @@ export function buildDeepLinkingSettingsClaimValue(
     accept_multiple: input.acceptMultiple ?? false,
     accept_presentation_document_targets: input.acceptPresentationDocumentTargets ?? ['iframe'],
     accept_lineitem: input.acceptLineItem ?? false,
-    deep_link_return_url:
-      input.deepLinkReturnUrl ?? 'https://canvas.example/courses/42/deep_link_return',
+    deep_link_return_url: input.deepLinkReturnUrl ??
+      'https://canvas.example/courses/42/deep_link_return',
     ...(input.data === undefined ? {} : { data: input.data }),
   };
 }
@@ -97,8 +96,8 @@ export function buildValidatedDeepLinkingRequest(
     contextId: overrides.contextId ?? 'course-42',
     contextTitle: overrides.contextTitle ?? 'Physics 101',
     targetLinkUri: overrides.targetLinkUri ?? 'http://localhost:8417/lti/deep-linking',
-    deepLinkReturnUrl:
-      overrides.deepLinkReturnUrl ?? 'https://canvas.example/courses/42/deep_link_return',
+    deepLinkReturnUrl: overrides.deepLinkReturnUrl ??
+      'https://canvas.example/courses/42/deep_link_return',
     data: overrides.data ?? 'deep-linking-state-token',
     placement: overrides.placement ?? DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
     settings: overrides.settings ?? {
@@ -135,13 +134,11 @@ export function buildRuntimeSessionRecord(
       'write_local_state',
     ],
     snapshotRoot: sessionOverrides.snapshotRoot ?? 'var/packages/chapter-4-asteroids/0.1.0',
-    entrypointPath:
-      sessionOverrides.entrypointPath ?? 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
-    contentPath:
-      sessionOverrides.contentPath ??
+    entrypointPath: sessionOverrides.entrypointPath ??
+      'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
+    contentPath: sessionOverrides.contentPath ??
       'var/packages/chapter-4-asteroids/0.1.0/content/activity.json',
-    services:
-      sessionOverrides.services ??
+    services: sessionOverrides.services ??
       buildLaunchServiceClaims({
         lms: servicesLms,
       }),
@@ -180,8 +177,8 @@ export function buildDeepLinkingSessionRecord(
     userRole: overrides.userRole ?? 'instructor',
     contextId: overrides.contextId ?? 'course-42',
     contextTitle: overrides.contextTitle ?? 'Physics 101',
-    deepLinkReturnUrl:
-      overrides.deepLinkReturnUrl ?? 'https://canvas.example/courses/42/deep_link_return',
+    deepLinkReturnUrl: overrides.deepLinkReturnUrl ??
+      'https://canvas.example/courses/42/deep_link_return',
     data: overrides.data ?? 'deep-linking-state-token',
     placement: overrides.placement ?? DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
     acceptTypes: overrides.acceptTypes ?? ['ltiResourceLink'],

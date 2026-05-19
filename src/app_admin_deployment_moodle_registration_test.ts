@@ -191,7 +191,7 @@ Deno.test('GET /admin/packages/:appId/deployment/register/moodle records the dep
 
         if (
           url ===
-          'https://moodle.example/mod/lti/openid-configuration.php?deployment_id=moodle-deployment-777'
+            'https://moodle.example/mod/lti/openid-configuration.php?deployment_id=moodle-deployment-777'
         ) {
           return new Response(
             JSON.stringify({

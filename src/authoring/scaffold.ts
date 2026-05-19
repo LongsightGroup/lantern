@@ -179,14 +179,20 @@ async function rewriteSimpleActivityStarter(context: ScaffoldRewriteContext): Pr
 
 async function rewriteBrowserAutograderStarter(context: ScaffoldRewriteContext): Promise<void> {
   await rewriteStarterIdentityFiles(context);
-  await rewriteTextFile(context.outputRoot, 'dist/index.html', (source) =>
-    source.replaceAll('Template App', context.title),
+  await rewriteTextFile(
+    context.outputRoot,
+    'dist/index.html',
+    (source) => source.replaceAll('Template App', context.title),
   );
-  await rewriteTextFile(context.outputRoot, 'dist/app.js', (source) =>
-    source.replaceAll('"Template App"', JSON.stringify(context.title)),
+  await rewriteTextFile(
+    context.outputRoot,
+    'dist/app.js',
+    (source) => source.replaceAll('"Template App"', JSON.stringify(context.title)),
   );
-  await rewriteTextFile(context.outputRoot, 'grading/specs/checks.spec.js', (source) =>
-    source.replaceAll("'Template App'", JSON.stringify(context.title)),
+  await rewriteTextFile(
+    context.outputRoot,
+    'grading/specs/checks.spec.js',
+    (source) => source.replaceAll("'Template App'", JSON.stringify(context.title)),
   );
 }
 

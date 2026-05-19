@@ -127,7 +127,7 @@ export function createD1GradingRepositoryMethods(
       );
 
       return rows.map((row) =>
-        mapAttemptEvidenceArtifactRow(mapD1AttemptEvidenceArtifactFields(row)),
+        mapAttemptEvidenceArtifactRow(mapD1AttemptEvidenceArtifactFields(row))
       );
     },
 
@@ -655,10 +655,12 @@ function mapD1GradePublicationFields(row: D1GradePublicationRow): GradePublicati
     updatedAt: expectString(row.updatedAt, 'updatedAt'),
     publishedAt: expectNullableString(row.publishedAt, 'publishedAt'),
     errorCode: expectNullableString(row.errorCode, 'errorCode'),
-    errorDetail: parseNullableJsonField(row.errorDetail, 'errorDetail') as Record<
-      string,
-      unknown
-    > | null,
+    errorDetail: parseNullableJsonField(row.errorDetail, 'errorDetail') as
+      | Record<
+        string,
+        unknown
+      >
+      | null,
   };
 }
 

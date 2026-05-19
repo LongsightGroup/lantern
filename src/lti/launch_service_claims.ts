@@ -29,9 +29,9 @@ function parseAgsServiceClaim(value: Record<string, unknown> | null): LaunchServ
   return {
     scope: Array.isArray(value.scope)
       ? value.scope
-          .filter((item): item is string => typeof item === 'string')
-          .map((item) => item.trim())
-          .filter((item) => item !== '')
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item !== '')
       : [],
     lineitemsUrl: optionalStringClaim(value.lineitems),
     lineitemUrl: optionalStringClaim(value.lineitem),
@@ -52,9 +52,9 @@ function parseNrpsServiceClaim(value: Record<string, unknown> | null): LaunchSer
     contextMembershipsUrl,
     serviceVersions: Array.isArray(value.service_versions)
       ? value.service_versions
-          .filter((item): item is string => typeof item === 'string')
-          .map((item) => item.trim())
-          .filter((item) => item !== '')
+        .filter((item): item is string => typeof item === 'string')
+        .map((item) => item.trim())
+        .filter((item) => item !== '')
       : [],
   };
 }

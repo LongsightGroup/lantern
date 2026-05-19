@@ -47,13 +47,11 @@ export async function runAppWriterEvaluationPrompt(input: {
       ownerId: 'evaluation',
       promptText: input.prompt.promptText,
       ...(input.now === undefined ? {} : { now: input.now }),
-      ...(input.importPackageFromSource === undefined
-        ? {}
-        : {
-            savePackage: {
-              importPackageFromSource: input.importPackageFromSource,
-            },
-          }),
+      ...(input.importPackageFromSource === undefined ? {} : {
+        savePackage: {
+          importPackageFromSource: input.importPackageFromSource,
+        },
+      }),
     });
 
     return {
@@ -64,8 +62,8 @@ export async function runAppWriterEvaluationPrompt(input: {
       generationStatus: result.run.status,
       repairAttemptCount: result.run.repairAttemptCount,
       validationFindingCount: result.run.validationFindings.length,
-      previewPassed:
-        result.run.status === 'previewing' || result.run.status === 'saved_pending_version',
+      previewPassed: result.run.status === 'previewing' ||
+        result.run.status === 'saved_pending_version',
       packageVersionId: result.run.packageVersionId,
     };
   } catch (error) {

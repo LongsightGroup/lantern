@@ -15,13 +15,12 @@ export function buildInitializedAppWriterWorkspace(input: {
   revisionSourceFiles?: readonly AppWriterWorkspaceFile[];
 }): AppGenerationWorkspaceRecord {
   const revision = readAppWriterRevisionContext(input.contextSelection.selectedContext);
-  const starter =
-    revision === null
-      ? buildAppWriterStarterWorkspace(
-          input.contextSelection.starterId,
-          input.contextSelection.selectedContext.authoringMode,
-        )
-      : null;
+  const starter = revision === null
+    ? buildAppWriterStarterWorkspace(
+      input.contextSelection.starterId,
+      input.contextSelection.selectedContext.authoringMode,
+    )
+    : null;
   const sourcePackageFiles = input.revisionSourceFiles ?? starter?.files ?? [];
   const packageFiles = sourcePackageFiles.map(
     (file): AppWriterWorkspaceFile => ({
@@ -30,8 +29,7 @@ export function buildInitializedAppWriterWorkspace(input: {
     }),
   );
   const instructionFiles = buildInstructionFiles({
-    instructions:
-      starter?.instructions ??
+    instructions: starter?.instructions ??
       buildRevisionInstructions({
         contextSelection: input.contextSelection,
       }),
@@ -52,14 +50,12 @@ export function buildInitializedAppWriterWorkspace(input: {
         authoringMode: input.contextSelection.selectedContext.authoringMode,
         starterId: input.contextSelection.starterId,
         initializationMode: revision === null ? 'starter' : 'revision_snapshot',
-        ...(revision === null
-          ? {}
-          : {
-              sourcePackageVersionId: revision.sourcePackageVersionId,
-              sourceAppId: revision.sourceAppId,
-              sourceVersion: revision.sourceVersion,
-              targetVersion: revision.targetVersion,
-            }),
+        ...(revision === null ? {} : {
+          sourcePackageVersionId: revision.sourcePackageVersionId,
+          sourceAppId: revision.sourceAppId,
+          sourceVersion: revision.sourceVersion,
+          targetVersion: revision.targetVersion,
+        }),
         fileCount: files.length,
       },
     }),
@@ -132,28 +128,28 @@ function buildInstructionFiles(input: {
     {
       path: '.lantern/contracts/prompt-context.json',
       role: 'contract',
-      contents: `${JSON.stringify(
-        {
-          referenceAppIds: input.contextSelection.selectedContext.referenceAppIds,
-          publicContractSources: input.contextSelection.selectedContext.publicContractSources,
-          promptContextVersion: input.contextSelection.selectedContext.promptContextVersion,
-          promptContextExcerpts: input.contextSelection.selectedContext.promptContextExcerpts,
-          selectionReason: input.contextSelection.selectedContext.selectionReason,
-          revision,
-        },
-        null,
-        2,
-      )}\n`,
-    },
-    ...(revision === null
-      ? []
-      : [
+      contents: `${
+        JSON.stringify(
           {
-            path: '.lantern/contracts/source-package.json',
-            role: 'contract' as const,
-            contents: `${JSON.stringify(revision, null, 2)}\n`,
+            referenceAppIds: input.contextSelection.selectedContext.referenceAppIds,
+            publicContractSources: input.contextSelection.selectedContext.publicContractSources,
+            promptContextVersion: input.contextSelection.selectedContext.promptContextVersion,
+            promptContextExcerpts: input.contextSelection.selectedContext.promptContextExcerpts,
+            selectionReason: input.contextSelection.selectedContext.selectionReason,
+            revision,
           },
-        ]),
+          null,
+          2,
+        )
+      }\n`,
+    },
+    ...(revision === null ? [] : [
+      {
+        path: '.lantern/contracts/source-package.json',
+        role: 'contract' as const,
+        contents: `${JSON.stringify(revision, null, 2)}\n`,
+      },
+    ]),
     {
       path: '.lantern/contracts/gateway-app-sdk.d.ts',
       role: 'contract',

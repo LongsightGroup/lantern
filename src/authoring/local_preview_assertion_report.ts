@@ -43,7 +43,8 @@ export function renderPreviewAssertionResult(
   if (result.failedCount === 0) {
     return {
       exitCode: 0,
-      output: `Lantern preview assertions passed. ${result.passedCount}/${result.results.length} checks passed.`,
+      output:
+        `Lantern preview assertions passed. ${result.passedCount}/${result.results.length} checks passed.`,
     };
   }
 

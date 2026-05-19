@@ -104,10 +104,9 @@ async function loadAuthoringPreviewState(
     draft,
     currentFiles: await loadCurrentDraftFiles(draft, services),
     latestPreviewSession,
-    previewEvidence:
-      latestPreviewSession === null
-        ? []
-        : await repository.listPreviewEvidence(latestPreviewSession.sessionId),
+    previewEvidence: latestPreviewSession === null
+      ? []
+      : await repository.listPreviewEvidence(latestPreviewSession.sessionId),
   };
 }
 

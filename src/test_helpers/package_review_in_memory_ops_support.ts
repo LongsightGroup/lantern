@@ -60,8 +60,8 @@ export function applyOfficialVerificationToDetail(
 
   const brokerVerification = buildBrokerVerificationStatus({
     supportedPath: scope,
-    internal:
-      detail.brokerVerification?.internal ?? detail.inventory.brokerVerification?.internal ?? null,
+    internal: detail.brokerVerification?.internal ??
+      detail.inventory.brokerVerification?.internal ?? null,
     official,
   });
 

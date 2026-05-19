@@ -39,8 +39,7 @@ export function normalizeHttpOrigin(value: string, invalidMessage: string): stri
 export function resolvePublicOriginFromRequest(input: PublicOriginRequestInput): string {
   const requestUrl = new URL(input.requestUrl);
   const forwarded = parseForwardedHeader(input.forwardedHeader);
-  const proto =
-    forwarded.proto ??
+  const proto = forwarded.proto ??
     readForwardedValue(input.xForwardedProto) ??
     requestUrl.protocol.slice(0, -1);
   const host = forwarded.host ?? readForwardedValue(input.xForwardedHost) ?? requestUrl.host;

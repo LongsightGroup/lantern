@@ -214,10 +214,12 @@ export function buildBrowserGraderRunnerSource(input: {
   }));
 
   return `(() => {
-  const browserGraderConfig = ${JSON.stringify({
-    reviewedSpecFiles: specEntries,
-    scoreMaximum: input.scoreMaximum,
-  })};
+  const browserGraderConfig = ${
+    JSON.stringify({
+      reviewedSpecFiles: specEntries,
+      scoreMaximum: input.scoreMaximum,
+    })
+  };
   const runnerScriptElement = document.currentScript || window.__LanternCurrentScript;
 
   if (!(runnerScriptElement instanceof HTMLScriptElement) || runnerScriptElement.src === '') {
@@ -313,13 +315,12 @@ function readAuthoringFromManifestJson(
   const kind = typeof authoringRecord.kind === 'string' ? authoringRecord.kind : null;
   const graderSpecFiles = Array.isArray(authoringRecord.grader_spec_files)
     ? authoringRecord.grader_spec_files.filter(
-        (value: unknown): value is string => typeof value === 'string',
-      )
+      (value: unknown): value is string => typeof value === 'string',
+    )
     : [];
-  const evidenceExampleFile =
-    typeof authoringRecord.evidence_example_file === 'string'
-      ? authoringRecord.evidence_example_file
-      : '';
+  const evidenceExampleFile = typeof authoringRecord.evidence_example_file === 'string'
+    ? authoringRecord.evidence_example_file
+    : '';
 
   if (kind !== 'browser_autograder' || evidenceExampleFile === '') {
     return null;

@@ -7,8 +7,8 @@ const TEST_CONFIG_ENV = {
     return name === 'APP_ORIGIN'
       ? 'http://localhost:8417'
       : name === 'LTI_TOOL_PRIVATE_JWK'
-        ? getTestToolPrivateJwkEnvValue()
-        : undefined;
+      ? getTestToolPrivateJwkEnvValue()
+      : undefined;
   },
 };
 

@@ -43,30 +43,34 @@ export function renderManagedDeploymentSections(input: {
         <p class="section-label">Connections</p>
         <h2>Choose your LMS.</h2>
         <nav class="deployment-tab-strip" aria-label="App settings">
-          ${input.slots
-            .map((slot) =>
-              renderLmsTab({
-                appId: input.appId,
-                slot,
-                selectedLms,
-              }),
-            )
-            .join('')}
-        </nav>
-        ${renderSelectedSlotPanel({
+          ${
+    input.slots
+      .map((slot) =>
+        renderLmsTab({
           appId: input.appId,
-          slot: selectedSlot,
-          editorState: input.editorState?.lms === selectedSlot.lms ? input.editorState : null,
-          nrpsVerification: input.nrpsVerification,
-          lanternLtiProfileSettings: input.lanternLtiProfileSettings,
-          canvasConfigUrl: input.canvasConfigUrl,
-          canvasDynamicRegistrationUrl: input.canvasDynamicRegistrationUrl,
-          moodleDynamicRegistrationUrl: input.moodleDynamicRegistrationUrl,
-          sakaiDynamicRegistrationUrl: input.sakaiDynamicRegistrationUrl,
-          supportedCanvasEnvironments: input.supportedCanvasEnvironments,
-          approvedVersions: input.approvedVersions,
-          history: input.history,
-        })}
+          slot,
+          selectedLms,
+        })
+      )
+      .join('')
+  }
+        </nav>
+        ${
+    renderSelectedSlotPanel({
+      appId: input.appId,
+      slot: selectedSlot,
+      editorState: input.editorState?.lms === selectedSlot.lms ? input.editorState : null,
+      nrpsVerification: input.nrpsVerification,
+      lanternLtiProfileSettings: input.lanternLtiProfileSettings,
+      canvasConfigUrl: input.canvasConfigUrl,
+      canvasDynamicRegistrationUrl: input.canvasDynamicRegistrationUrl,
+      moodleDynamicRegistrationUrl: input.moodleDynamicRegistrationUrl,
+      sakaiDynamicRegistrationUrl: input.sakaiDynamicRegistrationUrl,
+      supportedCanvasEnvironments: input.supportedCanvasEnvironments,
+      approvedVersions: input.approvedVersions,
+      history: input.history,
+    })
+  }
       </div>
     </section>`;
 }
@@ -77,17 +81,17 @@ function renderLmsTab(input: {
   selectedLms: ManagedDeploymentSlot['lms'];
 }): string {
   const lmsLabel = formatLmsLabel(input.slot.lms);
-  const editorHref = `/admin/packages/${encodeURIComponent(
-    input.appId,
-  )}/deployment?lms=${encodeURIComponent(input.slot.lms)}#slot-panel`;
+  const editorHref = `/admin/packages/${
+    encodeURIComponent(
+      input.appId,
+    )
+  }/deployment?lms=${encodeURIComponent(input.slot.lms)}#slot-panel`;
   const bindingStatusHeading = describeBindingStatusHeading(input.slot);
   const pinStatus = describeDeploymentPin(input.slot.persisted ? input.slot.deployment : null);
 
-  return `<a class="deployment-tab ${
-    input.selectedLms === input.slot.lms ? 'active' : ''
-  }" href="${escapeHtml(editorHref)}" ${
-    input.selectedLms === input.slot.lms ? 'aria-current="page"' : ''
-  }>
+  return `<a class="deployment-tab ${input.selectedLms === input.slot.lms ? 'active' : ''}" href="${
+    escapeHtml(editorHref)
+  }" ${input.selectedLms === input.slot.lms ? 'aria-current="page"' : ''}>
       <span class="deployment-tab-label">${escapeHtml(lmsLabel)}</span>
       <span class="deployment-tab-note">${escapeHtml(bindingStatusHeading)}</span>
       <span class="deployment-tab-note">${escapeHtml(pinStatus)}</span>

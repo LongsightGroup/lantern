@@ -132,7 +132,7 @@ Deno.test('validateLaunchRequest rejects reviewed placement launches with a stab
       idToken,
       now: () => new Date('2026-03-23T22:45:00Z'),
       loadJwks: () => Promise.resolve(getTestCanvasJwks()),
-    }),
+    })
   );
   const rejection = expectLaunchRejection(error);
 
@@ -194,7 +194,7 @@ Deno.test('validateLaunchRequest rejects reviewed placement launches with a stab
       idToken,
       now: () => new Date('2026-03-23T22:45:00Z'),
       loadJwks: () => Promise.resolve(getTestCanvasJwks()),
-    }),
+    })
   );
   const rejection = expectLaunchRejection(error);
 
@@ -258,7 +258,7 @@ Deno.test('validateLaunchRequest rejects reviewed placement launches with a stab
       idToken,
       now: () => new Date('2026-03-23T22:45:00Z'),
       loadJwks: () => Promise.resolve(getTestCanvasJwks()),
-    }),
+    })
   );
   const rejection = expectLaunchRejection(error);
 

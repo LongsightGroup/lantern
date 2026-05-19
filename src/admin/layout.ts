@@ -39,13 +39,15 @@ export function renderAdminLayout(input: {
     <div class="app">
       ${renderSidebar(nav)}
       <div class="main">
-        ${renderPageHeader({
-          breadcrumbs,
-          eyebrow: input.eyebrow,
-          heading: input.heading,
-          intro: input.intro,
-          pageNav: input.pageNav ?? null,
-        })}
+        ${
+    renderPageHeader({
+      breadcrumbs,
+      eyebrow: input.eyebrow,
+      heading: input.heading,
+      intro: input.intro,
+      pageNav: input.pageNav ?? null,
+    })
+  }
         <main class="page-body">
           <div class="content">
             ${input.notice ? renderNotice(input.notice) : ''}

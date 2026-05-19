@@ -94,10 +94,9 @@ export function selectAppWriterContext(
     maxRepairAttempts: input.maxRepairAttempts,
     starterId: 'simple-activity',
     referenceAppIds: ['examples/starters/simple-activity'],
-    selectionReason:
-      input.requestedAppId === null
-        ? 'The request fits the default small activity starter.'
-        : `Requested app id ${input.requestedAppId} fits the default small activity starter.`,
+    selectionReason: input.requestedAppId === null
+      ? 'The request fits the default small activity starter.'
+      : `Requested app id ${input.requestedAppId} fits the default small activity starter.`,
   });
 }
 
@@ -115,11 +114,11 @@ export function selectAppWriterRevisionContext(input: {
     authoringMode: input.authoringMode ?? 'javascript',
     maxRepairAttempts: input.maxRepairAttempts,
     starterId,
-    referenceAppIds:
-      starterId === 'browser-autograder'
-        ? ['template', 'web-checkup', 'typescript-ladder-game']
-        : ['examples/starters/simple-activity'],
-    selectionReason: `Revision starts from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version} and targets ${input.targetVersion}.`,
+    referenceAppIds: starterId === 'browser-autograder'
+      ? ['template', 'web-checkup', 'typescript-ladder-game']
+      : ['examples/starters/simple-activity'],
+    selectionReason:
+      `Revision starts from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version} and targets ${input.targetVersion}.`,
     revision: {
       sourcePackageVersionId: input.sourcePackageVersion.id,
       sourceAppId: input.sourcePackageVersion.appId,
@@ -209,7 +208,7 @@ function buildSelection(input: {
 
 function selectStarterForPackageVersion(packageVersion: PackageVersionRecord): AppWriterStarterId {
   return packageVersion.grading.mode === 'browser' ||
-    packageVersion.capabilities.includes('submit_evidence_artifact')
+      packageVersion.capabilities.includes('submit_evidence_artifact')
     ? 'browser-autograder'
     : 'simple-activity';
 }
@@ -282,12 +281,12 @@ function mentionsBrowserAutograder(prompt: string): boolean {
 
 function mentionsFlashcards(prompt: string): boolean {
   return ['flashcard', 'flash card', 'study deck', 'retrieval', 'spaced'].some((term) =>
-    prompt.includes(term),
+    prompt.includes(term)
   );
 }
 
 function mentionsGame(prompt: string): boolean {
   return ['game', 'arcade', 'asteroid', 'shoot', 'match', 'sorting', 'sort'].some((term) =>
-    prompt.includes(term),
+    prompt.includes(term)
   );
 }

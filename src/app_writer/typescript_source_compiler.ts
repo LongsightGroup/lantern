@@ -1,4 +1,4 @@
-import ts from 'https://esm.sh/typescript@5.9.3?bundle';
+import ts from 'typescript';
 import type {
   AppGenerationPlan,
   AppGenerationValidationFinding,
@@ -50,8 +50,8 @@ async function compileTypeScriptWorkspace(
     };
   }
 
-  const importFinding =
-    findForbiddenModuleSyntax(sourceApp) ?? findForbiddenModuleSyntax(contentModel);
+  const importFinding = findForbiddenModuleSyntax(sourceApp) ??
+    findForbiddenModuleSyntax(contentModel);
 
   if (importFinding !== null) {
     return {
@@ -115,8 +115,8 @@ function collectTypeScriptDiagnostics(
     readFile(fileName) {
       return (
         sourceFiles.get(normalizeWorkspacePath(fileName)) ??
-        libraryFiles.get(normalizeLibraryPath(fileName)) ??
-        defaultHost.readFile(fileName)
+          libraryFiles.get(normalizeLibraryPath(fileName)) ??
+          defaultHost.readFile(fileName)
       );
     },
     getSourceFile(fileName, languageVersion, onError, shouldCreateNewSourceFile) {
@@ -210,10 +210,9 @@ function listReferencedLibraryFiles(contents: string): string[] {
 function mapDiagnosticToFinding(diagnostic: ts.Diagnostic): AppGenerationValidationFinding {
   const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
   const file = diagnostic.file?.fileName ?? null;
-  const position =
-    diagnostic.file && diagnostic.start !== undefined
-      ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
-      : null;
+  const position = diagnostic.file && diagnostic.start !== undefined
+    ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
+    : null;
 
   return {
     code: 'typescript_diagnostic',
@@ -245,7 +244,8 @@ function buildMissingSourceFinding(
     message: `TypeScript authoring mode requires ${missingFiles.join(' and ')}.`,
     file: null,
     field: null,
-    fix: 'Return source/app.ts and source/content_model.ts so Lantern can typecheck and compile the app.',
+    fix:
+      'Return source/app.ts and source/content_model.ts so Lantern can typecheck and compile the app.',
     detail: {
       missingFiles,
     },
@@ -265,7 +265,8 @@ function findForbiddenModuleSyntax(
     message: `${file.path} must not use module imports or exports in TypeScript authoring mode.`,
     file: file.path,
     field: null,
-    fix: 'Use global type declarations in source/content_model.ts and plain script code in source/app.ts.',
+    fix:
+      'Use global type declarations in source/content_model.ts and plain script code in source/app.ts.',
     detail: {},
   };
 }

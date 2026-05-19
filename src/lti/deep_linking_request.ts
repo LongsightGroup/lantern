@@ -144,9 +144,11 @@ export async function validateDeepLinkingRequest(input: {
   if (!deployment?.binding) {
     rejectDeepLinkingSpecInvalid({
       code: 'deployment_binding_missing',
-      message: `${formatLmsLabel(
-        loginState.lms,
-      )} deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
+      message: `${
+        formatLmsLabel(
+          loginState.lms,
+        )
+      } deployment ${loginState.clientId} / ${loginState.deploymentId} was not found for issuer ${loginState.issuer}.`,
       detail: {
         issuer: loginState.issuer,
         clientId: loginState.clientId,
@@ -655,8 +657,9 @@ function validateDeepLinkingAudience(input: {
   } catch (error) {
     rejectDeepLinkingSpecInvalid({
       code: 'audience_mismatch',
-      message:
-        error instanceof Error ? error.message : `${input.subject} audience validation failed.`,
+      message: error instanceof Error
+        ? error.message
+        : `${input.subject} audience validation failed.`,
       detail: { clientId: input.clientId },
     });
   }

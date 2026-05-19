@@ -24,9 +24,11 @@ export function renderAppRevisionPage(input: {
       },
       {
         label: input.packageVersion.version,
-        href: `/admin/packages/${escapeHtml(input.packageVersion.appId)}/versions/${escapeHtml(
-          input.packageVersion.version,
-        )}`,
+        href: `/admin/packages/${escapeHtml(input.packageVersion.appId)}/versions/${
+          escapeHtml(
+            input.packageVersion.version,
+          )
+        }`,
       },
       { label: 'Revise' },
     ],
@@ -42,20 +44,28 @@ export function renderAppRevisionPage(input: {
         <div class="stack">
           <p class="section-label">Revision request</p>
           <h2>Create a new version</h2>
-          <p class="line-copy">Lantern will initialize the app writer workspace from ${escapeHtml(
-            input.packageVersion.appId,
-          )}@${escapeHtml(
-            input.packageVersion.version,
-          )}, run the same harness validation loop, and save a new pending package.</p>
+          <p class="line-copy">Lantern will initialize the app writer workspace from ${
+      escapeHtml(
+        input.packageVersion.appId,
+      )
+    }@${
+      escapeHtml(
+        input.packageVersion.version,
+      )
+    }, run the same harness validation loop, and save a new pending package.</p>
         </div>
-        <form class="stack app-writer-form" method="post" action="/admin/packages/${escapeHtml(
-          input.packageVersion.appId,
-        )}/versions/${escapeHtml(input.packageVersion.version)}/revise" data-app-writer-form>
+        <form class="stack app-writer-form" method="post" action="/admin/packages/${
+      escapeHtml(
+        input.packageVersion.appId,
+      )
+    }/versions/${escapeHtml(input.packageVersion.version)}/revise" data-app-writer-form>
           <label class="field">
             <span>Refinement prompt</span>
-            <textarea name="promptText" rows="8" required>${escapeHtml(
-              input.promptText ?? '',
-            )}</textarea>
+            <textarea name="promptText" rows="8" required>${
+      escapeHtml(
+        input.promptText ?? '',
+      )
+    }</textarea>
           </label>
           <label class="field">
             <span>New version</span>
@@ -66,9 +76,11 @@ export function renderAppRevisionPage(input: {
               <span class="app-writer-submit-label">Revise app</span>
               <span class="app-writer-submit-busy-label">Revising app</span>
             </button>
-            <a class="button-secondary" href="/admin/packages/${escapeHtml(
-              input.packageVersion.appId,
-            )}/versions/${escapeHtml(input.packageVersion.version)}">Back to version</a>
+            <a class="button-secondary" href="/admin/packages/${
+      escapeHtml(
+        input.packageVersion.appId,
+      )
+    }/versions/${escapeHtml(input.packageVersion.version)}">Back to version</a>
           </div>
           <p
             id="app-writer-submit-status"

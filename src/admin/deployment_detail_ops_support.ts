@@ -31,20 +31,21 @@ export function renderDimensionRow(
 ): string {
   const tone = dimension?.status ?? 'unknown';
   const status = dimension === null ? 'Unknown' : describeDimensionStatus(dimension.status);
-  const summary =
-    dimension?.summary ?? 'No control-plane evidence has been recorded for this dimension yet.';
-  const checkedAt =
-    dimension?.checkedAt === null || dimension?.checkedAt === undefined
-      ? 'Not recorded yet'
-      : formatDateTime(dimension.checkedAt);
+  const summary = dimension?.summary ??
+    'No control-plane evidence has been recorded for this dimension yet.';
+  const checkedAt = dimension?.checkedAt === null || dimension?.checkedAt === undefined
+    ? 'Not recorded yet'
+    : formatDateTime(dimension.checkedAt);
 
   return `<article class="table-row table-row-status table-row-status-${escapeHtml(tone)}">
       <div class="table-row-top">
         <p class="line-title">
           <span>${escapeHtml(label)}</span>
-          <span class="chip chip-status chip-status-${escapeHtml(tone)}">${escapeHtml(
-            status,
-          )}</span>
+          <span class="chip chip-status chip-status-${escapeHtml(tone)}">${
+    escapeHtml(
+      status,
+    )
+  }</span>
         </p>
         <p class="micro muted">${escapeHtml(checkedAt)}</p>
       </div>
@@ -74,25 +75,28 @@ export function renderDiagnosticRow(
     item.kind === 'runtime' ? describeRuntimeRoute(readStringDetail(item.detail, 'route')) : null,
     item.attemptId === null ? null : `Attempt ${item.attemptId}`,
   ].filter((value): value is string => value !== null);
-  const retryAction =
-    item.retryable && retryAttemptId !== null
-      ? `<form method="post" action="/admin/packages/${escapeHtml(
-          appId,
-        )}/deployment/retry-grade-publish" class="stack">
+  const retryAction = item.retryable && retryAttemptId !== null
+    ? `<form method="post" action="/admin/packages/${
+      escapeHtml(
+        appId,
+      )
+    }/deployment/retry-grade-publish" class="stack">
             <input type="hidden" name="attemptId" value="${escapeHtml(retryAttemptId)}" />
             <div class="button-row">
               <button type="submit" class="button-secondary">Retry grade publish</button>
             </div>
           </form>`
-      : '';
+    : '';
 
   return `<article class="table-row table-row-status table-row-status-${escapeHtml(tone)}">
       <div class="table-row-top">
         <p class="line-title">
           <span>${escapeHtml(describeDiagnosticKind(item.kind))}</span>
-          <span class="chip chip-status chip-status-${escapeHtml(tone)}">${escapeHtml(
-            describeDiagnosticStatus(item),
-          )}</span>
+          <span class="chip chip-status chip-status-${escapeHtml(tone)}">${
+    escapeHtml(
+      describeDiagnosticStatus(item),
+    )
+  }</span>
         </p>
         <p class="micro muted">${escapeHtml(formatDateTime(item.occurredAt))}</p>
       </div>
@@ -124,10 +128,10 @@ export function renderRecentLaunchTableRow(item: DeploymentRecentLaunch): string
         <div class="detail-table-stack">
           <strong>${escapeHtml(identity.primary ?? 'Unknown person')}</strong>
           ${
-            identity.secondary === null
-              ? ''
-              : `<span class="micro muted">${escapeHtml(identity.secondary)}</span>`
-          }
+    identity.secondary === null
+      ? ''
+      : `<span class="micro muted">${escapeHtml(identity.secondary)}</span>`
+  }
         </div>
       </td>
       <td>${escapeHtml(formatDateTime(item.occurredAt))}</td>
@@ -136,10 +140,10 @@ export function renderRecentLaunchTableRow(item: DeploymentRecentLaunch): string
         <div class="detail-table-stack">
           <span class="chip chip-status chip-status-healthy">Opened</span>
           ${
-            launchDetails.length === 0
-              ? ''
-              : `<span class="micro muted">${escapeHtml(launchDetails.join(' · '))}</span>`
-          }
+    launchDetails.length === 0
+      ? ''
+      : `<span class="micro muted">${escapeHtml(launchDetails.join(' · '))}</span>`
+  }
         </div>
       </td>
     </tr>`;
@@ -279,8 +283,8 @@ export function formatGradePublicationTimestamp(
 export function formatBrokerVerificationTimestamp(
   verification:
     | {
-        checkedAt: string;
-      }
+      checkedAt: string;
+    }
     | null
     | undefined,
 ): string {
@@ -489,10 +493,12 @@ function formatResolvedLtiProfile(input: {
     return null;
   }
 
-  return `Profile ${describeResolvedLtiProfile({
-    id: input.id,
-    source: input.source,
-  })}`;
+  return `Profile ${
+    describeResolvedLtiProfile({
+      id: input.id,
+      source: input.source,
+    })
+  }`;
 }
 
 function readLtiProfileId(detail: Record<string, unknown>): string | null {

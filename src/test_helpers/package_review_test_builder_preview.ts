@@ -80,8 +80,8 @@ export function buildPreviewSessionRecord(
       'finalize_attempt',
     ],
     snapshotRoot: overrides.snapshotRoot ?? 'var/packages/chapter-4-asteroids/0.1.0',
-    entrypointPath:
-      overrides.entrypointPath ?? 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
+    entrypointPath: overrides.entrypointPath ??
+      'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
     launch: overrides.launch ?? {
       userId: 'preview-user-123',
       userRole: 'instructor',

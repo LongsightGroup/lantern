@@ -64,10 +64,9 @@ export function createInMemoryPreviewRepository(state: InMemoryRepositoryState):
         throw new Error(`Preview session ${input.previewSessionId} was not found.`);
       }
 
-      const sequence =
-        state.previewEvidence
-          .filter((candidate) => candidate.previewSessionId === input.previewSessionId)
-          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence = state.previewEvidence
+        .filter((candidate) => candidate.previewSessionId === input.previewSessionId)
+        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = buildPreviewEvidenceRecord({
         id: nextId(state.previewEvidence),
         previewSessionId: input.previewSessionId,

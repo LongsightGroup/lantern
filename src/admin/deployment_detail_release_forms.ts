@@ -50,13 +50,17 @@ export function renderSelectedSlotPanel(input: {
         <div class="stack">
           <p class="section-label">${escapeHtml(lmsLabel)} settings</p>
           <h2>Set up ${escapeHtml(lmsLabel)}</h2>
-          <p class="deployment-form-note">${escapeHtml(
-            describeManagedSlotIntro(input.slot.lms),
-          )}</p>
+          <p class="deployment-form-note">${
+    escapeHtml(
+      describeManagedSlotIntro(input.slot.lms),
+    )
+  }</p>
         </div>
-        <span class="chip ${escapeHtml(bindingStatusChipClass)}">${escapeHtml(
-          bindingStatusHeading,
-        )}</span>
+        <span class="chip ${escapeHtml(bindingStatusChipClass)}">${
+    escapeHtml(
+      bindingStatusHeading,
+    )
+  }</span>
       </div>
       <div class="facts deployment-summary-grid">
         <div class="fact">
@@ -65,11 +69,13 @@ export function renderSelectedSlotPanel(input: {
         </div>
         <div class="fact">
           <span class="fact-label">Live version</span>
-          <span class="fact-value">${escapeHtml(
-            input.slot.deployment.enabledPackageVersionId === null
-              ? 'Not chosen yet'
-              : (input.slot.deployment.enabledPackageVersion ?? 'Reviewed version'),
-          )}</span>
+          <span class="fact-value">${
+    escapeHtml(
+      input.slot.deployment.enabledPackageVersionId === null
+        ? 'Not chosen yet'
+        : (input.slot.deployment.enabledPackageVersion ?? 'Reviewed version'),
+    )
+  }</span>
         </div>
         ${renderLtiProfileFacts(input.slot, input.lanternLtiProfileSettings)}
       </div>
@@ -77,10 +83,10 @@ export function renderSelectedSlotPanel(input: {
       <div class="deployment-tab-body stack">
         ${renderInstallForm(input)}
         ${
-          input.slot.lms === 'canvas'
-            ? renderCanvasRosterVerification(input.appId, input.slot, input.nrpsVerification)
-            : ''
-        }
+    input.slot.lms === 'canvas'
+      ? renderCanvasRosterVerification(input.appId, input.slot, input.nrpsVerification)
+      : ''
+  }
         ${renderVersionPinForm(input.appId, input.slot, input.editorState, input.approvedVersions)}
         ${renderLtiProfileForm(input.appId, input.slot, input.lanternLtiProfileSettings)}
       </div>
@@ -116,21 +122,22 @@ function renderLtiProfileFacts(
   lanternLtiProfileSettings: LanternLtiProfileSettingsRecord,
 ): string {
   const defaultProfile = getLtiProfileDefinition(lanternLtiProfileSettings.defaultLtiProfile);
-  const overrideProfile =
-    slot.deployment.ltiProfileOverride === null
-      ? null
-      : getLtiProfileDefinition(slot.deployment.ltiProfileOverride);
+  const overrideProfile = slot.deployment.ltiProfileOverride === null
+    ? null
+    : getLtiProfileDefinition(slot.deployment.ltiProfileOverride);
   const effectiveProfile = overrideProfile ?? defaultProfile;
 
   return `
         <div class="fact">
           <span class="fact-label">LTI behavior</span>
           <span class="fact-value">${escapeHtml(effectiveProfile.label)}</span>
-          <p class="micro muted">${escapeHtml(
-            overrideProfile === null
-              ? `Uses Lantern default. ${defaultProfile.summary}`
-              : `Saved only for this LMS setup. ${overrideProfile.summary}`,
-          )}</p>
+          <p class="micro muted">${
+    escapeHtml(
+      overrideProfile === null
+        ? `Uses Lantern default. ${defaultProfile.summary}`
+        : `Saved only for this LMS setup. ${overrideProfile.summary}`,
+    )
+  }</p>
         </div>`;
 }
 
@@ -143,10 +150,9 @@ function renderLtiProfileForm(
   const selectedValue = slot.deployment.ltiProfileOverride;
   const overrideProfile = selectedValue === null ? null : getLtiProfileDefinition(selectedValue);
   const disabled = slot.persisted ? '' : 'disabled';
-  const currentMode =
-    overrideProfile === null
-      ? `Using Lantern default (${defaultProfile.label})`
-      : `Saved override (${overrideProfile.label})`;
+  const currentMode = overrideProfile === null
+    ? `Using Lantern default (${defaultProfile.label})`
+    : `Saved override (${overrideProfile.label})`;
   const detailsOpen = selectedValue === null ? '' : 'open';
   const currentSummary = overrideProfile?.summary ?? defaultProfile.summary;
 
@@ -159,9 +165,11 @@ function renderLtiProfileForm(
           <span class="fact-value">${escapeHtml(currentMode)}</span>
           <p class="micro muted">${escapeHtml(currentSummary)}</p>
         </div>
-        <form method="post" action="/admin/packages/${encodeURIComponent(
-          appId,
-        )}/deployment/lti-profile" class="stack">
+        <form method="post" action="/admin/packages/${
+    encodeURIComponent(
+      appId,
+    )
+  }/deployment/lti-profile" class="stack">
           <input type="hidden" name="lms" value="${escapeHtml(slot.lms)}">
           <div class="field">
             <span>Saved override</span>
@@ -176,14 +184,17 @@ function renderLtiProfileForm(
                 >
                 <span>
                   <strong>Use Lantern default</strong>
-                  <span class="micro muted">${escapeHtml(
-                    defaultProfile.label,
-                  )}. ${escapeHtml(defaultProfile.summary)}</span>
+                  <span class="micro muted">${
+    escapeHtml(
+      defaultProfile.label,
+    )
+  }. ${escapeHtml(defaultProfile.summary)}</span>
                 </span>
               </label>
-              ${LTI_PROFILE_DEFINITIONS.map(
-                (profile) =>
-                  `<label class="choice-row">
+              ${
+    LTI_PROFILE_DEFINITIONS.map(
+      (profile) =>
+        `<label class="choice-row">
                   <input
                     type="radio"
                     name="ltiProfileOverride"
@@ -196,13 +207,16 @@ function renderLtiProfileForm(
                     <span class="micro muted">${escapeHtml(profile.summary)}</span>
                   </span>
                 </label>`,
-              ).join('')}
+    ).join('')
+  }
             </div>
-            <p class="field-hint">${escapeHtml(
-              slot.persisted
-                ? 'Saving here only changes this LMS setup.'
-                : 'Save the app settings first. Lantern only stores an override after this LMS slot exists.',
-            )}</p>
+            <p class="field-hint">${
+    escapeHtml(
+      slot.persisted
+        ? 'Saving here only changes this LMS setup.'
+        : 'Save the app settings first. Lantern only stores an override after this LMS slot exists.',
+    )
+  }</p>
           </div>
           <div class="button-row">
             <button type="submit" ${disabled}>Save LTI behavior</button>

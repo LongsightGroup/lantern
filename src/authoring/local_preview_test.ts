@@ -86,7 +86,8 @@ Deno.test('local preview harness injects GatewayApp and serves preview state', a
       instructions:
         'Edit this file first. Keep the app logic small and move lesson-specific data here.',
       prompt: 'What is the one question or interaction this app should teach?',
-      hint: 'Use Lantern content files for reviewed lesson data, not hard-coded course text in app.js.',
+      hint:
+        'Use Lantern content files for reviewed lesson data, not hard-coded course text in app.js.',
     },
   );
 

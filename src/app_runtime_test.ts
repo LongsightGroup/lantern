@@ -91,8 +91,9 @@ Deno.test('GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
   assertEquals(bootstrap.session.expires_at, '2030-03-26T02:45:00Z');
   assertEquals(body.includes('https://canvas.example/api/lti/courses/42/line_items'), false);
   await assertBootstrapSignature(bootstrap);
-  const runtimeSessionEvents =
-    await repository.listAuditEventsByEventType('runtime.session.started');
+  const runtimeSessionEvents = await repository.listAuditEventsByEventType(
+    'runtime.session.started',
+  );
 
   assertEquals(runtimeSessionEvents.length, 1);
   const runtimeSessionEvent = runtimeSessionEvents[0];
@@ -192,8 +193,9 @@ Deno.test('runtime routes record timeout and integrity failures as durable typed
   });
 
   assertEquals(timeoutResponse.status, 409);
-  const timeoutEvents =
-    await timeoutRepository.listAuditEventsByEventType('runtime.session.timeout');
+  const timeoutEvents = await timeoutRepository.listAuditEventsByEventType(
+    'runtime.session.timeout',
+  );
 
   assertEquals(timeoutEvents.length, 1);
   const timeoutEvent = timeoutEvents[0];
@@ -380,8 +382,8 @@ function createRuntimeTestApp(input: {
   return createApp({
     env: RUNTIME_ENV,
     runtimeArtifactStore: EXAMPLE_RUNTIME_ARTIFACT_STORE,
-    runtimeDelivery:
-      input.runtimeDelivery ?? createDirectRuntimeDelivery(EXAMPLE_RUNTIME_ARTIFACT_STORE),
+    runtimeDelivery: input.runtimeDelivery ??
+      createDirectRuntimeDelivery(EXAMPLE_RUNTIME_ARTIFACT_STORE),
     getRepository: () => input.repository,
   });
 }
@@ -396,10 +398,9 @@ function createStubRuntimeDelivery(input: {
     describeDelivery({ reviewedPackage }) {
       return {
         substrate: input.substrate,
-        workerId:
-          input.substrate === 'dynamic_worker'
-            ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
-            : null,
+        workerId: input.substrate === 'dynamic_worker'
+          ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
+          : null,
       };
     },
     loadReviewedAsset({ relativePath }) {

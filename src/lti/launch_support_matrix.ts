@@ -12,7 +12,8 @@ export function assertSupportedLaunchMessageType(messageType: string): void {
 
   rejectLaunch({
     code: 'unsupported_message_type',
-    message: `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only accepts ${LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE} for the governed runtime baseline.`,
+    message:
+      `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only accepts ${LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE} for the governed runtime baseline.`,
     detail: buildLaunchDetailRecord({
       route: SUPPORTED_LTI_LAUNCH_PATH,
       rule: GOVERNED_RUNTIME_BASELINE_RULE,
@@ -30,7 +31,8 @@ export function assertSupportedLaunchVersion(version: string): void {
 
   rejectLaunch({
     code: 'unsupported_lti_version',
-    message: `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only supports LTI ${SUPPORTED_LTI_VERSION} for the governed runtime baseline.`,
+    message:
+      `Launch rejected because ${SUPPORTED_LTI_LAUNCH_PATH} only supports LTI ${SUPPORTED_LTI_VERSION} for the governed runtime baseline.`,
     detail: buildLaunchDetailRecord({
       route: SUPPORTED_LTI_LAUNCH_PATH,
       rule: GOVERNED_RUNTIME_BASELINE_RULE,
@@ -97,7 +99,8 @@ export function rejectDeploymentBindingMissing(input: {
 }): never {
   rejectLaunch({
     code: 'deployment_binding_missing',
-    message: `${input.lmsLabel} deployment ${input.clientId} / ${input.deploymentId} was not found for issuer ${input.issuer}.`,
+    message:
+      `${input.lmsLabel} deployment ${input.clientId} / ${input.deploymentId} was not found for issuer ${input.issuer}.`,
     detail: buildLaunchDetailRecord({
       issuer: input.issuer,
       clientId: input.clientId,
@@ -142,7 +145,8 @@ export function rejectReviewedPlacementDeploymentMismatch(input: {
 }): never {
   rejectLaunch({
     code: 'reviewed_placement_deployment_mismatch',
-    message: `Reviewed placement ${input.placementId} does not belong to deployment ${input.deploymentSlug}.`,
+    message:
+      `Reviewed placement ${input.placementId} does not belong to deployment ${input.deploymentSlug}.`,
     detail: buildLaunchDetailRecord({
       placementId: input.placementId,
       deploymentSlug: input.deploymentSlug,
@@ -158,7 +162,8 @@ export function rejectReviewedPlacementContextMismatch(input: {
 }): never {
   rejectLaunch({
     code: 'reviewed_placement_context_mismatch',
-    message: `Reviewed placement ${input.placementId} does not match governed launch context ${input.contextId}.`,
+    message:
+      `Reviewed placement ${input.placementId} does not match governed launch context ${input.contextId}.`,
     detail: buildLaunchDetailRecord({
       placementId: input.placementId,
       contextId: input.contextId,
@@ -176,7 +181,8 @@ export function rejectReviewedPlacementResourceLinkConflict(input: {
   if (input.existingResourceLinkId) {
     rejectLaunch({
       code: 'reviewed_placement_resource_link_conflict',
-      message: `Reviewed placement ${input.placementId} is already bound to resource link ${input.existingResourceLinkId}.`,
+      message:
+        `Reviewed placement ${input.placementId} is already bound to resource link ${input.existingResourceLinkId}.`,
       detail: buildLaunchDetailRecord({
         placementId: input.placementId,
         resourceLinkId: input.resourceLinkId,
@@ -201,7 +207,8 @@ export function rejectReviewedPlacementResourceLinkConflict(input: {
 export function rejectMissingPinnedPackageVersion(deploymentSlug: string): never {
   rejectLaunch({
     code: 'missing_pinned_package_version',
-    message: `Launch rejected because deployment ${deploymentSlug} does not have an approved pinned package version.`,
+    message:
+      `Launch rejected because deployment ${deploymentSlug} does not have an approved pinned package version.`,
     detail: buildLaunchDetailRecord({
       deploymentSlug,
     }),

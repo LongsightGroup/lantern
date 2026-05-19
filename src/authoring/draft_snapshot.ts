@@ -34,9 +34,11 @@ export async function materializeDraftPreviewPackageVersion(input: {
         trimLeadingSlash(input.packageVersion.entrypoint),
         DRAFT_SNAPSHOT_OUTSIDE_MESSAGE,
       ),
-      digest: `sha256:authoring-draft-${input.draft.draftId}-${formatSnapshotTimestamp(
-        input.createdAt,
-      )}`,
+      digest: `sha256:authoring-draft-${input.draft.draftId}-${
+        formatSnapshotTimestamp(
+          input.createdAt,
+        )
+      }`,
     },
   };
 }

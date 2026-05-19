@@ -54,13 +54,10 @@ export function registerDeepLinkingRoutes(app: Hono, services: AppServices): voi
         request,
       });
       const deployment = await repository.getDeploymentBySlug(request.internalDeploymentSlug);
-      const ltiProfile =
-        deployment === null
-          ? null
-          : await resolveLtiProfileForDeployment({
-              repository,
-              deployment,
-            });
+      const ltiProfile = deployment === null ? null : await resolveLtiProfileForDeployment({
+        repository,
+        deployment,
+      });
       await repository.recordAuditEvent({
         eventType: 'deep_linking.request.accepted',
         actorType: 'platform',
@@ -86,9 +83,11 @@ export function registerDeepLinkingRoutes(app: Hono, services: AppServices): voi
       });
 
       return context.redirect(
-        `/lti/deep-linking/sessions/${session.sessionId}?token=${encodeURIComponent(
-          session.sessionToken,
-        )}`,
+        `/lti/deep-linking/sessions/${session.sessionId}?token=${
+          encodeURIComponent(
+            session.sessionToken,
+          )
+        }`,
         303,
       );
     } catch (error) {
@@ -292,28 +291,21 @@ async function recordRejectedDeepLinkingRequestAudit(input: {
     return;
   }
 
-  const loginState =
-    input.state === null
-      ? null
-      : await input.repository.getLoginStateByState(input.state).catch(() => null);
-  const deployment =
-    loginState === null
-      ? null
-      : await input.repository
-          .getDeploymentByBinding({
-            lms: loginState.lms,
-            issuer: loginState.issuer,
-            clientId: loginState.clientId,
-            deploymentId: loginState.deploymentId,
-          })
-          .catch(() => null);
-  const ltiProfile =
-    deployment === null
-      ? null
-      : await resolveLtiProfileForDeployment({
-          repository: input.repository,
-          deployment,
-        });
+  const loginState = input.state === null
+    ? null
+    : await input.repository.getLoginStateByState(input.state).catch(() => null);
+  const deployment = loginState === null ? null : await input.repository
+    .getDeploymentByBinding({
+      lms: loginState.lms,
+      issuer: loginState.issuer,
+      clientId: loginState.clientId,
+      deploymentId: loginState.deploymentId,
+    })
+    .catch(() => null);
+  const ltiProfile = deployment === null ? null : await resolveLtiProfileForDeployment({
+    repository: input.repository,
+    deployment,
+  });
 
   await input.repository.recordAuditEvent({
     eventType: 'deep_linking.request.rejected',
@@ -324,12 +316,13 @@ async function recordRejectedDeepLinkingRequestAudit(input: {
     attemptId: null,
     lineItemBindingId: null,
     status: 'failed',
-    summary:
-      loginState === null
-        ? 'Rejected a Deep Linking request before Lantern could match the saved login state.'
-        : `Rejected a ${formatLmsLabel(
-            loginState.lms,
-          )} Deep Linking request before picker handoff.`,
+    summary: loginState === null
+      ? 'Rejected a Deep Linking request before Lantern could match the saved login state.'
+      : `Rejected a ${
+        formatLmsLabel(
+          loginState.lms,
+        )
+      } Deep Linking request before picker handoff.`,
     detail: {
       lms: loginState?.lms ?? null,
       category: input.error.category,

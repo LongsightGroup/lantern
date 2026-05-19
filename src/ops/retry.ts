@@ -22,13 +22,14 @@ export interface RetryAccessTokenRequester {
   }): Promise<{ accessToken: string }>;
 }
 
-export interface RetryLookupRepository extends Pick<
-  PackageReviewRepository,
-  | 'getDeploymentByBinding'
-  | 'getLanternLtiProfileSettings'
-  | 'recordAuditEvent'
-  | 'updateGradePublication'
-> {
+export interface RetryLookupRepository extends
+  Pick<
+    PackageReviewRepository,
+    | 'getDeploymentByBinding'
+    | 'getLanternLtiProfileSettings'
+    | 'recordAuditEvent'
+    | 'updateGradePublication'
+  > {
   getRetryableGradePublicationLookup(
     attemptId: string,
   ): Promise<RetryableGradePublicationLookup | null>;
@@ -94,33 +95,33 @@ export async function retryFailedGradePublication(input: {
     env: input.env,
   });
   const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
-    .retryServiceUnauthorizedOnce
+      .retryServiceUnauthorizedOnce
     ? async () => {
-        await recordInteropPathUsed({
-          repository: input.repository,
-          scope: 'service',
-          path: 'service_401_retry',
-          actorType: 'system',
-          deploymentRecordId: runtimeSession.deploymentRecordId,
-          packageVersionId: runtimeSession.packageVersionId,
-          attemptId: lookup.attemptId,
-          summary: 'Lantern retried an LMS service request after a 401.',
-          detail: {
-            lms: lookup.binding!.lms,
-            deploymentSlug: runtimeSession.deploymentSlug,
-          },
-          ltiProfile,
-        });
-        const refreshed = await requestAccessToken({
-          issuer: lookup.binding!.issuer,
-          clientId: lookup.binding!.clientId,
-          deploymentId: lookup.binding!.deploymentId,
-          scopes: ags.scope,
-          env: input.env,
-        });
+      await recordInteropPathUsed({
+        repository: input.repository,
+        scope: 'service',
+        path: 'service_401_retry',
+        actorType: 'system',
+        deploymentRecordId: runtimeSession.deploymentRecordId,
+        packageVersionId: runtimeSession.packageVersionId,
+        attemptId: lookup.attemptId,
+        summary: 'Lantern retried an LMS service request after a 401.',
+        detail: {
+          lms: lookup.binding!.lms,
+          deploymentSlug: runtimeSession.deploymentSlug,
+        },
+        ltiProfile,
+      });
+      const refreshed = await requestAccessToken({
+        issuer: lookup.binding!.issuer,
+        clientId: lookup.binding!.clientId,
+        deploymentId: lookup.binding!.deploymentId,
+        scopes: ags.scope,
+        env: input.env,
+      });
 
-        return refreshed.accessToken;
-      }
+      return refreshed.accessToken;
+    }
     : undefined;
   const published = await publishGovernedGradePublication({
     repository: input.repository,

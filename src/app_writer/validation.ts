@@ -103,7 +103,8 @@ function validatePinnedStyleFiles(
       message: `${path} is a Lantern-owned reviewed stylesheet and must not be modified.`,
       file: path,
       field: null,
-      fix: `Restore ${path} to the pinned Lantern-provided stylesheet and put app-specific styles in dist/app.css.`,
+      fix:
+        `Restore ${path} to the pinned Lantern-provided stylesheet and put app-specific styles in dist/app.css.`,
       detail: {},
     });
   }
@@ -175,7 +176,8 @@ export function validateGeneratedAppPackagePlanAlignment(input: {
     findings.push({
       code: 'manifest_plan_grading_mode_mismatch',
       severity: 'error',
-      message: `Generated manifest grading mode must match planned mode ${input.appPlan.grading.mode}.`,
+      message:
+        `Generated manifest grading mode must match planned mode ${input.appPlan.grading.mode}.`,
       file: 'manifest.json',
       field: '/grading/mode',
       fix: `Set manifest grading.mode to ${input.appPlan.grading.mode}.`,
@@ -190,7 +192,8 @@ export function validateGeneratedAppPackagePlanAlignment(input: {
     findings.push({
       code: 'manifest_plan_max_score_mismatch',
       severity: 'error',
-      message: `Generated manifest max score must match planned max score ${input.appPlan.grading.maxScore}.`,
+      message:
+        `Generated manifest max score must match planned max score ${input.appPlan.grading.maxScore}.`,
       file: 'manifest.json',
       field: '/grading/max_score',
       fix: `Set manifest grading.max_score to ${input.appPlan.grading.maxScore}.`,
@@ -222,7 +225,8 @@ function normalizeWorkspaceFiles(
         message: `Generated file path ${file.path} must stay inside the virtual workspace.`,
         file: file.path,
         field: null,
-        fix: 'Use a relative package path without leading slash, backslash, or parent-directory segments.',
+        fix:
+          'Use a relative package path without leading slash, backslash, or parent-directory segments.',
         detail: {},
       });
       continue;
@@ -295,7 +299,8 @@ function validateManifestCapabilitiesMatchPlan(
       message: `Generated manifest declares unplanned capability ${capability}.`,
       file: 'manifest.json',
       field: '/capabilities',
-      fix: `Remove ${capability} from manifest capabilities or repair the app plan before writing files.`,
+      fix:
+        `Remove ${capability} from manifest capabilities or repair the app plan before writing files.`,
       detail: {
         capability,
       },
@@ -411,7 +416,8 @@ function validateSdkCapabilities(
     findings.push({
       code: 'sdk_capability_missing',
       severity: 'error',
-      message: `Generated app calls GatewayApp.${method}() but manifest capabilities do not include ${capability}.`,
+      message:
+        `Generated app calls GatewayApp.${method}() but manifest capabilities do not include ${capability}.`,
       file: 'dist/app.js',
       field: '/capabilities',
       fix: `Add ${capability} to manifest capabilities or remove the GatewayApp.${method}() call.`,
@@ -514,7 +520,8 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
     code: 'external_network_forbidden',
     pattern: /\bfetch\s*\(|https?:\/\//i,
     message: 'Generated apps cannot use arbitrary outbound network access.',
-    fix: 'Use Lantern GatewayApp methods and reviewed package files instead of external network calls.',
+    fix:
+      'Use Lantern GatewayApp methods and reviewed package files instead of external network calls.',
   },
   {
     code: 'external_script_forbidden',
@@ -532,7 +539,8 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
     code: 'browser_storage_forbidden',
     pattern: /\b(?:localStorage|sessionStorage)\b/,
     message: 'Generated apps cannot use localStorage or sessionStorage.',
-    fix: 'Use GatewayApp.readLocalState() and GatewayApp.writeLocalState() when local state is declared.',
+    fix:
+      'Use GatewayApp.readLocalState() and GatewayApp.writeLocalState() when local state is declared.',
   },
   {
     code: 'platform_boundary_forbidden',

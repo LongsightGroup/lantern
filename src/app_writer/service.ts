@@ -112,9 +112,10 @@ export interface StartedAppPackageGenerationRun {
 }
 
 export interface ContinueAppPackageGenerationRunInput {
-  repository: RunAppPackageGenerationInput['repository'] &
-    Pick<PackageReviewRepository, 'getAppGenerationRunById'> &
-    Partial<Pick<PackageReviewRepository, 'getPackageVersionById'>>;
+  repository:
+    & RunAppPackageGenerationInput['repository']
+    & Pick<PackageReviewRepository, 'getAppGenerationRunById'>
+    & Partial<Pick<PackageReviewRepository, 'getPackageVersionById'>>;
   workspaceRunner: AppWriterWorkspaceRunner;
   packageSnapshotStore?: PackageSnapshotStore;
   previewer?: AppPackagePreviewer;
@@ -144,8 +145,8 @@ export async function startAppPackageGenerationRun(
   const createdAt = now();
   const requestedAppId = input.requestedAppId ?? null;
   const maxRepairAttempts = input.maxRepairAttempts ?? APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS;
-  const authoringMode =
-    input.authoringMode ?? selectAuthoringModeForGeneration(input.sourceCompiler);
+  const authoringMode = input.authoringMode ??
+    selectAuthoringModeForGeneration(input.sourceCompiler);
   const contextSelection = selectAppWriterContext({
     promptText: input.promptText,
     requestedAppId,
@@ -193,8 +194,8 @@ export async function startAppPackageRevisionRun(
   const now = input.now ?? (() => new Date().toISOString());
   const createdAt = now();
   const maxRepairAttempts = input.maxRepairAttempts ?? APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS;
-  const authoringMode =
-    input.authoringMode ?? selectAuthoringModeForGeneration(input.sourceCompiler);
+  const authoringMode = input.authoringMode ??
+    selectAuthoringModeForGeneration(input.sourceCompiler);
   const contextSelection = selectAppWriterRevisionContext({
     promptText: input.promptText,
     sourcePackageVersion: input.sourcePackageVersion,
@@ -222,7 +223,8 @@ export async function startAppPackageRevisionRun(
     run,
     eventType: 'app_generation.started',
     status: 'accepted',
-    summary: `Started an app writer revision run from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version}.`,
+    summary:
+      `Started an app writer revision run from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version}.`,
     detail: {
       revisionSourcePackageVersionId: input.sourcePackageVersion.id,
       revisionSourceVersion: input.sourcePackageVersion.version,
@@ -454,8 +456,9 @@ export async function generateAppPackageFilesForPlannedRun(input: {
 }
 
 export async function finishGeneratedAppPackageRun(input: {
-  repository: RunAppPackageGenerationInput['repository'] &
-    Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
+  repository:
+    & RunAppPackageGenerationInput['repository']
+    & Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
   workspaceRunner: AppWriterWorkspaceRunner;
   packageSnapshotStore?: PackageSnapshotStore;
   previewer?: AppPackagePreviewer;
@@ -466,8 +469,7 @@ export async function finishGeneratedAppPackageRun(input: {
   now?: () => string;
 }): Promise<RunAppPackageGenerationResult> {
   const now = input.now ?? (() => new Date().toISOString());
-  const run =
-    (await input.repository.getAppGenerationRunById(input.generated.run.generationId)) ??
+  const run = (await input.repository.getAppGenerationRunById(input.generated.run.generationId)) ??
     input.generated.run;
   const workspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
     run.generationId,
@@ -794,8 +796,8 @@ async function generateInitialPackageFiles(input: {
     existingWorkspace !== null &&
     existingAuthorStep?.status === 'succeeded'
   ) {
-    const existingRun =
-      (await input.repository.getAppGenerationRunById(input.run.generationId)) ?? input.run;
+    const existingRun = (await input.repository.getAppGenerationRunById(input.run.generationId)) ??
+      input.run;
 
     return {
       run: existingRun,
@@ -904,10 +906,9 @@ function buildGenerationFromWorkspaceSnapshot(input: {
     files: input.workspace.files,
     progressUpdates: [],
     notes: deduplicateStrings([...input.planning.notes, ...input.run.generationNotes]),
-    validationFindings:
-      input.workspace.validationFindings.length > 0
-        ? input.workspace.validationFindings
-        : input.run.validationFindings,
+    validationFindings: input.workspace.validationFindings.length > 0
+      ? input.workspace.validationFindings
+      : input.run.validationFindings,
   };
 }
 
@@ -932,10 +933,9 @@ function buildGenerationFromPersistedWorkspace(input: {
     files: input.workspace.files,
     progressUpdates: [],
     notes: deduplicateStrings([...input.run.generationNotes, ...input.baseGeneration.notes]),
-    validationFindings:
-      input.workspace.validationFindings.length > 0
-        ? input.workspace.validationFindings
-        : input.run.validationFindings,
+    validationFindings: input.workspace.validationFindings.length > 0
+      ? input.workspace.validationFindings
+      : input.run.validationFindings,
     ...(input.baseGeneration.modelRequestMetadata === undefined
       ? {}
       : { modelRequestMetadata: input.baseGeneration.modelRequestMetadata }),
@@ -1560,15 +1560,17 @@ function rewriteRevisionManifest(input: {
     throw new Error('Revision source manifest.json must be a JSON object.');
   }
 
-  return `${JSON.stringify(
-    {
-      ...(parsed as Record<string, unknown>),
-      app_id: input.appId,
-      version: input.targetVersion,
-    },
-    null,
-    2,
-  )}\n`;
+  return `${
+    JSON.stringify(
+      {
+        ...(parsed as Record<string, unknown>),
+        app_id: input.appId,
+        version: input.targetVersion,
+      },
+      null,
+      2,
+    )
+  }\n`;
 }
 
 function selectAuthoringModeForGeneration(
@@ -1709,13 +1711,10 @@ async function saveGenerationWorkspaceSnapshot(input: {
   return await input.repository.saveAppGenerationWorkspace({
     generationId: input.run.generationId,
     selectedStarterId: input.generation.selectedStarterId,
-    files:
-      existing === null
-        ? input.generation.files
-        : mergeWorkspaceFiles(
-            selectNonPackageWorkspaceFiles(existing.files),
-            input.generation.files,
-          ),
+    files: existing === null ? input.generation.files : mergeWorkspaceFiles(
+      selectNonPackageWorkspaceFiles(existing.files),
+      input.generation.files,
+    ),
     generationPlan: input.generationPlan ?? existing?.generationPlan ?? [],
     validationFindings: input.validationFindings,
     repairAttemptCount: input.run.repairAttemptCount,
@@ -2321,7 +2320,8 @@ function buildStarterMismatchFinding(input: {
   return {
     code: 'starter_mismatch',
     severity: 'error',
-    message: `Generated package selected starter ${input.actualStarterId}, but Lantern selected ${input.expectedStarterId}.`,
+    message:
+      `Generated package selected starter ${input.actualStarterId}, but Lantern selected ${input.expectedStarterId}.`,
     file: null,
     field: '/selected_starter_id',
     fix: 'Regenerate package files against the Lantern-selected starter.',
@@ -2339,15 +2339,14 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
   const isWorkspaceHarnessContractError = isWorkspaceHarnessContractMessage(message);
   const isProviderInternalError = isGenerationProviderInternalErrorMessage(message);
   const isProviderCapacityError = isGenerationProviderCapacityErrorMessage(message);
-  const findingCode =
-    mapHarnessFailureFindingCode(harnessCode) ??
+  const findingCode = mapHarnessFailureFindingCode(harnessCode) ??
     (isTimeout
       ? 'generation_model_timeout'
       : isProviderCapacityError
-        ? 'generation_model_capacity_exceeded'
-        : isProviderInternalError
-          ? 'generation_model_provider_internal_error'
-          : 'generation_failed');
+      ? 'generation_model_capacity_exceeded'
+      : isProviderInternalError
+      ? 'generation_model_provider_internal_error'
+      : 'generation_failed');
 
   return {
     code: findingCode,
@@ -2355,42 +2354,39 @@ function buildGenerationFailedFinding(error: unknown): AppGenerationValidationFi
     message,
     file: null,
     field: null,
-    fix:
-      harnessCode === 'code_normalization_failed'
-        ? 'Retry generation. Lantern could not normalize the Code Mode response into executable workspace-edit code after bounded attempts.'
-        : harnessCode === 'code_execution_failed'
-          ? 'Retry generation. Lantern executed the workspace-edit code but it failed after bounded attempts.'
-          : harnessCode === 'workspace_read_write_failed'
-            ? 'Check the app writer workspace service bindings and retry generation.'
-            : harnessCode === 'provider_error'
-              ? 'Retry generation. The model provider failed during the current app writer stage.'
-              : isTimeout || harnessCode === 'model_timeout'
-                ? 'Retry generation. Lantern runs generation in durable staged background work; repeated timeouts point to model/provider latency for the current stage.'
-                : isWorkspaceHarnessContractError
-                  ? 'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.'
-                  : isProviderInternalError
-                    ? 'Retry generation. The model provider returned an internal error after Lantern used its bounded retry attempts.'
-                    : isProviderCapacityError
-                      ? 'Retry generation. The model provider reported temporary capacity exhaustion after Lantern used its bounded retry attempts.'
-                      : 'Check the model configuration or retry generation.',
-    detail:
-      harnessCode === null
-        ? isTimeout
-          ? { providerError: 'timeout' }
-          : isWorkspaceHarnessContractError
-            ? { providerError: 'workspace_harness_contract' }
-            : isProviderInternalError
-              ? { providerError: 'internal_server_error' }
-              : isProviderCapacityError
-                ? { providerError: 'capacity_exceeded' }
-                : {}
-        : {
-            harnessError: harnessCode,
-            modelRequestCount:
-              error instanceof AppWriterWorkspaceHarnessError
-                ? error.modelRequestMetadata.length
-                : 0,
-          },
+    fix: harnessCode === 'code_normalization_failed'
+      ? 'Retry generation. Lantern could not normalize the Code Mode response into executable workspace-edit code after bounded attempts.'
+      : harnessCode === 'code_execution_failed'
+      ? 'Retry generation. Lantern executed the workspace-edit code but it failed after bounded attempts.'
+      : harnessCode === 'workspace_read_write_failed'
+      ? 'Check the app writer workspace service bindings and retry generation.'
+      : harnessCode === 'provider_error'
+      ? 'Retry generation. The model provider failed during the current app writer stage.'
+      : isTimeout || harnessCode === 'model_timeout'
+      ? 'Retry generation. Lantern runs generation in durable staged background work; repeated timeouts point to model/provider latency for the current stage.'
+      : isWorkspaceHarnessContractError
+      ? 'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.'
+      : isProviderInternalError
+      ? 'Retry generation. The model provider returned an internal error after Lantern used its bounded retry attempts.'
+      : isProviderCapacityError
+      ? 'Retry generation. The model provider reported temporary capacity exhaustion after Lantern used its bounded retry attempts.'
+      : 'Check the model configuration or retry generation.',
+    detail: harnessCode === null
+      ? isTimeout
+        ? { providerError: 'timeout' }
+        : isWorkspaceHarnessContractError
+        ? { providerError: 'workspace_harness_contract' }
+        : isProviderInternalError
+        ? { providerError: 'internal_server_error' }
+        : isProviderCapacityError
+        ? { providerError: 'capacity_exceeded' }
+        : {}
+      : {
+        harnessError: harnessCode,
+        modelRequestCount: error instanceof AppWriterWorkspaceHarnessError
+          ? error.modelRequestMetadata.length
+          : 0,
+      },
   };
 }
 
@@ -2470,7 +2466,8 @@ function buildTypeScriptCompilerMissingFinding(): AppGenerationValidationFinding
     message: 'Generated package returned TypeScript source, but no source compiler is configured.',
     file: null,
     field: null,
-    fix: 'Configure the Lantern TypeScript source compiler or regenerate browser-ready package files.',
+    fix:
+      'Configure the Lantern TypeScript source compiler or regenerate browser-ready package files.',
     detail: {},
   };
 }

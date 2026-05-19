@@ -1,8 +1,8 @@
 import {
   appendMissingEnvAssignments,
   createLocalToolPrivateJwkString,
-  defaultLocalEnvAssignments,
   DEFAULT_LOCAL_ENV_PATH,
+  defaultLocalEnvAssignments,
 } from './local_support.ts';
 
 const LOCAL_DIRECTORIES = ['var/packages', 'var/attempt-evidence', 'var/authoring-drafts'] as const;

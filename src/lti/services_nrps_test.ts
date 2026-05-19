@@ -32,7 +32,8 @@ Deno.test('LTI services client reads paginated NRPS memberships from the launch-
             status: 200,
             headers: {
               'content-type': 'application/json',
-              link: '<https://canvas.example/api/lti/courses/42/names_and_roles?page=2>; rel="next"',
+              link:
+                '<https://canvas.example/api/lti/courses/42/names_and_roles?page=2>; rel="next"',
             },
           },
         );

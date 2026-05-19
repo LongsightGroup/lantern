@@ -25,7 +25,7 @@ export function createStaticAppWriterWorkspaceRunner(
     options = optionsOrRepairResults;
   }
   const repairResults = (options.repairResults ?? []).map((repairResult) =>
-    structuredClone(repairResult),
+    structuredClone(repairResult)
   );
 
   return {

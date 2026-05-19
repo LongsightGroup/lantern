@@ -35,14 +35,14 @@ export function describeBindingStatusHeading(slot: ManagedDeploymentSlot): strin
       return getMoodleBinding(slot.deployment.binding) === null
         ? 'Not connected'
         : slot.deployment.enabledPackageVersionId === null
-          ? 'Connected, choose a live version'
-          : 'Connected and live';
+        ? 'Connected, choose a live version'
+        : 'Connected and live';
     case 'sakai':
       return getSakaiBinding(slot.deployment.binding) === null
         ? 'Not connected'
         : slot.deployment.enabledPackageVersionId === null
-          ? 'Connected, choose a live version'
-          : 'Connected and live';
+        ? 'Connected, choose a live version'
+        : 'Connected and live';
   }
 }
 

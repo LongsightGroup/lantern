@@ -92,9 +92,11 @@ if (import.meta.main) {
 
   if (failures.length > 0) {
     throw new Error(
-      `wrangler.jsonc is missing required Worker bindings:\n${failures
-        .map((failure) => `- ${failure}`)
-        .join('\n')}`,
+      `wrangler.jsonc is missing required Worker bindings:\n${
+        failures
+          .map((failure) => `- ${failure}`)
+          .join('\n')
+      }`,
     );
   }
 

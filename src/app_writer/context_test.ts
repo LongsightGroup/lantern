@@ -68,7 +68,7 @@ Deno.test('app writer context selector records TypeScript authoring mode', () =>
   assertEquals(selection.selectedContext.recipe.maxRepairAttempts, 4);
   assert(
     selection.selectedContext.promptContextExcerpts.some((excerpt) =>
-      excerpt.content.includes('source/app.ts'),
+      excerpt.content.includes('source/app.ts')
     ),
   );
 });

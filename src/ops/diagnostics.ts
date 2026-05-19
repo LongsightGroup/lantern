@@ -78,9 +78,11 @@ function buildOperatorSummary(item: ControlPlaneDiagnosticItem): string {
   }
 
   if (item.code === 'token_request_failed') {
-    return `Lantern could not get a service token for ${describeSavedDeploymentPath(
-      item.detail,
-    )} from the control plane.`;
+    return `Lantern could not get a service token for ${
+      describeSavedDeploymentPath(
+        item.detail,
+      )
+    } from the control plane.`;
   }
 
   return item.status === 'failed'

@@ -49,12 +49,11 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-roster stores a deploym
         const headers = new Headers(init?.headers);
 
         if (url === 'https://sso.canvaslms.com/login/oauth2/token') {
-          const body =
-            typeof init?.body === 'string'
-              ? init.body
-              : init?.body instanceof URLSearchParams
-                ? init.body.toString()
-                : '';
+          const body = typeof init?.body === 'string'
+            ? init.body
+            : init?.body instanceof URLSearchParams
+            ? init.body.toString()
+            : '';
 
           assertStringIncludes(body, 'deployment_id=deployment-123');
 

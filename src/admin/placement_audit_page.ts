@@ -13,7 +13,8 @@ export function renderPlacementAuditPage(input: {
 }): string {
   const { placement } = input.snapshot;
   const status = describePlacementStatus(input.snapshot.status);
-  const previewLink = `/admin/packages/${placement.appId}/versions/${placement.packageVersion}/preview`;
+  const previewLink =
+    `/admin/packages/${placement.appId}/versions/${placement.packageVersion}/preview`;
   const packageLink = `/admin/packages/${placement.appId}/versions/${placement.packageVersion}`;
   const deploymentLink = `/admin/packages/${placement.appId}/deployment`;
 
@@ -35,9 +36,11 @@ export function renderPlacementAuditPage(input: {
         <div class="stack">
           <p class="section-label">Reviewed placement</p>
           <h2>${escapeHtml(placement.placementId)}</h2>
-          <p>Selected content <strong>${escapeHtml(
-            placement.contentTitle ?? placement.contentPath,
-          )}</strong> from <code>${escapeHtml(placement.contentPath)}</code>.</p>
+          <p>Selected content <strong>${
+      escapeHtml(
+        placement.contentTitle ?? placement.contentPath,
+      )
+    }</strong> from <code>${escapeHtml(placement.contentPath)}</code>.</p>
           <div class="facts">
             <div class="fact">
               <span class="fact-label">Current status</span>
@@ -51,39 +54,49 @@ export function renderPlacementAuditPage(input: {
             </div>
             <div class="fact">
               <span class="fact-label">Canvas context</span>
-              <span class="fact-value">${escapeHtml(
-                placement.contextTitle ?? 'Not recorded yet',
-              )}</span>
+              <span class="fact-value">${
+      escapeHtml(
+        placement.contextTitle ?? 'Not recorded yet',
+      )
+    }</span>
               <p class="micro muted">${escapeHtml(placement.contextId ?? 'Not recorded yet')}</p>
             </div>
             <div class="fact">
               <span class="fact-label">Resource link</span>
-              <span class="fact-value">${escapeHtml(
-                placement.resourceLinkId ?? 'Not recorded yet',
-              )}</span>
+              <span class="fact-value">${
+      escapeHtml(
+        placement.resourceLinkId ?? 'Not recorded yet',
+      )
+    }</span>
             </div>
           </div>
         </div>
         <aside class="stack">
           <section class="fact">
             <span class="fact-label">Evidence summary</span>
-            <strong class="fact-value">${escapeHtml(
-              String(input.snapshot.previewEvidenceCount),
-            )} test-launch events</strong>
-            <p class="micro muted">${escapeHtml(
-              `${input.snapshot.evidenceSummary.deepLinkingRequestCount} deep-linking requests · ${input.snapshot.evidenceSummary.placementEventCount} placement events · ${input.snapshot.evidenceSummary.reviewerEventCount} reviewer events`,
-            )}</p>
+            <strong class="fact-value">${
+      escapeHtml(
+        String(input.snapshot.previewEvidenceCount),
+      )
+    } test-launch events</strong>
+            <p class="micro muted">${
+      escapeHtml(
+        `${input.snapshot.evidenceSummary.deepLinkingRequestCount} deep-linking requests · ${input.snapshot.evidenceSummary.placementEventCount} placement events · ${input.snapshot.evidenceSummary.reviewerEventCount} reviewer events`,
+      )
+    }</p>
           </section>
           <div class="button-row">
             <a class="button-secondary" href="${escapeHtml(packageLink)}">Open version details</a>
             <a class="button-secondary" href="${escapeHtml(deploymentLink)}">Open app settings</a>
             ${
-              input.snapshot.latestPreviewSessionId === null
-                ? ''
-                : `<a class="button-secondary" href="${escapeHtml(
-                    previewLink,
-                  )}">Open test activity</a>`
-            }
+      input.snapshot.latestPreviewSessionId === null
+        ? ''
+        : `<a class="button-secondary" href="${
+          escapeHtml(
+            previewLink,
+          )
+        }">Open test activity</a>`
+    }
           </div>
         </aside>
       </div>
@@ -182,9 +195,11 @@ function renderTimelineRows(
   if (snapshot.latestPreviewSessionId !== null) {
     rows.unshift(`<article class="line-item">
       <p class="line-title">test_launch.activity</p>
-      <p class="line-copy">Test session ${escapeHtml(
+      <p class="line-copy">Test session ${
+      escapeHtml(
         snapshot.latestPreviewSessionId,
-      )} recorded ${escapeHtml(String(snapshot.previewEvidenceCount))} events.</p>
+      )
+    } recorded ${escapeHtml(String(snapshot.previewEvidenceCount))} events.</p>
       <p class="micro muted">${escapeHtml(formatDateTime(snapshot.latestPreviewOccurredAt))}</p>
       <a class="button-ghost" href="${escapeHtml(previewLink)}">Open test activity</a>
     </article>`);

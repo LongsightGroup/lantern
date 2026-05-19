@@ -9,70 +9,70 @@
     // Wrangler cannot consume Deno import-map specifiers directly, so build one
     // bundled Worker artifact before local dev or deploy.
     "command": "deno task build:worker",
-    "watch_dir": ["src", "sdk", "schemas", "deno.json", "deno.lock"],
+    "watch_dir": ["src", "sdk", "schemas", "deno.json", "deno.lock"]
   },
   // The build step already emits a single Worker module.
   "no_bundle": true,
   "placement": {
-    "mode": "smart",
+    "mode": "smart"
   },
   "routes": [
     {
       "pattern": "lantern.appboundary.com",
-      "custom_domain": true,
-    },
+      "custom_domain": true
+    }
   ],
   "vars": {
     "APP_ADMIN_TIME_ZONE": "America/New_York",
     "APP_RUNTIME_ORIGIN": "https://lantern.appboundary.com",
-    "APP_WRITER_MODEL": "@cf/moonshotai/kimi-k2.6",
+    "APP_WRITER_MODEL": "@cf/moonshotai/kimi-k2.6"
   },
   "ai": {
-    "binding": "AI",
+    "binding": "AI"
   },
   "workflows": [
     {
       "name": "lantern-app-generation",
       "binding": "APP_GENERATION_WORKFLOW",
-      "class_name": "AppGenerationWorkflow",
-    },
+      "class_name": "AppGenerationWorkflow"
+    }
   ],
   "durable_objects": {
     "bindings": [
       {
         "name": "APP_WRITER_AGENT",
-        "class_name": "AppWriterAgent",
-      },
-    ],
+        "class_name": "AppWriterAgent"
+      }
+    ]
   },
   "migrations": [
     {
       "tag": "v1_app_writer_agent",
-      "new_sqlite_classes": ["AppWriterAgent"],
-    },
+      "new_sqlite_classes": ["AppWriterAgent"]
+    }
   ],
   "services": [
     {
       "binding": "APP_WRITER_SOURCE_COMPILER",
-      "service": "lantern-app-writer-platform-services",
+      "service": "lantern-app-writer-platform-services"
     },
     {
       "binding": "APP_WRITER_PREVIEWER",
-      "service": "lantern-app-writer-platform-services",
-    },
+      "service": "lantern-app-writer-platform-services"
+    }
   ],
   "worker_loaders": [
     {
-      "binding": "LOADER",
-    },
+      "binding": "LOADER"
+    }
   ],
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "lantern",
       "database_id": "3ed3e887-c7c3-458e-8549-51974a9e9ac6",
-      "migrations_dir": "src/db/d1_migrations",
-    },
+      "migrations_dir": "src/db/d1_migrations"
+    }
   ],
   "r2_buckets": [
     {
@@ -81,7 +81,7 @@
       // reference package sources under reference-packages/<app-id>/source/...
       // after bucket creation run:
       // deno task reference:sync --bucket=<bucket_name>
-      "bucket_name": "lantern-prod-artifacts",
-    },
-  ],
+      "bucket_name": "lantern-prod-artifacts"
+    }
+  ]
 }

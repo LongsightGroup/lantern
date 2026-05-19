@@ -8,8 +8,9 @@ export async function resolveLtiProfileForDeployment(input: {
   deployment: Pick<DeploymentRecord, 'id' | 'ltiProfileOverride'>;
 }): Promise<ResolvedLtiProfile> {
   const settings = await input.repository.getLanternLtiProfileSettings();
-  const source =
-    input.deployment.ltiProfileOverride === null ? 'lanternDefault' : 'deploymentOverride';
+  const source = input.deployment.ltiProfileOverride === null
+    ? 'lanternDefault'
+    : 'deploymentOverride';
 
   return {
     id: input.deployment.ltiProfileOverride ?? settings.defaultLtiProfile,

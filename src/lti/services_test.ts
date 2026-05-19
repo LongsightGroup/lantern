@@ -88,12 +88,11 @@ Deno.test('LTI services client requests RS256 client-credentials tokens from the
       (input, init) => {
         const url = String(input);
         const method = init?.method ?? 'GET';
-        const body =
-          typeof init?.body === 'string'
-            ? init.body
-            : init?.body instanceof URLSearchParams
-              ? init.body.toString()
-              : '';
+        const body = typeof init?.body === 'string'
+          ? init.body
+          : init?.body instanceof URLSearchParams
+          ? init.body.toString()
+          : '';
         const headers = new Headers(init?.headers);
 
         requests.push({
@@ -247,12 +246,11 @@ Deno.test('LTI services client publishes final AGS scores with server-owned iden
     (input, init) => {
       const url = String(input);
       const method = init?.method ?? 'GET';
-      const body =
-        typeof init?.body === 'string'
-          ? init.body
-          : init?.body instanceof URLSearchParams
-            ? init.body.toString()
-            : '';
+      const body = typeof init?.body === 'string'
+        ? init.body
+        : init?.body instanceof URLSearchParams
+        ? init.body.toString()
+        : '';
       const headers = new Headers(init?.headers);
 
       requests.push({

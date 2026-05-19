@@ -30,9 +30,11 @@ export function renderVerificationPageNav(currentSection: VerificationPageSectio
 }
 
 function renderNavLink(input: { label: string; href: string; current: boolean }): string {
-  return `<a class="page-nav-link ${
-    input.current ? 'page-nav-link-current' : ''
-  }" href="${escapeHtml(input.href)}"${input.current ? ' aria-current="page"' : ''}>${escapeHtml(
-    input.label,
-  )}</a>`;
+  return `<a class="page-nav-link ${input.current ? 'page-nav-link-current' : ''}" href="${
+    escapeHtml(input.href)
+  }"${input.current ? ' aria-current="page"' : ''}>${
+    escapeHtml(
+      input.label,
+    )
+  }</a>`;
 }

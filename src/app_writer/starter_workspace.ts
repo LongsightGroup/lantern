@@ -89,10 +89,9 @@ export function validateBaselineFileEdits(
   authoringMode: AppWriterAuthoringMode = 'javascript',
 ): string[] {
   const editedPaths = new Set(fileEdits.map((file) => file.path));
-  const requiredPaths =
-    authoringMode === 'typescript'
-      ? APP_WRITER_TYPESCRIPT_AUTHORING_FILES
-      : APP_WRITER_BASELINE_PACKAGE_FILES;
+  const requiredPaths = authoringMode === 'typescript'
+    ? APP_WRITER_TYPESCRIPT_AUTHORING_FILES
+    : APP_WRITER_BASELINE_PACKAGE_FILES;
 
   return requiredPaths.filter((path) => !editedPaths.has(path));
 }

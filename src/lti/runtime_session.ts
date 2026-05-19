@@ -67,9 +67,11 @@ export async function createRuntimeSession(input: {
     packageVersion: packageVersion.runtimeContract.packageVersion,
     capabilities: packageVersion.runtimeContract.capabilities,
     snapshotRoot: packageVersion.artifact.snapshotRoot,
-    entrypointPath: `${packageVersion.artifact.snapshotRoot}${ensureLeadingSlash(
-      packageVersion.runtimeContract.entrypoint,
-    )}`,
+    entrypointPath: `${packageVersion.artifact.snapshotRoot}${
+      ensureLeadingSlash(
+        packageVersion.runtimeContract.entrypoint,
+      )
+    }`,
     contentPath: resolveRuntimeContentPath(packageVersion, input.launch.contentPath),
     services: input.launch.services,
     launch: {

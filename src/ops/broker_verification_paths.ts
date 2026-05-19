@@ -51,6 +51,6 @@ export function resolveSupportedPathForDeployment(
 ): BrokerVerificationStatus['supportedPath'] | null {
   return (
     deployment.brokerVerification?.supportedPath ??
-    resolveSupportedPathForBinding(deployment.binding)
+      resolveSupportedPathForBinding(deployment.binding)
   );
 }

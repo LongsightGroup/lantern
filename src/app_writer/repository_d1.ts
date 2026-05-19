@@ -469,14 +469,11 @@ function parseWorkspaceFilesField(value: unknown, fieldName: string): AppWriterW
     return {
       path: expectString(record.path, `${fieldName}[${index}].path`),
       contents: expectString(record.contents, `${fieldName}[${index}].contents`),
-      role:
-        record.role === undefined
-          ? 'package'
-          : expectStringLiteral(
-              record.role,
-              `${fieldName}[${index}].role`,
-              APP_WRITER_WORKSPACE_FILE_ROLES,
-            ),
+      role: record.role === undefined ? 'package' : expectStringLiteral(
+        record.role,
+        `${fieldName}[${index}].role`,
+        APP_WRITER_WORKSPACE_FILE_ROLES,
+      ),
     };
   });
 }
@@ -545,30 +542,22 @@ function parseModelRequestMetadataField(
         record.responseCharacters,
         `${fieldName}[${index}].responseCharacters`,
       ),
-      stage:
-        record.stage === undefined
-          ? 'unknown'
-          : expectStringLiteral(
-              record.stage,
-              `${fieldName}[${index}].stage`,
-              APP_GENERATION_MODEL_REQUEST_STAGES,
-            ),
-      attempt:
-        record.attempt === undefined
-          ? 0
-          : expectNumber(record.attempt, `${fieldName}[${index}].attempt`),
-      outcome:
-        record.outcome === undefined
-          ? 'unknown'
-          : expectStringLiteral(
-              record.outcome,
-              `${fieldName}[${index}].outcome`,
-              APP_GENERATION_MODEL_REQUEST_OUTCOMES,
-            ),
-      errorCode:
-        record.errorCode === undefined
-          ? null
-          : expectNullableString(record.errorCode, `${fieldName}[${index}].errorCode`),
+      stage: record.stage === undefined ? 'unknown' : expectStringLiteral(
+        record.stage,
+        `${fieldName}[${index}].stage`,
+        APP_GENERATION_MODEL_REQUEST_STAGES,
+      ),
+      attempt: record.attempt === undefined
+        ? 0
+        : expectNumber(record.attempt, `${fieldName}[${index}].attempt`),
+      outcome: record.outcome === undefined ? 'unknown' : expectStringLiteral(
+        record.outcome,
+        `${fieldName}[${index}].outcome`,
+        APP_GENERATION_MODEL_REQUEST_OUTCOMES,
+      ),
+      errorCode: record.errorCode === undefined
+        ? null
+        : expectNullableString(record.errorCode, `${fieldName}[${index}].errorCode`),
     };
   });
 }

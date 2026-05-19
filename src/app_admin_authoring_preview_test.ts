@@ -45,14 +45,12 @@ Deno.test('POST /authoring/preview launches a draft snapshot through the governe
       );
       const draft = await repository.getAuthoringDraftById(DRAFT_ID);
       const approvedPackageVersion = await repository.getPackageVersionById(101);
-      const evidence =
-        previewSession === null
-          ? []
-          : await repository.listPreviewEvidence(previewSession.sessionId);
-      const materializedSpec =
-        previewSession === null
-          ? ''
-          : await Deno.readTextFile(`${previewSession.snapshotRoot}/grading/specs/checks.spec.js`);
+      const evidence = previewSession === null
+        ? []
+        : await repository.listPreviewEvidence(previewSession.sessionId);
+      const materializedSpec = previewSession === null
+        ? ''
+        : await Deno.readTextFile(`${previewSession.snapshotRoot}/grading/specs/checks.spec.js`);
 
       assertEquals(previewSession?.origin, 'adminAuthoringDraft');
       assertEquals(
@@ -116,7 +114,8 @@ Deno.test('GET /authoring renders the latest draft preview state and evidence li
         contentPath: '/content/activity.json',
         deepLinkingSessionId: null,
         snapshotRoot: `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z`,
-        entrypointPath: `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z/dist/index.html`,
+        entrypointPath:
+          `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z/dist/index.html`,
       }),
     ],
     previewEvidence: [

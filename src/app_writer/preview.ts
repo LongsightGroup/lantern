@@ -10,10 +10,12 @@ export function createLocalAppPackagePreviewer(
 ): AppPackagePreviewer {
   return {
     async preview(previewInput) {
-      const { runLocalPreviewAssertionsForSource } =
-        await import('../authoring/local_preview_assertions.ts');
-      const options =
-        input.settleTimeoutMs === undefined ? {} : { settleTimeoutMs: input.settleTimeoutMs };
+      const { runLocalPreviewAssertionsForSource } = await import(
+        '../authoring/local_preview_assertions.ts'
+      );
+      const options = input.settleTimeoutMs === undefined
+        ? {}
+        : { settleTimeoutMs: input.settleTimeoutMs };
       const source = createMemoryPackageSource(
         previewInput.files.map((file) => ({
           relativePath: file.path,
@@ -76,10 +78,9 @@ function mapPreviewAssertionResult(
       assertionCount: result.results.length,
       passedAssertionCount: result.passedCount,
       runtimeLog: result.runtimeLog.map(mapPreviewRuntimeLogEntry),
-      summary:
-        validationFindings.length === 0
-          ? `Passed ${result.passedCount}/${result.results.length} preview assertions.`
-          : `Failed ${result.failedCount}/${result.results.length} preview assertions.`,
+      summary: validationFindings.length === 0
+        ? `Passed ${result.passedCount}/${result.results.length} preview assertions.`
+        : `Failed ${result.failedCount}/${result.results.length} preview assertions.`,
     };
   }
 
@@ -109,7 +110,8 @@ function mapPreviewAssertionResult(
         message: result.message,
         file: null,
         field: null,
-        fix: 'Fix the generated browser code so it boots in Lantern preview without runtime errors.',
+        fix:
+          'Fix the generated browser code so it boots in Lantern preview without runtime errors.',
         detail: {
           details: result.details,
         },

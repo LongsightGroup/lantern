@@ -21,7 +21,7 @@ Deno.test('harness workspace runner gives the harness the initialized workspace 
         files: input.workspace.files.map((file) =>
           file.path === 'manifest.json'
             ? { ...file, contents: '{"app_id":"phonics-match"}\n' }
-            : file,
+            : file
         ),
         progressUpdates: [
           {

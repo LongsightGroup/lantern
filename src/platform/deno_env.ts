@@ -1,4 +1,4 @@
-import { setDefaultEnvReader, type EnvReader } from './env.ts';
+import { type EnvReader, setDefaultEnvReader } from './env.ts';
 
 const DENO_ENV_READER: EnvReader = {
   get(name: string): string | undefined {

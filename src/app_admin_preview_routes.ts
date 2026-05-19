@@ -203,8 +203,8 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
             packageVersion,
             savedDefaults,
             latestSession: session,
-            formValues:
-              formValues ?? buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
+            formValues: formValues ??
+              buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
             previewEvidence: evidence,
             notice: createErrorNotice('Test launch blocked', error),
           }),

@@ -25,10 +25,10 @@ export function renderInlineNotice(notice: AdminNotice | null): string {
     <h2>${escapeHtml(notice.title)}</h2>
     <p>${escapeHtml(notice.detail)}</p>
     ${
-      (notice.items?.length ?? 0) > 0
-        ? `<ul>${(notice.items ?? []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
-        : ''
-    }
+    (notice.items?.length ?? 0) > 0
+      ? `<ul>${(notice.items ?? []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+      : ''
+  }
   </section>`;
 }
 
@@ -50,11 +50,15 @@ export function renderSavedBindingSummary(slot: ManagedDeploymentSlot): string {
 
       return `<div class="fact">
         <span class="fact-label">Saved Canvas values</span>
-        <p class="micro muted">Environment ${escapeHtml(
+        <p class="micro muted">Environment ${
+        escapeHtml(
           describeBindingValue(binding?.canvasEnvironment),
-        )} · Issuer ${escapeHtml(describeBindingValue(binding?.issuer))} · Client ${escapeHtml(
+        )
+      } · Issuer ${escapeHtml(describeBindingValue(binding?.issuer))} · Client ${
+        escapeHtml(
           describeBindingValue(binding?.clientId),
-        )} · Deployment ${escapeHtml(describeBindingValue(binding?.deploymentId))}</p>
+        )
+      } · Deployment ${escapeHtml(describeBindingValue(binding?.deploymentId))}</p>
       </div>`;
     }
     case 'moodle': {
@@ -62,11 +66,15 @@ export function renderSavedBindingSummary(slot: ManagedDeploymentSlot): string {
 
       return `<div class="fact">
         <span class="fact-label">Saved Moodle values</span>
-        <p class="micro muted">Platform ${escapeHtml(
+        <p class="micro muted">Platform ${
+        escapeHtml(
           describeBindingValue(binding?.issuer),
-        )} · Client ${escapeHtml(
+        )
+      } · Client ${
+        escapeHtml(
           describeBindingValue(binding?.clientId),
-        )} · Deployment ${escapeHtml(describeBindingValue(binding?.deploymentId))}</p>
+        )
+      } · Deployment ${escapeHtml(describeBindingValue(binding?.deploymentId))}</p>
       </div>`;
     }
     case 'sakai': {
@@ -74,11 +82,15 @@ export function renderSavedBindingSummary(slot: ManagedDeploymentSlot): string {
 
       return `<div class="fact">
         <span class="fact-label">Saved Sakai values</span>
-        <p class="micro muted">Platform ${escapeHtml(
+        <p class="micro muted">Platform ${
+        escapeHtml(
           describeBindingValue(binding?.issuer),
-        )} · Client ${escapeHtml(
+        )
+      } · Client ${
+        escapeHtml(
           describeBindingValue(binding?.clientId),
-        )} · Deployment ${escapeHtml(describeBindingValue(binding?.deploymentId))}</p>
+        )
+      } · Deployment ${escapeHtml(describeBindingValue(binding?.deploymentId))}</p>
       </div>`;
     }
   }
@@ -124,9 +136,9 @@ export function resolvePinnedVersionId(
 ): string | null {
   return (
     editorState?.pinPackageVersionId ??
-    (slot.deployment.enabledPackageVersionId === null
-      ? null
-      : String(slot.deployment.enabledPackageVersionId))
+      (slot.deployment.enabledPackageVersionId === null
+        ? null
+        : String(slot.deployment.enabledPackageVersionId))
   );
 }
 
@@ -162,23 +174,25 @@ export function renderCanvasEnvironmentField(input: {
   return `<div class="field">
           <label for="canvas-environment">Canvas environment</label>
           <select id="canvas-environment" name="canvasEnvironment" ${
-            input.disabled ? 'disabled' : ''
-          } ${renderFieldAriaInvalid(input.editorState, 'canvasEnvironment')}
+    input.disabled ? 'disabled' : ''
+  } ${renderFieldAriaInvalid(input.editorState, 'canvasEnvironment')}
           >
-            ${input.supportedCanvasEnvironments
-              .map(
-                (environment) =>
-                  `<option value="${escapeHtml(environment.id)}" ${
-                    resolveInstallValue(
-                      input.editorState,
-                      'canvasEnvironment',
-                      input.binding?.canvasEnvironment ?? null,
-                    ) === environment.id
-                      ? 'selected'
-                      : ''
-                  }>${escapeHtml(environment.label)}</option>`,
-              )
-              .join('')}
+            ${
+    input.supportedCanvasEnvironments
+      .map(
+        (environment) =>
+          `<option value="${escapeHtml(environment.id)}" ${
+            resolveInstallValue(
+                input.editorState,
+                'canvasEnvironment',
+                input.binding?.canvasEnvironment ?? null,
+              ) === environment.id
+              ? 'selected'
+              : ''
+          }>${escapeHtml(environment.label)}</option>`,
+      )
+      .join('')
+  }
           </select>
           <p class="field-hint">Lantern stores the matching issuer value behind the scenes.</p>
           ${renderFieldError(input.editorState, 'canvasEnvironment')}

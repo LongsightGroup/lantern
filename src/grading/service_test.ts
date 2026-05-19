@@ -27,22 +27,25 @@ Deno.test('loadReviewedRubric loads the reviewed rubric from the pinned snapshot
     artifactStore,
   });
 
-  assertEquals(rubric, {
-    mode: 'per-answer',
-    maxScore: 100,
-    rules: [
-      {
-        questionId: 'q1',
-        correctAnswer: 'resistance to a change in motion',
-        points: 50,
-      },
-      {
-        questionId: 'q2',
-        correctAnswer: 'speed with direction',
-        points: 50,
-      },
-    ],
-  } satisfies ReviewedRubric);
+  assertEquals(
+    rubric,
+    {
+      mode: 'per-answer',
+      maxScore: 100,
+      rules: [
+        {
+          questionId: 'q1',
+          correctAnswer: 'resistance to a change in motion',
+          points: 50,
+        },
+        {
+          questionId: 'q2',
+          correctAnswer: 'speed with direction',
+          points: 50,
+        },
+      ],
+    } satisfies ReviewedRubric,
+  );
 });
 
 Deno.test('loadReviewedRubric rejects malformed or unsupported rubric JSON at the trusted boundary', async () => {

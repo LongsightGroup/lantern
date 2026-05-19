@@ -53,21 +53,21 @@ export interface BootstrapPayload {
 
 export type AttemptEvent =
   | {
-      type: 'answer';
-      questionId: string;
-      answer: string | string[];
-      timestamp: string;
-    }
+    type: 'answer';
+    questionId: string;
+    answer: string | string[];
+    timestamp: string;
+  }
   | {
-      type: 'progress';
-      checkpoint: string;
-      value: number;
-      timestamp: string;
-    }
+    type: 'progress';
+    checkpoint: string;
+    value: number;
+    timestamp: string;
+  }
   | {
-      type: 'complete';
-      timestamp: string;
-    };
+    type: 'complete';
+    timestamp: string;
+  };
 
 export type GatewayBrokerDenialCategory = 'specInvalid' | 'policyDenied';
 export type GatewayBrokerDetailValue = string | number | boolean | null;

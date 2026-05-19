@@ -17,12 +17,12 @@ export interface AppGenerationWorkflowInstance {
 
 export type AppGenerationScheduleResult =
   | {
-      mode: 'workflow';
-      workflowInstanceId: string | null;
-    }
+    mode: 'workflow';
+    workflowInstanceId: string | null;
+  }
   | {
-      mode: 'not_configured';
-    };
+    mode: 'not_configured';
+  };
 
 export interface AppGenerationRunScheduler {
   schedule(input: AppGenerationWorkflowParams): Promise<AppGenerationScheduleResult>;

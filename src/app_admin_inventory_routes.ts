@@ -363,8 +363,9 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       await services.appWriterAgentSessions.observe({
         generationId: started.run.generationId,
         ownerId: started.run.ownerId,
-        workflowInstanceId:
-          scheduleResult.mode === 'workflow' ? scheduleResult.workflowInstanceId : null,
+        workflowInstanceId: scheduleResult.mode === 'workflow'
+          ? scheduleResult.workflowInstanceId
+          : null,
         observedAt: started.run.updatedAt,
       });
 
@@ -375,27 +376,25 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
         context.req.param('appId'),
         context.req.param('version'),
       );
-      const history =
-        packageVersion === null
-          ? []
-          : await repository.listPackageVersionsByApp(packageVersion.appId);
+      const history = packageVersion === null
+        ? []
+        : await repository.listPackageVersionsByApp(packageVersion.appId);
 
       return context.html(
         packageVersion === null
           ? renderPackageIndexPage({
-              versions: await repository.listPackageVersions(),
-              notice: createErrorNotice('Revision blocked', error),
-            })
+            versions: await repository.listPackageVersions(),
+            notice: createErrorNotice('Revision blocked', error),
+          })
           : renderAppRevisionPage({
-              packageVersion,
-              history,
-              promptText,
-              targetVersion:
-                targetVersion === ''
-                  ? nextRevisionVersion(packageVersion.version, history)
-                  : targetVersion,
-              notice: createErrorNotice('Revision blocked', error),
-            }),
+            packageVersion,
+            history,
+            promptText,
+            targetVersion: targetVersion === ''
+              ? nextRevisionVersion(packageVersion.version, history)
+              : targetVersion,
+            notice: createErrorNotice('Revision blocked', error),
+          }),
         statusForError(error),
       );
     }
@@ -596,8 +595,8 @@ function getSharedUploadRoot(files: MemoryPackageSourceFile[]): string | null {
 }
 
 function readUploadedRelativePath(file: File): string {
-  const webkitRelativePath =
-    (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? null;
+  const webkitRelativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath ??
+    null;
 
   return webkitRelativePath && webkitRelativePath !== '' ? webkitRelativePath : file.name;
 }

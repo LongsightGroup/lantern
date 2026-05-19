@@ -98,8 +98,7 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
   const getRepository = services.getRepository ?? getDefaultRepository;
   const snapshotStore = services.packageSnapshotStore ?? getDefaultPackageSnapshotStore();
   const runtimeArtifactStore = services.runtimeArtifactStore ?? getDefaultRuntimeArtifactStore();
-  const importPackageFromSource =
-    services.importPackageFromSource ??
+  const importPackageFromSource = services.importPackageFromSource ??
     ((source: PackageSource, options = {}) =>
       importPackage({
         ...options,
@@ -107,8 +106,7 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
         source,
         snapshotStore,
       }));
-  const loadPackageSnapshotFromSource =
-    services.loadPackageSnapshotFromSource ??
+  const loadPackageSnapshotFromSource = services.loadPackageSnapshotFromSource ??
     ((source: PackageSource, options = {}) =>
       loadPackageSnapshot({
         ...options,
@@ -120,29 +118,27 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
   return {
     env,
     packageSnapshotStore: snapshotStore,
-    appWriterWorkspaceRunner:
-      services.appWriterWorkspaceRunner ?? createUnavailableAppWriterWorkspaceRunner(),
+    appWriterWorkspaceRunner: services.appWriterWorkspaceRunner ??
+      createUnavailableAppWriterWorkspaceRunner(),
     appPackagePreviewer: services.appPackagePreviewer ?? createLocalAppPackagePreviewer(),
-    appPackageSourceCompiler:
-      services.appPackageSourceCompiler ?? createTypeScriptAppPackageSourceCompiler(),
-    appGenerationRunScheduler:
-      services.appGenerationRunScheduler ?? createUnavailableAppGenerationRunScheduler(),
-    appWriterAgentSessions:
-      services.appWriterAgentSessions ?? createNoopAppWriterAgentSessionCoordinator(),
-    browserAutograderDraftGenerator:
-      services.browserAutograderDraftGenerator ??
+    appPackageSourceCompiler: services.appPackageSourceCompiler ??
+      createTypeScriptAppPackageSourceCompiler(),
+    appGenerationRunScheduler: services.appGenerationRunScheduler ??
+      createUnavailableAppGenerationRunScheduler(),
+    appWriterAgentSessions: services.appWriterAgentSessions ??
+      createNoopAppWriterAgentSessionCoordinator(),
+    browserAutograderDraftGenerator: services.browserAutograderDraftGenerator ??
       createUnavailableBrowserAutograderDraftGenerator(),
     runtimeArtifactStore,
     runtimeDelivery: services.runtimeDelivery ?? createDirectRuntimeDelivery(runtimeArtifactStore),
     evidenceArtifactStore: services.evidenceArtifactStore ?? getDefaultEvidenceArtifactStore(),
     loadBrowserAutograderDraftReferenceExamples:
       services.loadBrowserAutograderDraftReferenceExamples ??
-      loadBrowserAutograderDraftReferenceExamples,
-    materializeDraftPreviewPackageVersion:
-      services.materializeDraftPreviewPackageVersion ?? materializeDraftPreviewPackageVersion,
+        loadBrowserAutograderDraftReferenceExamples,
+    materializeDraftPreviewPackageVersion: services.materializeDraftPreviewPackageVersion ??
+      materializeDraftPreviewPackageVersion,
     getRepository,
-    getOpsRepository:
-      services.getOpsRepository ??
+    getOpsRepository: services.getOpsRepository ??
       (() => {
         const repository = getRepository();
 
@@ -151,15 +147,12 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
     loadCanvasJwks: services.loadCanvasJwks ?? defaultLoadCanvasJwks,
     importPackageFromSource,
     loadPackageSnapshotFromSource,
-    readReferencePackageReviewData:
-      services.readReferencePackageReviewData ??
+    readReferencePackageReviewData: services.readReferencePackageReviewData ??
       ((appId) => readReferencePackageReviewData(appId, resolveReferencePackageSource(appId))),
-    importReferencePackage:
-      services.importReferencePackage ??
+    importReferencePackage: services.importReferencePackage ??
       ((appId, options = {}) =>
         importPackageFromSource(resolveReferencePackageSource(appId), options)),
-    loadReferencePackageSnapshot:
-      services.loadReferencePackageSnapshot ??
+    loadReferencePackageSnapshot: services.loadReferencePackageSnapshot ??
       ((appId, options = {}) =>
         loadPackageSnapshotFromSource(resolveReferencePackageSource(appId), options)),
   };
@@ -171,8 +164,9 @@ function resolveReferencePackageSource(appId: string) {
 
 function getDefaultRepository(): PackageReviewRepository {
   if (defaultRepository === null) {
-    defaultRepository =
-      createUnavailableLocalProxy<PackageReviewRepository>(LOCAL_REPOSITORY_MESSAGE);
+    defaultRepository = createUnavailableLocalProxy<PackageReviewRepository>(
+      LOCAL_REPOSITORY_MESSAGE,
+    );
   }
 
   return defaultRepository;

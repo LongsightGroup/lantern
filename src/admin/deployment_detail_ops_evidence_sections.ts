@@ -46,17 +46,19 @@ export function renderDiagnosticsSection(
         <p class="section-label">Problems</p>
         <h2>Problems to review</h2>
         ${
-          diagnostics.length === 0
-            ? `<div class="callout">
+    diagnostics.length === 0
+      ? `<div class="callout">
               <h3>No problems recorded</h3>
               <p>Lantern has not recorded a failed launch, reviewed runtime event, roster read, or grade write for this setup.</p>
             </div>`
-            : `<div class="table-list">
-              ${diagnostics
-                .map((item) => renderDiagnosticRow(item, appId, retryAttemptId))
-                .join('')}
+      : `<div class="table-list">
+              ${
+        diagnostics
+          .map((item) => renderDiagnosticRow(item, appId, retryAttemptId))
+          .join('')
+      }
             </div>`
-        }
+  }
       </div>
     </section>`;
 }
@@ -68,15 +70,15 @@ export function renderRuntimeSection(detail: ControlPlaneDeploymentDetailSnapsho
   const packageVersion = runtimeSnapshot?.packageVersion ?? null;
   const artifactDigest = runtimeSnapshot?.artifactDigest ?? null;
   const runtimeContractSignature = runtimeSnapshot?.runtimeContractSignature ?? null;
-  const sandboxModel =
-    latestRuntimeSession?.sandboxModel ?? latestRuntimeOutcome?.sandboxModel ?? null;
+  const sandboxModel = latestRuntimeSession?.sandboxModel ?? latestRuntimeOutcome?.sandboxModel ??
+    null;
   const boundary = latestRuntimeSession?.boundary ?? latestRuntimeOutcome?.boundary ?? null;
-  const deliverySubstrate =
-    latestRuntimeOutcome?.deliverySubstrate ?? latestRuntimeSession?.deliverySubstrate ?? null;
-  const deliveryState =
-    latestRuntimeOutcome?.deliveryState ?? latestRuntimeSession?.deliveryState ?? null;
-  const deliveryWorkerId =
-    latestRuntimeOutcome?.deliveryWorkerId ?? latestRuntimeSession?.deliveryWorkerId ?? null;
+  const deliverySubstrate = latestRuntimeOutcome?.deliverySubstrate ??
+    latestRuntimeSession?.deliverySubstrate ?? null;
+  const deliveryState = latestRuntimeOutcome?.deliveryState ??
+    latestRuntimeSession?.deliveryState ?? null;
+  const deliveryWorkerId = latestRuntimeOutcome?.deliveryWorkerId ??
+    latestRuntimeSession?.deliveryWorkerId ?? null;
   const attemptId = latestRuntimeOutcome?.attemptId ?? latestRuntimeSession?.attemptId ?? null;
 
   return `<section class="panel">
@@ -85,94 +87,124 @@ export function renderRuntimeSection(detail: ControlPlaneDeploymentDetailSnapsho
         <h2>Runtime session</h2>
         <p>Lantern records which reviewed package was launched, how Lantern delivered it, and how the latest governed runtime session ended for this setup.</p>
         <div class="facts">
-          ${renderRuntimeFact(
-            'Runtime session',
-            latestRuntimeSession?.sessionId ?? 'Not recorded yet',
-            latestRuntimeSession?.summary ??
-              'Lantern has not recorded a reviewed runtime session for this setup yet.',
-          )}
-          ${renderRuntimeFact(
-            'Attempt binding',
-            attemptId ?? 'Not recorded yet',
-            attemptId === null
-              ? 'Lantern has not tied the latest reviewed runtime record to an attempt yet.'
-              : `Lantern tied the latest reviewed runtime record to attempt ${attemptId}.`,
-          )}
-          ${renderRuntimeFact(
-            'Reviewed package',
-            packageVersion === null ? 'Not recorded yet' : `Package ${packageVersion}`,
-            packageVersion === null
-              ? 'Lantern has not recorded which approved reviewed package version launched for this setup yet.'
-              : `Lantern launched the approved reviewed package version ${packageVersion} for this setup.`,
-          )}
-          ${renderRuntimeFact(
-            'Artifact digest',
-            artifactDigest ?? 'Not recorded yet',
-            artifactDigest === null
-              ? 'Lantern has not recorded the reviewed artifact digest for this runtime yet.'
-              : 'Lantern records the immutable reviewed artifact digest that backed this runtime session.',
-          )}
-          ${renderRuntimeFact(
-            'Runtime contract',
-            runtimeContractSignature ?? 'Not recorded yet',
-            runtimeContractSignature === null
-              ? 'Lantern has not recorded the reviewed runtime contract signature for this runtime yet.'
-              : 'Lantern records the reviewed runtime contract signature used to bind delivery and audit to the approved package.',
-          )}
-          ${renderActivityFact(
-            'Started at',
-            formatRuntimeTimestamp(latestRuntimeSession),
-            latestRuntimeSession === null
-              ? 'Lantern has not recorded when the latest reviewed runtime session started for this setup yet.'
-              : 'Lantern records when the latest reviewed runtime session crossed into the governed runtime boundary.',
-          )}
-          ${renderActivityFact(
-            'Sandbox model',
-            describeRuntimeSandboxModel(sandboxModel),
-            sandboxModel === null
-              ? 'Lantern has not recorded the enforced sandbox model for this setup yet.'
-              : `Lantern enforced the ${describeRuntimeSandboxModel(
-                  sandboxModel,
-                )} for the latest reviewed runtime session.`,
-          )}
-          ${renderActivityFact(
-            'Runtime boundary',
-            describeRuntimeBoundary(boundary),
-            boundary === null
-              ? 'Lantern has not recorded the enforced runtime boundary for this setup yet.'
-              : `Lantern kept reviewed app traffic inside the ${describeRuntimeBoundary(
-                  boundary,
-                )} boundary.`,
-          )}
-          ${renderActivityFact(
-            'Delivery substrate',
-            describeRuntimeDeliverySubstrate(deliverySubstrate),
-            deliverySubstrate === null
-              ? 'Lantern has not recorded which reviewed-runtime delivery path served this setup yet.'
-              : `Lantern served the latest reviewed runtime through ${describeRuntimeDeliverySubstrate(
-                  deliverySubstrate,
-                )}.`,
-          )}
-          ${renderActivityFact(
-            'Delivery state',
-            describeRuntimeDeliveryState(deliveryState),
-            deliveryState === null
-              ? 'Lantern has not normalized the latest reviewed runtime state for this setup yet.'
-              : describeRuntimeDeliveryStateSummary(runtimeSnapshot),
-          )}
-          ${renderRuntimeFact(
-            'Delivery worker',
-            deliveryWorkerId ?? 'Not recorded yet',
-            deliveryWorkerId === null
-              ? 'Lantern did not record a Dynamic Worker identity for this runtime delivery path.'
-              : 'Lantern records the deterministic Dynamic Worker id used for the immutable reviewed runtime envelope.',
-          )}
-          ${renderRuntimeFact(
-            'Latest outcome',
-            describeRuntimeOutcome(latestRuntimeOutcome?.eventType),
-            latestRuntimeOutcome?.summary ??
-              'Lantern has not recorded a reviewed runtime outcome for this setup yet.',
-          )}
+          ${
+    renderRuntimeFact(
+      'Runtime session',
+      latestRuntimeSession?.sessionId ?? 'Not recorded yet',
+      latestRuntimeSession?.summary ??
+        'Lantern has not recorded a reviewed runtime session for this setup yet.',
+    )
+  }
+          ${
+    renderRuntimeFact(
+      'Attempt binding',
+      attemptId ?? 'Not recorded yet',
+      attemptId === null
+        ? 'Lantern has not tied the latest reviewed runtime record to an attempt yet.'
+        : `Lantern tied the latest reviewed runtime record to attempt ${attemptId}.`,
+    )
+  }
+          ${
+    renderRuntimeFact(
+      'Reviewed package',
+      packageVersion === null ? 'Not recorded yet' : `Package ${packageVersion}`,
+      packageVersion === null
+        ? 'Lantern has not recorded which approved reviewed package version launched for this setup yet.'
+        : `Lantern launched the approved reviewed package version ${packageVersion} for this setup.`,
+    )
+  }
+          ${
+    renderRuntimeFact(
+      'Artifact digest',
+      artifactDigest ?? 'Not recorded yet',
+      artifactDigest === null
+        ? 'Lantern has not recorded the reviewed artifact digest for this runtime yet.'
+        : 'Lantern records the immutable reviewed artifact digest that backed this runtime session.',
+    )
+  }
+          ${
+    renderRuntimeFact(
+      'Runtime contract',
+      runtimeContractSignature ?? 'Not recorded yet',
+      runtimeContractSignature === null
+        ? 'Lantern has not recorded the reviewed runtime contract signature for this runtime yet.'
+        : 'Lantern records the reviewed runtime contract signature used to bind delivery and audit to the approved package.',
+    )
+  }
+          ${
+    renderActivityFact(
+      'Started at',
+      formatRuntimeTimestamp(latestRuntimeSession),
+      latestRuntimeSession === null
+        ? 'Lantern has not recorded when the latest reviewed runtime session started for this setup yet.'
+        : 'Lantern records when the latest reviewed runtime session crossed into the governed runtime boundary.',
+    )
+  }
+          ${
+    renderActivityFact(
+      'Sandbox model',
+      describeRuntimeSandboxModel(sandboxModel),
+      sandboxModel === null
+        ? 'Lantern has not recorded the enforced sandbox model for this setup yet.'
+        : `Lantern enforced the ${
+          describeRuntimeSandboxModel(
+            sandboxModel,
+          )
+        } for the latest reviewed runtime session.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      'Runtime boundary',
+      describeRuntimeBoundary(boundary),
+      boundary === null
+        ? 'Lantern has not recorded the enforced runtime boundary for this setup yet.'
+        : `Lantern kept reviewed app traffic inside the ${
+          describeRuntimeBoundary(
+            boundary,
+          )
+        } boundary.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      'Delivery substrate',
+      describeRuntimeDeliverySubstrate(deliverySubstrate),
+      deliverySubstrate === null
+        ? 'Lantern has not recorded which reviewed-runtime delivery path served this setup yet.'
+        : `Lantern served the latest reviewed runtime through ${
+          describeRuntimeDeliverySubstrate(
+            deliverySubstrate,
+          )
+        }.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      'Delivery state',
+      describeRuntimeDeliveryState(deliveryState),
+      deliveryState === null
+        ? 'Lantern has not normalized the latest reviewed runtime state for this setup yet.'
+        : describeRuntimeDeliveryStateSummary(runtimeSnapshot),
+    )
+  }
+          ${
+    renderRuntimeFact(
+      'Delivery worker',
+      deliveryWorkerId ?? 'Not recorded yet',
+      deliveryWorkerId === null
+        ? 'Lantern did not record a Dynamic Worker identity for this runtime delivery path.'
+        : 'Lantern records the deterministic Dynamic Worker id used for the immutable reviewed runtime envelope.',
+    )
+  }
+          ${
+    renderRuntimeFact(
+      'Latest outcome',
+      describeRuntimeOutcome(latestRuntimeOutcome?.eventType),
+      latestRuntimeOutcome?.summary ??
+        'Lantern has not recorded a reviewed runtime outcome for this setup yet.',
+    )
+  }
         </div>
         ${renderRuntimeTroubleshootingCallout(runtimeSnapshot)}
         ${renderRuntimeOutcomeCallout(runtimeSnapshot)}
@@ -191,18 +223,20 @@ export function renderAnonymousEvidenceSection(
         <p class="section-label">Anonymous submission evidence</p>
         <h2>Anonymous submission evidence</h2>
         ${
-          anonymousEvidence.length === 0
-            ? `<div class="callout">
+    anonymousEvidence.length === 0
+      ? `<div class="callout">
               <h3>No anonymous evidence recorded</h3>
               <p>Lantern has not recorded a stored anonymous submission artifact for this deployment yet.</p>
             </div>`
-            : `<p>${escapeHtml(describeAnonymousEvidenceOutcome(runtimeOutcome))}</p>
+      : `<p>${escapeHtml(describeAnonymousEvidenceOutcome(runtimeOutcome))}</p>
             <div class="line-list">
-              ${anonymousEvidence
-                .map((artifact) => renderAnonymousEvidenceArtifact(artifact))
-                .join('')}
+              ${
+        anonymousEvidence
+          .map((artifact) => renderAnonymousEvidenceArtifact(artifact))
+          .join('')
+      }
             </div>`
-        }
+  }
       </div>
     </section>`;
 }
@@ -218,22 +252,26 @@ export function renderBrokerVerificationSection(
         <h2>Setup history</h2>
         <p>If you need past setup records or test logs for this app setup, open Verification. Most admins can ignore this unless they are troubleshooting.</p>
         <div class="facts">
-          ${renderActivityFact(
-            'Latest saved result',
-            describeBrokerVerificationStatusLabel(internalVerification?.status ?? null),
-            internalVerification?.summary ??
-              'No setup record has been saved for this app setup yet.',
-          )}
+          ${
+    renderActivityFact(
+      'Latest saved result',
+      describeBrokerVerificationStatusLabel(internalVerification?.status ?? null),
+      internalVerification?.summary ??
+        'No setup record has been saved for this app setup yet.',
+    )
+  }
         </div>
         <div class="button-row">
           <a class="button-ghost" href="/admin/verification">Open Verification</a>
           ${
-            internalVerification?.evidenceUrl
-              ? `<a class="button-ghost" href="${escapeHtml(
-                  internalVerification.evidenceUrl,
-                )}">Open log</a>`
-              : ''
-          }
+    internalVerification?.evidenceUrl
+      ? `<a class="button-ghost" href="${
+        escapeHtml(
+          internalVerification.evidenceUrl,
+        )
+      }">Open log</a>`
+      : ''
+  }
         </div>
       </div>
     </section>`;
@@ -248,44 +286,39 @@ export function renderAgsSmokeSection(
   const lineItemUrl = readStringDetail(latestAgsSmoke?.detail, 'lineItemUrl');
   const errorCode = readNestedStringDetail(latestAgsSmoke?.detail, 'error', 'code');
   const errorText = readNestedStringDetail(latestAgsSmoke?.detail, 'error', 'message');
-  const canRunSmoke =
-    slot.persisted &&
+  const canRunSmoke = slot.persisted &&
     (slot.lms === 'moodle' || slot.lms === 'sakai') &&
     slot.deployment.binding?.lms === slot.lms;
-  const runCopy =
-    slot.lms === 'canvas'
-      ? 'This test is available for Moodle and Sakai only.'
-      : canRunSmoke
-        ? `Run a grade return test for this ${formatLmsLabel(slot.lms)} setup.`
-        : `Save the exact ${formatLmsLabel(slot.lms)} setup before running a grade return test.`;
-  const runAction =
-    slot.lms === 'canvas'
-      ? ''
-      : `<form method="post" action="/admin/packages/${escapeHtml(
-          appId,
-        )}/deployment/verify-grade-smoke" class="stack">
+  const runCopy = slot.lms === 'canvas'
+    ? 'This test is available for Moodle and Sakai only.'
+    : canRunSmoke
+    ? `Run a grade return test for this ${formatLmsLabel(slot.lms)} setup.`
+    : `Save the exact ${formatLmsLabel(slot.lms)} setup before running a grade return test.`;
+  const runAction = slot.lms === 'canvas'
+    ? ''
+    : `<form method="post" action="/admin/packages/${
+      escapeHtml(
+        appId,
+      )
+    }/deployment/verify-grade-smoke" class="stack">
             <input type="hidden" name="lms" value="${escapeHtml(slot.lms)}" />
-            <input type="hidden" name="deploymentRecordId" value="${escapeHtml(
-              String(slot.deployment.id),
-            )}" />
+            <input type="hidden" name="deploymentRecordId" value="${
+      escapeHtml(
+        String(slot.deployment.id),
+      )
+    }" />
             <div class="button-row">
               <button type="submit" class="button-secondary" ${
-                canRunSmoke ? '' : 'disabled'
-              }>Run grade return check</button>
+      canRunSmoke ? '' : 'disabled'
+    }>Run grade return check</button>
             </div>
           </form>`;
-  const lineItemFact =
-    lineItemUrl === null
-      ? ''
-      : `<div class="fact">
+  const lineItemFact = lineItemUrl === null ? '' : `<div class="fact">
             <span class="fact-label">Test line item</span>
             <span class="fact-value">${escapeHtml(lineItemUrl)}</span>
             <p class="micro muted">Lantern uses a separate test line item so this check does not touch learner grades.</p>
           </div>`;
-  const failureCallout =
-    errorText === null
-      ? ''
-      : `<div class="callout">
+  const failureCallout = errorText === null ? '' : `<div class="callout">
             <h3>Latest check failure</h3>
             <p>${escapeHtml(errorText)}</p>
             ${errorCode === null ? '' : `<p class="micro muted">Code ${escapeHtml(errorCode)}</p>`}
@@ -297,36 +330,46 @@ export function renderAgsSmokeSection(
         <h2>Latest grade return check</h2>
         <p>${escapeHtml(runCopy)}</p>
         <div class="facts">
-          ${renderActivityFact(
-            'Status',
-            describeSmokeStatus(latestAgsSmoke),
-            latestAgsSmoke?.summary ??
-              'No grade return check has been recorded for this setup yet.',
-          )}
-          ${renderActivityFact(
-            'Checked at',
-            formatActivityTimestamp(latestAgsSmoke),
-            latestAgsSmoke === null
-              ? 'Lantern has not recorded a grade return check for this setup yet.'
-              : `Lantern keeps this result scoped to the viewed ${formatLmsLabel(slot.lms)} setup.`,
-          )}
-          ${renderActivityFact(
-            'Grade return access',
-            describeSmokeCapability(latestAgsSmoke, readBooleanDetail),
-            describeSmokeCapabilitySummary(latestAgsSmoke, readBooleanDetail),
-          )}
-          ${renderActivityFact(
-            'Test write',
-            describeSmokePublication(latestAgsSmoke, readStringDetail),
-            describeSmokePublicationSummary(latestAgsSmoke, readStringDetail),
-          )}
-          ${renderActivityFact(
-            'LTI profile',
-            describeActivityLtiProfile(latestAgsSmoke?.detail) ?? 'Not recorded yet',
-            latestAgsSmoke === null
-              ? 'Lantern has not recorded a grade return check for this setup yet.'
-              : 'Lantern records which saved LTI profile was enforced for this check.',
-          )}
+          ${
+    renderActivityFact(
+      'Status',
+      describeSmokeStatus(latestAgsSmoke),
+      latestAgsSmoke?.summary ??
+        'No grade return check has been recorded for this setup yet.',
+    )
+  }
+          ${
+    renderActivityFact(
+      'Checked at',
+      formatActivityTimestamp(latestAgsSmoke),
+      latestAgsSmoke === null
+        ? 'Lantern has not recorded a grade return check for this setup yet.'
+        : `Lantern keeps this result scoped to the viewed ${formatLmsLabel(slot.lms)} setup.`,
+    )
+  }
+          ${
+    renderActivityFact(
+      'Grade return access',
+      describeSmokeCapability(latestAgsSmoke, readBooleanDetail),
+      describeSmokeCapabilitySummary(latestAgsSmoke, readBooleanDetail),
+    )
+  }
+          ${
+    renderActivityFact(
+      'Test write',
+      describeSmokePublication(latestAgsSmoke, readStringDetail),
+      describeSmokePublicationSummary(latestAgsSmoke, readStringDetail),
+    )
+  }
+          ${
+    renderActivityFact(
+      'LTI profile',
+      describeActivityLtiProfile(latestAgsSmoke?.detail) ?? 'Not recorded yet',
+      latestAgsSmoke === null
+        ? 'Lantern has not recorded a grade return check for this setup yet.'
+        : 'Lantern records which saved LTI profile was enforced for this check.',
+    )
+  }
         </div>
         ${lineItemFact}
         ${failureCallout}
@@ -479,12 +522,16 @@ function renderAnonymousEvidenceArtifact(artifact: ControlPlaneAnonymousEvidence
   if (!isScreenshot) {
     return `<article class="line-item">
         <p class="line-title">${escapeHtml(artifact.fileName)}</p>
-        <p class="line-copy">${escapeHtml(
-          `${describeEvidenceArtifactKind(artifact.kind)} stored for ${artifact.artifactId}.`,
-        )}</p>
-        <p class="micro muted">${escapeHtml(
-          describeAnonymousEvidenceArtifactMetadata(artifact),
-        )}</p>
+        <p class="line-copy">${
+      escapeHtml(
+        `${describeEvidenceArtifactKind(artifact.kind)} stored for ${artifact.artifactId}.`,
+      )
+    }</p>
+        <p class="micro muted">${
+      escapeHtml(
+        describeAnonymousEvidenceArtifactMetadata(artifact),
+      )
+    }</p>
         <p><a href="${escapeHtml(artifact.artifactUrl)}">Open stored artifact</a></p>
       </article>`;
   }
@@ -492,13 +539,17 @@ function renderAnonymousEvidenceArtifact(artifact: ControlPlaneAnonymousEvidence
   return `<article class="line-item">
       <p class="line-title">Supplemental screenshot evidence</p>
       <p class="micro muted">${escapeHtml(artifact.fileName)}</p>
-      <p class="line-copy">Supplemental screenshot evidence stored for ${escapeHtml(
-        artifact.artifactId,
-      )}. Helpful for review, but not exhaustive proof of learner behavior.</p>
+      <p class="line-copy">Supplemental screenshot evidence stored for ${
+    escapeHtml(
+      artifact.artifactId,
+    )
+  }. Helpful for review, but not exhaustive proof of learner behavior.</p>
       <p class="micro muted">${escapeHtml(describeAnonymousEvidenceArtifactMetadata(artifact))}</p>
-      <img src="${escapeHtml(artifact.artifactUrl)}" alt="${escapeHtml(
-        `Supplemental screenshot evidence ${artifact.fileName}`,
-      )}" loading="lazy" style="max-width: 100%; height: auto;">
+      <img src="${escapeHtml(artifact.artifactUrl)}" alt="${
+    escapeHtml(
+      `Supplemental screenshot evidence ${artifact.fileName}`,
+    )
+  }" loading="lazy" style="max-width: 100%; height: auto;">
       <p><a href="${escapeHtml(artifact.artifactUrl)}">Open stored artifact</a></p>
     </article>`;
 }

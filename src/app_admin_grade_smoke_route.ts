@@ -63,9 +63,11 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
 
       if (latestSession === null) {
         throw new Error(
-          `Launch the ${formatGradeSmokeLmsLabel(
-            smokeLms,
-          )} setup once before running a grade return check.`,
+          `Launch the ${
+            formatGradeSmokeLmsLabel(
+              smokeLms,
+            )
+          } setup once before running a grade return check.`,
         );
       }
 
@@ -151,10 +153,9 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
         );
       }
 
-      const controlPlaneDetail =
-        deploymentRecordId === null
-          ? null
-          : await opsRepository.getControlPlaneDeploymentDetail(deploymentRecordId);
+      const controlPlaneDetail = deploymentRecordId === null
+        ? null
+        : await opsRepository.getControlPlaneDeploymentDetail(deploymentRecordId);
 
       return context.html(
         renderDeploymentDetailPage({

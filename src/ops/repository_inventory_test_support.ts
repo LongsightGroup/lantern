@@ -60,7 +60,7 @@ export function buildInventoryQueryRow(
 export function readInventoryInstallEvidence(row: unknown): DeploymentActivitySnapshot | null {
   return (
     (row as { installEvidence?: DeploymentActivitySnapshot | null } | undefined)?.installEvidence ??
-    null
+      null
   );
 }
 

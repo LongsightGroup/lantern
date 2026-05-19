@@ -216,8 +216,8 @@ export function renderDeploymentDetailPage(input: {
     defaultLtiProfile: DEFAULT_LTI_PROFILE_ID,
     updatedAt: '',
   };
-  const primaryDeployment =
-    getPrimaryManagedDeployment(slots) ?? buildEmptyDeploymentRecord(input.appId, input.appTitle);
+  const primaryDeployment = getPrimaryManagedDeployment(slots) ??
+    buildEmptyDeploymentRecord(input.appId, input.appTitle);
   const canvasConfigUrl = input.canvasConfigUrl ?? null;
   const canvasDynamicRegistrationUrl = input.canvasDynamicRegistrationUrl ?? null;
   const moodleDynamicRegistrationUrl = input.moodleDynamicRegistrationUrl ?? null;
@@ -246,27 +246,31 @@ export function renderDeploymentDetailPage(input: {
       history: input.history,
       currentSection: 'settings',
     }),
-    body: `${renderManagedDeploymentSections({
-      appId: input.appId,
-      slots,
-      selectedLms: input.selectedLms ?? null,
-      editorState: input.editorState ?? null,
-      nrpsVerification,
-      lanternLtiProfileSettings,
-      canvasConfigUrl,
-      canvasDynamicRegistrationUrl,
-      moodleDynamicRegistrationUrl,
-      sakaiDynamicRegistrationUrl,
-      supportedCanvasEnvironments,
-      approvedVersions,
-      history: input.history,
-    })}
+    body: `${
+      renderManagedDeploymentSections({
+        appId: input.appId,
+        slots,
+        selectedLms: input.selectedLms ?? null,
+        editorState: input.editorState ?? null,
+        nrpsVerification,
+        lanternLtiProfileSettings,
+        canvasConfigUrl,
+        canvasDynamicRegistrationUrl,
+        moodleDynamicRegistrationUrl,
+        sakaiDynamicRegistrationUrl,
+        supportedCanvasEnvironments,
+        approvedVersions,
+        history: input.history,
+      })
+    }
     ${renderVersionHistorySection(input.history, primaryDeployment)}
-    ${renderOperationalEvidenceSection(
-      input.appId,
-      selectedSlot,
-      controlPlaneDetail,
-      input.openOperationalEvidence ?? false,
-    )}`,
+    ${
+      renderOperationalEvidenceSection(
+        input.appId,
+        selectedSlot,
+        controlPlaneDetail,
+        input.openOperationalEvidence ?? false,
+      )
+    }`,
   });
 }

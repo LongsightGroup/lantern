@@ -16,7 +16,7 @@ Deno.test('runtime broker exposes stable typed denial results for missing capabi
             capabilities: ['read_launch_context'],
           }),
           'finalize_attempt',
-        ),
+        )
       ),
     RuntimeBrokerDenialError,
   )) as RuntimeBrokerDenialError;

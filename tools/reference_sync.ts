@@ -5,7 +5,9 @@ try {
   const summary = await syncReferencePackageSources(args);
 
   console.log(
-    `${summary.dryRun ? 'Planned' : 'Synced'} ${summary.uploads.length} curated reference source file(s) to ${summary.bucket} (${summary.mode}).`,
+    `${
+      summary.dryRun ? 'Planned' : 'Synced'
+    } ${summary.uploads.length} curated reference source file(s) to ${summary.bucket} (${summary.mode}).`,
   );
   console.log(`Packages: ${summary.appIds.join(', ')}`);
 

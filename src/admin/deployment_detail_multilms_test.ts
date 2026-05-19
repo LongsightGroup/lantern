@@ -159,10 +159,12 @@ Deno.test('deployment page keeps one deployment route while rendering setup, lau
           deploymentLabel: testCase.label,
           binding: testCase.binding,
           installEvidence: buildDeploymentActivitySnapshot({
-            summary: `Saved the ${testCase.setupHeading.replace(
-              'Set up ',
-              '',
-            )} deployment binding.`,
+            summary: `Saved the ${
+              testCase.setupHeading.replace(
+                'Set up ',
+                '',
+              )
+            } deployment binding.`,
           }),
           brokerVerification: buildBrokerVerificationStatus({
             supportedPath: testCase.supportedPath,

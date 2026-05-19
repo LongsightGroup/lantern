@@ -177,16 +177,18 @@ Deno.test('app writer service supports explicit Workflow generation stages', asy
     planned,
     now: createClock(['2026-05-14T12:00:03.000Z']),
   });
-  const workspaceAfterFiles =
-    await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
+  const workspaceAfterFiles = await repository.getAppGenerationWorkspaceByGenerationId(
+    'generation-1',
+  );
   const result = await finishGeneratedAppPackageRun({
     repository,
     workspaceRunner,
     generated,
     now: createClock(['2026-05-14T12:00:04.000Z']),
   });
-  const workspaceAfterFinish =
-    await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
+  const workspaceAfterFinish = await repository.getAppGenerationWorkspaceByGenerationId(
+    'generation-1',
+  );
 
   assertEquals(planned.run.status, 'planning');
   assertEquals(generated.run.status, 'generating_package');
@@ -889,7 +891,8 @@ Deno.test({
 });
 
 Deno.test({
-  name: 'app writer revision runs initialize from a previous package snapshot and save a new pending version',
+  name:
+    'app writer revision runs initialize from a previous package snapshot and save a new pending version',
   permissions: {
     read: true,
     write: true,
@@ -978,8 +981,9 @@ Deno.test({
         targetVersion: '0.2.0',
       });
 
-      const workspace =
-        await repository.getAppGenerationWorkspaceByGenerationId('generation-revision-1');
+      const workspace = await repository.getAppGenerationWorkspaceByGenerationId(
+        'generation-revision-1',
+      );
       const initializeStep = workspace?.generationPlan.find(
         (step) => step.id === 'initialize_workspace',
       );
@@ -1160,8 +1164,8 @@ function createRevisionAssertingWorkspaceRunner(): AppWriterWorkspaceRunner {
       });
       const revision = input.selectedContext.revision as
         | {
-            targetVersion?: unknown;
-          }
+          targetVersion?: unknown;
+        }
         | undefined;
 
       assertEquals(input.requestedAppId, 'phonics-match');
@@ -1193,10 +1197,10 @@ function createRevisionAssertingWorkspaceRunner(): AppWriterWorkspaceRunner {
         files: input.initializedWorkspace.files.map((file) =>
           file.path === 'dist/app.js'
             ? {
-                ...file,
-                contents: `${file.contents}\nconsole.log("revision summary ready");\n`,
-              }
-            : file,
+              ...file,
+              contents: `${file.contents}\nconsole.log("revision summary ready");\n`,
+            }
+            : file
         ),
         progressUpdates: [
           {
@@ -1269,8 +1273,7 @@ function buildTypeScriptAuthoringPackageFiles(
     },
     {
       path: 'source/app.ts',
-      contents:
-        input.appSource ??
+      contents: input.appSource ??
         'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern preview injects window.GatewayApp.");\n  const content = await gateway.getActivityContent<ActivityContent>();\n  document.body.dataset.title = content.title;\n  await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });\n  await gateway.finalizeAttempt({ completionState: "completed" });\n}\nvoid start();\n',
     },
   ];
@@ -1312,10 +1315,9 @@ function buildPreviewResult(
         detail: {},
       },
     ],
-    summary:
-      validationFindings.length === 0
-        ? 'Passed 1/1 preview assertions.'
-        : `Failed ${validationFindings.length}/${validationFindings.length} preview assertions.`,
+    summary: validationFindings.length === 0
+      ? 'Passed 1/1 preview assertions.'
+      : `Failed ${validationFindings.length}/${validationFindings.length} preview assertions.`,
   };
 }
 

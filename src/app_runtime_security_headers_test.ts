@@ -194,10 +194,9 @@ function createStubRuntimeDelivery(input: {
     describeDelivery({ reviewedPackage }) {
       return {
         substrate: input.substrate,
-        workerId:
-          input.substrate === 'dynamic_worker'
-            ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
-            : null,
+        workerId: input.substrate === 'dynamic_worker'
+          ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
+          : null,
       };
     },
     loadReviewedAsset({ relativePath }) {

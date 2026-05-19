@@ -49,31 +49,33 @@ function renderHistoryRow(
       </div>
     </td>
     <td>
-      <span class="${approvalStatusClass(version.approvalStatus)}">${escapeHtml(
-        approvalStatusLabel(version.approvalStatus),
-      )}</span>
+      <span class="${approvalStatusClass(version.approvalStatus)}">${
+    escapeHtml(
+      approvalStatusLabel(version.approvalStatus),
+    )
+  }</span>
     </td>
     <td>${
-      isPinned
-        ? '<span class="chip chip-status chip-status-healthy">Live now</span>'
-        : 'Past version'
-    }</td>
+    isPinned ? '<span class="chip chip-status chip-status-healthy">Live now</span>' : 'Past version'
+  }</td>
     <td>${escapeHtml(formatDateTime(version.importedAt))}</td>
     <td>
       <div class="detail-table-stack">
         <span>${escapeHtml(accessibility.label)}</span>
         <span class="micro muted">${escapeHtml(accessibility.detail)}</span>
         ${
-          accessibility.exceptionNote === null
-            ? ''
-            : `<span class="micro muted">${escapeHtml(accessibility.exceptionNote)}</span>`
-        }
+    accessibility.exceptionNote === null
+      ? ''
+      : `<span class="micro muted">${escapeHtml(accessibility.exceptionNote)}</span>`
+  }
       </div>
     </td>
     <td>
-      <div class="detail-table-notes">${escapeHtml(
-        version.reviewNotes ?? 'No review notes recorded.',
-      )}</div>
+      <div class="detail-table-notes">${
+    escapeHtml(
+      version.reviewNotes ?? 'No review notes recorded.',
+    )
+  }</div>
     </td>
   </tr>`;
 }

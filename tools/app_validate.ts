@@ -95,7 +95,7 @@ export function renderValidationFailure(
           `  - ${diagnostic.message}`,
           `    Fix: ${diagnostic.fix}`,
         ]),
-      ].join('\n'),
+      ].join('\n')
     )
     .join('\n');
 }

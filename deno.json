@@ -19,12 +19,31 @@
     "deploy:app-writer-platform": "npx wrangler deploy --config wrangler.app-writer-platform.jsonc",
     "build:worker": "deno run --allow-read --allow-write --allow-run tools/build_worker_bundle.ts",
     "check:worker": "deno task build:worker && deno run --allow-read tools/check_worker_bundle.ts && deno run --allow-read tools/check_worker_config.ts",
-    "fmt": "deno run -A npm:oxfmt@0.43.0 --write .",
-    "fmt:check": "deno run -A npm:oxfmt@0.43.0 --check .",
-    "lint": "deno run -A npm:oxlint@1.58.0",
+    "fmt": "deno fmt",
+    "fmt:check": "deno fmt --check",
+    "lint": "deno lint",
     "check": "deno check main.ts src/**/*.ts sdk/**/*.ts tools/*.ts",
     "test": "deno test --allow-read --allow-write --allow-env --allow-net",
     "validate": "deno task fmt:check && deno task lint && deno task check && deno task check:worker && deno test --allow-read --allow-write --allow-env --allow-net"
+  },
+  "fmt": {
+    "exclude": [
+      ".playwright-cli/**",
+      "examples/apps/**/dist/**",
+      "private/**"
+    ],
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "proseWrap": "preserve",
+    "semiColons": true,
+    "singleQuote": true
+  },
+  "lint": {
+    "exclude": [
+      ".playwright-cli/**",
+      "examples/apps/**/dist/**",
+      "private/**"
+    ]
   },
   "imports": {
     "@ajv2020": "npm:ajv@8.20.0/dist/2020.js",
@@ -38,7 +57,8 @@
     "@std/assert": "jsr:@std/assert@^1.0.19",
     "@std/semver": "jsr:@std/semver@1.0.8",
     "jose": "npm:jose@6.2.3",
-    "oauth4webapi": "npm:oauth4webapi@3.8.6"
+    "oauth4webapi": "npm:oauth4webapi@3.8.6",
+    "typescript": "npm:typescript@5.9.3"
   },
   "compilerOptions": {
     "strict": true,

@@ -23,31 +23,29 @@ export function buildLanternOwnedAppGenerationPlanningResult(
   const prompt = parsePromptDetails(input.promptText);
   const revision = readAppWriterRevisionContext(input.selectedContext);
   const activityType = inferActivityType(prompt.instruction);
-  const title =
-    revision === null
-      ? inferTitle({
-          promptText: prompt.instruction,
-          requestedAppId: input.requestedAppId,
-          starterId: input.selectedStarterId,
-          activityType,
-        })
-      : revision.sourceTitle;
-  const appId =
-    revision === null ? normalizeAppId(input.requestedAppId ?? title) : revision.sourceAppId;
-  const gradingMode =
-    revision === null
-      ? inferGradingMode({
-          starterId: input.selectedStarterId,
-          requestedMode: prompt.gradingMode,
-        })
-      : revision.sourceGradingMode;
-  const capabilities =
-    revision === null
-      ? selectCapabilities({
-          starterId: input.selectedStarterId,
-          gradingMode,
-        })
-      : revision.sourceCapabilities;
+  const title = revision === null
+    ? inferTitle({
+      promptText: prompt.instruction,
+      requestedAppId: input.requestedAppId,
+      starterId: input.selectedStarterId,
+      activityType,
+    })
+    : revision.sourceTitle;
+  const appId = revision === null
+    ? normalizeAppId(input.requestedAppId ?? title)
+    : revision.sourceAppId;
+  const gradingMode = revision === null
+    ? inferGradingMode({
+      starterId: input.selectedStarterId,
+      requestedMode: prompt.gradingMode,
+    })
+    : revision.sourceGradingMode;
+  const capabilities = revision === null
+    ? selectCapabilities({
+      starterId: input.selectedStarterId,
+      gradingMode,
+    })
+    : revision.sourceCapabilities;
   const learningGoal = inferLearningGoal(prompt.instruction, activityType);
   const audience = prompt.audience ?? 'Learners';
   const contentSummary = prompt.contentSummary ?? summarizePromptContent(prompt.instruction);
@@ -62,12 +60,10 @@ export function buildLanternOwnedAppGenerationPlanningResult(
       'Use GatewayApp local state for resumable learner progress when useful.',
       'Emit GatewayApp attempt events for learner actions that should appear in reports.',
       'Do not use localStorage, sessionStorage, external network calls, LMS APIs, or backend code.',
-      ...(revision === null
-        ? []
-        : [
-            `Preserve manifest app_id ${revision.sourceAppId}.`,
-            `Save this revision as manifest version ${revision.targetVersion}.`,
-          ]),
+      ...(revision === null ? [] : [
+        `Preserve manifest app_id ${revision.sourceAppId}.`,
+        `Save this revision as manifest version ${revision.targetVersion}.`,
+      ]),
     ],
     missingInformation: [],
     safeToGenerate: true,
@@ -106,12 +102,10 @@ export function buildLanternOwnedAppGenerationPlanningResult(
     riskNotes: [
       'Generated app code must stay inside the browser package contract.',
       'Learner progress and reports must use Lantern gateway capabilities, not private storage.',
-      ...(revision === null
-        ? []
-        : [
-            `This is a revision of ${revision.sourceAppId}@${revision.sourceVersion}; do not change app_id.`,
-            `The manifest version must be ${revision.targetVersion}.`,
-          ]),
+      ...(revision === null ? [] : [
+        `This is a revision of ${revision.sourceAppId}@${revision.sourceVersion}; do not change app_id.`,
+        `The manifest version must be ${revision.targetVersion}.`,
+      ]),
     ],
   };
 
@@ -136,8 +130,9 @@ export function buildLanternOwnedAppGenerationPlanningResult(
 function parsePromptDetails(promptText: string): PromptDetails {
   const marker = '\n\nGeneration request details:\n';
   const markerIndex = promptText.indexOf(marker);
-  const instruction =
-    markerIndex === -1 ? promptText.trim() : promptText.slice(0, markerIndex).trim();
+  const instruction = markerIndex === -1
+    ? promptText.trim()
+    : promptText.slice(0, markerIndex).trim();
   const detailsText = markerIndex === -1 ? '' : promptText.slice(markerIndex + marker.length);
 
   return {

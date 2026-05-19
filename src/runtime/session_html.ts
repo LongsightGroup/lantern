@@ -21,11 +21,9 @@ export function buildRuntimeBootstrapScript(input: {
   const browserGraderJasmineUrl = serializeForInlineScript(browserGraderUrls.jasmineUrl);
   const browserGraderRunnerUrl = serializeForInlineScript(browserGraderUrls.runnerUrl);
   const previewJson = serializeForInlineScript(
-    input.previewSessionId === null
-      ? null
-      : {
-          previewSessionId: input.previewSessionId,
-        },
+    input.previewSessionId === null ? null : {
+      previewSessionId: input.previewSessionId,
+    },
   );
 
   return `window.GatewayBootstrap = ${bootstrapJson};

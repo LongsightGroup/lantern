@@ -32,7 +32,7 @@ export function completePendingCanvasBinding(
   }
 
   const pending = state.deployments.filter((candidate) =>
-    isMatchingPendingCanvasDeployment(candidate, input),
+    isMatchingPendingCanvasDeployment(candidate, input)
   );
 
   if (pending.length === 0) {

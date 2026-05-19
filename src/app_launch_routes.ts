@@ -47,13 +47,10 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
         launch,
       });
       const deployment = await repository.getDeploymentBySlug(launch.internalDeploymentSlug);
-      const ltiProfile =
-        deployment === null
-          ? null
-          : await resolveLtiProfileForDeployment({
-              repository,
-              deployment,
-            });
+      const ltiProfile = deployment === null ? null : await resolveLtiProfileForDeployment({
+        repository,
+        deployment,
+      });
       await repository.recordAuditEvent({
         eventType: 'launch.accepted',
         actorType: 'platform',

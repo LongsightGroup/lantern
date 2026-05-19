@@ -87,12 +87,11 @@ export function createD1OpsRepository(
         deploymentRecordId,
       );
       const latestGradePublish = await getLatestGradePublication(db, deploymentRecordId);
-      const retryableGradePublication =
-        latestGradePublish?.status === 'failed'
-          ? await getRetryableGradePublicationLookupForD1(db, latestGradePublish.attemptId)
-          : null;
-      const latestRuntimeAttemptId =
-        latestRuntimeOutcome?.attemptId ?? latestRuntimeSession?.attemptId ?? null;
+      const retryableGradePublication = latestGradePublish?.status === 'failed'
+        ? await getRetryableGradePublicationLookupForD1(db, latestGradePublish.attemptId)
+        : null;
+      const latestRuntimeAttemptId = latestRuntimeOutcome?.attemptId ??
+        latestRuntimeSession?.attemptId ?? null;
 
       return {
         inventory,
@@ -161,14 +160,14 @@ export function createD1OpsRepository(
         rows.push(
           row === null
             ? {
-                workflowKey,
-                deploymentRecordId: null,
-                deploymentLabel: null,
-                status: null,
-                summary: null,
-                detailUrl: null,
-                checkedAt: null,
-              }
+              workflowKey,
+              deploymentRecordId: null,
+              deploymentLabel: null,
+              status: null,
+              summary: null,
+              detailUrl: null,
+              checkedAt: null,
+            }
             : mapD1CertificationWorkflowStatusRow(row),
         );
       }

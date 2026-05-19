@@ -60,17 +60,13 @@ export function createInMemoryPlacementRepository(
         return Promise.resolve(null);
       }
 
-      const latestPreviewSession =
-        state.previewSessions
-          .filter((candidate) => candidate.packageVersionId === placement.packageVersionId)
-          .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0] ??
+      const latestPreviewSession = state.previewSessions
+        .filter((candidate) => candidate.packageVersionId === placement.packageVersionId)
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt))[0] ??
         null;
-      const previewRows =
-        latestPreviewSession === null
-          ? []
-          : state.previewEvidence
-              .filter((candidate) => candidate.previewSessionId === latestPreviewSession.sessionId)
-              .sort((left, right) => left.sequence - right.sequence);
+      const previewRows = latestPreviewSession === null ? [] : state.previewEvidence
+        .filter((candidate) => candidate.previewSessionId === latestPreviewSession.sessionId)
+        .sort((left, right) => left.sequence - right.sequence);
       const deepLinkingRequestCount = state.auditEvents.filter(
         (candidate) =>
           candidate.deploymentRecordId === placement.deploymentRecordId &&
@@ -91,27 +87,25 @@ export function createInMemoryPlacementRepository(
           candidate.eventType.startsWith('reviewer.') &&
           candidate.detail.placementId === placement.placementId,
       ).length;
-      const latestOccurredAt =
-        state.auditEvents
-          .filter(
-            (candidate) =>
-              candidate.deploymentRecordId === placement.deploymentRecordId &&
-              candidate.packageVersionId === placement.packageVersionId &&
-              (candidate.eventType.startsWith('deep_linking.request.') ||
-                candidate.eventType.startsWith('deep_linking.placement.') ||
-                candidate.eventType.startsWith('reviewer.')),
-          )
-          .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))[0]
-          ?.occurredAt ?? null;
+      const latestOccurredAt = state.auditEvents
+        .filter(
+          (candidate) =>
+            candidate.deploymentRecordId === placement.deploymentRecordId &&
+            candidate.packageVersionId === placement.packageVersionId &&
+            (candidate.eventType.startsWith('deep_linking.request.') ||
+              candidate.eventType.startsWith('deep_linking.placement.') ||
+              candidate.eventType.startsWith('reviewer.')),
+        )
+        .sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt))[0]
+        ?.occurredAt ?? null;
       const previewEvidenceCount = previewRows.length;
-      const status =
-        reviewerEventCount > 0
-          ? 'reviewed'
-          : placement.resourceLinkId === null
-            ? 'awaiting_canvas_binding'
-            : previewEvidenceCount > 0
-              ? 'bound_with_preview'
-              : 'bound_no_preview';
+      const status = reviewerEventCount > 0
+        ? 'reviewed'
+        : placement.resourceLinkId === null
+        ? 'awaiting_canvas_binding'
+        : previewEvidenceCount > 0
+        ? 'bound_with_preview'
+        : 'bound_no_preview';
 
       return Promise.resolve({
         placement: cloneRecord(placement),

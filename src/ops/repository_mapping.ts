@@ -102,8 +102,8 @@ export function mapInventoryRow(
       lastNrpsReadStatus: row.lastNrpsReadStatus,
       lastNrpsReadAt: normalizeOptionalTimestamp(row.lastNrpsReadAt),
       brokerVerificationStatus: brokerVerification?.internal?.status ?? null,
-      brokerCheckedAt:
-        brokerVerification?.internal?.checkedAt ?? brokerVerification?.official.checkedAt ?? null,
+      brokerCheckedAt: brokerVerification?.internal?.checkedAt ??
+        brokerVerification?.official.checkedAt ?? null,
     }),
     brokerVerification,
   };
@@ -187,7 +187,7 @@ export function mapDiagnosticRows(
       {
         retryableAttemptId,
       },
-    ),
+    )
   );
 }
 
@@ -267,28 +267,24 @@ export function mapBrokerVerificationStatusRows(
 
   return {
     supportedPath,
-    internal:
-      internalRow === null
-        ? null
-        : {
-            source: internalRow.source,
-            status: internalRow.status,
-            checkedAt: normalizeTimestamp(internalRow.checkedAt),
-            summary: internalRow.summary,
-            evidenceUrl: internalRow.detailUrl,
-          },
-    official:
-      officialRow === null
-        ? {
-            state: 'notCertified',
-            checkedAt: null,
-            directoryUrl: null,
-          }
-        : {
-            state: officialRow.certificationState ?? 'notCertified',
-            checkedAt: normalizeTimestamp(officialRow.checkedAt),
-            directoryUrl: officialRow.detailUrl,
-          },
+    internal: internalRow === null ? null : {
+      source: internalRow.source,
+      status: internalRow.status,
+      checkedAt: normalizeTimestamp(internalRow.checkedAt),
+      summary: internalRow.summary,
+      evidenceUrl: internalRow.detailUrl,
+    },
+    official: officialRow === null
+      ? {
+        state: 'notCertified',
+        checkedAt: null,
+        directoryUrl: null,
+      }
+      : {
+        state: officialRow.certificationState ?? 'notCertified',
+        checkedAt: normalizeTimestamp(officialRow.checkedAt),
+        directoryUrl: officialRow.detailUrl,
+      },
   };
 }
 
@@ -297,21 +293,20 @@ export function mapCertificationWorkflowStatusRow(
 ): CertificationWorkflowStatus {
   return {
     workflowKey: row.workflowKey,
-    latestInternal:
-      row.deploymentRecordId === null ||
-      row.deploymentLabel === null ||
-      row.status === null ||
-      row.summary === null ||
-      row.checkedAt === null
-        ? null
-        : {
-            deploymentRecordId: normalizeNumeric(row.deploymentRecordId),
-            deploymentLabel: row.deploymentLabel,
-            status: row.status,
-            checkedAt: normalizeTimestamp(row.checkedAt),
-            summary: row.summary,
-            evidenceUrl: row.detailUrl,
-          },
+    latestInternal: row.deploymentRecordId === null ||
+        row.deploymentLabel === null ||
+        row.status === null ||
+        row.summary === null ||
+        row.checkedAt === null
+      ? null
+      : {
+        deploymentRecordId: normalizeNumeric(row.deploymentRecordId),
+        deploymentLabel: row.deploymentLabel,
+        status: row.status,
+        checkedAt: normalizeTimestamp(row.checkedAt),
+        summary: row.summary,
+        evidenceUrl: row.detailUrl,
+      },
   };
 }
 
@@ -360,23 +355,23 @@ function mapInventoryBrokerVerification(row: InventoryQueryRow): BrokerVerificat
       row.internalBrokerVerificationCheckedAt === null
       ? null
       : {
-          scope: row.internalBrokerVerificationScope,
-          source: row.internalBrokerVerificationSource,
-          status: row.internalBrokerVerificationStatus,
-          summary: row.internalBrokerVerificationSummary,
-          detailUrl: row.internalBrokerVerificationDetailUrl,
-          checkedAt: row.internalBrokerVerificationCheckedAt,
-        },
+        scope: row.internalBrokerVerificationScope,
+        source: row.internalBrokerVerificationSource,
+        status: row.internalBrokerVerificationStatus,
+        summary: row.internalBrokerVerificationSummary,
+        detailUrl: row.internalBrokerVerificationDetailUrl,
+        checkedAt: row.internalBrokerVerificationCheckedAt,
+      },
     row.officialBrokerVerificationScope === null ||
       row.officialBrokerVerificationStatus === null ||
       row.officialBrokerVerificationCheckedAt === null
       ? null
       : {
-          scope: row.officialBrokerVerificationScope,
-          status: row.officialBrokerVerificationStatus,
-          certificationState: row.officialBrokerVerificationCertificationState,
-          detailUrl: row.officialBrokerVerificationDetailUrl,
-          checkedAt: row.officialBrokerVerificationCheckedAt,
-        },
+        scope: row.officialBrokerVerificationScope,
+        status: row.officialBrokerVerificationStatus,
+        certificationState: row.officialBrokerVerificationCertificationState,
+        detailUrl: row.officialBrokerVerificationDetailUrl,
+        checkedAt: row.officialBrokerVerificationCheckedAt,
+      },
   );
 }

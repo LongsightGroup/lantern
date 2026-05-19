@@ -92,15 +92,19 @@ function renderVerificationBody(input: {
     case 'profile':
       return renderLtiProfileSettingsSection(input.ltiProfileSettings);
     case 'checklist':
-      return `${renderVerificationSummarySection({
-        certificationWorkflowStatuses: input.certificationWorkflowStatuses,
-        officialEvidence: input.officialEvidence,
-        ltiProfileSettings: input.ltiProfileSettings,
-      })}
-      ${renderVerificationChecklistSection({
-        deployments: input.deployments,
-        certificationWorkflowStatuses: input.certificationWorkflowStatuses,
-      })}`;
+      return `${
+        renderVerificationSummarySection({
+          certificationWorkflowStatuses: input.certificationWorkflowStatuses,
+          officialEvidence: input.officialEvidence,
+          ltiProfileSettings: input.ltiProfileSettings,
+        })
+      }
+      ${
+        renderVerificationChecklistSection({
+          deployments: input.deployments,
+          certificationWorkflowStatuses: input.certificationWorkflowStatuses,
+        })
+      }`;
   }
 }
 

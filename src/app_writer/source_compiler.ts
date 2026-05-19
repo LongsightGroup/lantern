@@ -35,7 +35,8 @@ function buildSourceCompilerUnavailableFinding(message: string): AppGenerationVa
     message,
     file: null,
     field: null,
-    fix: 'Configure a platform-owned TypeScript source compiler or generate reviewed browser assets directly.',
+    fix:
+      'Configure a platform-owned TypeScript source compiler or generate reviewed browser assets directly.',
     detail: {},
   };
 }

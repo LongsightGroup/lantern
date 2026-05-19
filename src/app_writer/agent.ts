@@ -116,7 +116,7 @@ export class AppWriterAgent {
       }
 
       return await this.handleWorkspaceHarnessRequest(async () =>
-        this.authorWorkspace(await readWorkspaceAuthorInput(request)),
+        this.authorWorkspace(await readWorkspaceAuthorInput(request))
       );
     }
 
@@ -126,7 +126,7 @@ export class AppWriterAgent {
       }
 
       return await this.handleWorkspaceHarnessRequest(async () =>
-        this.repairWorkspace(await readWorkspaceRepairInput(request)),
+        this.repairWorkspace(await readWorkspaceRepairInput(request))
       );
     }
 
@@ -209,8 +209,9 @@ export class AppWriterAgent {
   }
 
   private async loadSnapshot(): Promise<AppWriterAgentSessionSnapshot> {
-    const session =
-      await this.state.storage.get<StoredAppWriterAgentSession>(AGENT_SESSION_STORAGE_KEY);
+    const session = await this.state.storage.get<StoredAppWriterAgentSession>(
+      AGENT_SESSION_STORAGE_KEY,
+    );
     const generationId = session?.generationId ?? 'unknown';
     const baseSnapshot = buildUnknownSnapshot(session);
 
@@ -239,8 +240,7 @@ export class AppWriterAgent {
       currentPlanStepStatus: currentStep?.status ?? null,
       currentPlanStepSummary: currentStep?.summary ?? null,
       lastActivitySummary: activitySummary.lastSummary,
-      currentModelStage:
-        session.currentModelStage ??
+      currentModelStage: session.currentModelStage ??
         (latestModelRequest?.stage === 'author' || latestModelRequest?.stage === 'repair'
           ? latestModelRequest.stage
           : null),
@@ -530,8 +530,9 @@ export class AppWriterAgent {
     stage: AppGenerationModelRequestStage,
     attempt: number,
   ): Promise<void> {
-    const session =
-      await this.state.storage.get<StoredAppWriterAgentSession>(AGENT_SESSION_STORAGE_KEY);
+    const session = await this.state.storage.get<StoredAppWriterAgentSession>(
+      AGENT_SESSION_STORAGE_KEY,
+    );
 
     if (session === undefined) {
       return;
@@ -681,8 +682,8 @@ async function readWorkspaceRepairInput(request: Request): Promise<WorkspaceRepa
   return {
     generationInput: value.generationInput as AppPackageGenerationInput,
     previousResult: value.previousResult as AppPackageGenerationResult,
-    validationFindings:
-      value.validationFindings as AppGenerationWorkspaceRecord['validationFindings'],
+    validationFindings: value
+      .validationFindings as AppGenerationWorkspaceRecord['validationFindings'],
     repairAttempt: expectNumber(value.repairAttempt, 'workspaceRepairInput.repairAttempt'),
     workspace: value.workspace as AppGenerationWorkspaceRecord,
   };
@@ -928,8 +929,8 @@ function parseAiStreamEvent(event: string): string {
         return typeof parsed.response === 'string'
           ? parsed.response
           : typeof parsed.choices?.[0]?.delta?.content === 'string'
-            ? parsed.choices[0].delta.content
-            : '';
+          ? parsed.choices[0].delta.content
+          : '';
       } catch {
         return line;
       }
@@ -1064,13 +1065,11 @@ function selectCurrentPlanStep(plan: readonly AppGenerationPlanStep[]): {
 
   const active = [...plan].reverse().find((step) => step.status !== 'pending');
 
-  return active === undefined
-    ? null
-    : {
-        id: active.id,
-        status: active.status,
-        summary: active.summary,
-      };
+  return active === undefined ? null : {
+    id: active.id,
+    status: active.status,
+    summary: active.summary,
+  };
 }
 
 async function summarizeGenerationActivityEvents(
@@ -1079,7 +1078,7 @@ async function summarizeGenerationActivityEvents(
 ): Promise<{ count: number; lastSummary: string | null }> {
   const eventBatches = await Promise.all(
     APP_GENERATION_AUDIT_EVENT_TYPES.map((eventType) =>
-      repository.listAuditEventsByEventType(eventType),
+      repository.listAuditEventsByEventType(eventType)
     ),
   );
   const events = eventBatches.flat().filter((event) => event.detail.generationId === generationId);
