@@ -1,3 +1,4 @@
+import { emptyAppWriterSelectedContext } from '../app_writer/context.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type { AppGenerationRunRecord, AppGenerationWorkspaceRecord } from '../app_writer/types.ts';
 import { cloneRecord, type InMemoryRepositoryState } from './package_review_in_memory_shared.ts';
@@ -95,7 +96,7 @@ export function buildAppGenerationRunRecord(
     normalizedRequest: null,
     appPlan: null,
     selectedStarterId: null,
-    selectedContext: {},
+    selectedContext: emptyAppWriterSelectedContext(),
     modelRequestMetadata: [],
     generationNotes: [],
     validationFindings: [],

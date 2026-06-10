@@ -1,6 +1,6 @@
 import type { Hono } from '@hono/hono';
+import { listGenerationActivityEvents } from './app_writer/service_activity.ts';
 import {
-  APP_GENERATION_AUDIT_EVENT_TYPES,
   AppPackageGenerationFailedError,
   startAppPackageGenerationRun,
 } from './app_writer/service.ts';
@@ -15,7 +15,7 @@ import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
 import { formValueAsString, requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
-import { selectAppWriterContext } from './app_writer/context.ts';
+import { type AppWriterSelectedContext, selectAppWriterContext } from './app_writer/context.ts';
 import { buildLanternOwnedAppGenerationPlanningResult } from './app_writer/planning.ts';
 import type { AppGenerationRunRecord } from './app_writer/types.ts';
 import type { AppGenerationPlanningResult, AppWriterAuthoringMode } from './app_writer/types.ts';
@@ -263,26 +263,6 @@ function readExecutionContext(
   return null;
 }
 
-async function listGenerationActivityEvents(
-  repository: Pick<PackageReviewRepository, 'listAuditEventsByEventType'>,
-  generationId: string,
-) {
-  const eventBatches = await Promise.all(
-    APP_GENERATION_AUDIT_EVENT_TYPES.map((eventType) =>
-      repository.listAuditEventsByEventType(eventType)
-    ),
-  );
-
-  return eventBatches
-    .flat()
-    .filter((event) => event.detail.generationId === generationId)
-    .sort((left, right) => {
-      const timeOrder = left.occurredAt.localeCompare(right.occurredAt);
-
-      return timeOrder === 0 ? left.id - right.id : timeOrder;
-    });
-}
-
 function normalizeAppWriterAction(value: FormDataEntryValue | null): 'preview' | 'generate' {
   const normalized = normalizeOptionalFormValue(value);
 
@@ -341,7 +321,7 @@ function buildDeterministicPlanPreview(input: {
   requestedAppId: string | null;
 }): {
   planning: AppGenerationPlanningResult;
-  selectedContext: Record<string, unknown>;
+  selectedContext: AppWriterSelectedContext;
 } {
   const authoringMode = selectAuthoringModeForPlanPreview(input.services);
   const contextSelection = selectAppWriterContext({

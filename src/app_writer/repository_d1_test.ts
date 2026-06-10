@@ -4,6 +4,7 @@ import {
   buildAppGenerationRunRecord,
   buildAppGenerationWorkspaceRecord,
 } from '../test_helpers/package_review_in_memory_app_generation.ts';
+import { emptyAppWriterSelectedContext } from './context.ts';
 import { createD1AppGenerationRepositoryMethods } from './repository_d1.ts';
 import type { AppGenerationRunRecord, AppGenerationWorkspaceRecord } from './types.ts';
 
@@ -12,9 +13,7 @@ Deno.test('D1 app generation repository creates and refetches generation runs', 
     normalizedRequest: buildNormalizedRequest(),
     appPlan: buildAppPlan(),
     selectedStarterId: 'simple-activity',
-    selectedContext: {
-      starter: 'simple-activity',
-    },
+    selectedContext: emptyAppWriterSelectedContext('simple-activity'),
     modelRequestMetadata: [
       {
         provider: 'cloudflare',
@@ -39,7 +38,7 @@ Deno.test('D1 app generation repository creates and refetches generation runs', 
 
   assertEquals(created.normalizedRequest?.safeToGenerate, true);
   assertEquals(created.appPlan?.appId, 'vocabulary-match');
-  assertEquals(created.selectedContext, { starter: 'simple-activity' });
+  assertEquals(created.selectedContext.starterId, 'simple-activity');
   assertEquals(created.modelRequestMetadata[0]?.requestId, 'request-1');
   assertEquals(typeof db.statements[0]?.parameters[8], 'string');
   assertEquals(db.statements[0]?.parameters[10], 'simple-activity');

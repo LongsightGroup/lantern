@@ -1,52 +1,31 @@
-import type { Capability } from '../../sdk/app-sdk.ts';
 import type { D1Database } from '../db/d1.ts';
 import { queryD1First, runD1 } from '../db/d1.ts';
+import { readAppWriterSelectedContext } from './context.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import {
-  APP_GENERATION_PLAN_STEP_IDS,
-  APP_GENERATION_PLAN_STEP_STATUSES,
   APP_GENERATION_STATUSES,
   APP_WRITER_STARTER_IDS,
-  APP_WRITER_WORKSPACE_FILE_ROLES,
-  type AppGenerationAttemptEventPlan,
   type AppGenerationModelRequestMetadata,
-  type AppGenerationNormalizedRequest,
-  type AppGenerationPlan,
   type AppGenerationPlanStep,
   type AppGenerationRunRecord,
   type AppGenerationValidationFinding,
   type AppGenerationWorkspaceRecord,
   type AppWriterWorkspaceFile,
 } from './types.ts';
-
-const APP_GENERATION_ACTIVITY_TYPES = [
-  'quiz',
-  'sorting',
-  'matching',
-  'flashcards',
-  'simulation',
-  'game',
-  'practice',
-] as const;
-const APP_GENERATION_GRADING_MODES = ['completion', 'declarative', 'browser'] as const;
-const APP_GENERATION_ATTEMPT_EVENT_TYPES = ['answer', 'progress', 'complete'] as const;
-const APP_GENERATION_VALIDATION_SEVERITIES = ['error', 'warning'] as const;
-const APP_GENERATION_MODEL_REQUEST_STAGES = ['author', 'repair', 'unknown'] as const;
-const APP_GENERATION_MODEL_REQUEST_OUTCOMES = [
-  'succeeded',
-  'failed',
-  'timed_out',
-  'unknown',
-] as const;
-const APP_GENERATION_CAPABILITIES = [
-  'read_launch_context',
-  'read_activity_content',
-  'submit_attempt_event',
-  'submit_evidence_artifact',
-  'finalize_attempt',
-  'read_local_state',
-  'write_local_state',
-] as const satisfies readonly Capability[];
+import {
+  expectNullableNumber,
+  expectNullableString,
+  expectNumber,
+  expectRecord,
+  expectString,
+  expectStringArray,
+  parseAppGenerationPlan,
+  parseGenerationPlanSteps,
+  parseModelRequestMetadata,
+  parseNormalizedRequest,
+  parseValidationFindings,
+  parseWorkspaceFiles,
+} from './binding_result.ts';
 
 export function createD1AppGenerationRepositoryMethods(
   db: D1Database,
@@ -322,15 +301,26 @@ function mapD1AppGenerationRunFields(row: D1AppGenerationRunRow): AppGenerationR
     normalizedRequest: parseNullableJsonField(
       row.normalizedRequestJson,
       'normalizedRequestJson',
-      parseNormalizedRequest,
+      (value) => parseNormalizedRequest(value, 'normalizedRequest'),
     ),
-    appPlan: parseNullableJsonField(row.appPlanJson, 'appPlanJson', parseAppPlan),
+    appPlan: parseNullableJsonField(
+      row.appPlanJson,
+      'appPlanJson',
+      (value) => parseAppGenerationPlan(value, 'appPlan'),
+    ),
     selectedStarterId: expectNullableStringLiteral(
       row.selectedStarterId,
       'selectedStarterId',
       APP_WRITER_STARTER_IDS,
     ),
-    selectedContext: parseJsonObjectField(row.selectedContextJson, 'selectedContextJson'),
+    selectedContext: readAppWriterSelectedContext(
+      parseJsonObjectField(row.selectedContextJson, 'selectedContextJson'),
+      expectNullableStringLiteral(
+        row.selectedStarterId,
+        'selectedStarterId',
+        APP_WRITER_STARTER_IDS,
+      ),
+    ),
     modelRequestMetadata: parseModelRequestMetadataField(
       row.modelRequestMetadataJson,
       'modelRequestMetadataJson',
@@ -379,205 +369,26 @@ function mapD1AppGenerationWorkspaceFields(
   };
 }
 
-function parseNormalizedRequest(value: unknown): AppGenerationNormalizedRequest {
-  const record = expectRecord(value, 'normalizedRequest');
-
-  return {
-    learningGoal: expectString(record.learningGoal, 'normalizedRequest.learningGoal'),
-    audience: expectString(record.audience, 'normalizedRequest.audience'),
-    contentSummary: expectString(record.contentSummary, 'normalizedRequest.contentSummary'),
-    requestedActivity: expectString(
-      record.requestedActivity,
-      'normalizedRequest.requestedActivity',
-    ),
-    constraints: expectStringArray(record.constraints, 'normalizedRequest.constraints'),
-    missingInformation: expectStringArray(
-      record.missingInformation,
-      'normalizedRequest.missingInformation',
-    ),
-    safeToGenerate: expectBoolean(record.safeToGenerate, 'normalizedRequest.safeToGenerate'),
-  };
-}
-
-function parseAppPlan(value: unknown): AppGenerationPlan {
-  const record = expectRecord(value, 'appPlan');
-  const grading = expectRecord(record.grading, 'appPlan.grading');
-
-  return {
-    appId: expectString(record.appId, 'appPlan.appId'),
-    title: expectString(record.title, 'appPlan.title'),
-    description: expectString(record.description, 'appPlan.description'),
-    learningGoal: expectString(record.learningGoal, 'appPlan.learningGoal'),
-    audience: expectString(record.audience, 'appPlan.audience'),
-    activityType: expectStringLiteral(
-      record.activityType,
-      'appPlan.activityType',
-      APP_GENERATION_ACTIVITY_TYPES,
-    ),
-    learnerFlow: expectStringArray(record.learnerFlow, 'appPlan.learnerFlow'),
-    contentModel: expectRecord(record.contentModel, 'appPlan.contentModel'),
-    capabilities: expectStringLiteralArray(
-      record.capabilities,
-      'appPlan.capabilities',
-      APP_GENERATION_CAPABILITIES,
-    ),
-    grading: {
-      mode: expectStringLiteral(grading.mode, 'appPlan.grading.mode', APP_GENERATION_GRADING_MODES),
-      maxScore: expectNumber(grading.maxScore, 'appPlan.grading.maxScore'),
-      scoringSummary: expectString(grading.scoringSummary, 'appPlan.grading.scoringSummary'),
-    },
-    attemptEvents: parseAttemptEventPlans(record.attemptEvents),
-    previewTests: expectStringArray(record.previewTests, 'appPlan.previewTests'),
-    accessibilityNotes: expectStringArray(record.accessibilityNotes, 'appPlan.accessibilityNotes'),
-    riskNotes: expectStringArray(record.riskNotes, 'appPlan.riskNotes'),
-  };
-}
-
-function parseAttemptEventPlans(value: unknown): AppGenerationAttemptEventPlan[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError('appPlan.attemptEvents must be an array.');
-  }
-
-  return value.map((item, index) => {
-    const record = expectRecord(item, `appPlan.attemptEvents[${index}]`);
-
-    return {
-      when: expectString(record.when, `appPlan.attemptEvents[${index}].when`),
-      eventType: expectStringLiteral(
-        record.eventType,
-        `appPlan.attemptEvents[${index}].eventType`,
-        APP_GENERATION_ATTEMPT_EVENT_TYPES,
-      ),
-      questionIdPattern: expectString(
-        record.questionIdPattern,
-        `appPlan.attemptEvents[${index}].questionIdPattern`,
-      ),
-    };
-  });
-}
-
 function parseWorkspaceFilesField(value: unknown, fieldName: string): AppWriterWorkspaceFile[] {
-  const parsed = parseJsonField(value, fieldName);
-
-  if (!Array.isArray(parsed)) {
-    throw new TypeError(`${fieldName} must be an array.`);
-  }
-
-  return parsed.map((item, index) => {
-    const record = expectRecord(item, `${fieldName}[${index}]`);
-
-    return {
-      path: expectString(record.path, `${fieldName}[${index}].path`),
-      contents: expectString(record.contents, `${fieldName}[${index}].contents`),
-      role: record.role === undefined ? 'package' : expectStringLiteral(
-        record.role,
-        `${fieldName}[${index}].role`,
-        APP_WRITER_WORKSPACE_FILE_ROLES,
-      ),
-    };
-  });
+  return parseWorkspaceFiles(parseJsonField(value, fieldName), fieldName);
 }
 
 function parseGenerationPlanField(value: unknown, fieldName: string): AppGenerationPlanStep[] {
-  const parsed = parseJsonField(value, fieldName);
-
-  if (!Array.isArray(parsed)) {
-    throw new TypeError(`${fieldName} must be an array.`);
-  }
-
-  return parsed.map((item, index) => {
-    const record = expectRecord(item, `${fieldName}[${index}]`);
-
-    return {
-      id: expectStringLiteral(record.id, `${fieldName}[${index}].id`, APP_GENERATION_PLAN_STEP_IDS),
-      status: expectStringLiteral(
-        record.status,
-        `${fieldName}[${index}].status`,
-        APP_GENERATION_PLAN_STEP_STATUSES,
-      ),
-      startedAt: expectNullableString(record.startedAt, `${fieldName}[${index}].startedAt`),
-      completedAt: expectNullableString(record.completedAt, `${fieldName}[${index}].completedAt`),
-      summary: expectString(record.summary, `${fieldName}[${index}].summary`),
-      result: expectRecord(record.result, `${fieldName}[${index}].result`),
-      diagnosticCount: expectNumber(
-        record.diagnosticCount,
-        `${fieldName}[${index}].diagnosticCount`,
-      ),
-    };
-  });
+  return parseGenerationPlanSteps(parseJsonField(value, fieldName), fieldName);
 }
 
 function parseValidationFindingsField(
   value: unknown,
   fieldName: string,
 ): AppGenerationValidationFinding[] {
-  const parsed = parseJsonField(value, fieldName);
-
-  if (!Array.isArray(parsed)) {
-    throw new TypeError(`${fieldName} must be an array.`);
-  }
-
-  return parsed.map((item, index) => parseValidationFinding(item, `${fieldName}[${index}]`));
+  return parseValidationFindings(parseJsonField(value, fieldName), fieldName);
 }
 
 function parseModelRequestMetadataField(
   value: unknown,
   fieldName: string,
 ): AppGenerationModelRequestMetadata[] {
-  const parsed = parseJsonField(value, fieldName);
-
-  if (!Array.isArray(parsed)) {
-    throw new TypeError(`${fieldName} must be an array.`);
-  }
-
-  return parsed.map((item, index) => {
-    const record = expectRecord(item, `${fieldName}[${index}]`);
-
-    return {
-      provider: expectString(record.provider, `${fieldName}[${index}].provider`),
-      model: expectNullableString(record.model, `${fieldName}[${index}].model`),
-      requestId: expectNullableString(record.requestId, `${fieldName}[${index}].requestId`),
-      durationMs: expectNullableNumber(record.durationMs, `${fieldName}[${index}].durationMs`),
-      responseCharacters: expectNullableNumber(
-        record.responseCharacters,
-        `${fieldName}[${index}].responseCharacters`,
-      ),
-      stage: record.stage === undefined ? 'unknown' : expectStringLiteral(
-        record.stage,
-        `${fieldName}[${index}].stage`,
-        APP_GENERATION_MODEL_REQUEST_STAGES,
-      ),
-      attempt: record.attempt === undefined
-        ? 0
-        : expectNumber(record.attempt, `${fieldName}[${index}].attempt`),
-      outcome: record.outcome === undefined ? 'unknown' : expectStringLiteral(
-        record.outcome,
-        `${fieldName}[${index}].outcome`,
-        APP_GENERATION_MODEL_REQUEST_OUTCOMES,
-      ),
-      errorCode: record.errorCode === undefined
-        ? null
-        : expectNullableString(record.errorCode, `${fieldName}[${index}].errorCode`),
-    };
-  });
-}
-
-function parseValidationFinding(value: unknown, fieldName: string): AppGenerationValidationFinding {
-  const record = expectRecord(value, fieldName);
-
-  return {
-    code: expectString(record.code, `${fieldName}.code`),
-    severity: expectStringLiteral(
-      record.severity,
-      `${fieldName}.severity`,
-      APP_GENERATION_VALIDATION_SEVERITIES,
-    ),
-    message: expectString(record.message, `${fieldName}.message`),
-    file: expectNullableString(record.file, `${fieldName}.file`),
-    field: expectNullableString(record.field, `${fieldName}.field`),
-    fix: expectNullableString(record.fix, `${fieldName}.fix`),
-    detail: expectRecord(record.detail, `${fieldName}.detail`),
-  };
+  return parseModelRequestMetadata(parseJsonField(value, fieldName), fieldName);
 }
 
 function parseNullableJsonField<T>(
@@ -608,62 +419,6 @@ function parseJsonField(value: unknown, fieldName: string): unknown {
   return JSON.parse(value);
 }
 
-function expectRecord(value: unknown, fieldName: string): Record<string, unknown> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new TypeError(`${fieldName} must be an object.`);
-  }
-
-  return value as Record<string, unknown>;
-}
-
-function expectString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`${fieldName} must be text.`);
-  }
-
-  return value;
-}
-
-function expectNullableString(value: unknown, fieldName: string): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectString(value, fieldName);
-}
-
-function expectNumber(value: unknown, fieldName: string): number {
-  if (typeof value !== 'number') {
-    throw new TypeError(`${fieldName} must be numeric.`);
-  }
-
-  return value;
-}
-
-function expectNullableNumber(value: unknown, fieldName: string): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectNumber(value, fieldName);
-}
-
-function expectBoolean(value: unknown, fieldName: string): boolean {
-  if (typeof value !== 'boolean') {
-    throw new TypeError(`${fieldName} must be boolean.`);
-  }
-
-  return value;
-}
-
-function expectStringArray(value: unknown, fieldName: string): string[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError(`${fieldName} must be a string array.`);
-  }
-
-  return value.map((item) => expectString(item, `${fieldName} item`));
-}
-
 function expectStringLiteral<T extends string>(
   value: unknown,
   fieldName: string,
@@ -686,18 +441,6 @@ function expectNullableStringLiteral<T extends string>(
   }
 
   return expectStringLiteral(value, fieldName, allowed);
-}
-
-function expectStringLiteralArray<T extends string>(
-  value: unknown,
-  fieldName: string,
-  allowed: readonly T[],
-): T[] {
-  if (!Array.isArray(value)) {
-    throw new TypeError(`${fieldName} must be an array.`);
-  }
-
-  return value.map((item) => expectStringLiteral(item, `${fieldName} item`, allowed));
 }
 
 function isD1UniqueViolation(error: unknown): boolean {

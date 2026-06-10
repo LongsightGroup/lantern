@@ -1,4 +1,5 @@
 import { assertEquals, assertRejects } from '@std/assert';
+import { emptyAppWriterSelectedContext } from './context.ts';
 import { createCloudflareAppWriterAgentWorkspaceHarness } from './agent_workspace_harness.ts';
 import { AppWriterWorkspaceHarnessError } from './workspace_runner.ts';
 import type { AppWriterAgentNamespace } from './agent_session.ts';
@@ -132,7 +133,7 @@ function minimalGenerationInput() {
     promptText: 'Create a flashcard app.',
     requestedAppId: 'flashcards',
     selectedStarterId: 'simple-activity' as const,
-    selectedContext: {},
+    selectedContext: emptyAppWriterSelectedContext('simple-activity'),
     authoringMode: 'typescript' as const,
     createdAt: '2026-05-16T12:00:00.000Z',
   };

@@ -1,14 +1,62 @@
 import {
+  APP_GENERATION_PLAN_STEP_IDS,
+  APP_GENERATION_PLAN_STEP_STATUSES,
   APP_GENERATION_PROGRESS_STAGES,
+  APP_WRITER_AUTHORING_MODES,
+  APP_WRITER_STARTER_IDS,
   APP_WRITER_WORKSPACE_FILE_ROLES,
+  type AppGenerationActivityType,
+  type AppGenerationAttemptEventPlan,
+  type AppGenerationAttemptEventType,
+  type AppGenerationGradingMode,
   type AppGenerationModelRequestMetadata,
   type AppGenerationModelRequestOutcome,
   type AppGenerationModelRequestStoredStage,
+  type AppGenerationNormalizedRequest,
+  type AppGenerationPlan,
+  type AppGenerationPlanningResult,
+  type AppGenerationPlanStep,
   type AppGenerationProgressUpdate,
   type AppGenerationValidationFinding,
+  type AppGenerationWorkspaceRecord,
+  type AppPackageGenerationInput,
+  type AppPackageGenerationResult,
+  type AppWriterAuthoringMode,
+  type AppWriterStarterId,
   type AppWriterWorkspaceFile,
   type AppWriterWorkspaceFileRole,
 } from './types.ts';
+import { readAppWriterSelectedContext } from './context.ts';
+import type { Capability } from '../../sdk/app-sdk.ts';
+
+const APP_GENERATION_ACTIVITY_TYPES = [
+  'quiz',
+  'sorting',
+  'matching',
+  'flashcards',
+  'simulation',
+  'game',
+  'practice',
+] as const satisfies readonly AppGenerationActivityType[];
+const APP_GENERATION_GRADING_MODES = [
+  'completion',
+  'declarative',
+  'browser',
+] as const satisfies readonly AppGenerationGradingMode[];
+const APP_GENERATION_ATTEMPT_EVENT_TYPES = [
+  'answer',
+  'progress',
+  'complete',
+] as const satisfies readonly AppGenerationAttemptEventType[];
+const APP_GENERATION_CAPABILITIES = [
+  'read_launch_context',
+  'read_activity_content',
+  'submit_attempt_event',
+  'submit_evidence_artifact',
+  'finalize_attempt',
+  'read_local_state',
+  'write_local_state',
+] as const satisfies readonly Capability[];
 
 export function parseWorkspaceFiles(value: unknown, fieldName: string): AppWriterWorkspaceFile[] {
   if (!Array.isArray(value)) {
@@ -28,6 +76,166 @@ export function parseWorkspaceFiles(value: unknown, fieldName: string): AppWrite
 
     return file;
   });
+}
+
+export function parseAppPackageGenerationInput(
+  value: unknown,
+  fieldName: string,
+): AppPackageGenerationInput {
+  const record = expectRecord(value, fieldName);
+  const generationId = expectString(record.generationId, `${fieldName}.generationId`);
+  const ownerId = expectString(record.ownerId, `${fieldName}.ownerId`);
+  const promptText = expectString(record.promptText, `${fieldName}.promptText`);
+  const requestedAppId = expectNullableString(record.requestedAppId, `${fieldName}.requestedAppId`);
+  const selectedStarterId = expectStarterId(
+    record.selectedStarterId,
+    `${fieldName}.selectedStarterId`,
+  );
+
+  return {
+    generationId,
+    ownerId,
+    promptText,
+    requestedAppId,
+    selectedStarterId,
+    selectedContext: readAppWriterSelectedContext(record.selectedContext, selectedStarterId),
+    authoringMode: expectAuthoringMode(record.authoringMode, `${fieldName}.authoringMode`),
+    createdAt: expectString(record.createdAt, `${fieldName}.createdAt`),
+  };
+}
+
+export function parseAppGenerationPlanningResult(
+  value: unknown,
+  fieldName: string,
+): AppGenerationPlanningResult {
+  const record = expectRecord(value, fieldName);
+
+  return {
+    normalizedRequest: parseNormalizedRequest(
+      record.normalizedRequest,
+      `${fieldName}.normalizedRequest`,
+    ),
+    appPlan: parseAppGenerationPlan(record.appPlan, `${fieldName}.appPlan`),
+    selectedStarterId: expectStarterId(record.selectedStarterId, `${fieldName}.selectedStarterId`),
+    progressUpdates: parseProgressUpdates(record.progressUpdates, `${fieldName}.progressUpdates`),
+    notes: expectStringArray(record.notes, `${fieldName}.notes`),
+    ...(record.modelRequestMetadata === undefined ? {} : {
+      modelRequestMetadata: parseModelRequestMetadata(
+        record.modelRequestMetadata,
+        `${fieldName}.modelRequestMetadata`,
+      ),
+    }),
+  };
+}
+
+export function parseAppPackageGenerationResult(
+  value: unknown,
+  fieldName: string,
+): AppPackageGenerationResult {
+  const record = expectRecord(value, fieldName);
+
+  return {
+    normalizedRequest: parseNormalizedRequest(
+      record.normalizedRequest,
+      `${fieldName}.normalizedRequest`,
+    ),
+    appPlan: parseAppGenerationPlan(record.appPlan, `${fieldName}.appPlan`),
+    selectedStarterId: expectStarterId(record.selectedStarterId, `${fieldName}.selectedStarterId`),
+    files: parseWorkspaceFiles(record.files, `${fieldName}.files`),
+    progressUpdates: parseProgressUpdates(record.progressUpdates, `${fieldName}.progressUpdates`),
+    notes: expectStringArray(record.notes, `${fieldName}.notes`),
+    validationFindings: parseValidationFindings(
+      record.validationFindings,
+      `${fieldName}.validationFindings`,
+    ),
+    ...(record.modelRequestMetadata === undefined ? {} : {
+      modelRequestMetadata: parseModelRequestMetadata(
+        record.modelRequestMetadata,
+        `${fieldName}.modelRequestMetadata`,
+      ),
+    }),
+  };
+}
+
+export function parseAppGenerationWorkspaceRecord(
+  value: unknown,
+  fieldName: string,
+): AppGenerationWorkspaceRecord {
+  const record = expectRecord(value, fieldName);
+
+  return {
+    generationId: expectString(record.generationId, `${fieldName}.generationId`),
+    selectedStarterId: expectStarterId(record.selectedStarterId, `${fieldName}.selectedStarterId`),
+    files: parseWorkspaceFiles(record.files, `${fieldName}.files`),
+    generationPlan: parseGenerationPlanSteps(record.generationPlan, `${fieldName}.generationPlan`),
+    validationFindings: parseValidationFindings(
+      record.validationFindings,
+      `${fieldName}.validationFindings`,
+    ),
+    repairAttemptCount: expectNumber(record.repairAttemptCount, `${fieldName}.repairAttemptCount`),
+    updatedAt: expectString(record.updatedAt, `${fieldName}.updatedAt`),
+  };
+}
+
+export function parseAppGenerationPlan(value: unknown, fieldName: string): AppGenerationPlan {
+  const record = expectRecord(value, fieldName);
+  const grading = expectRecord(record.grading, `${fieldName}.grading`);
+
+  return {
+    appId: expectString(record.appId, `${fieldName}.appId`),
+    title: expectString(record.title, `${fieldName}.title`),
+    description: expectString(record.description, `${fieldName}.description`),
+    learningGoal: expectString(record.learningGoal, `${fieldName}.learningGoal`),
+    audience: expectString(record.audience, `${fieldName}.audience`),
+    activityType: expectStringLiteral(
+      record.activityType,
+      `${fieldName}.activityType`,
+      APP_GENERATION_ACTIVITY_TYPES,
+    ),
+    learnerFlow: expectStringArray(record.learnerFlow, `${fieldName}.learnerFlow`),
+    contentModel: expectRecord(record.contentModel, `${fieldName}.contentModel`),
+    capabilities: expectStringLiteralArray(
+      record.capabilities,
+      `${fieldName}.capabilities`,
+      APP_GENERATION_CAPABILITIES,
+    ),
+    grading: {
+      mode: expectStringLiteral(
+        grading.mode,
+        `${fieldName}.grading.mode`,
+        APP_GENERATION_GRADING_MODES,
+      ),
+      maxScore: expectNumber(grading.maxScore, `${fieldName}.grading.maxScore`),
+      scoringSummary: expectString(grading.scoringSummary, `${fieldName}.grading.scoringSummary`),
+    },
+    attemptEvents: parseAttemptEventPlans(record.attemptEvents, `${fieldName}.attemptEvents`),
+    previewTests: expectStringArray(record.previewTests, `${fieldName}.previewTests`),
+    accessibilityNotes: expectStringArray(
+      record.accessibilityNotes,
+      `${fieldName}.accessibilityNotes`,
+    ),
+    riskNotes: expectStringArray(record.riskNotes, `${fieldName}.riskNotes`),
+  };
+}
+
+export function parseNormalizedRequest(
+  value: unknown,
+  fieldName: string,
+): AppGenerationNormalizedRequest {
+  const record = expectRecord(value, fieldName);
+
+  return {
+    learningGoal: expectString(record.learningGoal, `${fieldName}.learningGoal`),
+    audience: expectString(record.audience, `${fieldName}.audience`),
+    contentSummary: expectString(record.contentSummary, `${fieldName}.contentSummary`),
+    requestedActivity: expectString(record.requestedActivity, `${fieldName}.requestedActivity`),
+    constraints: expectStringArray(record.constraints, `${fieldName}.constraints`),
+    missingInformation: expectStringArray(
+      record.missingInformation,
+      `${fieldName}.missingInformation`,
+    ),
+    safeToGenerate: expectBoolean(record.safeToGenerate, `${fieldName}.safeToGenerate`),
+  };
 }
 
 export function parseProgressUpdates(
@@ -99,6 +307,36 @@ export function parseModelRequestMetadata(
   });
 }
 
+export function parseGenerationPlanSteps(
+  value: unknown,
+  fieldName: string,
+): AppGenerationPlanStep[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return value.map((item, index) => {
+    const record = expectRecord(item, `${fieldName}[${index}]`);
+
+    return {
+      id: expectStringLiteral(record.id, `${fieldName}[${index}].id`, APP_GENERATION_PLAN_STEP_IDS),
+      status: expectStringLiteral(
+        record.status,
+        `${fieldName}[${index}].status`,
+        APP_GENERATION_PLAN_STEP_STATUSES,
+      ),
+      startedAt: expectNullableString(record.startedAt, `${fieldName}[${index}].startedAt`),
+      completedAt: expectNullableString(record.completedAt, `${fieldName}[${index}].completedAt`),
+      summary: expectString(record.summary, `${fieldName}[${index}].summary`),
+      result: expectRecord(record.result, `${fieldName}[${index}].result`),
+      diagnosticCount: expectNumber(
+        record.diagnosticCount,
+        `${fieldName}[${index}].diagnosticCount`,
+      ),
+    };
+  });
+}
+
 export function expectRecord(value: unknown, fieldName: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`${fieldName} must be an object.`);
@@ -139,6 +377,14 @@ export function expectNumber(value: unknown, fieldName: string): number {
   return value;
 }
 
+export function expectBoolean(value: unknown, fieldName: string): boolean {
+  if (typeof value !== 'boolean') {
+    throw new TypeError(`${fieldName} must be boolean.`);
+  }
+
+  return value;
+}
+
 export function expectStringArray(value: unknown, fieldName: string): string[] {
   if (!Array.isArray(value)) {
     throw new TypeError(`${fieldName} must be a string array.`);
@@ -156,6 +402,64 @@ function expectValidationSeverity(
   }
 
   return value;
+}
+
+function parseAttemptEventPlans(
+  value: unknown,
+  fieldName: string,
+): AppGenerationAttemptEventPlan[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return value.map((item, index) => {
+    const record = expectRecord(item, `${fieldName}[${index}]`);
+
+    return {
+      when: expectString(record.when, `${fieldName}[${index}].when`),
+      eventType: expectStringLiteral(
+        record.eventType,
+        `${fieldName}[${index}].eventType`,
+        APP_GENERATION_ATTEMPT_EVENT_TYPES,
+      ),
+      questionIdPattern: expectString(
+        record.questionIdPattern,
+        `${fieldName}[${index}].questionIdPattern`,
+      ),
+    };
+  });
+}
+
+export function expectStarterId(value: unknown, fieldName: string): AppWriterStarterId {
+  return expectStringLiteral(value, fieldName, APP_WRITER_STARTER_IDS);
+}
+
+export function expectAuthoringMode(value: unknown, fieldName: string): AppWriterAuthoringMode {
+  return expectStringLiteral(value, fieldName, APP_WRITER_AUTHORING_MODES);
+}
+
+export function expectStringLiteral<T extends string>(
+  value: unknown,
+  fieldName: string,
+  allowed: readonly T[],
+): T {
+  if (typeof value !== 'string' || !allowed.includes(value as T)) {
+    throw new TypeError(`${fieldName} must be a supported value.`);
+  }
+
+  return value as T;
+}
+
+function expectStringLiteralArray<T extends string>(
+  value: unknown,
+  fieldName: string,
+  allowed: readonly T[],
+): T[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${fieldName} must be an array.`);
+  }
+
+  return value.map((item, index) => expectStringLiteral(item, `${fieldName}[${index}]`, allowed));
 }
 
 function expectWorkspaceFileRole(value: unknown, fieldName: string): AppWriterWorkspaceFileRole {

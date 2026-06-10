@@ -1,5 +1,6 @@
 import type { Capability } from '../../sdk/app-sdk.ts';
 import type { GradingMode } from '../package_review/types.ts';
+import type { AppWriterSelectedContext } from './context.ts';
 
 export const APP_GENERATION_STATUSES = [
   'started',
@@ -170,7 +171,7 @@ export interface AppGenerationRunRecord {
   normalizedRequest: AppGenerationNormalizedRequest | null;
   appPlan: AppGenerationPlan | null;
   selectedStarterId: AppWriterStarterId | null;
-  selectedContext: Record<string, unknown>;
+  selectedContext: AppWriterSelectedContext;
   modelRequestMetadata: AppGenerationModelRequestMetadata[];
   generationNotes: string[];
   validationFindings: AppGenerationValidationFinding[];
@@ -207,7 +208,7 @@ export interface AppPackageGenerationInput {
   promptText: string;
   requestedAppId: string | null;
   selectedStarterId: AppWriterStarterId;
-  selectedContext: Record<string, unknown>;
+  selectedContext: AppWriterSelectedContext;
   authoringMode: AppWriterAuthoringMode;
   createdAt: string;
 }

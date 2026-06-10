@@ -2,6 +2,7 @@ import type {
   AppGenerationPlanStep,
   AppGenerationPlanStepId,
   AppGenerationPlanStepStatus,
+  AppGenerationWorkspaceRecord,
 } from './types.ts';
 
 const GENERATION_PLAN_STEP_ORDER: AppGenerationPlanStepId[] = [
@@ -72,6 +73,27 @@ export function updateGenerationPlanStep(input: {
       diagnosticCount: input.diagnosticCount ?? step.diagnosticCount,
     };
   });
+}
+
+export function selectCurrentGenerationPlanStep(
+  plan: readonly AppGenerationPlanStep[],
+): AppGenerationPlanStep | null {
+  return (
+    plan.find((step) => step.status === 'running') ??
+      plan.find((step) => step.status === 'failed') ??
+      [...plan].reverse().find((step) => step.status !== 'pending') ??
+      null
+  );
+}
+
+export function selectCurrentGenerationPlanStepFromWorkspace(
+  workspace: AppGenerationWorkspaceRecord | null,
+): AppGenerationPlanStep | null {
+  if (workspace === null) {
+    return null;
+  }
+
+  return selectCurrentGenerationPlanStep(workspace.generationPlan);
 }
 
 export function normalizeGenerationPlan(

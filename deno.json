@@ -1,4 +1,7 @@
 {
+  "exclude": [
+    "private/**"
+  ],
   "tasks": {
     "dev": "deno run --unsafely-ignore-certificate-errors --watch --allow-read --allow-write --allow-env --allow-net main.ts",
     "start": "deno run --allow-read --allow-write --allow-env --allow-net main.ts",

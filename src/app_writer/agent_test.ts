@@ -93,6 +93,36 @@ Deno.test('app writer Agent removes top-level arrow semicolon before Code Mode e
   );
 });
 
+Deno.test('app writer Agent rejects malformed workspace harness input before trusting nested records', async () => {
+  const agent = new AppWriterAgent(createMemoryDurableObjectState(), {});
+  const response = await agent.fetch(
+    new Request('https://app-writer-agent.internal/workspace-harness/author', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        generationInput: {
+          generationId: 'generation-1',
+        },
+        planning: {},
+        workspace: {},
+      }),
+    }),
+  );
+  const body = (await response.json()) as {
+    error?: {
+      code?: unknown;
+      message?: unknown;
+    };
+  };
+
+  assertEquals(response.status, 500);
+  assertEquals(body.error?.code, 'workspace_read_write_failed');
+  assertStringIncludes(
+    String(body.error?.message),
+    'workspaceAuthorInput.generationInput.ownerId must be text.',
+  );
+});
+
 function createMemoryDurableObjectState() {
   const stored = new Map<string, unknown>();
 

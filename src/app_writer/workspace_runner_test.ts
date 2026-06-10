@@ -1,4 +1,5 @@
 import { assertEquals } from '@std/assert';
+import { emptyAppWriterSelectedContext } from './context.ts';
 import {
   type AppWriterWorkspaceHarness,
   createHarnessWorkspaceRunner,
@@ -142,7 +143,7 @@ function buildGenerationInput(): AppPackageGenerationInput {
     promptText: 'Create phonics flashcards.',
     requestedAppId: 'phonics-match',
     selectedStarterId: 'simple-activity',
-    selectedContext: {},
+    selectedContext: emptyAppWriterSelectedContext('simple-activity'),
     authoringMode: 'typescript',
     createdAt: '2026-05-15T12:00:00.000Z',
   };
