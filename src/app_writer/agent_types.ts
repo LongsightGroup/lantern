@@ -5,20 +5,11 @@ import type {
   AppGenerationWorkspaceRecord,
   AppPackageGenerationInput,
   AppPackageGenerationResult,
-  AppWriterWorkspaceFile,
 } from './types.ts';
 import type { D1Database } from '../db/d1.ts';
-import type { RuntimeArtifactBucket } from '../runtime/artifact_store.ts';
-
-type WorkspaceConstructor = (typeof import('@cloudflare/shell'))['Workspace'];
-type ShellWorkspaceOptions = ConstructorParameters<WorkspaceConstructor>[0];
-type DynamicWorkerExecutorConstructor =
-  (typeof import('@cloudflare/codemode'))['DynamicWorkerExecutor'];
-type ShellExecutorOptions = ConstructorParameters<DynamicWorkerExecutorConstructor>[0];
 
 export interface DurableObjectState {
   storage: {
-    sql?: ShellWorkspaceOptions['sql'];
     get<T>(key: string): Promise<T | undefined>;
     put<T>(key: string, value: T): Promise<void>;
   };
@@ -27,8 +18,6 @@ export interface DurableObjectState {
 export interface AppWriterAgentEnv extends Record<string, unknown> {
   DB?: D1Database;
   AI?: CloudflareAiBinding;
-  LOADER?: ShellExecutorOptions['loader'];
-  PACKAGE_ARTIFACTS?: RuntimeArtifactBucket;
   APP_WRITER_MODEL?: string;
 }
 
@@ -68,14 +57,6 @@ export interface WorkspaceRepairInput {
   validationFindings: AppGenerationWorkspaceRecord['validationFindings'];
   repairAttempt: number;
   workspace: AppGenerationWorkspaceRecord;
-}
-
-export interface WorkspaceHarnessResponse {
-  files: AppWriterWorkspaceFile[];
-  progressUpdates: Array<{ stage: 'building_package' | 'repairing_package'; message: string }>;
-  notes: string[];
-  modelRequestMetadata: AppGenerationModelRequestMetadata[];
-  validationFindings: AppGenerationWorkspaceRecord['validationFindings'];
 }
 
 export interface AppWriterAgentHarnessError extends Error {

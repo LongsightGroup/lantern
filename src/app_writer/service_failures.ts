@@ -114,16 +114,13 @@ export function buildStarterMismatchFinding(input: {
 const HARNESS_FAILURE_FINDING_CODES: Record<string, string> = {
   model_timeout: 'generation_model_timeout',
   provider_error: 'generation_model_provider_error',
-  code_normalization_failed: 'generation_code_normalization_failed',
-  code_execution_failed: 'generation_code_execution_failed',
+  structured_response_invalid: 'generation_structured_response_invalid',
   workspace_read_write_failed: 'generation_workspace_read_write_failed',
 };
 
 const HARNESS_FAILURE_FIXES: Record<string, string> = {
-  code_normalization_failed:
-    'Retry generation. Lantern could not normalize the Code Mode response into executable workspace-edit code after bounded attempts.',
-  code_execution_failed:
-    'Retry generation. Lantern executed the workspace-edit code but it failed after bounded attempts.',
+  structured_response_invalid:
+    'Retry generation. Lantern rejected the model response because it was not raw JSON matching the workspace harness contract after bounded attempts.',
   workspace_read_write_failed:
     'Check the app writer workspace service bindings and retry generation.',
   provider_error:

@@ -1,11 +1,4 @@
-import {
-  expectString,
-  parseModelRequestMetadata,
-  parseProgressUpdates,
-  parseValidationFindings,
-  parseWorkspaceFiles,
-} from './binding_result.ts';
-import type { AppGenerationValidationFinding, AppWriterWorkspaceFile } from './types.ts';
+import { expectString, parseModelRequestMetadata } from './binding_result.ts';
 import type {
   AppWriterWorkspaceHarness,
   AppWriterWorkspaceHarnessError,
@@ -13,6 +6,7 @@ import type {
 } from './workspace_runner.ts';
 import { AppWriterWorkspaceHarnessError as WorkspaceHarnessError } from './workspace_runner.ts';
 import type { AppWriterAgentNamespace } from './agent_session.ts';
+import { parseWorkspaceHarnessResponse } from './workspace_harness_result.ts';
 
 const HARNESS_AUTHOR_PATH = '/workspace-harness/author';
 const HARNESS_REPAIR_PATH = '/workspace-harness/repair';
@@ -121,23 +115,7 @@ function parseWorkspaceHarnessResult(
   value: unknown,
   fieldName: string,
 ): AppWriterWorkspaceHarnessResult {
-  const record = expectRecord(value, fieldName);
-
-  return {
-    files: parseWorkspaceFiles(record.files, `${fieldName}.files`) as AppWriterWorkspaceFile[],
-    progressUpdates: parseProgressUpdates(record.progressUpdates, `${fieldName}.progressUpdates`),
-    notes: expectStringArray(record.notes, `${fieldName}.notes`),
-    ...(record.modelRequestMetadata === undefined ? {} : {
-      modelRequestMetadata: parseModelRequestMetadata(
-        record.modelRequestMetadata,
-        `${fieldName}.modelRequestMetadata`,
-      ),
-    }),
-    validationFindings: record.validationFindings === undefined ? [] : (parseValidationFindings(
-      record.validationFindings,
-      `${fieldName}.validationFindings`,
-    ) as AppGenerationValidationFinding[]),
-  };
+  return parseWorkspaceHarnessResponse(value, fieldName);
 }
 
 function expectRecord(value: unknown, fieldName: string): Record<string, unknown> {

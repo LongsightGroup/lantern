@@ -3,7 +3,10 @@ import { createStaticAppWriterWorkspaceRunner } from '../test_helpers/app_writer
 import { buildValidSimpleActivityFiles } from '../test_helpers/app_writer_generated_package.ts';
 import { AppPackageGenerationFailedError, runAppPackageGeneration } from './service.ts';
 import { createTypeScriptAppPackageSourceCompiler } from './typescript_source_compiler.ts';
-import type { AppWriterWorkspaceRunner } from './workspace_runner.ts';
+import {
+  AppWriterWorkspaceHarnessError,
+  type AppWriterWorkspaceRunner,
+} from './workspace_runner.ts';
 import { createInMemoryPackageReviewRepository } from '../test_helpers/package_review.ts';
 import {
   buildGenerationResult,
@@ -166,6 +169,84 @@ Deno.test('app writer service preserves validation findings when repair provider
   assertEquals(persisted?.validationFindings, error.run.validationFindings);
   assertEquals(workspace?.validationFindings, error.run.validationFindings);
   assertEquals(repairStep?.status, 'failed');
+});
+
+Deno.test('app writer service preserves validation findings when structured repair response is invalid', async () => {
+  const repository = createInMemoryPackageReviewRepository();
+  const invalidPackage = buildGenerationResult({
+    files: [
+      ...buildValidSimpleActivityFiles(),
+      {
+        path: 'server/worker.ts',
+        contents: 'export default {};\n',
+      },
+    ],
+  });
+  const workspaceRunner: AppWriterWorkspaceRunner = {
+    ...createStaticAppWriterWorkspaceRunner(invalidPackage),
+    repair(_input) {
+      return Promise.reject(
+        new AppWriterWorkspaceHarnessError({
+          code: 'structured_response_invalid',
+          message:
+            'Workspace structured harness failed during repair: workspaceHarnessModelResult.files must be an array.',
+          modelRequestMetadata: [
+            {
+              provider: 'cloudflare',
+              model: '@cf/test/model',
+              requestId: null,
+              durationMs: 80,
+              responseCharacters: 64,
+              stage: 'repair',
+              attempt: 1,
+              outcome: 'failed',
+              errorCode: 'structured_response_invalid',
+            },
+          ],
+          notes: ['Harness failure 1: structured_response_invalid'],
+        }),
+      );
+    },
+  };
+
+  const error = await assertRejects(
+    () =>
+      runAppPackageGeneration({
+        repository,
+        workspaceRunner,
+        generationId: 'generation-1',
+        ownerId: 'instructor-1',
+        promptText: 'Create a phonics matching game.',
+        now: createClock([
+          '2026-05-14T12:00:00.000Z',
+          '2026-05-14T12:00:01.000Z',
+          '2026-05-14T12:00:02.000Z',
+          '2026-05-14T12:00:03.000Z',
+          '2026-05-14T12:00:04.000Z',
+          '2026-05-14T12:00:05.000Z',
+        ]),
+      }),
+    AppPackageGenerationFailedError,
+    'workspaceHarnessModelResult.files must be an array.',
+  );
+
+  assertEquals(error.run.status, 'failed');
+  assertEquals(
+    error.run.validationFindings.some((finding) => finding.code === 'file_path_not_allowed'),
+    true,
+  );
+  assertEquals(
+    error.run.validationFindings.at(-1)?.code,
+    'generation_structured_response_invalid',
+  );
+  assertEquals(error.run.validationFindings.at(-1)?.detail, {
+    harnessError: 'structured_response_invalid',
+    modelRequestCount: 1,
+  });
+  assertEquals(
+    error.run.generationNotes.includes('Harness failure 1: structured_response_invalid'),
+    true,
+  );
 });
 
 Deno.test('app writer service compiles TypeScript authoring source before validation', async () => {

@@ -12,6 +12,8 @@ export function isWorkspaceHarnessContractMessage(message: string): boolean {
     normalized.includes('normalizedrequest') ||
     normalized.includes('appplan') ||
     normalized.includes('fileedits') ||
+    normalized.includes('workspaceharnessmodelresult') ||
+    normalized.includes('structured response') ||
     normalized.includes('selectedstarterid') ||
     normalized.includes('progressupdates')
   );

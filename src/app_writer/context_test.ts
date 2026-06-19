@@ -103,8 +103,7 @@ Deno.test('app writer context selector records the versioned app writer recipe',
   assertEquals(selection.selectedContext.recipe.recipeVersion, APP_WRITER_RECIPE_VERSION);
   assertEquals(selection.selectedContext.recipe.outputContracts, [
     'lantern_owned_plan',
-    'shell_workspace_snapshot',
-    'codemode_workspace_edit',
+    'structured_workspace_snapshot',
   ]);
   assertEquals(selection.selectedContext.recipe.proofChecks, [
     'strict_typescript',

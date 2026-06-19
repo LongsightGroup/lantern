@@ -57,9 +57,9 @@ Deno.test('Agent workspace harness maps structured Agent errors to stable harnes
       Response.json(
         {
           error: {
-            code: 'code_execution_failed',
-            message: 'Workspace edit code failed.',
-            notes: ['Harness failure 1: code_execution_failed'],
+            code: 'structured_response_invalid',
+            message: 'Workspace structured harness rejected the model response.',
+            notes: ['Harness failure 1: structured_response_invalid'],
             modelRequestMetadata: [
               {
                 provider: 'cloudflare',
@@ -70,7 +70,7 @@ Deno.test('Agent workspace harness maps structured Agent errors to stable harnes
                 stage: 'repair',
                 attempt: 2,
                 outcome: 'failed',
-                errorCode: 'code_execution_failed',
+                errorCode: 'structured_response_invalid',
               },
             ],
           },
@@ -106,9 +106,9 @@ Deno.test('Agent workspace harness maps structured Agent errors to stable harnes
     AppWriterWorkspaceHarnessError,
   );
 
-  assertEquals(error.code, 'code_execution_failed');
+  assertEquals(error.code, 'structured_response_invalid');
   assertEquals(error.modelRequestMetadata[0]?.stage, 'repair');
-  assertEquals(error.notes[0], 'Harness failure 1: code_execution_failed');
+  assertEquals(error.notes[0], 'Harness failure 1: structured_response_invalid');
 });
 
 function buildNamespace(response: Response): AppWriterAgentNamespace {

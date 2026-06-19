@@ -20,6 +20,18 @@ export function selectNonPackageWorkspaceFiles(
     .map((file) => ({ ...file, role: getWorkspaceFileRole(file) }));
 }
 
+export function selectProtectedWorkspaceContextFiles(
+  files: readonly AppWriterWorkspaceFile[],
+): AppWriterWorkspaceFile[] {
+  return files
+    .filter((file) => {
+      const role = getWorkspaceFileRole(file);
+
+      return role === 'instruction' || role === 'contract';
+    })
+    .map((file) => ({ ...file, role: getWorkspaceFileRole(file) }));
+}
+
 export function mergeWorkspaceFiles(
   baseFiles: readonly AppWriterWorkspaceFile[],
   nextFiles: readonly AppWriterWorkspaceFile[],

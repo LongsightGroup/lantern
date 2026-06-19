@@ -1,8 +1,4 @@
-import type {
-  AppWriterAgentEnv,
-  DurableObjectState,
-  WorkspaceHarnessResponse,
-} from './agent_types.ts';
+import type { AppWriterAgentEnv, DurableObjectState } from './agent_types.ts';
 import { isAppWriterAgentHarnessError } from './agent_errors.ts';
 import { AGENT_SESSION_STORAGE_KEY, loadAgentSnapshot, streamAgentEvents } from './agent_events.ts';
 import {
@@ -10,8 +6,9 @@ import {
   readWorkspaceAuthorInput,
   readWorkspaceRepairInput,
 } from './agent_input.ts';
-import { authorWorkspace, repairWorkspace } from './agent_workspace_shell.ts';
+import { authorWorkspace, repairWorkspace } from './agent_workspace_structured.ts';
 import { jsonError } from './http_json.ts';
+import type { WorkspaceHarnessResponse } from './workspace_harness_result.ts';
 
 export class AppWriterAgent {
   constructor(

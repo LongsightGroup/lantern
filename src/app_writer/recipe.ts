@@ -23,8 +23,7 @@ export const APP_WRITER_RECIPE_STARTER_SET = [
 
 export const APP_WRITER_RECIPE_OUTPUT_CONTRACTS = [
   'lantern_owned_plan',
-  'shell_workspace_snapshot',
-  'codemode_workspace_edit',
+  'structured_workspace_snapshot',
 ] as const;
 
 export const APP_WRITER_RECIPE_PROOF_CHECKS = [

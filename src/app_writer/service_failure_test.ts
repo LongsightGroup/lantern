@@ -70,8 +70,8 @@ Deno.test('app writer service persists harness model metadata on failed authorin
     author(_input) {
       return Promise.reject(
         new AppWriterWorkspaceHarnessError({
-          code: 'code_execution_failed',
-          message: 'Workspace edit code failed.',
+          code: 'structured_response_invalid',
+          message: 'Workspace structured harness rejected the model response.',
           modelRequestMetadata: [
             {
               provider: 'cloudflare',
@@ -82,10 +82,10 @@ Deno.test('app writer service persists harness model metadata on failed authorin
               stage: 'author',
               attempt: 1,
               outcome: 'failed',
-              errorCode: 'code_execution_failed',
+              errorCode: 'structured_response_invalid',
             },
           ],
-          notes: ['Harness failure 1: code_execution_failed'],
+          notes: ['Harness failure 1: structured_response_invalid'],
         }),
       );
     },
@@ -109,16 +109,16 @@ Deno.test('app writer service persists harness model metadata on failed authorin
         ]),
       }),
     AppPackageGenerationFailedError,
-    'Workspace edit code failed.',
+    'Workspace structured harness rejected the model response.',
   );
 
   const failedMetadata = error.run.modelRequestMetadata.at(-1);
 
   assertEquals(failedMetadata?.stage, 'author');
   assertEquals(failedMetadata?.outcome, 'failed');
-  assertEquals(error.run.validationFindings[0]?.code, 'generation_code_execution_failed');
+  assertEquals(error.run.validationFindings[0]?.code, 'generation_structured_response_invalid');
   assertEquals(
-    error.run.generationNotes.includes('Harness failure 1: code_execution_failed'),
+    error.run.generationNotes.includes('Harness failure 1: structured_response_invalid'),
     true,
   );
 });

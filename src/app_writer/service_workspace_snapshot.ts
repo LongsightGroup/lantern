@@ -7,7 +7,7 @@ import type {
   AppPackageGenerationResult,
 } from './types.ts';
 import { normalizeGenerationPlan, updateGenerationPlanStep } from './generation_plan.ts';
-import { mergeWorkspaceFiles, selectNonPackageWorkspaceFiles } from './workspace_files.ts';
+import { mergeWorkspaceFiles, selectProtectedWorkspaceContextFiles } from './workspace_files.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 
 export async function saveGenerationWorkspaceSnapshot(input: {
@@ -28,8 +28,8 @@ export async function saveGenerationWorkspaceSnapshot(input: {
     generationId: input.run.generationId,
     selectedStarterId: input.generation.selectedStarterId,
     files: existing === null ? input.generation.files : mergeWorkspaceFiles(
-      selectNonPackageWorkspaceFiles(existing.files),
       input.generation.files,
+      selectProtectedWorkspaceContextFiles(existing.files),
     ),
     generationPlan: input.generationPlan ?? existing?.generationPlan ?? [],
     validationFindings: input.validationFindings,

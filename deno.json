@@ -50,11 +50,7 @@
   },
   "imports": {
     "@ajv2020": "npm:ajv@8.20.0/dist/2020.js",
-    "@cloudflare/codemode": "npm:@cloudflare/codemode@0.3.6",
     "@cloudflare/puppeteer": "npm:@cloudflare/puppeteer@1.1.0",
-    "@cloudflare/shell": "npm:@cloudflare/shell@0.3.7",
-    "@cloudflare/shell/workers": "npm:@cloudflare/shell@0.3.7/workers",
-    "@cloudflare/shell/": "npm:@cloudflare/shell@0.3.7/",
     "@happy-dom": "npm:happy-dom@20.9.0",
     "@hono/hono": "jsr:@hono/hono@^4.12.18",
     "@std/assert": "jsr:@std/assert@^1.0.19",
