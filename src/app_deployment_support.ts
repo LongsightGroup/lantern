@@ -21,6 +21,10 @@ import type {
   PreviewEvidenceRecord,
   PreviewSessionRecord,
 } from './package_review/types.ts';
+import {
+  loadPreviewRuntimeDiagnostics,
+  type PreviewRuntimeDiagnostic,
+} from './preview/runtime_diagnostics.ts';
 
 export interface CanvasConfigUrlState {
   url: string | null;
@@ -209,6 +213,7 @@ export async function loadPreviewCapabilityLog(input: {
 }): Promise<{
   session: PreviewSessionRecord | null;
   evidence: PreviewEvidenceRecord[];
+  diagnostics: PreviewRuntimeDiagnostic[];
 }> {
   const session = await input.repository.getLatestPreviewSessionByPackageVersion(
     input.packageVersionId,
@@ -219,12 +224,22 @@ export async function loadPreviewCapabilityLog(input: {
     return {
       session: null,
       evidence: [],
+      diagnostics: [],
     };
   }
 
+  const [evidence, diagnostics] = await Promise.all([
+    input.repository.listPreviewEvidence(session.sessionId),
+    loadPreviewRuntimeDiagnostics({
+      repository: input.repository,
+      session,
+    }),
+  ]);
+
   return {
     session,
-    evidence: await input.repository.listPreviewEvidence(session.sessionId),
+    evidence,
+    diagnostics,
   };
 }
 

@@ -86,6 +86,11 @@ Deno.test('renderPackageDetailPage gives pending reviewers changes, launch, runt
   assertStringIncludes(body, 'Review before approval');
   assertStringIncludes(body, 'What changed');
   assertStringIncludes(body, 'Version 0.2.0 is pending review against previous version 0.1.0.');
+  assertStringIncludes(
+    body,
+    'Capability changes since approved version 0.1.0: no capability changes.',
+  );
+  assertStringIncludes(body, 'Unchanged');
   assertStringIncludes(body, '/admin/packages/chapter-4-asteroids/versions/0.2.0/diff');
   assertStringIncludes(body, 'Open review test launch');
   assertStringIncludes(body, 'Latest review test launch preview-session-review');
@@ -96,6 +101,135 @@ Deno.test('renderPackageDetailPage gives pending reviewers changes, launch, runt
   assertStringIncludes(body, 'raw LMS tokens');
   assertStringIncludes(body, 'direct storage');
   assertStringIncludes(body, 'direct grade writes');
+});
+
+Deno.test('renderPackageDetailPage treats first pending version as a full capability baseline review', () => {
+  const pendingVersion = buildPackageVersionRecord({
+    id: 10,
+    version: '0.1.0',
+    approvalStatus: 'pending',
+    capabilities: ['read_launch_context', 'read_activity_content', 'finalize_attempt'],
+  });
+  const body = renderPackageDetailPage({
+    packageVersion: pendingVersion,
+    history: [pendingVersion],
+  });
+
+  assertStringIncludes(body, 'Capability baseline: no previously approved version exists.');
+  assertStringIncludes(body, 'Declared for first approval');
+  assertStringIncludes(body, 'Launch context');
+  assertStringIncludes(body, 'Reviewed app content');
+  assertStringIncludes(body, 'Attempt completion');
+});
+
+Deno.test('renderPackageDetailPage highlights added sensitive capabilities against the previous approved version', () => {
+  const previousVersion = buildPackageVersionRecord({
+    id: 20,
+    version: '0.1.0',
+    approvalStatus: 'approved',
+    reviewedAt: '2026-05-15T12:00:00.000Z',
+    capabilities: ['read_launch_context', 'read_activity_content', 'finalize_attempt'],
+  });
+  const pendingVersion = buildPackageVersionRecord({
+    id: 21,
+    version: '0.2.0',
+    approvalStatus: 'pending',
+    capabilities: [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_evidence_artifact',
+      'finalize_attempt',
+    ],
+  });
+  const body = renderPackageDetailPage({
+    packageVersion: pendingVersion,
+    history: [pendingVersion, previousVersion],
+  });
+
+  assertStringIncludes(body, 'Capability changes since approved version 0.1.0.');
+  assertStringIncludes(body, 'Added');
+  assertStringIncludes(body, 'Submitted evidence artifacts');
+  assertStringIncludes(body, 'Sensitive learner evidence');
+  assertStringIncludes(
+    body,
+    'Review impact: this version newly requests Submitted evidence artifacts.',
+  );
+  assertStringIncludes(body, 'Confirm the assignment purpose, evidence or grading flow');
+});
+
+Deno.test('renderPackageDetailPage shows removed capabilities against the previous approved version', () => {
+  const previousVersion = buildPackageVersionRecord({
+    id: 30,
+    version: '0.1.0',
+    approvalStatus: 'approved',
+    reviewedAt: '2026-05-15T12:00:00.000Z',
+    capabilities: [
+      'read_launch_context',
+      'read_activity_content',
+      'read_local_state',
+      'write_local_state',
+      'finalize_attempt',
+    ],
+  });
+  const pendingVersion = buildPackageVersionRecord({
+    id: 31,
+    version: '0.2.0',
+    approvalStatus: 'pending',
+    capabilities: ['read_launch_context', 'read_activity_content', 'finalize_attempt'],
+  });
+  const body = renderPackageDetailPage({
+    packageVersion: pendingVersion,
+    history: [pendingVersion, previousVersion],
+  });
+
+  assertStringIncludes(body, 'Removed');
+  assertStringIncludes(body, 'Resume saved progress');
+  assertStringIncludes(body, 'Save resumable progress');
+  assertStringIncludes(body, 'Added: none.');
+});
+
+Deno.test('renderPackageDetailPage ignores newer approved versions when reviewing an older pending version', () => {
+  const newerApprovedVersion = buildPackageVersionRecord({
+    id: 40,
+    version: '0.3.0',
+    approvalStatus: 'approved',
+    reviewedAt: '2026-06-15T12:00:00.000Z',
+    importedAt: '2026-06-14T12:00:00.000Z',
+    capabilities: [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_evidence_artifact',
+      'finalize_attempt',
+    ],
+  });
+  const pendingVersion = buildPackageVersionRecord({
+    id: 41,
+    version: '0.2.0',
+    approvalStatus: 'pending',
+    importedAt: '2026-06-01T12:00:00.000Z',
+    capabilities: [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_evidence_artifact',
+      'finalize_attempt',
+    ],
+  });
+  const olderApprovedVersion = buildPackageVersionRecord({
+    id: 42,
+    version: '0.1.0',
+    approvalStatus: 'approved',
+    reviewedAt: '2026-05-15T12:00:00.000Z',
+    importedAt: '2026-05-14T12:00:00.000Z',
+    capabilities: ['read_launch_context', 'read_activity_content', 'finalize_attempt'],
+  });
+  const body = renderPackageDetailPage({
+    packageVersion: pendingVersion,
+    history: [newerApprovedVersion, pendingVersion, olderApprovedVersion],
+  });
+
+  assertStringIncludes(body, 'Capability changes since approved version 0.1.0.');
+  assertStringIncludes(body, 'Submitted evidence artifacts');
+  assertStringIncludes(body, 'Sensitive learner evidence');
 });
 
 Deno.test('renderPackageDetailPage distinguishes ordinary progress from sensitive evidence and saved file details', () => {

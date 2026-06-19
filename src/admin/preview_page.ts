@@ -8,6 +8,7 @@ import {
   approvalStatusLabel,
   summarizeCapabilities,
 } from '../package_review/summary.ts';
+import type { PreviewRuntimeDiagnostic } from '../preview/runtime_diagnostics.ts';
 import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
@@ -24,9 +25,11 @@ export function renderPreviewPage(input: {
   latestSession: PreviewSessionRecord | null;
   formValues: TestLaunchFormValues;
   previewEvidence: PreviewEvidenceRecord[];
+  runtimeDiagnostics: PreviewRuntimeDiagnostic[];
   notice?: AdminNotice | null;
 }): string {
-  const { packageVersion, savedDefaults, latestSession, previewEvidence } = input;
+  const { packageVersion, savedDefaults, latestSession, previewEvidence, runtimeDiagnostics } =
+    input;
   const capabilitySummary = summarizeCapabilities(packageVersion.capabilities);
   const isPendingReview = packageVersion.approvalStatus === 'pending';
   const pageLabel = isPendingReview ? 'Review Test Launch' : 'Test Launch';
@@ -208,8 +211,94 @@ export function renderPreviewPage(input: {
         </div>`
     }
       </div>
+    </section>
+    <section class="panel">
+      <div class="panel-body stack">
+        <p class="section-label">Runtime diagnostics</p>
+        ${
+      runtimeDiagnostics.length === 0
+        ? `<p class="muted">No blocked runtime behavior has been recorded for this test launch.</p>`
+        : `<div class="line-list">
+          ${runtimeDiagnostics.map(renderRuntimeDiagnostic).join('')}
+        </div>`
+    }
+      </div>
     </section>`,
   });
+}
+
+function renderRuntimeDiagnostic(record: PreviewRuntimeDiagnostic): string {
+  return `<article class="line-item">
+    <p class="line-title">${escapeHtml(formatRuntimeDiagnosticLabel(record.eventType))}</p>
+    <p class="micro muted">${escapeHtml(record.occurredAt)}</p>
+    <p class="micro muted"><span class="inline-code">${escapeHtml(record.eventType)}</span></p>
+    <p class="line-copy">${escapeHtml(record.summary)}</p>
+    ${renderRuntimeDiagnosticFacts(record)}
+    ${renderRuntimeDiagnosticRequest(record)}
+  </article>`;
+}
+
+function renderRuntimeDiagnosticFacts(record: PreviewRuntimeDiagnostic): string {
+  const facts = [
+    record.code === null ? null : ['Code', record.code],
+    record.capability === null ? null : ['Capability', record.capability],
+    record.route === null ? null : ['Route', record.route],
+    record.category === null ? null : ['Category', record.category],
+    record.sandboxModel === null ? null : ['Sandbox', record.sandboxModel],
+    record.boundary === null ? null : ['Boundary', record.boundary],
+    record.sessionId === null ? null : ['Session', record.sessionId],
+  ].filter((fact): fact is [string, string] => fact !== null);
+
+  if (facts.length === 0) {
+    return '';
+  }
+
+  return `<p class="micro muted">${
+    facts
+      .map(([label, value]) =>
+        `${escapeHtml(label)} <span class="inline-code">${escapeHtml(value)}</span>`
+      )
+      .join(' · ')
+  }</p>`;
+}
+
+function renderRuntimeDiagnosticRequest(record: PreviewRuntimeDiagnostic): string {
+  if (record.request === null) {
+    return '';
+  }
+
+  const requestParts = [
+    formatRequestLine(record.request.method, record.request.path),
+    formatKeyList('query keys', record.request.queryKeys),
+    formatKeyList('body keys', record.request.bodyKeys),
+    record.request.contentType === null ? null : `content type ${record.request.contentType}`,
+  ].filter((part): part is string => part !== null);
+
+  if (requestParts.length === 0) {
+    return '';
+  }
+
+  return `<p class="micro muted">${escapeHtml(requestParts.join(' · '))}</p>`;
+}
+
+function formatRequestLine(method: string | null, path: string | null): string | null {
+  if (method === null && path === null) {
+    return null;
+  }
+
+  if (method === null) {
+    return path;
+  }
+
+  if (path === null) {
+    return method;
+  }
+
+  return `${method} ${path}`;
+}
+
+function formatKeyList(label: string, keys: string[]): string | null {
+  return keys.length === 0 ? null : `${label}: ${keys.join(', ')}`;
 }
 
 function renderPreviewEvidenceDetail(appId: string, record: PreviewEvidenceRecord): string {
@@ -323,6 +412,21 @@ function formatPreviewEvidenceLabel(eventType: string): string {
       return 'Stored anonymous evidence';
     case 'preview.finalize':
       return 'Finished test attempt';
+    default:
+      return eventType;
+  }
+}
+
+function formatRuntimeDiagnosticLabel(eventType: string): string {
+  switch (eventType) {
+    case 'runtime.capability.denied':
+      return 'Denied app capability';
+    case 'runtime.session.denied':
+      return 'Denied runtime session';
+    case 'runtime.session.integrity_failed':
+      return 'Blocked runtime integrity check';
+    case 'runtime.session.timeout':
+      return 'Runtime session expired';
     default:
       return eventType;
   }

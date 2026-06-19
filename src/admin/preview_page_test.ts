@@ -40,6 +40,7 @@ Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and e
       activityId: 'activity-run-9',
     },
     previewEvidence: [],
+    runtimeDiagnostics: [],
   });
 
   assertStringIncludes(body, 'Test Launch');
@@ -71,9 +72,14 @@ Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and e
   assertStringIncludes(body, 'Start test launch');
   assertStringIncludes(body, 'Show runtime capabilities');
   assertStringIncludes(body, 'Recent test activity');
+  assertStringIncludes(body, 'Runtime diagnostics');
   assertStringIncludes(
     body,
     'No test activity has been recorded yet. Start a test launch to open the app.',
+  );
+  assertStringIncludes(
+    body,
+    'No blocked runtime behavior has been recorded for this test launch.',
   );
 });
 
@@ -103,6 +109,7 @@ Deno.test('renderPreviewPage labels pending versions as review test launches', (
       activityId: previewSession.launch.activityId,
     },
     previewEvidence: [],
+    runtimeDiagnostics: [],
   });
 
   assertStringIncludes(body, 'Review Test Launch');
@@ -175,6 +182,27 @@ Deno.test('renderPreviewPage shows durable test activity evidence in capability 
       activityId: previewSession.launch.activityId,
     },
     previewEvidence,
+    runtimeDiagnostics: [
+      {
+        eventType: 'runtime.capability.denied',
+        summary: 'Denied reviewed app capability read_local_state.',
+        occurredAt: '2026-03-25T00:10:00Z',
+        route: 'local-state.read',
+        category: 'policyDenied',
+        code: 'capability_not_granted',
+        capability: 'read_local_state',
+        sandboxModel: 'contained_browser_runtime',
+        boundary: 'app_runtime_origin',
+        sessionId: 'runtime-session-123',
+        request: {
+          method: 'GET',
+          path: '/runtime/sessions/runtime-session-123/local-state',
+          queryKeys: [],
+          bodyKeys: [],
+          contentType: null,
+        },
+      },
+    ],
   });
 
   assertStringIncludes(body, 'Latest session');
@@ -192,6 +220,12 @@ Deno.test('renderPreviewPage shows durable test activity evidence in capability 
   );
   assertStringIncludes(body, 'finalize_attempt');
   assertStringIncludes(body, 'Finished the test attempt with simulated scoring and no LMS writes.');
+  assertStringIncludes(body, 'Runtime diagnostics');
+  assertStringIncludes(body, 'Denied app capability');
+  assertStringIncludes(body, 'runtime.capability.denied');
+  assertStringIncludes(body, 'capability_not_granted');
+  assertStringIncludes(body, 'read_local_state');
+  assertStringIncludes(body, 'GET /runtime/sessions/runtime-session-123/local-state');
 });
 
 Deno.test('renderPreviewPage renders screenshot evidence as supplemental on the existing activity timeline', () => {
@@ -236,6 +270,7 @@ Deno.test('renderPreviewPage renders screenshot evidence as supplemental on the 
         },
       }),
     ],
+    runtimeDiagnostics: [],
   });
 
   assertStringIncludes(body, 'Supplemental screenshot evidence');

@@ -251,6 +251,14 @@ function renderPendingReviewOverview(input: {
   previewEvidence: PreviewEvidenceRecord[];
 }): string {
   const previousVersion = resolvePreviousVersion(input.history, input.packageVersion);
+  const previousApprovedVersion = resolvePreviousApprovedVersion(
+    input.history,
+    input.packageVersion,
+  );
+  const capabilityChanges = summarizeCapabilityChanges({
+    current: input.capabilitySummary,
+    previousApprovedVersion,
+  });
   const sensitiveCount = input.capabilitySummary.filter((capability) => capability.flagged).length;
   const normalCount = input.capabilitySummary.length - sensitiveCount;
   const standardCapabilityText = `${normalCount} standard runtime ${
@@ -294,6 +302,7 @@ function renderPendingReviewOverview(input: {
       ? ''
       : `<p class="micro muted"><a href="${diffHref}">Open the file-level version diff.</a></p>`
   }
+          ${renderCapabilityChangeSummary(capabilityChanges)}
         </article>
         <article class="line-item">
           <p class="line-title">What it can do</p>
@@ -580,6 +589,111 @@ function resolvePreviousVersion(
   }
 
   return history[currentIndex + 1] ?? null;
+}
+
+function resolvePreviousApprovedVersion(
+  history: readonly PackageVersionRecord[],
+  packageVersion: PackageVersionRecord,
+): PackageVersionRecord | null {
+  const currentIndex = history.findIndex((version) => version.id === packageVersion.id);
+
+  if (currentIndex === -1) {
+    return null;
+  }
+
+  return history.slice(currentIndex + 1).find((version) => version.approvalStatus === 'approved') ??
+    null;
+}
+
+interface CapabilityChangeSummary {
+  previousApprovedVersion: PackageVersionRecord | null;
+  added: CapabilitySummary[];
+  removed: CapabilitySummary[];
+  unchanged: CapabilitySummary[];
+}
+
+function summarizeCapabilityChanges(input: {
+  current: CapabilitySummary[];
+  previousApprovedVersion: PackageVersionRecord | null;
+}): CapabilityChangeSummary {
+  if (input.previousApprovedVersion === null) {
+    return {
+      previousApprovedVersion: null,
+      added: input.current,
+      removed: [],
+      unchanged: [],
+    };
+  }
+
+  const currentIds = new Set(input.current.map((capability) => capability.id));
+  const previous = summarizeCapabilities(input.previousApprovedVersion.capabilities);
+  const previousIds = new Set(previous.map((capability) => capability.id));
+
+  return {
+    previousApprovedVersion: input.previousApprovedVersion,
+    added: input.current.filter((capability) => !previousIds.has(capability.id)),
+    removed: previous.filter((capability) => !currentIds.has(capability.id)),
+    unchanged: input.current.filter((capability) => previousIds.has(capability.id)),
+  };
+}
+
+function renderCapabilityChangeSummary(summary: CapabilityChangeSummary): string {
+  const addedSensitive = summary.added.filter((capability) => capability.flagged);
+
+  if (summary.previousApprovedVersion === null) {
+    return `<div class="detail-stack">
+      <p class="micro muted">Capability baseline: no previously approved version exists. Review every declared runtime capability before approval.</p>
+      ${renderCapabilityChangeGroup('Declared for first approval', summary.added)}
+    </div>`;
+  }
+
+  if (summary.added.length === 0 && summary.removed.length === 0) {
+    return `<div class="detail-stack">
+      <p class="micro muted">Capability changes since approved version ${
+      escapeHtml(summary.previousApprovedVersion.version)
+    }: no capability changes.</p>
+      ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
+    </div>`;
+  }
+
+  return `<div class="detail-stack">
+    <p class="micro muted">Capability changes since approved version ${
+    escapeHtml(summary.previousApprovedVersion.version)
+  }.</p>
+    ${renderCapabilityChangeGroup('Added', summary.added)}
+    ${renderCapabilityChangeGroup('Removed', summary.removed)}
+    ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
+    ${
+    addedSensitive.length === 0
+      ? ''
+      : `<p class="micro muted">Review impact: this version newly requests ${
+        escapeHtml(formatCapabilityNames(addedSensitive))
+      }. Confirm the assignment purpose, evidence or grading flow, and latest preview evidence before approval.</p>`
+  }
+  </div>`;
+}
+
+function renderCapabilityChangeGroup(label: string, capabilities: CapabilitySummary[]): string {
+  if (capabilities.length === 0) {
+    return `<p class="micro muted">${escapeHtml(label)}: none.</p>`;
+  }
+
+  return `<div>
+    <p class="micro muted">${escapeHtml(label)}</p>
+    <ul>
+      ${
+    capabilities
+      .map((capability) =>
+        `<li><strong>${escapeHtml(capability.label)}</strong>: ${escapeHtml(capability.detail)}${
+          capability.flagged
+            ? ` <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span>`
+            : ''
+        }</li>`
+      )
+      .join('')
+  }
+    </ul>
+  </div>`;
 }
 
 function formatChangeSummary(

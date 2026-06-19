@@ -44,7 +44,7 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
         packageVersion,
         artifactStore: services.runtimeArtifactStore,
       });
-      const { session, evidence } = await loadPreviewCapabilityLog({
+      const { session, evidence, diagnostics } = await loadPreviewCapabilityLog({
         repository,
         packageVersionId: packageVersion.id,
       });
@@ -74,6 +74,7 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
           latestSession: session,
           formValues: buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
           previewEvidence: evidence,
+          runtimeDiagnostics: diagnostics,
         }),
       );
     } catch (error) {
@@ -193,7 +194,7 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
       }
 
       if (savedDefaults !== null) {
-        const { session, evidence } = await loadPreviewCapabilityLog({
+        const { session, evidence, diagnostics } = await loadPreviewCapabilityLog({
           repository,
           packageVersionId: packageVersion.id,
         });
@@ -206,6 +207,7 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
             formValues: formValues ??
               buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
             previewEvidence: evidence,
+            runtimeDiagnostics: diagnostics,
             notice: createErrorNotice('Test launch blocked', error),
           }),
           statusForError(error),
