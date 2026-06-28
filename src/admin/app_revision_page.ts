@@ -9,6 +9,12 @@ export function renderAppRevisionPage(input: {
   promptText?: string;
   notice?: AdminNotice | null;
 }): string {
+  const generatedPrompt = buildRevisionAuthoringPrompt({
+    packageVersion: input.packageVersion,
+    targetVersion: input.targetVersion,
+  });
+  const promptText = input.promptText ?? generatedPrompt;
+
   return renderAdminLayout({
     title: `Revise ${input.packageVersion.title}`,
     eyebrow: 'App writer revision',
@@ -54,6 +60,21 @@ export function renderAppRevisionPage(input: {
       )
     }, run the same harness validation loop, and save a new pending package.</p>
         </div>
+        <section class="line-item">
+          <div class="table-row-top">
+            <p class="line-title">Copyable authoring prompt</p>
+            <button class="button-secondary" type="button" data-copy-authoring-prompt>Copy prompt</button>
+          </div>
+          <label class="field" for="copyable-authoring-prompt">
+            <span class="micro muted">Exact app plan and capability contract</span>
+            <textarea id="copyable-authoring-prompt" rows="12" readonly data-authoring-prompt>${
+      escapeHtml(
+        generatedPrompt,
+      )
+    }</textarea>
+          </label>
+          <p class="micro muted" aria-live="polite" data-copy-authoring-status></p>
+        </section>
         <form class="stack app-writer-form" method="post" action="/admin/packages/${
       escapeHtml(
         input.packageVersion.appId,
@@ -63,7 +84,7 @@ export function renderAppRevisionPage(input: {
             <span>Refinement prompt</span>
             <textarea name="promptText" rows="8" required>${
       escapeHtml(
-        input.promptText ?? '',
+        promptText,
       )
     }</textarea>
           </label>
@@ -97,6 +118,9 @@ export function renderAppRevisionPage(input: {
         const form = document.querySelector('[data-app-writer-form]');
         const submit = document.querySelector('[data-app-writer-submit]');
         const status = document.querySelector('[data-app-writer-submit-status]');
+        const copyButton = document.querySelector('[data-copy-authoring-prompt]');
+        const copySource = document.querySelector('[data-authoring-prompt]');
+        const copyStatus = document.querySelector('[data-copy-authoring-status]');
 
         if (!(form instanceof HTMLFormElement) || !(submit instanceof HTMLButtonElement) || !(status instanceof HTMLElement)) {
           return;
@@ -112,7 +136,57 @@ export function renderAppRevisionPage(input: {
           submit.setAttribute('aria-busy', 'true');
           status.hidden = false;
         });
+
+        if (copyButton instanceof HTMLButtonElement && copySource instanceof HTMLTextAreaElement && copyStatus instanceof HTMLElement) {
+          copyButton.addEventListener('click', async () => {
+            copySource.select();
+            copySource.setSelectionRange(0, copySource.value.length);
+
+            try {
+              await navigator.clipboard.writeText(copySource.value);
+              copyStatus.textContent = 'Prompt copied.';
+            } catch {
+              copyStatus.textContent = 'Prompt selected.';
+            }
+          });
+        }
       })();
     </script>`,
   });
+}
+
+export function buildRevisionAuthoringPrompt(input: {
+  packageVersion: PackageVersionRecord;
+  targetVersion: string;
+}): string {
+  const packageVersion = input.packageVersion;
+  const appPlan = {
+    appId: packageVersion.appId,
+    sourceVersion: packageVersion.version,
+    targetVersion: input.targetVersion,
+    title: packageVersion.title,
+    description: packageVersion.description,
+    entrypoint: packageVersion.entrypoint,
+    roles: packageVersion.roles,
+    installScope: packageVersion.installScope,
+    grading: packageVersion.grading,
+    capabilities: packageVersion.capabilities,
+    manifest: packageVersion.manifestJson,
+    runtimeContract: packageVersion.runtimeContract,
+  };
+
+  return [
+    `Revise the reviewed Lantern learning app "${packageVersion.title}".`,
+    '',
+    'Use this exact app plan and reviewed runtime capability contract. Keep the app inside Lantern: no LMS tokens, no direct database access, no arbitrary outbound HTTP, and no direct grade writes.',
+    '',
+    'Do not add or remove runtime capabilities unless the requested change explicitly requires a reviewable capability change.',
+    '',
+    '```json',
+    JSON.stringify(appPlan, null, 2),
+    '```',
+    '',
+    'Requested change:',
+    '- ',
+  ].join('\n');
 }

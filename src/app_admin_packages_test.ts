@@ -387,6 +387,19 @@ Deno.test('GET /admin/packages/:appId/versions/:version/revise renders App Write
         appId: 'phonics-match',
         version: '0.1.0',
         title: 'Phonics Match',
+        description: 'Practice beginning sounds.',
+        capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+        grading: {
+          mode: 'completion',
+          rubricFile: null,
+          maxScore: 10,
+        },
+        manifestJson: {
+          app_id: 'phonics-match',
+          version: '0.1.0',
+          title: 'Phonics Match',
+          content_files: ['/content/activity.json'],
+        },
       }),
       buildPackageVersionRecord({
         id: 2,
@@ -404,7 +417,20 @@ Deno.test('GET /admin/packages/:appId/versions/:version/revise renders App Write
   const body = await response.text();
 
   assertStringIncludes(body, 'Revise Phonics Match');
+  assertStringIncludes(body, 'Copyable authoring prompt');
+  assertStringIncludes(body, 'Exact app plan and capability contract');
+  assertStringIncludes(body, 'data-copy-authoring-prompt');
+  assertStringIncludes(body, 'Revise the reviewed Lantern learning app &quot;Phonics Match&quot;.');
+  assertStringIncludes(body, '&quot;appId&quot;: &quot;phonics-match&quot;');
+  assertStringIncludes(body, '&quot;sourceVersion&quot;: &quot;0.1.0&quot;');
+  assertStringIncludes(body, '&quot;targetVersion&quot;: &quot;0.3.0&quot;');
+  assertStringIncludes(body, '&quot;read_activity_content&quot;');
+  assertStringIncludes(body, '&quot;submit_attempt_event&quot;');
+  assertStringIncludes(body, '&quot;finalize_attempt&quot;');
+  assertStringIncludes(body, '&quot;runtimeContract&quot;');
+  assertStringIncludes(body, '&quot;content_files&quot;');
   assertStringIncludes(body, 'name="promptText"');
+  assertStringIncludes(body, 'Requested change:');
   assertStringIncludes(body, 'name="targetVersion" value="0.3.0"');
   assertStringIncludes(body, 'Revise app');
 });
