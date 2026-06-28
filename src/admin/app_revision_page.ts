@@ -1,4 +1,5 @@
 import type { PackageVersionRecord } from '../package_review/types.ts';
+import { buildRevisionAuthoringPrompt } from '../app_writer/revision_authoring_prompt.ts';
 import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
@@ -115,29 +116,36 @@ export function renderAppRevisionPage(input: {
     </section>
     <script>
       (() => {
-        const form = document.querySelector('[data-app-writer-form]');
-        const submit = document.querySelector('[data-app-writer-submit]');
-        const status = document.querySelector('[data-app-writer-submit-status]');
-        const copyButton = document.querySelector('[data-copy-authoring-prompt]');
-        const copySource = document.querySelector('[data-authoring-prompt]');
-        const copyStatus = document.querySelector('[data-copy-authoring-status]');
+        function initSubmitState() {
+          const form = document.querySelector('[data-app-writer-form]');
+          const submit = document.querySelector('[data-app-writer-submit]');
+          const status = document.querySelector('[data-app-writer-submit-status]');
 
-        if (!(form instanceof HTMLFormElement) || !(submit instanceof HTMLButtonElement) || !(status instanceof HTMLElement)) {
-          return;
-        }
-
-        form.addEventListener('submit', () => {
-          if (!form.checkValidity()) {
+          if (!(form instanceof HTMLFormElement) || !(submit instanceof HTMLButtonElement) || !(status instanceof HTMLElement)) {
             return;
           }
 
-          form.classList.add('is-submitting');
-          submit.disabled = true;
-          submit.setAttribute('aria-busy', 'true');
-          status.hidden = false;
-        });
+          form.addEventListener('submit', () => {
+            if (!form.checkValidity()) {
+              return;
+            }
 
-        if (copyButton instanceof HTMLButtonElement && copySource instanceof HTMLTextAreaElement && copyStatus instanceof HTMLElement) {
+            form.classList.add('is-submitting');
+            submit.disabled = true;
+            submit.setAttribute('aria-busy', 'true');
+            status.hidden = false;
+          });
+        }
+
+        function initCopyAuthoringPrompt() {
+          const copyButton = document.querySelector('[data-copy-authoring-prompt]');
+          const copySource = document.querySelector('[data-authoring-prompt]');
+          const copyStatus = document.querySelector('[data-copy-authoring-status]');
+
+          if (!(copyButton instanceof HTMLButtonElement) || !(copySource instanceof HTMLTextAreaElement) || !(copyStatus instanceof HTMLElement)) {
+            return;
+          }
+
           copyButton.addEventListener('click', async () => {
             copySource.select();
             copySource.setSelectionRange(0, copySource.value.length);
@@ -150,43 +158,10 @@ export function renderAppRevisionPage(input: {
             }
           });
         }
+
+        initSubmitState();
+        initCopyAuthoringPrompt();
       })();
     </script>`,
   });
-}
-
-export function buildRevisionAuthoringPrompt(input: {
-  packageVersion: PackageVersionRecord;
-  targetVersion: string;
-}): string {
-  const packageVersion = input.packageVersion;
-  const appPlan = {
-    appId: packageVersion.appId,
-    sourceVersion: packageVersion.version,
-    targetVersion: input.targetVersion,
-    title: packageVersion.title,
-    description: packageVersion.description,
-    entrypoint: packageVersion.entrypoint,
-    roles: packageVersion.roles,
-    installScope: packageVersion.installScope,
-    grading: packageVersion.grading,
-    capabilities: packageVersion.capabilities,
-    manifest: packageVersion.manifestJson,
-    runtimeContract: packageVersion.runtimeContract,
-  };
-
-  return [
-    `Revise the reviewed Lantern learning app "${packageVersion.title}".`,
-    '',
-    'Use this exact app plan and reviewed runtime capability contract. Keep the app inside Lantern: no LMS tokens, no direct database access, no arbitrary outbound HTTP, and no direct grade writes.',
-    '',
-    'Do not add or remove runtime capabilities unless the requested change explicitly requires a reviewable capability change.',
-    '',
-    '```json',
-    JSON.stringify(appPlan, null, 2),
-    '```',
-    '',
-    'Requested change:',
-    '- ',
-  ].join('\n');
 }
