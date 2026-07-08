@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   buildAuditEventRecord,
   buildPackageVersionRecord,
@@ -8,6 +7,7 @@ import {
   buildReviewedPlacementRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('GET /admin/placements/:placementId renders selected content, reviewed version, Canvas context, and evidence timeline', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -57,7 +57,7 @@ Deno.test('GET /admin/placements/:placementId renders selected content, reviewed
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/placements/placement-audit-123');
 
@@ -76,7 +76,9 @@ Deno.test('GET /admin/placements/:placementId renders selected content, reviewed
 
 Deno.test('GET /admin/placements renders a lookup page and unknown placement ids still fail clearly', async () => {
   const repository = createInMemoryPackageReviewRepository();
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const missingIdResponse = await app.request('http://localhost/admin/placements');
   assertEquals(missingIdResponse.status, 200);
@@ -103,7 +105,7 @@ Deno.test('approved package review page includes a test launch link', async () =
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => seededRepository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0');
 

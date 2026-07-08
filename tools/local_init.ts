@@ -1,5 +1,6 @@
 import {
   appendMissingEnvAssignments,
+  createLocalBetterAuthSecret,
   createLocalLtiStateSecret,
   createLocalToolPrivateJwkString,
   DEFAULT_LOCAL_ENV_PATH,
@@ -17,6 +18,7 @@ if (import.meta.main) {
     existingText,
     assignments: {
       ...assignments,
+      BETTER_AUTH_SECRET: createLocalBetterAuthSecret(),
       LTI_STATE_SECRET: createLocalLtiStateSecret(),
       LTI_TOOL_PRIVATE_JWK: generatedJwk,
     },

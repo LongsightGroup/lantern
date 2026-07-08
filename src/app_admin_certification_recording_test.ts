@@ -1,11 +1,11 @@
 import { assertEquals, assertExists, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   buildControlPlaneDeploymentInventoryRow,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildCanvasDeploymentBinding, buildMoodleDeploymentBinding } from './test_helpers/lti.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/verification records workflow-keyed internal certification evidence and leaves unrelated workflows untouched', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -33,7 +33,9 @@ Deno.test('POST /admin/verification records workflow-keyed internal certificatio
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('source', 'manual');
@@ -97,7 +99,9 @@ Deno.test('POST /admin/verification records official certification evidence glob
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const internalFormData = new FormData();
   internalFormData.set('source', 'ci');
@@ -169,7 +173,9 @@ Deno.test('POST /admin/verification rejects missing certification workflow ident
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('source', 'manual');
@@ -209,7 +215,9 @@ Deno.test('POST /admin/verification rejects relative certification evidence URLs
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('source', 'manual');

@@ -5,6 +5,7 @@ import { renderPackageIndexPage } from './admin/package_index.ts';
 import { createErrorNotice } from './app_notice_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { readEnv } from './platform/env.ts';
 import { trimLeadingSlash } from './package_review/snapshot_path.ts';
 import type {
@@ -147,14 +148,14 @@ async function renderAuthoringPreviewError(
 ) {
   if (state !== null) {
     return context.html(
-      renderAuthoringPage({
+      renderAuthoringPage(adminPageInput(context, {
         packageVersion: state.packageVersion,
         draft: state.draft,
         currentFiles: state.currentFiles,
         latestPreviewSession: state.latestPreviewSession,
         previewEvidence: state.previewEvidence,
         notice: createErrorNotice('Draft preview unavailable', error),
-      }),
+      })),
       statusForError(error),
     );
   }
@@ -164,10 +165,10 @@ async function renderAuthoringPreviewError(
 
   if (!packageVersion) {
     return context.html(
-      renderPackageIndexPage({
+      renderPackageIndexPage(adminPageInput(context, {
         versions: [],
         notice: createErrorNotice('Draft preview unavailable', error),
-      }),
+      })),
       statusForError(error),
     );
   }
@@ -175,25 +176,25 @@ async function renderAuthoringPreviewError(
   const history = await repository.listPackageVersionsByApp(packageVersion.appId);
 
   return context.html(
-    renderPackageDetailPage({
+    renderPackageDetailPage(adminPageInput(context, {
       packageVersion,
       history,
       notice: createErrorNotice('Draft preview unavailable', error),
-    }),
+    })),
     statusForError(error),
   );
 }
 
 function renderVersionNotFound(context: Context) {
   return context.html(
-    renderPackageIndexPage({
+    renderPackageIndexPage(adminPageInput(context, {
       versions: [],
       notice: {
         tone: 'error',
         title: 'Version not found',
         detail: 'Lantern could not find that app version.',
       },
-    }),
+    })),
     404,
   );
 }

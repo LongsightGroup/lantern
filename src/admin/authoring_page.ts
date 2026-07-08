@@ -5,7 +5,13 @@ import type {
   PreviewEvidenceRecord,
   PreviewSessionRecord,
 } from '../package_review/types.ts';
-import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import {
+  type AdminIdentity,
+  type AdminNotice,
+  escapeHtml,
+  formatDateTime,
+  renderAdminLayout,
+} from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
 export interface AuthoringPageFileView {
@@ -21,6 +27,7 @@ export interface AuthoringGeneratedDraftView {
 }
 
 export function renderAuthoringPage(input: {
+  identity: AdminIdentity;
   packageVersion: PackageVersionRecord;
   draft: AuthoringDraftRecord;
   currentFiles: AuthoringPageFileView[];
@@ -39,6 +46,7 @@ export function renderAuthoringPage(input: {
   }/authoring`;
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${input.packageVersion.title} ${input.packageVersion.version} Authoring`,
     eyebrow: 'Authoring Draft',
     heading: input.packageVersion.title,

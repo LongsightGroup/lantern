@@ -14,6 +14,7 @@ import {
 import { createErrorNotice } from './app_notice_support.ts';
 import { listCanvasEnvironments } from './lti/config.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { errorMessage, statusForError } from './app_status_support.ts';
 import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
@@ -80,7 +81,7 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
         : null;
 
       return context.html(
-        renderDeploymentDetailPage({
+        renderDeploymentDetailPage(adminPageInput(context, {
           appId: context.req.param('appId'),
           appTitle: detail.appTitle,
           history: detail.history,
@@ -99,14 +100,14 @@ export function registerAdminDeploymentDetailRoutes(app: Hono, services: AppServ
             detail.canvasConfigUrl.notice,
             url.searchParams.get('registered'),
           ),
-        }),
+        })),
       );
     } catch (error) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice('Connections page unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }

@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import { resolveCanvasIssuer } from './lti/config.ts';
 import {
   buildAccessibilityReview,
@@ -14,6 +13,7 @@ import {
 } from './test_helpers/package_review.ts';
 import { buildDeploymentBinding, buildMoodleDeploymentBinding } from './test_helpers/lti.ts';
 import { restoreEnv } from './app_test_support.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/install saves the Canvas binding and redirects back to deployment detail', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
@@ -39,7 +39,9 @@ Deno.test('POST /admin/packages/:appId/deployment/install saves the Canvas bindi
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const formData = new FormData();
 
     formData.set('lms', 'canvas');
@@ -80,7 +82,7 @@ Deno.test('GET /admin/packages/:appId/deployment renders an LMS tab strip with o
   Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
 
   try {
-    const response = await createApp({
+    const response = await createAuthenticatedTestApp({
       getRepository: () =>
         createInMemoryPackageReviewRepository({
           packageVersions: [
@@ -230,7 +232,9 @@ Deno.test('POST /admin/packages/:appId/deployment/lti-profile saves an override 
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('lms', 'moodle');
@@ -290,7 +294,9 @@ Deno.test('POST /admin/packages/:appId/deployment/lti-profile clears the selecte
       updatedAt: '2026-03-24T13:00:00Z',
     },
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('lms', 'moodle');

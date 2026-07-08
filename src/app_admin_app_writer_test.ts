@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import type { AppPackageGenerationResult } from './app_writer/types.ts';
 import { buildValidSimpleActivityFiles } from './test_helpers/app_writer_generated_package.ts';
 import {
@@ -18,9 +17,10 @@ import {
   buildReviewedPlacementRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('GET /admin/app-writer renders the app writer prompt form', async () => {
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request('http://localhost/admin/app-writer');
 
@@ -49,7 +49,7 @@ Deno.test('POST /admin/app-writer previews the deterministic plan before generat
   formData.set('gradingMode', 'completion');
   formData.set('requestedAppId', 'phonics-flashcards');
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
     appWriterWorkspaceRunner: {
       ...createUnavailableAppWriterWorkspaceRunner('Plan preview must not call the harness.'),
@@ -103,7 +103,7 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   formData.set('requestedAppId', 'phonics-match');
   formData.set('appWriterAction', 'generate');
 
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
     appWriterWorkspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult(), {
       authorDelay() {
@@ -236,7 +236,7 @@ Deno.test('POST /admin/app-writer redirects even without a Worker execution cont
   formData.set('promptText', 'Create a phonics flashcard app.');
   formData.set('appWriterAction', 'generate');
 
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
     appWriterWorkspaceRunner: createStaticAppWriterWorkspaceRunner(buildGenerationResult(), {
       authorDelay() {
@@ -272,7 +272,7 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
   formData.set('promptText', 'Create a phonics flashcard app.');
   formData.set('appWriterAction', 'generate');
 
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
     appWriterWorkspaceRunner: {
       ...createUnavailableAppWriterWorkspaceRunner(
@@ -381,7 +381,7 @@ Deno.test('GET /admin/app-writer/runs/:generationId shows captured workspace bef
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('https://lantern.example/admin/app-writer/runs/generation-1');
   const body = await response.text();
@@ -395,7 +395,7 @@ Deno.test('GET /admin/app-writer/runs/:generationId shows captured workspace bef
 });
 
 Deno.test('GET /admin/app-writer/runs/:generationId/events streams through the app writer Agent session', async () => {
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
     appWriterAgentSessions: {
       observe(_input) {
@@ -467,7 +467,7 @@ Deno.test('GET /admin/app-writer/runs/:generationId shows generated package runt
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('https://lantern.example/admin/app-writer/runs/generation-1');
   const body = await response.text();

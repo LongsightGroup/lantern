@@ -9,6 +9,7 @@ import { combineNotices, createErrorNotice } from './app_notice_support.ts';
 import { listCanvasEnvironments } from './lti/config.ts';
 import { resolveLtiProfileForDeployment } from './lti/profile_resolution.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import {
   recordGradeSmokeAuditEvent,
   runGradeSmokeVerification,
@@ -102,7 +103,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
       );
 
       return context.html(
-        renderDeploymentDetailPage({
+        renderDeploymentDetailPage(adminPageInput(context, {
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
@@ -120,7 +121,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
               new Error(result.detail.error?.message ?? result.summary),
             ),
           ),
-        }),
+        })),
         statusForGradeSmokeFailureCode(result.detail.error?.code ?? null),
       );
     } catch (error) {
@@ -132,10 +133,10 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
 
       if (detail.history.length === 0) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: createErrorNotice('Connections page unavailable', error),
-          }),
+          })),
           statusForGradeSmokeError(error),
         );
       }
@@ -145,7 +146,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
         : await opsRepository.getControlPlaneDeploymentDetail(deploymentRecordId);
 
       return context.html(
-        renderDeploymentDetailPage({
+        renderDeploymentDetailPage(adminPageInput(context, {
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
@@ -160,7 +161,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
             detail.canvasConfigUrl.notice,
             createErrorNotice('Grade return check failed', error),
           ),
-        }),
+        })),
         statusForGradeSmokeError(error),
       );
     }

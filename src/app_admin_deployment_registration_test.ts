@@ -1,11 +1,11 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { restoreEnv, withFetchStub } from './app_test_support.ts';
 import { getTestToolPrivateJwkEnvValue, TEST_LTI_STATE_SECRET } from './test_helpers/lti.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 const TOOL_CONFIGURATION_CLAIM = 'https://purl.imsglobal.org/spec/lti-tool-configuration';
 
@@ -36,7 +36,9 @@ Deno.test('GET /admin/packages/:appId/deployment/register/canvas saves a pending
       expiresAt: '2030-03-24T00:30:00Z',
       usedAt: null,
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const requests: Array<{
       url: string;
       method: string;
@@ -188,7 +190,9 @@ Deno.test('GET /admin/packages/:appId/deployment/register/canvas uses the forwar
       expiresAt: '2030-03-24T00:30:00Z',
       usedAt: null,
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     let registrationBody: string | null = null;
 
     await withFetchStub(

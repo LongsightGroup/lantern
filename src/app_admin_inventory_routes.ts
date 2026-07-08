@@ -11,6 +11,7 @@ import { requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import {
   createUploadedPackageSource,
   requireSupportedReferencePackageId,
@@ -40,17 +41,17 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       return await renderPackagesPage(context, services);
     } catch (error) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice('Package inventory unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
   });
 
   app.get('/admin/packages/import', (context) => {
-    return context.html(renderPackageImportPage());
+    return context.html(renderPackageImportPage(adminPageInput(context, {})));
   });
 
   app.post('/admin/packages/import', async (context) => {
@@ -62,14 +63,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (!preflight.ok || !preflight.validatedPackage) {
         return context.html(
-          renderPackageImportPage({
+          renderPackageImportPage(adminPageInput(context, {
             notice: {
               tone: 'error',
               title: 'Package import blocked',
               detail: 'Resolve the reviewed package findings below and try again.',
             },
             diagnostics: preflight.diagnostics,
-          }),
+          })),
           409,
         );
       }
@@ -98,9 +99,9 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       return context.redirect(packageOverviewPath(packageVersion.appId), 303);
     } catch (error) {
       return context.html(
-        renderPackageImportPage({
+        renderPackageImportPage(adminPageInput(context, {
           notice: createErrorNotice('Package import blocked', error),
-        }),
+        })),
         statusForPackageImportError(error),
       );
     }
@@ -139,7 +140,7 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
   });
 
   app.get('/admin/packages/reference', (context) => {
-    return context.html(renderReferencePackagePage());
+    return context.html(renderReferencePackagePage(adminPageInput(context, {})));
   });
 
   app.get('/admin/packages/:appId', async (context) => {
@@ -151,14 +152,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (history.length === 0) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: await repository.listPackageVersions(),
             notice: {
               tone: 'error',
               title: 'App not found',
               detail: 'Lantern could not find that app.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -166,30 +167,30 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       const deployments = await repository.listDeploymentsByApp(appId);
 
       return context.html(
-        renderPackageOverviewPage({
+        renderPackageOverviewPage(adminPageInput(context, {
           appId,
           appTitle: history[0]?.title ?? appId,
           history,
           deployments,
-        }),
+        })),
       );
     } catch (error) {
       try {
         const repository = services.getRepository();
 
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: await repository.listPackageVersions(),
             notice: createErrorNotice('App details unavailable', error),
-          }),
+          })),
           statusForError(error),
         );
       } catch {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: createErrorNotice('App details unavailable', error),
-          }),
+          })),
           statusForError(error),
         );
       }
@@ -205,14 +206,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (history.length === 0) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: await repository.listPackageVersions(),
             notice: {
               tone: 'error',
               title: 'App not found',
               detail: 'Lantern could not find that app.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -224,19 +225,19 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       });
 
       return context.html(
-        renderPackageReportsPage({
+        renderPackageReportsPage(adminPageInput(context, {
           appId,
           appTitle: history[0]?.title ?? appId,
           history,
           report,
-        }),
+        })),
       );
     } catch (error) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice('Instructor reports unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -252,14 +253,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: {
               tone: 'error',
               title: 'Version not found',
               detail: 'Lantern could not find that app version.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -277,7 +278,7 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       });
 
       return context.html(
-        renderPackageDetailPage({
+        renderPackageDetailPage(adminPageInput(context, {
           packageVersion,
           history,
           generationActivityEvents: generationActivityEvents.filter(
@@ -286,14 +287,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
           reviewedPlacements,
           latestPreviewSession: runtimeLog.session,
           previewEvidence: runtimeLog.evidence,
-        }),
+        })),
       );
     } catch (error) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice('Version details unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -309,14 +310,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: {
               tone: 'error',
               title: 'Version not found',
               detail: 'Lantern could not find that app version.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -326,7 +327,7 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (baseVersion === null) {
         return context.html(
-          renderPackageDetailPage({
+          renderPackageDetailPage(adminPageInput(context, {
             packageVersion,
             history,
             notice: {
@@ -334,7 +335,7 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
               title: 'No earlier version to compare',
               detail: 'Lantern needs at least two saved versions before it can show changes.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -346,17 +347,17 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       });
 
       return context.html(
-        renderPackageDiffPage({
+        renderPackageDiffPage(adminPageInput(context, {
           diff,
           history,
-        }),
+        })),
       );
     } catch (error) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice('Version changes unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -372,14 +373,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: {
               tone: 'error',
               title: 'Version not found',
               detail: 'Lantern could not find that app version.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -387,18 +388,18 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       const history = await repository.listPackageVersionsByApp(packageVersion.appId);
 
       return context.html(
-        renderAppRevisionPage({
+        renderAppRevisionPage(adminPageInput(context, {
           packageVersion,
           history,
           targetVersion: nextRevisionVersion(packageVersion.version, history),
-        }),
+        })),
       );
     } catch (error) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice('Revision form unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -417,14 +418,14 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: {
               tone: 'error',
               title: 'Version not found',
               detail: 'Lantern could not find that app version.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -507,11 +508,11 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
 
       return context.html(
         packageVersion === null
-          ? renderPackageIndexPage({
+          ? renderPackageIndexPage(adminPageInput(context, {
             versions: await repository.listPackageVersions(),
             notice: createErrorNotice('Revision blocked', error),
-          })
-          : renderAppRevisionPage({
+          }))
+          : renderAppRevisionPage(adminPageInput(context, {
             packageVersion,
             history,
             promptText,
@@ -519,7 +520,7 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
               ? nextRevisionVersion(packageVersion.version, history)
               : targetVersion,
             notice: createErrorNotice('Revision blocked', error),
-          }),
+          })),
         statusForError(error),
       );
     }

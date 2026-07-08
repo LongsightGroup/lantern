@@ -1,6 +1,5 @@
 import { assert, assertEquals, assertStringIncludes } from '@std/assert';
 import { formatDateTime } from './admin/layout.ts';
-import { createApp } from './app.ts';
 import { buildCanvasDeploymentBinding } from './test_helpers/lti.ts';
 import {
   buildCertificationWorkflowStatus,
@@ -8,6 +7,7 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 function assertTextAppearsInOrder(body: string, labels: string[]): void {
   let previousIndex = -1;
@@ -54,7 +54,7 @@ Deno.test('GET /admin/verification renders one certification checklist in Core, 
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification');
 
@@ -124,7 +124,7 @@ Deno.test('GET /admin/verification shows workflow-specific evidence, checked dat
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification');
 

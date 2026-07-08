@@ -1,11 +1,11 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   buildControlPlaneDeploymentInventoryRow,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildCanvasDeploymentBinding, buildMoodleDeploymentBinding } from './test_helpers/lti.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/verification rejects internal verification rows that include an official certification state', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -23,7 +23,9 @@ Deno.test('POST /admin/verification rejects internal verification rows that incl
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('source', 'manual');
@@ -70,7 +72,9 @@ Deno.test('POST /admin/verification rejects internal verification rows without a
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('source', 'manual');

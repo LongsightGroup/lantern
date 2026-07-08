@@ -1,11 +1,11 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildMoodleDeploymentBinding } from './test_helpers/lti.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/pin keeps the selected LMS tab open when the version is missing', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -29,7 +29,9 @@ Deno.test('POST /admin/packages/:appId/deployment/pin keeps the selected LMS tab
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('lms', 'moodle');

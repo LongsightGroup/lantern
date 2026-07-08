@@ -8,6 +8,7 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('test-launch activity log shows durable launch, content-read, attempt, and finalize evidence after reload', async () => {
   await withRuntimeOriginEnv(async () => {
@@ -37,7 +38,9 @@ Deno.test('test-launch activity log shows durable launch, content-read, attempt,
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const formData = new FormData();
     formData.set('userRole', 'learner');
     formData.set('courseId', 'course_demo');
@@ -178,7 +181,9 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview records a review
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.3.0/preview',
@@ -244,7 +249,9 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview records reviewer
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.5.0/preview',
@@ -272,7 +279,9 @@ Deno.test('test-launch runtime diagnostics show denied capabilities after reload
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const { launchResponse, runtimeSessionId, runtimeToken } = await launchAdminPreview({
       app,
       version: '0.6.0',
@@ -317,7 +326,9 @@ Deno.test('test-launch runtime diagnostics show integrity failures without leaki
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const { launchResponse, runtimeSessionId, runtimeToken } = await launchAdminPreview({
       app,
       version: '0.7.0',
@@ -410,7 +421,9 @@ Deno.test('test-launch runtime diagnostics exclude authoring preview session fai
     occurredAt: '2026-04-01T10:23:00Z',
   });
 
-  const response = await createApp({ getRepository: () => repository }).request(
+  const response = await createAuthenticatedTestApp({
+    getRepository: () => repository,
+  }).request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.8.0/preview',
   );
   const body = await response.text();

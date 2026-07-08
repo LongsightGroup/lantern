@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import {
   buildBrokerVerificationStatus,
   buildCertificationWorkflowStatus,
@@ -15,6 +16,7 @@ import { renderDeploymentsPage, renderVerificationPage } from './control_plane.t
 
 Deno.test('renderDeploymentsPage keeps deployment operations separate from verification entry', () => {
   const html = renderDeploymentsPage({
+    identity: ADMIN_TEST_IDENTITY,
     deployments: [
       buildControlPlaneDeploymentInventoryRow({
         deploymentId: 1,
@@ -52,9 +54,7 @@ Deno.test('renderDeploymentsPage shows one clear setup action when an LMS is not
   deployment.enabledPackageVersionId = null;
   deployment.enabledPackageVersion = null;
 
-  const html = renderDeploymentsPage({
-    deployments: [deployment],
-  });
+  const html = renderDeploymentsPage({ identity: ADMIN_TEST_IDENTITY, deployments: [deployment] });
 
   assertStringIncludes(html, 'Next step');
   assertStringIncludes(html, 'Connect LMS');
@@ -63,6 +63,7 @@ Deno.test('renderDeploymentsPage shows one clear setup action when an LMS is not
 
 Deno.test('renderVerificationPage shows deployment-scoped verification facts while keeping official evidence separate', () => {
   const html = renderVerificationPage({
+    identity: ADMIN_TEST_IDENTITY,
     deployments: [
       buildControlPlaneDeploymentInventoryRow({
         deploymentId: 1,
@@ -192,6 +193,7 @@ Deno.test('renderVerificationPage shows deployment-scoped verification facts whi
 
 Deno.test('renderVerificationPage renders official evidence on its own dedicated page', () => {
   const html = renderVerificationPage({
+    identity: ADMIN_TEST_IDENTITY,
     deployments: [buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 })],
     latestBrokerVerification: buildBrokerVerificationStatus({
       supportedPath: 'lti13LaunchAgsScore',

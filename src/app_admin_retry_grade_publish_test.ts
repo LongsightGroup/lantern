@@ -1,5 +1,4 @@
 import { assertEquals, assertObjectMatch, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import { restoreEnv, withFetchStub } from './app_test_support.ts';
 import {
   buildAttemptRecord,
@@ -18,6 +17,7 @@ import {
   getTestToolPrivateJwkEnvValue,
 } from './test_helpers/lti.ts';
 import { createTestLtiToolContext } from './test_helpers/lti_tool_context.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish retries the failed grade publish through the SSR control plane', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
@@ -120,7 +120,7 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish retries th
         return new Response(null, { status: 200 });
       },
       async () => {
-        const response = await createApp({
+        const response = await createAuthenticatedTestApp({
           getRepository: () => repository,
           getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
         }).request(
@@ -247,7 +247,7 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish records bo
           headers: { 'content-type': 'application/json' },
         }),
       async () => {
-        const response = await createApp({
+        const response = await createAuthenticatedTestApp({
           getRepository: () => repository,
           getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
         }).request(

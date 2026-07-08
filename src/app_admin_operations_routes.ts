@@ -15,6 +15,7 @@ import {
 } from './app_request_support.ts';
 import { statusForError, statusForVerificationError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 
 export function registerAdminOperationsRoutes(app: Hono, services: AppServices): void {
   app.get('/admin/deployments', async (context) => {
@@ -22,10 +23,10 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
       return await renderDeploymentsResponse(context, services);
     } catch (error) {
       return context.html(
-        renderDeploymentsView({
+        renderDeploymentsView(adminPageInput(context, {
           deployments: [],
           notice: createErrorNotice('Connections unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -38,13 +39,13 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
       return await renderVerificationResponse(context, services, { section });
     } catch (error) {
       return context.html(
-        renderVerificationView({
+        renderVerificationView(adminPageInput(context, {
           deployments: [],
           latestBrokerVerification: null,
           ltiProfileSettings: null,
           section,
           notice: createErrorNotice('Verification unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -57,13 +58,13 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
       return await renderVerificationResponse(context, services, { section });
     } catch (error) {
       return context.html(
-        renderVerificationView({
+        renderVerificationView(adminPageInput(context, {
           deployments: [],
           latestBrokerVerification: null,
           ltiProfileSettings: null,
           section,
           notice: createErrorNotice('Verification unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -76,13 +77,13 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
       return await renderVerificationResponse(context, services, { section });
     } catch (error) {
       return context.html(
-        renderVerificationView({
+        renderVerificationView(adminPageInput(context, {
           deployments: [],
           latestBrokerVerification: null,
           ltiProfileSettings: null,
           section,
           notice: createErrorNotice('Verification unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -95,13 +96,13 @@ export function registerAdminOperationsRoutes(app: Hono, services: AppServices):
       return await renderVerificationResponse(context, services, { section });
     } catch (error) {
       return context.html(
-        renderVerificationView({
+        renderVerificationView(adminPageInput(context, {
           deployments: [],
           latestBrokerVerification: null,
           ltiProfileSettings: null,
           section,
           notice: createErrorNotice('Verification unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }

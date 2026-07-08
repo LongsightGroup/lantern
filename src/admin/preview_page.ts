@@ -9,7 +9,7 @@ import {
   summarizeCapabilities,
 } from '../package_review/summary.ts';
 import type { PreviewRuntimeDiagnostic } from '../preview/runtime_diagnostics.ts';
-import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
 export interface TestLaunchFormValues {
@@ -20,6 +20,7 @@ export interface TestLaunchFormValues {
 }
 
 export function renderPreviewPage(input: {
+  identity: AdminIdentity;
   packageVersion: PackageVersionRecord;
   savedDefaults: PreviewSessionRecord;
   latestSession: PreviewSessionRecord | null;
@@ -35,6 +36,7 @@ export function renderPreviewPage(input: {
   const pageLabel = isPendingReview ? 'Review Test Launch' : 'Test Launch';
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${packageVersion.title} ${packageVersion.version} ${pageLabel}`,
     eyebrow: pageLabel,
     heading: packageVersion.title,

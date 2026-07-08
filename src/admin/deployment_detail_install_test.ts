@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from '../app.ts';
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -7,6 +6,7 @@ import {
 } from '../test_helpers/package_review.ts';
 import { buildDeploymentBinding } from '../test_helpers/lti.ts';
 import { restoreEnv } from './deployment_detail_test_helpers.ts';
+import { createAuthenticatedTestApp } from '../test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/install saves one exact Canvas binding', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -34,7 +34,7 @@ Deno.test('POST /admin/packages/:appId/deployment/install saves one exact Canvas
   formData.set('deploymentId', 'deployment-123');
 
   try {
-    const response = await createApp({
+    const response = await createAuthenticatedTestApp({
       getRepository: () => repository,
     }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/install', {
       method: 'POST',
@@ -69,7 +69,7 @@ Deno.test('duplicate issuer, client_id, and deployment_id bindings are rejected 
   formData.set('deploymentId', 'deployment-123');
 
   try {
-    const response = await createApp({
+    const response = await createAuthenticatedTestApp({
       getRepository: () =>
         createInMemoryPackageReviewRepository({
           packageVersions: [
@@ -123,7 +123,7 @@ Deno.test('POST /admin/packages/:appId/deployment/install requires the exact Moo
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/install', {
     method: 'POST',
@@ -168,7 +168,7 @@ Deno.test('POST /admin/packages/:appId/deployment/install requires the exact Sak
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/install', {
     method: 'POST',

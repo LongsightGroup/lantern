@@ -17,7 +17,13 @@ import type {
   PreviewSessionRecord,
   ReviewedPlacementRecord,
 } from '../package_review/types.ts';
-import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import {
+  type AdminIdentity,
+  type AdminNotice,
+  escapeHtml,
+  formatDateTime,
+  renderAdminLayout,
+} from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 import { renderDecisionSection, renderHistoryRow } from './package_detail_sections.ts';
 import {
@@ -34,6 +40,7 @@ import {
 } from './package_detail_support.ts';
 
 export function renderPackageDetailPage(input: {
+  identity: AdminIdentity;
   packageVersion: PackageVersionRecord;
   history: PackageVersionRecord[];
   generationActivityEvents?: AuditEventRecord[];
@@ -51,6 +58,7 @@ export function renderPackageDetailPage(input: {
   const previewEvidence = input.previewEvidence ?? [];
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${packageVersion.title} ${packageVersion.version}`,
     eyebrow: 'Version details',
     heading: packageVersion.title,

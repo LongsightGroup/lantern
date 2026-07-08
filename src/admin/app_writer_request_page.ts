@@ -1,19 +1,21 @@
 import type { AppGenerationPlanningResult } from '../app_writer/types.ts';
-import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 import type { AppWriterSelectedContext } from '../app_writer/context.ts';
 import { formatProgressStage, formatSelectedContext } from './app_writer_run_view_model.ts';
 
 export function renderAppWriterPage(
   input: {
+    identity: AdminIdentity;
     notice?: AdminNotice | null;
     audience?: string;
     contentSummary?: string;
     gradingMode?: string;
     promptText?: string;
     requestedAppId?: string;
-  } = {},
+  },
 ): string {
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Lantern App Writer',
     eyebrow: 'App writer',
     heading: 'Create app with AI',
@@ -52,6 +54,7 @@ export function renderAppWriterPage(
 }
 
 export function renderAppWriterPlanPreviewPage(input: {
+  identity: AdminIdentity;
   audience?: string;
   contentSummary?: string;
   gradingMode?: string;
@@ -62,6 +65,7 @@ export function renderAppWriterPlanPreviewPage(input: {
   notice?: AdminNotice | null;
 }): string {
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Lantern App Writer Plan',
     eyebrow: 'App writer',
     heading: 'Review app plan',

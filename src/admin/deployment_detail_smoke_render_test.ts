@@ -1,4 +1,5 @@
 import { assertFalse, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { resolveCanvasIssuer } from '../lti/config.ts';
 import {
   buildControlPlaneDeploymentDetailSnapshot,
@@ -13,6 +14,7 @@ import { renderDeploymentDetailPage } from './deployment_detail.ts';
 Deno.test('deployment page shows the latest Moodle grade-return result with plain-language check facts', () => {
   const smokeLineItemUrl = 'https://moodle.example/mod/lti/services.php/2/lineitems/9';
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     selectedLms: 'moodle',
@@ -73,6 +75,7 @@ Deno.test('deployment page shows the latest Moodle grade-return result with plai
 Deno.test('deployment page shows the latest Sakai grade-return result with plain-language check facts', () => {
   const smokeLineItemUrl = 'https://sakai.example/direct/lti/lineitems/course-42/items/9';
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     selectedLms: 'sakai',
@@ -132,6 +135,7 @@ Deno.test('deployment page shows the latest Sakai grade-return result with plain
 
 Deno.test('deployment page keeps failed smoke rendering bounded and readable on the existing detail page', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     selectedLms: 'moodle',

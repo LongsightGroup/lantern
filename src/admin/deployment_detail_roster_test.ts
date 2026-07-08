@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from '../app.ts';
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -7,6 +6,7 @@ import {
 } from '../test_helpers/package_review.ts';
 import { buildDeploymentBinding, buildRuntimeSessionRecord } from '../test_helpers/lti.ts';
 import { createTestLtiToolContext } from '../test_helpers/lti_tool_context.ts';
+import { createAuthenticatedTestApp } from '../test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/verify-roster stores a deployment-level NRPS verification summary from lti-tool', async () => {
   const ltiToolContext = createTestLtiToolContext({
@@ -40,7 +40,7 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-roster stores a deploym
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
     getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
   }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-roster', {
@@ -83,7 +83,7 @@ Deno.test('deployment roster verification fails clearly when no launch service c
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-roster', {
     method: 'POST',
@@ -124,7 +124,7 @@ Deno.test('deployment roster verification requires a verified lti-tool session',
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-roster', {
     method: 'POST',

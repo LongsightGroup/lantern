@@ -18,19 +18,21 @@ import {
   renderVerificationSummarySection,
   renderVerificationUpdateSection,
 } from './control_plane_verification_sections.ts';
-import { type AdminNotice, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, renderAdminLayout } from './layout.ts';
 import {
   renderVerificationPageNav,
   type VerificationPageSection,
 } from './verification_navigation.ts';
 
 export function renderDeploymentsPage(input: {
+  identity: AdminIdentity;
   deployments: ControlPlaneDeploymentInventoryRow[];
   notice?: AdminNotice | null;
 }): string {
   const aggregateUsage = aggregatePilotUsage(input.deployments);
 
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Lantern Admin Connections',
     eyebrow: 'Connections',
     heading: 'Connections',
@@ -44,6 +46,7 @@ export function renderDeploymentsPage(input: {
 }
 
 export function renderVerificationPage(input: {
+  identity: AdminIdentity;
   deployments: ControlPlaneDeploymentInventoryRow[];
   latestBrokerVerification: BrokerVerificationStatus | null;
   certificationWorkflowStatuses?: CertificationWorkflowStatus[];
@@ -60,6 +63,7 @@ export function renderVerificationPage(input: {
   const page = resolveVerificationPageMeta(section);
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `Lantern Admin ${page.heading}`,
     eyebrow: 'Verification',
     heading: page.heading,

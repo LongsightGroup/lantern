@@ -1,4 +1,5 @@
 import { assertFalse, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { resolveCanvasIssuer } from '../lti/config.ts';
 import {
   buildAccessibilityReview,
@@ -16,6 +17,7 @@ import { renderDeploymentDetailPage } from './deployment_detail.ts';
 Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodle, and Sakai setup into tabs', () => {
   const binding = buildCanvasDeploymentBinding();
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -79,6 +81,7 @@ Deno.test('deployment page keeps shared copy neutral while scoping Canvas, Moodl
 
 Deno.test('deployment page renders the selected Sakai tab without leaking the Canvas form', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     selectedLms: 'sakai',
@@ -129,6 +132,7 @@ Deno.test('deployment page renders the selected Sakai tab without leaking the Ca
 
 Deno.test('deployment page shows the Canvas pending-registration state before the first launch seals deployment_id', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -166,6 +170,7 @@ Deno.test('deployment page shows the Canvas pending-registration state before th
 
 Deno.test('deployment page shows the latest roster verification summary and action', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -207,6 +212,7 @@ Deno.test('deployment page shows the latest roster verification summary and acti
 
 Deno.test('deployment page tucks LTI profile overrides behind an advanced per-setup section', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     selectedLms: 'moodle',
@@ -254,6 +260,7 @@ Deno.test('deployment page tucks LTI profile overrides behind an advanced per-se
 
 Deno.test('deployment page shows accessibility review state before a version goes live', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [

@@ -6,6 +6,7 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAdminTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('revision authoring prompt uses the exact package plan and reviewed runtime contract', () => {
   const packageVersion = buildPackageVersionRecord({
@@ -159,10 +160,9 @@ Deno.test('POST /admin/packages/:appId/versions/:version/revise creates a revisi
 });
 
 function createAdminApp(services: Parameters<typeof createApp>[0] = {}) {
-  return createApp({
+  return createAdminTestApp({
     env: createObjectEnvReader({
       APP_ORIGIN: 'http://localhost',
-      LANTERN_OPERATOR_NAME: 'Signed in',
     }),
     ...services,
   });

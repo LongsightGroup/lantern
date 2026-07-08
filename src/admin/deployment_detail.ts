@@ -10,7 +10,7 @@ import type {
 import { renderManagedDeploymentSections } from './deployment_detail_release_sections.ts';
 import { renderVersionHistorySection } from './deployment_detail_history_section.ts';
 import { renderOperationalEvidenceSection } from './deployment_detail_ops_sections.ts';
-import { type AdminNotice, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
 export interface DeploymentNrpsVerificationSummary {
@@ -188,6 +188,7 @@ export function buildEmptyDeploymentRecord(appId: string, appTitle: string): Dep
 }
 
 export function renderDeploymentDetailPage(input: {
+  identity: AdminIdentity;
   appId: string;
   appTitle: string;
   history: PackageVersionRecord[];
@@ -227,6 +228,7 @@ export function renderDeploymentDetailPage(input: {
   const supportedCanvasEnvironments = input.supportedCanvasEnvironments ?? [];
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${input.appTitle} App settings`,
     eyebrow: 'Settings',
     heading: input.appTitle,

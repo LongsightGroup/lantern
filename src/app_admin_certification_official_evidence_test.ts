@@ -1,6 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { formatDateTime } from './admin/layout.ts';
-import { createApp } from './app.ts';
 import { buildCanvasDeploymentBinding } from './test_helpers/lti.ts';
 import {
   buildCertificationWorkflowStatus,
@@ -9,6 +8,7 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('GET /admin/verification/official keeps official 1EdTech evidence on its own dated page', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -56,7 +56,7 @@ Deno.test('GET /admin/verification/official keeps official 1EdTech evidence on i
     }),
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification/official');
 
@@ -118,7 +118,7 @@ Deno.test('GET /admin/verification/official keeps internal passed rows off the o
     latestOfficialCertificationEvidence: null,
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification/official');
 

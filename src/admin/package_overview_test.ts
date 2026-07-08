@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPackageOverviewPage } from './package_overview.ts';
 import {
   buildDeploymentRecord,
@@ -8,6 +9,7 @@ import { buildCanvasDeploymentBinding } from '../test_helpers/lti.ts';
 
 Deno.test('renderPackageOverviewPage keeps latest approved distinct from live rollout', () => {
   const body = renderPackageOverviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'typescript-ladder-game',
     appTitle: 'TypeScript Ladder Game',
     history: [

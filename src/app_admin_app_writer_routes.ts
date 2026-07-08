@@ -18,13 +18,14 @@ import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
 import { formValueAsString, requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { type AppWriterSelectedContext, selectAppWriterContext } from './app_writer/context.ts';
 import { buildLanternOwnedAppGenerationPlanningResult } from './app_writer/planning.ts';
 import type { AppGenerationPlanningResult, AppWriterAuthoringMode } from './app_writer/types.ts';
 
 export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): void {
   app.get('/admin/app-writer', (context) => {
-    return context.html(renderAppWriterPage());
+    return context.html(renderAppWriterPage(adminPageInput(context, {})));
   });
 
   app.post('/admin/app-writer', async (context) => {
@@ -60,7 +61,7 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
 
       if (action === 'preview') {
         return context.html(
-          renderAppWriterPlanPreviewPage({
+          renderAppWriterPlanPreviewPage(adminPageInput(context, {
             promptText,
             audience,
             contentSummary,
@@ -68,7 +69,7 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
             requestedAppId,
             planning: planPreview.planning,
             selectedContext: planPreview.selectedContext,
-          }),
+          })),
         );
       }
 
@@ -123,14 +124,14 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       }
 
       return context.html(
-        renderAppWriterPage({
+        renderAppWriterPage(adminPageInput(context, {
           promptText,
           audience,
           contentSummary,
           gradingMode,
           requestedAppId,
           notice: createErrorNotice('App generation blocked', error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -145,13 +146,13 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
 
       if (run === null) {
         return context.html(
-          renderAppWriterPage({
+          renderAppWriterPage(adminPageInput(context, {
             notice: {
               tone: 'error',
               title: 'Generation run not found',
               detail: 'Lantern could not find that app writer run.',
             },
-          }),
+          })),
           404,
         );
       }
@@ -169,20 +170,20 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
         });
 
       return context.html(
-        renderAppGenerationRunPage({
+        renderAppGenerationRunPage(adminPageInput(context, {
           run,
           workspace,
           packageVersion,
           latestPreviewSession: runtimeLog.session,
           previewEvidence: runtimeLog.evidence,
           activityEvents,
-        }),
+        })),
       );
     } catch (error) {
       return context.html(
-        renderAppWriterPage({
+        renderAppWriterPage(adminPageInput(context, {
           notice: createErrorNotice('Generation run unavailable', error),
-        }),
+        })),
         statusForError(error),
       );
     }

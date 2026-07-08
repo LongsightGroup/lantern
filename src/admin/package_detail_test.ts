@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPackageDetailPage } from './package_detail.ts';
 import {
   buildAccessibilityReview,
@@ -10,6 +11,7 @@ import {
 Deno.test('renderPackageDetailPage shows status, exact version, owner, and access details above the fold', () => {
   const pendingVersion = buildPackageVersionRecord();
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: pendingVersion,
     history: [pendingVersion],
   });
@@ -63,6 +65,7 @@ Deno.test('renderPackageDetailPage gives pending reviewers changes, launch, runt
     },
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: pendingVersion,
     history: [pendingVersion, previousVersion],
     latestPreviewSession: previewSession,
@@ -111,6 +114,7 @@ Deno.test('renderPackageDetailPage treats first pending version as a full capabi
     capabilities: ['read_launch_context', 'read_activity_content', 'finalize_attempt'],
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: pendingVersion,
     history: [pendingVersion],
   });
@@ -142,6 +146,7 @@ Deno.test('renderPackageDetailPage highlights added sensitive capabilities again
     ],
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: pendingVersion,
     history: [pendingVersion, previousVersion],
   });
@@ -178,6 +183,7 @@ Deno.test('renderPackageDetailPage shows removed capabilities against the previo
     capabilities: ['read_launch_context', 'read_activity_content', 'finalize_attempt'],
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: pendingVersion,
     history: [pendingVersion, previousVersion],
   });
@@ -223,6 +229,7 @@ Deno.test('renderPackageDetailPage ignores newer approved versions when reviewin
     capabilities: ['read_launch_context', 'read_activity_content', 'finalize_attempt'],
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: pendingVersion,
     history: [newerApprovedVersion, pendingVersion, olderApprovedVersion],
   });
@@ -254,6 +261,7 @@ Deno.test('renderPackageDetailPage distinguishes ordinary progress from sensitiv
     reviewedAt: '2026-03-23T18:05:00Z',
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: reviewedVersion,
     history: [reviewedVersion],
   });
@@ -288,6 +296,7 @@ Deno.test('renderPackageDetailPage keeps older reviewed versions explicit when s
     reviewedAt: '2026-03-23T18:05:00Z',
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: reviewedVersion,
     history: [reviewedVersion],
   });

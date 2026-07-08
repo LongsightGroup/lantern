@@ -27,6 +27,7 @@ import {
 import type { BrowserAutograderDraftReferenceExample } from './authoring/browser_autograder_draft_generator.ts';
 import { createUnavailableBrowserAutograderDraftGenerator } from './authoring/browser_autograder_draft_generator.ts';
 import type { AppServices } from './app_services.ts';
+import { createBetterAdminAuth } from './admin_auth/service.ts';
 import { type D1Database, isD1Database } from './db/d1.ts';
 import type { OpsRepository } from './ops/repository.ts';
 import { createD1OpsRepository } from './ops/repository_d1.ts';
@@ -121,6 +122,7 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
     appGenerationRunScheduler: resolveWorkerAppGenerationRunScheduler(bindings),
     appWriterAgentSessions: resolveWorkerAppWriterAgentSessions(bindings),
     browserAutograderDraftGenerator: createUnavailableBrowserAutograderDraftGenerator(),
+    adminAuth: resolveWorkerAdminAuth(bindings, env),
     runtimeArtifactStore: snapshotStore,
     runtimeDelivery: resolveWorkerRuntimeDelivery(bindings, snapshotStore),
     evidenceArtifactStore: resolveWorkerEvidenceArtifactStore(bindings),
@@ -141,6 +143,14 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
     loadReferencePackageSnapshot: (appId, options = {}) =>
       loadPackageSnapshotFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
   };
+}
+
+function resolveWorkerAdminAuth(bindings: WorkerBindings, env: EnvReader) {
+  if (isD1Database(bindings.DB)) {
+    return createBetterAdminAuth({ db: bindings.DB, env });
+  }
+
+  throw new Error(WORKER_REPOSITORY_MESSAGE);
 }
 
 function resolveWorkerLtiStorage(bindings: WorkerBindings) {

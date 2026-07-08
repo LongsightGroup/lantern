@@ -1,6 +1,10 @@
 import { csrf } from '@hono/hono/csrf';
 import { Hono } from '@hono/hono';
 import { registerAdminAppWriterRoutes } from './app_admin_app_writer_routes.ts';
+import {
+  registerProtectedAdminAuthRoutes,
+  registerPublicAdminAuthRoutes,
+} from './app_admin_auth_routes.ts';
 import { registerAdminAuthoringRoutes } from './app_admin_authoring_routes.ts';
 import { registerAdminAuthoringPreviewRoutes } from './app_admin_authoring_preview_routes.ts';
 import { registerAdminDeploymentDetailRoutes } from './app_admin_deployment_detail_routes.ts';
@@ -15,18 +19,24 @@ import { registerDeepLinkingRoutes } from './app_deep_linking_routes.ts';
 import { registerDeepLinkingSubmitRoutes } from './app_deep_linking_submit_routes.ts';
 import { registerLaunchRoutes } from './app_launch_routes.ts';
 import { registerRuntimeRoutes } from './app_runtime_routes.ts';
+import { createAdminAuthMiddleware } from './admin_auth/middleware.ts';
 import type { AppServices } from './app_services.ts';
 
 export function buildApp(services: AppServices): Hono {
   const app = new Hono();
-
-  app.use('/admin/*', csrf());
 
   registerBasicRoutes(app, services);
   registerLaunchRoutes(app, services);
   registerDeepLinkingRoutes(app, services);
   registerDeepLinkingSubmitRoutes(app, services);
   registerRuntimeRoutes(app, services);
+
+  registerPublicAdminAuthRoutes(app, services);
+
+  app.use('/admin/*', createAdminAuthMiddleware(services));
+  app.use('/admin/*', csrf());
+
+  registerProtectedAdminAuthRoutes(app, services);
   registerAdminAppWriterRoutes(app, services);
   registerAdminInventoryRoutes(app, services);
   registerAdminAuthoringRoutes(app, services);

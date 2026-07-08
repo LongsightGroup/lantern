@@ -1,10 +1,11 @@
 import type { PackageFileDiff, PackageVersionDiff } from '../package_review/package_diff.ts';
 import { approvalStatusClass, approvalStatusLabel } from '../package_review/summary.ts';
 import type { PackageVersionRecord } from '../package_review/types.ts';
-import { escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
 export function renderPackageDiffPage(input: {
+  identity: AdminIdentity;
   diff: PackageVersionDiff;
   history: PackageVersionRecord[];
 }): string {
@@ -14,6 +15,7 @@ export function renderPackageDiffPage(input: {
   const changedManifestFields = input.diff.manifest.filter((field) => field.changed);
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${targetVersion.title} ${targetVersion.version} changes`,
     eyebrow: 'Version changes',
     heading: targetVersion.title,

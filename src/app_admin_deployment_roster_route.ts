@@ -14,6 +14,7 @@ import {
   resolveLtiProfileForDeployment,
 } from './lti/profile_resolution.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { resolveRequestAppOrigin } from './app_origin.ts';
 import { readNrpsMemberCount } from './lti/nrps_roster_verification.ts';
 
@@ -114,16 +115,16 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
 
       if (detail.history.length === 0) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: createErrorNotice('Connections page unavailable', error),
-          }),
+          })),
           statusForNrpsError(error),
         );
       }
 
       return context.html(
-        renderDeploymentDetailPage({
+        renderDeploymentDetailPage(adminPageInput(context, {
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
@@ -136,7 +137,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
             detail.canvasConfigUrl.notice,
             createErrorNotice('Roster verification failed', error),
           ),
-        }),
+        })),
         statusForNrpsError(error),
       );
     }

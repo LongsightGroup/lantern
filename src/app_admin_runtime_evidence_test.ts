@@ -1,11 +1,11 @@
 import { assertEquals } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   buildAttemptEvidenceArtifactRecord,
   buildAttemptRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import type { EvidenceArtifactStore } from './runtime/evidence_artifact_store.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('GET /admin/packages/:appId/deployment/evidence/:artifactId returns the stored anonymous evidence artifact', async () => {
   const evidenceBytes = new TextEncoder().encode(
@@ -41,7 +41,7 @@ Deno.test('GET /admin/packages/:appId/deployment/evidence/:artifactId returns th
     },
   };
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
     evidenceArtifactStore,
   }).request(
@@ -83,7 +83,7 @@ Deno.test('GET /admin/packages/:appId/deployment/evidence/:artifactId returns sc
     },
   };
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
     evidenceArtifactStore,
   }).request(

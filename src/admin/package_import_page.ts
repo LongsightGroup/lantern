@@ -2,7 +2,7 @@ import {
   groupLocalAppDiagnostics,
   type LocalAppValidationDiagnostic,
 } from '../authoring/local_app.ts';
-import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 
 const PACKAGE_LAYOUT = `manifest.json
 dist/index.html
@@ -12,11 +12,13 @@ preview/tests.json`;
 
 export function renderPackageImportPage(
   input: {
+    identity: AdminIdentity;
     notice?: AdminNotice | null;
     diagnostics?: LocalAppValidationDiagnostic[] | null;
-  } = {},
+  },
 ): string {
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Lantern Package Import',
     eyebrow: 'Apps',
     heading: 'Import package',

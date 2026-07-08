@@ -1,5 +1,4 @@
 import { assertEquals } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -10,6 +9,7 @@ import {
   buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
 } from './test_helpers/lti.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/install saves the Moodle binding without mutating Canvas or Sakai slots', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -38,7 +38,9 @@ Deno.test('POST /admin/packages/:appId/deployment/install saves the Moodle bindi
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('lms', 'moodle');
@@ -111,7 +113,9 @@ Deno.test('POST /admin/packages/:appId/deployment/install saves the Sakai bindin
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('lms', 'sakai');
@@ -189,7 +193,9 @@ Deno.test('POST /admin/packages/:appId/deployment/pin pins the selected LMS slot
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('lms', 'moodle');

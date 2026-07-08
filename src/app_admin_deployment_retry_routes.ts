@@ -15,6 +15,7 @@ import {
 import { listCanvasEnvironments } from './lti/config.ts';
 import { retryFailedGradePublication } from './ops/service.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { resolveRequestAppOrigin } from './app_origin.ts';
 import { buildRequestAuditEnvelope } from './request_audit.ts';
 
@@ -97,7 +98,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
       );
 
       return context.html(
-        renderDeploymentDetailPage({
+        renderDeploymentDetailPage(adminPageInput(context, {
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
@@ -113,7 +114,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
               new Error(retryResult.publication.errorCode ?? 'Canvas AGS score publish failed.'),
             ),
           ),
-        }),
+        })),
         500,
       );
     } catch (error) {
@@ -147,10 +148,10 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
 
       if (detail.history.length === 0) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: createErrorNotice('Connections page unavailable', error),
-          }),
+          })),
           statusForRetryPublishError(error),
         );
       }
@@ -160,7 +161,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
         : await opsRepository.getControlPlaneDeploymentDetail(canvasDeployment.id);
 
       return context.html(
-        renderDeploymentDetailPage({
+        renderDeploymentDetailPage(adminPageInput(context, {
           appId,
           appTitle: detail.appTitle,
           history: detail.history,
@@ -173,7 +174,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
             detail.canvasConfigUrl.notice,
             createErrorNotice('Grade publish retry failed', error),
           ),
-        }),
+        })),
         statusForRetryPublishError(error),
       );
     }

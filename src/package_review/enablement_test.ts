@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { buildCanvasDeploymentBinding } from '../test_helpers/lti.ts';
 import {
   buildAccessibilityReview,
@@ -25,6 +26,7 @@ Deno.test('renderDeploymentDetailPage shows semver history with strong status ba
     approvalStatus: 'pending',
   });
   const body = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [pending, approved],
@@ -60,6 +62,7 @@ Deno.test('renderDeploymentDetailPage only offers approved versions in the picke
     approvalStatus: 'pending',
   });
   const body = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [pending, approved],

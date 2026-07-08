@@ -1,4 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPreviewPage } from './preview_page.ts';
 import {
   buildPackageVersionRecord,
@@ -30,6 +31,7 @@ Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and e
   });
 
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: null,
@@ -99,6 +101,7 @@ Deno.test('renderPreviewPage labels pending versions as review test launches', (
   });
 
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: null,
@@ -172,6 +175,7 @@ Deno.test('renderPreviewPage shows durable test activity evidence in capability 
   ];
 
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: previewSession,
@@ -245,6 +249,7 @@ Deno.test('renderPreviewPage renders screenshot evidence as supplemental on the 
     packageTitle: packageVersion.title,
   });
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: previewSession,

@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import type { OpsRepository } from './ops/repository.ts';
 import {
   buildBrokerVerificationStatus,
@@ -13,6 +12,7 @@ import {
   buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
 } from './test_helpers/lti.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 function createFailingOpsRepository(message: string): OpsRepository {
   return {
@@ -55,7 +55,7 @@ Deno.test('GET /admin/deployments renders deployment operations on a dedicated p
     controlPlaneDeployments: [buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 })],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/deployments');
 
@@ -166,7 +166,7 @@ Deno.test('GET /admin/verification renders verification on a dedicated page', as
     },
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification');
 
@@ -214,7 +214,7 @@ Deno.test('GET /admin/verification/official renders official evidence on its own
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification/official');
 
@@ -235,7 +235,7 @@ Deno.test('GET /admin/verification/new renders the dedicated verification entry 
     controlPlaneDeployments: [buildControlPlaneDeploymentInventoryRow({ deploymentId: 1 })],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification/new');
 
@@ -259,7 +259,7 @@ Deno.test('GET /admin/verification/lti-profile renders the dedicated Lantern def
     },
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/verification/lti-profile');
 
@@ -274,7 +274,7 @@ Deno.test('GET /admin/verification/lti-profile renders the dedicated Lantern def
 });
 
 Deno.test('GET /admin/deployments keeps route failures inside the admin shell', async () => {
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getOpsRepository: () => createFailingOpsRepository('Connections inventory is unavailable.'),
   });
 
@@ -290,7 +290,7 @@ Deno.test('GET /admin/deployments keeps route failures inside the admin shell', 
 });
 
 Deno.test('GET /admin/verification keeps route failures inside the admin shell', async () => {
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getOpsRepository: () => createFailingOpsRepository('Verification history is unavailable.'),
   });
 
@@ -330,7 +330,9 @@ Deno.test('POST /admin/verification records deployment-scoped broker verificatio
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('source', 'manual');
@@ -382,7 +384,9 @@ Deno.test('POST /admin/verification records deployment-scoped broker verificatio
 
 Deno.test('POST /admin/verification/lti-profile saves the Lantern-wide default profile and redirects back to the profile page', async () => {
   const repository = createInMemoryPackageReviewRepository();
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('defaultLtiProfile', 'certification');
@@ -403,7 +407,9 @@ Deno.test('POST /admin/verification/lti-profile saves the Lantern-wide default p
 
 Deno.test('POST /admin/verification/lti-profile rejects unsupported profile ids on the profile page', async () => {
   const repository = createInMemoryPackageReviewRepository();
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
   const formData = new FormData();
 
   formData.set('defaultLtiProfile', 'too-loose');

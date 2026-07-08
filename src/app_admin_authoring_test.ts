@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import type {
   BrowserAutograderDraftFileInput,
   BrowserAutograderDraftReferenceExample,
@@ -8,6 +7,7 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 const TEMPLATE_SNAPSHOT_ROOT = 'examples/apps/template';
 const AUTHORING_PROMPT = 'Write a browser_autograder check for missing alt text.';
@@ -21,7 +21,7 @@ Deno.test('GET authoring routes expose an explicit entry point and prompt-first 
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
   });
 
@@ -57,7 +57,7 @@ Deno.test('POST /authoring/generate returns notes and diffs without saving the d
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
     browserAutograderDraftGenerator: {
       generate(input) {
@@ -124,7 +124,7 @@ Deno.test('POST /authoring/save persists generated files and AI provenance into 
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
   });
   const formData = new FormData();

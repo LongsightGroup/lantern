@@ -26,7 +26,7 @@ export interface NavChildItem {
   active?: boolean;
 }
 
-interface AdminIdentity {
+export interface AdminIdentity {
   displayName: string;
   detail: string;
 }
@@ -154,7 +154,9 @@ export function renderSidebar(nav: NavItem[]): string {
       .join('')
   }
       </nav>
-      <div class="sidebar-footer">Governed admin</div>
+      <div class="sidebar-footer">
+        <a class="sidebar-link" href="/admin/logout">Sign out</a>
+      </div>
     </aside>`;
 }
 
@@ -164,8 +166,9 @@ export function renderPageHeader(input: {
   heading: string;
   intro: string;
   pageNav?: string | null;
+  identity: AdminIdentity;
 }): string {
-  const identity = resolveAdminIdentity();
+  const identity = input.identity;
 
   return `<header class="page-header">
       <div class="page-header-bar">
@@ -212,18 +215,6 @@ export function renderNotice(notice: AdminNotice): string {
       : ''
   }
   </section>`;
-}
-
-function resolveAdminIdentity(): AdminIdentity {
-  const displayName = readOptionalEnvIdentityValue('LANTERN_OPERATOR_NAME') ??
-    readOptionalEnvIdentityValue('USER') ??
-    readOptionalEnvIdentityValue('LOGNAME') ??
-    'Local operator';
-
-  return {
-    displayName,
-    detail: 'Signed in',
-  };
 }
 
 function readOptionalEnvIdentityValue(name: string): string | null {

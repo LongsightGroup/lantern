@@ -5,10 +5,17 @@ import {
   summarizeAccessibilityReview,
 } from '../package_review/summary.ts';
 import type { DeploymentRecord, PackageVersionRecord } from '../package_review/types.ts';
-import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import {
+  type AdminIdentity,
+  type AdminNotice,
+  escapeHtml,
+  formatDateTime,
+  renderAdminLayout,
+} from './layout.ts';
 import { renderPackagePageNav, supportsAuthoringDrafts } from './package_navigation.ts';
 
 export function renderPackageOverviewPage(input: {
+  identity: AdminIdentity;
   appId: string;
   appTitle: string;
   history: PackageVersionRecord[];
@@ -24,6 +31,7 @@ export function renderPackageOverviewPage(input: {
   const liveDeploymentCounts = buildLiveDeploymentCounts(input.deployments);
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${input.appTitle} App`,
     eyebrow: 'App',
     heading: input.appTitle,

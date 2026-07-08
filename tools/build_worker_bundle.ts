@@ -26,8 +26,22 @@ if (!result.success) {
 
 const rawBundle = await Deno.readTextFile(rawBundlePath);
 const workflowImport = 'import { WorkflowEntrypoint } from "cloudflare:workers";\n';
+const workerSafeBundle = neutralizeBundledDenoRuntimeDetection(rawBundle);
 
-await Deno.writeTextFile(bundlePath, `${workflowImport}${rawBundle}`);
+await Deno.writeTextFile(bundlePath, `${workflowImport}${workerSafeBundle}`);
 await Deno.remove(rawBundlePath);
 
 console.log(`Built Worker bundle at ${bundlePath.pathname}.`);
+
+function neutralizeBundledDenoRuntimeDetection(bundleText: string): string {
+  return bundleText
+    .replaceAll(
+      'if (typeof Deno !== "undefined") return Deno.env.get(key) ?? fallback;',
+      'if (false) return fallback;',
+    )
+    .replaceAll('globalThis.Deno?.env.toObject() || ', '')
+    .replaceAll(
+      'if (typeof Deno !== "undefined") return {\n    name: "deno",\n    version: Deno?.version?.deno ?? null\n  };',
+      'if (false) return null;',
+    );
+}

@@ -1,9 +1,10 @@
 import type { PackageVersionRecord } from '../package_review/types.ts';
 import { buildRevisionAuthoringPrompt } from '../app_writer/revision_authoring_prompt.ts';
-import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
 export function renderAppRevisionPage(input: {
+  identity: AdminIdentity;
   packageVersion: PackageVersionRecord;
   history: PackageVersionRecord[];
   targetVersion: string;
@@ -17,6 +18,7 @@ export function renderAppRevisionPage(input: {
   const promptText = input.promptText ?? generatedPrompt;
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `Revise ${input.packageVersion.title}`,
     eyebrow: 'App writer revision',
     heading: `Revise ${input.packageVersion.title}`,

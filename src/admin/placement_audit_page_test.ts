@@ -1,4 +1,5 @@
 import { assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPlacementAuditPage } from './placement_audit_page.ts';
 import {
   buildAuditEventRecord,
@@ -7,6 +8,7 @@ import {
 
 Deno.test('renderPlacementAuditPage shows selected content, reviewed package identity, Canvas context, and placement status', () => {
   const html = renderPlacementAuditPage({
+    identity: ADMIN_TEST_IDENTITY,
     snapshot: {
       placement: buildReviewedPlacementRecord({
         placementId: 'placement-audit-123',
@@ -46,6 +48,7 @@ Deno.test('renderPlacementAuditPage shows selected content, reviewed package ide
 
 Deno.test('renderPlacementAuditPage includes deep-linking, test-launch, and reviewer timeline entries when evidence exists', () => {
   const html = renderPlacementAuditPage({
+    identity: ADMIN_TEST_IDENTITY,
     snapshot: {
       placement: buildReviewedPlacementRecord({
         placementId: 'placement-audit-123',

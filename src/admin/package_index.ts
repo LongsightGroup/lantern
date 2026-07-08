@@ -1,6 +1,12 @@
 import { approvalStatusClass, approvalStatusLabel } from '../package_review/summary.ts';
 import type { PackageVersionRecord } from '../package_review/types.ts';
-import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import {
+  type AdminIdentity,
+  type AdminNotice,
+  escapeHtml,
+  formatDateTime,
+  renderAdminLayout,
+} from './layout.ts';
 
 interface PackageLibraryEntry {
   appId: string;
@@ -14,6 +20,7 @@ interface PackageLibraryEntry {
 }
 
 export function renderPackageIndexPage(input: {
+  identity: AdminIdentity;
   versions: PackageVersionRecord[];
   notice?: AdminNotice | null;
 }): string {
@@ -22,6 +29,7 @@ export function renderPackageIndexPage(input: {
     : renderPackageLibrary(input.versions);
 
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Lantern Admin Apps',
     eyebrow: 'Apps',
     heading: 'Apps',

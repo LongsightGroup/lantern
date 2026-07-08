@@ -72,6 +72,14 @@ export async function createLocalToolPrivateJwkString(): Promise<string> {
 }
 
 export function createLocalLtiStateSecret(): string {
+  return createLocalSecret();
+}
+
+export function createLocalBetterAuthSecret(): string {
+  return createLocalSecret();
+}
+
+function createLocalSecret(): string {
   const bytes = new Uint8Array(32);
   crypto.getRandomValues(bytes);
 
@@ -83,6 +91,7 @@ export function defaultLocalEnvAssignments(): Record<string, string> {
     PORT: DEFAULT_LOCAL_PORT,
     APP_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
     APP_RUNTIME_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
+    ADMIN_AUTH_ALLOW_SIGNUP: '1',
   };
 }
 

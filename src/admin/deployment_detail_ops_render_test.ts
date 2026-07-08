@@ -1,4 +1,5 @@
 import { assertFalse, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { resolveCanvasIssuer } from '../lti/config.ts';
 import {
   buildBrokerVerificationStatus,
@@ -20,6 +21,7 @@ import { renderDeploymentDetailPage } from './deployment_detail.ts';
 
 Deno.test('deployment page shows status panels and pilot usage without dropping the binding and version controls', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -134,6 +136,7 @@ Deno.test('deployment page shows status panels and pilot usage without dropping 
 
 Deno.test('deployment page shows diagnostics and an explicit retry action for retryable AGS failures', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -265,6 +268,7 @@ Deno.test('deployment page shows diagnostics and an explicit retry action for re
 
 Deno.test('deployment page keeps setup history as an optional verification link-out', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     selectedLms: 'moodle',
@@ -339,6 +343,7 @@ Deno.test('deployment page keeps setup history as an optional verification link-
 
 Deno.test('deployment page shows reviewed runtime boundary facts without exposing raw runtime tokens', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -429,6 +434,7 @@ Deno.test('deployment page shows reviewed runtime boundary facts without exposin
 
 Deno.test('deployment page renders anonymous submission evidence links beside the latest normalized browser outcome', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -516,6 +522,7 @@ Deno.test('deployment page renders anonymous submission evidence links beside th
 
 Deno.test('deployment page renders explicit reviewed-runtime troubleshooting for Dynamic Worker delivery failures', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [

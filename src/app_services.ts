@@ -1,4 +1,5 @@
 import type { JSONWebKeySet } from 'jose';
+import { type AdminAuthService, createUnconfiguredAdminAuthService } from './admin_auth/service.ts';
 import {
   type AppWriterAgentSessionCoordinator,
   createNoopAppWriterAgentSessionCoordinator,
@@ -58,6 +59,7 @@ export interface AppServices {
   appGenerationRunScheduler: AppGenerationRunScheduler;
   appWriterAgentSessions: AppWriterAgentSessionCoordinator;
   browserAutograderDraftGenerator: BrowserAutograderDraftGenerator;
+  adminAuth: AdminAuthService;
   loadBrowserAutograderDraftReferenceExamples: () => Promise<
     BrowserAutograderDraftReferenceExample[]
   >;
@@ -133,6 +135,10 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
       createNoopAppWriterAgentSessionCoordinator(),
     browserAutograderDraftGenerator: services.browserAutograderDraftGenerator ??
       createUnavailableBrowserAutograderDraftGenerator(),
+    adminAuth: services.adminAuth ??
+      createUnconfiguredAdminAuthService(
+        'Lantern admin authentication requires a Cloudflare D1 binding and BETTER_AUTH_SECRET.',
+      ),
     runtimeArtifactStore,
     runtimeDelivery: services.runtimeDelivery ?? createDirectRuntimeDelivery(runtimeArtifactStore),
     evidenceArtifactStore: services.evidenceArtifactStore ?? getDefaultEvidenceArtifactStore(),

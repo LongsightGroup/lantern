@@ -5,7 +5,13 @@ import type {
   PreviewEvidenceRecord,
   PreviewSessionRecord,
 } from '../package_review/types.ts';
-import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import {
+  type AdminIdentity,
+  type AdminNotice,
+  escapeHtml,
+  formatDateTime,
+  renderAdminLayout,
+} from './layout.ts';
 import {
   formatSelectedContext,
   formatStatus,
@@ -25,6 +31,7 @@ import {
 } from './app_writer_run_sections.ts';
 
 export function renderAppGenerationRunPage(input: {
+  identity: AdminIdentity;
   run: AppGenerationRunRecord;
   workspace?: AppGenerationWorkspaceRecord | null;
   packageVersion?: PackageVersionRecord | null;
@@ -41,6 +48,7 @@ export function renderAppGenerationRunPage(input: {
   const refreshWhileRunning = isActiveGenerationStatus(run.status);
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `Generation ${run.generationId}`,
     eyebrow: 'App writer run',
     heading: run.generatedAppId ?? run.requestedAppId ?? 'Generated app',

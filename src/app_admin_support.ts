@@ -21,6 +21,7 @@ import { loadDeploymentDetailStateSafe } from './app_deployment_support.ts';
 import { normalizeOptionalString } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { readEnv } from './platform/env.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
@@ -127,10 +128,10 @@ export async function renderInventoryError(
   }
 
   return context.html(
-    renderPackageIndexPage({
+    renderPackageIndexPage(adminPageInput(context, {
       versions,
       notice: createErrorNotice(title, error),
-    }),
+    })),
     statusForError(error),
   );
 }
@@ -146,10 +147,10 @@ export async function renderPackagesPage(
   const versions = await services.getRepository().listPackageVersions();
 
   return context.html(
-    renderPackageIndexPage({
+    renderPackageIndexPage(adminPageInput(context, {
       versions,
       notice: input.notice ?? null,
-    }),
+    })),
     input.status ?? 200,
   );
 }
@@ -165,10 +166,10 @@ export async function renderDeploymentsPage(
   const deployments = await services.getOpsRepository().listControlPlaneDeployments();
 
   return context.html(
-    renderAdminDeploymentsPage({
+    renderAdminDeploymentsPage(adminPageInput(context, {
       deployments,
       notice: input.notice ?? null,
-    }),
+    })),
     input.status ?? 200,
   );
 }
@@ -191,7 +192,7 @@ export async function renderVerificationPage(
   const ltiProfileSettings = await services.getRepository().getLanternLtiProfileSettings();
 
   return context.html(
-    renderAdminVerificationPage({
+    renderAdminVerificationPage(adminPageInput(context, {
       deployments,
       latestBrokerVerification,
       certificationWorkflowStatuses,
@@ -199,7 +200,7 @@ export async function renderVerificationPage(
       ltiProfileSettings,
       notice: input.notice ?? null,
       section: input.section ?? 'checklist',
-    }),
+    })),
     input.status ?? 200,
   );
 }
@@ -217,10 +218,10 @@ export async function renderPackageDetailError(
 
     if (!packageVersion) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice(title, error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -228,19 +229,19 @@ export async function renderPackageDetailError(
     const history = await repository.listPackageVersionsByApp(packageVersion.appId);
 
     return context.html(
-      renderPackageDetailPage({
+      renderPackageDetailPage(adminPageInput(context, {
         packageVersion,
         history,
         notice: createErrorNotice(title, error),
-      }),
+      })),
       statusForError(error),
     );
   } catch {
     return context.html(
-      renderPackageIndexPage({
+      renderPackageIndexPage(adminPageInput(context, {
         versions: [],
         notice: createErrorNotice(title, error),
-      }),
+      })),
       statusForError(error),
     );
   }
@@ -263,10 +264,10 @@ export async function renderDeploymentError(
 
     if (history.length === 0) {
       return context.html(
-        renderPackageIndexPage({
+        renderPackageIndexPage(adminPageInput(context, {
           versions: [],
           notice: createErrorNotice(title, error),
-        }),
+        })),
         statusForError(error),
       );
     }
@@ -284,7 +285,7 @@ export async function renderDeploymentError(
     const detailState = await loadDeploymentDetailStateSafe(repository, appId, appOrigin);
 
     return context.html(
-      renderDeploymentDetailPage({
+      renderDeploymentDetailPage(adminPageInput(context, {
         appId,
         appTitle,
         history,
@@ -300,15 +301,15 @@ export async function renderDeploymentError(
         notice: input.editorState === undefined || input.editorState === null
           ? combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error))
           : canvasConfigUrl.notice,
-      }),
+      })),
       statusForError(error),
     );
   } catch {
     return context.html(
-      renderPackageIndexPage({
+      renderPackageIndexPage(adminPageInput(context, {
         versions: [],
         notice: createErrorNotice(title, error),
-      }),
+      })),
       statusForError(error),
     );
   }

@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import { restoreEnv, withFetchStub } from './admin/deployment_detail_test_helpers.ts';
 import { getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
 import { createTestLtiToolContext } from './test_helpers/lti_tool_context.ts';
@@ -9,6 +8,7 @@ import {
   createSmokeRouteRepository,
   createSuccessfulSmokeFetchHandler,
 } from './app_admin_grade_smoke_test_support.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Moodle grade-return check and records deployment-scoped evidence', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
@@ -27,7 +27,7 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Mo
 
   try {
     await withFetchStub(createSuccessfulSmokeFetchHandler(fixture, requestedUrls), async () => {
-      const response = await createApp({
+      const response = await createAuthenticatedTestApp({
         getRepository: () => repository,
         getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
       }).request(
@@ -85,7 +85,7 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke records bou
         throw new Error(`Unexpected smoke request GET ${String(input)}`);
       },
       async () => {
-        const response = await createApp({
+        const response = await createAuthenticatedTestApp({
           getRepository: () => repository,
           getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
         }).request(
@@ -141,7 +141,7 @@ Deno.test('deployment smoke verification renders the latest Moodle result back o
 
   try {
     await withFetchStub(createSuccessfulSmokeFetchHandler(fixture), async () => {
-      const postResponse = await createApp({
+      const postResponse = await createAuthenticatedTestApp({
         getRepository: () => repository,
         getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
       }).request(
@@ -157,7 +157,7 @@ Deno.test('deployment smoke verification renders the latest Moodle result back o
 
       assertEquals(postResponse.status, 303);
 
-      const getResponse = await createApp({
+      const getResponse = await createAuthenticatedTestApp({
         getRepository: () => repository,
       }).request('http://localhost/admin/packages/chapter-4-asteroids/deployment?lms=moodle');
       const body = await getResponse.text();

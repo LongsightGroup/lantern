@@ -8,6 +8,7 @@ import { createErrorNotice } from './app_notice_support.ts';
 import { normalizeOptionalString, requireTrimmedString } from './app_request_support.ts';
 import { statusForPlacementAuditError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 
 export function registerAdminPlacementRoutes(app: Hono, services: AppServices): void {
   app.get('/admin/placements', (context) => {
@@ -19,9 +20,9 @@ export function registerAdminPlacementRoutes(app: Hono, services: AppServices): 
     }
 
     return context.html(
-      renderPlacementAuditRequestPage({
+      renderPlacementAuditRequestPage(adminPageInput(context, {
         notice: null,
-      }),
+      })),
     );
   });
 
@@ -36,16 +37,16 @@ export function registerAdminPlacementRoutes(app: Hono, services: AppServices): 
       const timeline = await loadPlacementAuditTimeline(repository, snapshot.placement);
 
       return context.html(
-        renderPlacementAuditPage({
+        renderPlacementAuditPage(adminPageInput(context, {
           snapshot,
           timeline,
-        }),
+        })),
       );
     } catch (error) {
       return context.html(
-        renderPlacementAuditRequestPage({
+        renderPlacementAuditRequestPage(adminPageInput(context, {
           notice: createErrorNotice('Placement audit unavailable', error),
-        }),
+        })),
         statusForPlacementAuditError(error),
       );
     }

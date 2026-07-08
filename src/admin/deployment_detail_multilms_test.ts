@@ -1,4 +1,5 @@
 import { assertFalse, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { resolveCanvasIssuer } from '../lti/config.ts';
 import {
   buildBrokerVerificationStatus,
@@ -18,6 +19,7 @@ import { renderDeploymentDetailPage } from './deployment_detail.ts';
 
 Deno.test('deployment page keeps separate Canvas, Moodle, and Sakai slots for one app', () => {
   const html = renderDeploymentDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     appId: 'chapter-4-asteroids',
     appTitle: 'Chapter 4 Asteroids',
     history: [
@@ -130,6 +132,7 @@ Deno.test('deployment page keeps one deployment route while rendering setup, lau
 
   for (const testCase of cases) {
     const html = renderDeploymentDetailPage({
+      identity: ADMIN_TEST_IDENTITY,
       appId: 'chapter-4-asteroids',
       appTitle: 'Chapter 4 Asteroids',
       selectedLms: testCase.lms,

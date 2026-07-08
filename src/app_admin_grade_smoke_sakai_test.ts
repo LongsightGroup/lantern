@@ -1,5 +1,4 @@
 import { assertEquals } from '@std/assert';
-import { createApp } from './app.ts';
 import { restoreEnv, withFetchStub } from './admin/deployment_detail_test_helpers.ts';
 import { getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
 import { createTestLtiToolContext } from './test_helpers/lti_tool_context.ts';
@@ -9,6 +8,7 @@ import {
   createSmokeRouteRepository,
   createSuccessfulSmokeFetchHandler,
 } from './app_admin_grade_smoke_test_support.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the blessed Sakai smoke path and records deployment-scoped evidence', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
@@ -24,7 +24,7 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the bl
 
   try {
     await withFetchStub(createSuccessfulSmokeFetchHandler(fixture, requestedUrls), async () => {
-      const response = await createApp({
+      const response = await createAuthenticatedTestApp({
         getRepository: () => repository,
         getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
       }).request(

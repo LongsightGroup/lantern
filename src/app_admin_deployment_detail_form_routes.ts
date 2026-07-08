@@ -18,6 +18,7 @@ import {
 import { parseDeploymentLtiProfileOverrideForm } from './app_request_support.ts';
 import type { LmsType } from './lti/types.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 import { syncLtiToolDeploymentBinding } from './lti/tool_provider.ts';
@@ -43,7 +44,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
 
       if (history.length === 0) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: {
               tone: 'error',
@@ -54,7 +55,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
                 )
               } deployment pin.`,
             },
-          }),
+          })),
           404,
         );
       }
@@ -141,7 +142,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
 
       if (history.length === 0) {
         return context.html(
-          renderPackageIndexPage({
+          renderPackageIndexPage(adminPageInput(context, {
             versions: [],
             notice: {
               tone: 'error',
@@ -152,7 +153,7 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
                 )
               } binding.`,
             },
-          }),
+          })),
           404,
         );
       }

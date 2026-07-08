@@ -9,6 +9,7 @@ import type {
   InstructorReportStudentSignal,
 } from '../reports/instructor_report.ts';
 import {
+  type AdminIdentity,
   type AdminNotice,
   escapeHtml,
   formatDate,
@@ -18,6 +19,7 @@ import {
 import { renderPackagePageNav } from './package_navigation.ts';
 
 export function renderPackageReportsPage(input: {
+  identity: AdminIdentity;
   appId: string;
   appTitle: string;
   history: PackageVersionRecord[];
@@ -25,6 +27,7 @@ export function renderPackageReportsPage(input: {
   notice?: AdminNotice | null;
 }): string {
   return renderAdminLayout({
+    identity: input.identity,
     title: `${input.appTitle} Reports`,
     eyebrow: 'Instructor reports',
     heading: input.appTitle,

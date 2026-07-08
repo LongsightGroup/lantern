@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import {
   EXAMPLE_SNAPSHOT_ROOT,
   getReferenceAppSnapshotRoot,
@@ -13,6 +12,7 @@ import {
   buildPreviewEvidenceRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-launch defaults for approved reviewed versions', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -38,7 +38,7 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-lau
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/versions/0.1.0/preview');
 
@@ -79,7 +79,7 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-lau
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/versions/0.2.0/preview');
 
@@ -120,7 +120,9 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview launches pendin
           }),
         ],
       });
-      const app = createApp({ getRepository: () => repository });
+      const app = createAuthenticatedTestApp({
+        getRepository: () => repository,
+      });
       const formData = new FormData();
       formData.set('userRole', 'learner');
       formData.set('courseId', 'course_demo');
@@ -181,7 +183,9 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a runti
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const formData = new FormData();
     formData.set('userRole', 'instructor');
     formData.set('courseId', 'physics-101');
@@ -248,7 +252,9 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview writes durable 
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const formData = new FormData();
     formData.set('userRole', 'learner');
     formData.set('courseId', 'course_demo');
@@ -316,7 +322,9 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview launches commit
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const formData = new FormData();
     formData.set('userRole', 'learner');
     formData.set('courseId', 'course_demo');
@@ -407,7 +415,7 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview keeps reviewer h
     ],
   });
 
-  const response = await createApp({
+  const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
   }).request('http://localhost/admin/packages/chapter-4-asteroids/versions/0.4.0/preview');
 

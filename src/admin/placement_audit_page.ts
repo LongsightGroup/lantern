@@ -1,7 +1,8 @@
 import type { AuditEventRecord, PlacementAuditSnapshot } from '../package_review/types.ts';
-import { escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 
 export function renderPlacementAuditPage(input: {
+  identity: AdminIdentity;
   snapshot: PlacementAuditSnapshot;
   timeline: AuditEventRecord[];
   notice?: {
@@ -19,6 +20,7 @@ export function renderPlacementAuditPage(input: {
   const deploymentLink = `/admin/packages/${placement.appId}/deployment`;
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `Placement ${placement.placementId}`,
     eyebrow: 'Placement audit',
     heading: 'Placement audit',
@@ -114,6 +116,7 @@ export function renderPlacementAuditPage(input: {
 }
 
 export function renderPlacementAuditRequestPage(input: {
+  identity: AdminIdentity;
   notice?: {
     tone: 'error' | 'note' | 'success';
     title: string;
@@ -122,6 +125,7 @@ export function renderPlacementAuditRequestPage(input: {
   } | null;
 }): string {
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Placements',
     eyebrow: 'Placements',
     heading: 'Placements',

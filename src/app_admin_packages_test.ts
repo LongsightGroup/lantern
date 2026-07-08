@@ -15,6 +15,7 @@ import {
 } from './test_helpers/package_review.ts';
 import { buildCanvasDeploymentBinding } from './test_helpers/lti.ts';
 import type { PackageSnapshotStore } from './package_review/snapshot_store.ts';
+import { createAdminTestApp } from './test_helpers/admin_auth.ts';
 
 Deno.test('GET /admin/packages renders the generic package import action when no versions exist', async () => {
   const response = await createAdminApp({
@@ -66,7 +67,8 @@ Deno.test('GET /admin/packages renders the app library when package data exists'
   assertStringIncludes(body, 'Import package');
   assertStringIncludes(body, 'href="/admin/packages/import"');
   assertStringIncludes(body, 'Import reference app');
-  assertStringIncludes(body, 'Signed in');
+  assertStringIncludes(body, 'Test Admin');
+  assertStringIncludes(body, 'admin@example.test');
   assertStringIncludes(body, 'href="/admin/deployments"');
   assertStringIncludes(body, 'href="/admin/verification"');
   assertStringIncludes(body, 'href="/admin/placements"');
@@ -712,10 +714,9 @@ Deno.test('POST /admin/packages/:appId/deployment/pin stores the exact approved 
 });
 
 function createAdminApp(services: Parameters<typeof createApp>[0] = {}) {
-  return createApp({
+  return createAdminTestApp({
     env: createObjectEnvReader({
       APP_ORIGIN: 'http://localhost',
-      LANTERN_OPERATOR_NAME: 'Signed in',
     }),
     ...services,
   });

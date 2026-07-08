@@ -1,5 +1,4 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import { withRuntimeOriginEnv } from './app_test_support.ts';
 import {
   buildPackageVersionRecord,
@@ -8,6 +7,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import type { AuthoringDraftFileRecord, AuthoringDraftRecord } from './package_review/types.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 const TEMPLATE_SNAPSHOT_ROOT = 'examples/apps/template';
 const DRAFT_ID = 'authoring-draft-101';
@@ -23,7 +23,9 @@ Deno.test('POST /authoring/preview launches a draft snapshot through the governe
       authoringDrafts: [buildTemplateAuthoringDraft()],
       authoringDraftFiles: [buildTemplateAuthoringDraftFile()],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
 
     try {
       const response = await app.request(
@@ -78,7 +80,9 @@ Deno.test('POST /authoring/preview fails clearly when no saved draft files exist
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
     authoringDrafts: [buildTemplateAuthoringDraft()],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'https://lantern.example/admin/packages/template-app/versions/0.1.0/authoring/preview',
@@ -129,7 +133,9 @@ Deno.test('GET /authoring renders the latest draft preview state and evidence li
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'http://localhost/admin/packages/template-app/versions/0.1.0/authoring',

@@ -266,7 +266,8 @@ fails if Deno-only runtime references slip back into it. The generated file is
 
 To run the Worker locally:
 
-- set Worker vars such as `APP_ORIGIN` and `LTI_TOOL_PRIVATE_JWK` with
+- set Worker vars such as `APP_ORIGIN`, `BETTER_AUTH_SECRET`, and
+  `LTI_TOOL_PRIVATE_JWK` with
   `--var ...` flags or `.dev.vars`
 - keep the `LOADER` Worker Loader binding present; Lantern uses it for the
   governed Dynamic Worker envelope around immutable reviewed runtime delivery
@@ -341,6 +342,7 @@ Generated local environment:
 - `APP_ORIGIN`: defaults to `http://localhost:8417`
 - `APP_RUNTIME_ORIGIN`: defaults to `http://localhost:8417` so local preview and
   reviewed runtime stay on one origin
+- `BETTER_AUTH_SECRET`: generated automatically for local admin sessions
 - `LTI_STATE_SECRET`: generated automatically for local development
 - `LTI_TOOL_PRIVATE_JWK`: generated automatically for local development
 
@@ -354,6 +356,8 @@ Manual minimum environment if you do not use `local:init`:
   Lantern must publish fixed public URLs without proxy headers
 - `APP_RUNTIME_ORIGIN`: required anywhere Lantern must publish runtime URLs for
   attempts and app sessions
+- `BETTER_AUTH_SECRET`: one stable secret with at least 32 UTF-8 bytes used for
+  admin auth cookies and sessions
 
 Common commands:
 
