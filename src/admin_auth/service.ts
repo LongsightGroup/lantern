@@ -1,11 +1,15 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth';
 import type { D1Database } from '../db/d1.ts';
 import type { EnvReader } from '../platform/env.ts';
-import { readEnv } from '../platform/env.ts';
+import {
+  type AdminAuthConfig,
+  type AdminAuthSocialProvider,
+  type AdminAuthSocialProviderConfig,
+  type AdminAuthSocialProviderId,
+  publicAdminAuthSocialProviders,
+  readAdminAuthConfig,
+} from './config.ts';
 
-const BETTER_AUTH_SECRET_ENV = 'BETTER_AUTH_SECRET';
-const APP_ORIGIN_ENV = 'APP_ORIGIN';
-const ADMIN_AUTH_ALLOW_SIGNUP_ENV = 'ADMIN_AUTH_ALLOW_SIGNUP';
 const ADMIN_SESSION_COOKIE = 'better-auth.session_token';
 
 export interface AdminAuthUser {
@@ -32,6 +36,7 @@ export interface AdminAuthFormFailure {
 export type AdminAuthFormOutcome = AdminAuthFormResult | AdminAuthFormFailure;
 
 export interface AdminAuthService {
+  socialProviders: ReadonlyArray<AdminAuthSocialProvider>;
   handleAuthRequest(request: Request): Promise<Response>;
   getSession(request: Request): Promise<AdminAuthSession | null>;
   signIn(input: {
@@ -47,6 +52,11 @@ export interface AdminAuthService {
     password: string;
     returnTo: string;
   }): Promise<AdminAuthFormOutcome>;
+  startSocialSignIn(input: {
+    request: Request;
+    providerId: AdminAuthSocialProviderId;
+    returnTo: string;
+  }): Promise<AdminAuthFormOutcome>;
   signOut(input: { request: Request; returnTo: string }): Promise<AdminAuthFormOutcome>;
 }
 
@@ -54,19 +64,17 @@ type BetterAuthRuntime = ReturnType<typeof betterAuth>;
 
 export function createBetterAdminAuthOptions(input: {
   db: D1Database;
-  baseURL: string;
-  secret: string;
-  allowSignUp: boolean;
+  config: AdminAuthConfig;
 }): BetterAuthOptions {
-  return {
+  const options: BetterAuthOptions = {
     appName: 'Lantern',
     database: input.db,
-    baseURL: input.baseURL,
+    baseURL: input.config.baseURL,
     basePath: '/api/auth',
-    secret: input.secret,
+    secret: input.config.secret,
     emailAndPassword: {
       enabled: true,
-      disableSignUp: !input.allowSignUp,
+      disableSignUp: !input.config.allowSignUp,
     },
     user: {
       modelName: 'auth_users',
@@ -81,24 +89,31 @@ export function createBetterAdminAuthOptions(input: {
       modelName: 'auth_verifications',
     },
   };
+
+  const socialProviders = createBetterAuthSocialProviders(input.config.socialProviders);
+
+  if (socialProviders !== undefined) {
+    options.socialProviders = socialProviders;
+  }
+
+  return options;
 }
 
 export function createBetterAdminAuth(input: {
   db: D1Database;
   env: EnvReader;
 }): AdminAuthService {
-  const baseURL = readRequiredEnv(input.env, APP_ORIGIN_ENV);
-  const secret = readRequiredEnv(input.env, BETTER_AUTH_SECRET_ENV);
-  const allowSignUp = readEnv(ADMIN_AUTH_ALLOW_SIGNUP_ENV, input.env) === '1';
-  const auth = betterAuth(
-    createBetterAdminAuthOptions({ db: input.db, baseURL, secret, allowSignUp }),
-  );
+  const config = readAdminAuthConfig(input.env);
+  const auth = betterAuth(createBetterAdminAuthOptions({ db: input.db, config }));
 
-  return createBetterAuthService(auth);
+  return createBetterAuthService(auth, {
+    socialProviders: publicAdminAuthSocialProviders(config.socialProviders),
+  });
 }
 
 export function createUnconfiguredAdminAuthService(message: string): AdminAuthService {
   return {
+    socialProviders: [],
     handleAuthRequest() {
       return Promise.resolve(new Response(message, { status: 503 }));
     },
@@ -111,14 +126,21 @@ export function createUnconfiguredAdminAuthService(message: string): AdminAuthSe
     signUp() {
       return Promise.resolve(unconfiguredAuthFailure(message));
     },
+    startSocialSignIn() {
+      return Promise.resolve(unconfiguredAuthFailure(message));
+    },
     signOut() {
       return Promise.resolve(unconfiguredAuthFailure(message));
     },
   };
 }
 
-function createBetterAuthService(auth: BetterAuthRuntime): AdminAuthService {
+function createBetterAuthService(
+  auth: BetterAuthRuntime,
+  options: { readonly socialProviders: ReadonlyArray<AdminAuthSocialProvider> },
+): AdminAuthService {
   return {
+    socialProviders: options.socialProviders,
     handleAuthRequest(request) {
       return auth.handler(request);
     },
@@ -140,9 +162,9 @@ function createBetterAuthService(auth: BetterAuthRuntime): AdminAuthService {
       };
     },
     signIn(input) {
-      return runBetterAuthFormAction(
-        () =>
-          auth.api.signInEmail({
+      return runBetterAuthAction(
+        async () => {
+          const result = await auth.api.signInEmail({
             body: {
               email: input.email,
               password: input.password,
@@ -150,14 +172,19 @@ function createBetterAuthService(auth: BetterAuthRuntime): AdminAuthService {
             },
             headers: input.request.headers,
             returnHeaders: true,
-          }),
-        input.returnTo,
+          });
+
+          return {
+            headers: result.headers,
+            location: input.returnTo,
+          };
+        },
       );
     },
     signUp(input) {
-      return runBetterAuthFormAction(
-        () =>
-          auth.api.signUpEmail({
+      return runBetterAuthAction(
+        async () => {
+          const result = await auth.api.signUpEmail({
             body: {
               name: input.name,
               email: input.email,
@@ -166,12 +193,47 @@ function createBetterAuthService(auth: BetterAuthRuntime): AdminAuthService {
             },
             headers: input.request.headers,
             returnHeaders: true,
-          }),
-        input.returnTo,
+          });
+
+          return {
+            headers: result.headers,
+            location: input.returnTo,
+          };
+        },
       );
     },
+    startSocialSignIn(input) {
+      if (!hasSocialProvider(options.socialProviders, input.providerId)) {
+        return Promise.resolve({
+          success: false,
+          status: 503,
+          message: 'That sign-in provider is not configured for this Lantern environment.',
+        });
+      }
+
+      return runBetterAuthAction(async () => {
+        const result = await auth.api.signInSocial({
+          body: {
+            provider: input.providerId,
+            callbackURL: input.returnTo,
+          },
+          headers: input.request.headers,
+          returnHeaders: true,
+        });
+        const location = readRedirectLocation(result);
+
+        if (!location) {
+          throw new Error('Better Auth did not return a Google authorization URL.');
+        }
+
+        return {
+          headers: result.headers,
+          location,
+        };
+      });
+    },
     async signOut(input) {
-      return await runBetterAuthFormAction(
+      return await runBetterAuthAction(
         async () => {
           const result = await auth.api.signOut({
             headers: input.request.headers,
@@ -182,23 +244,24 @@ function createBetterAuthService(auth: BetterAuthRuntime): AdminAuthService {
             throw new Error('Better Auth did not invalidate the admin session.');
           }
 
-          return result;
+          return {
+            headers: result.headers,
+            location: input.returnTo,
+          };
         },
-        input.returnTo,
       );
     },
   };
 }
 
-async function runBetterAuthFormAction(
-  action: () => Promise<{ headers: Headers }>,
-  returnTo: string,
+async function runBetterAuthAction(
+  action: () => Promise<{ headers: Headers; location: string }>,
 ): Promise<AdminAuthFormOutcome> {
   try {
     const authResult = await action();
     return {
       success: true,
-      response: redirectWithAuthHeaders(returnTo, authResult.headers),
+      response: redirectWithAuthHeaders(authResult.location, authResult.headers),
     };
   } catch (error) {
     return parseBetterAuthFormFailure(error);
@@ -268,6 +331,15 @@ function authErrorMessage(error: unknown): string {
   return 'Authentication failed.';
 }
 
+function readRedirectLocation(result: {
+  headers: Headers;
+  response: { readonly url?: string | undefined };
+}): string | null {
+  const location = result.headers.get('location') ?? result.response.url;
+
+  return typeof location === 'string' && location.trim() !== '' ? location : null;
+}
+
 function readAuthErrorStatus(error: unknown): number | null {
   if (
     typeof error === 'object' &&
@@ -300,16 +372,6 @@ function getSetCookies(headers: Headers): string[] {
   const cookie = headers.get('set-cookie');
 
   return cookie ? [cookie] : [];
-}
-
-function readRequiredEnv(env: EnvReader, name: string): string {
-  const value = readEnv(name, env)?.trim();
-
-  if (!value) {
-    throw new Error(`${name} is required to enable Lantern admin authentication.`);
-  }
-
-  return value;
 }
 
 function unconfiguredAuthFailure(message: string): AdminAuthFormFailure {
@@ -345,4 +407,33 @@ export function adminSessionCookieValue(token: string): string {
 
 export function expiredAdminSessionCookieValue(): string {
   return `${ADMIN_SESSION_COOKIE}=; Max-Age=0; Path=/; HttpOnly`;
+}
+
+function hasSocialProvider(
+  providers: ReadonlyArray<AdminAuthSocialProvider>,
+  providerId: AdminAuthSocialProviderId,
+): boolean {
+  return providers.some((provider) => provider.id === providerId);
+}
+
+function createBetterAuthSocialProviders(
+  providers: ReadonlyArray<AdminAuthSocialProviderConfig>,
+): BetterAuthOptions['socialProviders'] | undefined {
+  if (providers.length === 0) {
+    return undefined;
+  }
+
+  const google = providers.find((provider) => provider.id === 'google');
+
+  if (google === undefined) {
+    return undefined;
+  }
+
+  return {
+    google: {
+      clientId: google.clientId,
+      clientSecret: google.clientSecret,
+      prompt: 'select_account',
+    },
+  };
 }

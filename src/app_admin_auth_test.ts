@@ -63,6 +63,46 @@ Deno.test('login and signup pages render without a session', async () => {
   assertStringIncludes(await signup.text(), 'Create your Lantern admin account');
 });
 
+Deno.test('login page renders Google sign-in when configured', async () => {
+  const app = createApp({
+    adminAuth: createTestAdminAuth({
+      session: null,
+      socialProviders: [{ id: 'google', label: 'Google' }],
+    }),
+    getRepository: () => createInMemoryPackageReviewRepository(),
+  });
+
+  const login = await app.request('http://localhost/admin/login?returnTo=%2Fadmin%2Fpackages');
+
+  assertEquals(login.status, 200);
+  assertStringIncludes(await login.text(), 'Sign in with Google');
+});
+
+Deno.test('Google sign-in redirects to Google authorization URL', async () => {
+  const app = createApp({
+    adminAuth: createTestAdminAuth({
+      session: null,
+      socialProviders: [{ id: 'google', label: 'Google' }],
+    }),
+    getRepository: () => createInMemoryPackageReviewRepository(),
+  });
+
+  const response = await app.request('http://localhost/admin/login/google', {
+    method: 'POST',
+    headers: { origin: 'http://localhost' },
+    body: new URLSearchParams({
+      returnTo: '/admin/packages',
+    }),
+  });
+
+  assertEquals(response.status, 303);
+  assertEquals(
+    response.headers.get('location'),
+    'https://accounts.google.com/o/oauth2/v2/auth?client_id=test-google-client',
+  );
+  assertStringIncludes(response.headers.get('set-cookie') ?? '', 'better-auth.state=');
+});
+
 Deno.test('signup creates an admin session and redirects to packages', async () => {
   const auth = createUnauthenticatedAdminAuth();
   const app = createApp({

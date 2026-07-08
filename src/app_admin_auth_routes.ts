@@ -1,6 +1,7 @@
 import { csrf } from '@hono/hono/csrf';
 import type { Context, Hono } from '@hono/hono';
 import type { AppServices } from './app_services.ts';
+import type { AdminAuthSocialProviderId } from './admin_auth/config.ts';
 import { renderAdminAuthPage, renderAdminLogoutPage } from './admin_auth/page.ts';
 
 type AuthMode = 'login' | 'signup';
@@ -14,6 +15,7 @@ export function registerPublicAdminAuthRoutes(app: Hono, services: AppServices):
 
   app.get('/admin/login', (context) => renderAuthPage(context, services, 'login'));
   app.post('/admin/login', csrf(), (context) => handleAuthForm(context, services, 'login'));
+  app.post('/admin/login/:providerId', csrf(), (context) => handleSocialSignIn(context, services));
 
   app.get('/admin/signup', (context) => renderAuthPage(context, services, 'signup'));
   app.post('/admin/signup', csrf(), (context) => handleAuthForm(context, services, 'signup'));
@@ -44,7 +46,51 @@ async function renderAuthPage(context: Context, services: AppServices, mode: Aut
     return context.redirect(returnTo, 303);
   }
 
-  return context.html(renderAdminAuthPage({ mode, returnTo }));
+  return context.html(
+    renderAdminAuthPage({
+      mode,
+      returnTo,
+      socialProviders: services.adminAuth.socialProviders,
+    }),
+  );
+}
+
+async function handleSocialSignIn(context: Context, services: AppServices) {
+  const form = await context.req.raw.formData();
+  const returnTo = normalizeReturnTo(readFormString(form, 'returnTo'));
+  const providerId = parseSocialProviderId(context.req.param('providerId'));
+
+  if (providerId === null) {
+    return context.html(
+      renderAdminAuthPage({
+        mode: 'login',
+        returnTo,
+        socialProviders: services.adminAuth.socialProviders,
+        error: 'That sign-in provider is not configured for this Lantern environment.',
+      }),
+      404,
+    );
+  }
+
+  const result = await services.adminAuth.startSocialSignIn({
+    request: context.req.raw,
+    providerId,
+    returnTo,
+  });
+
+  if (result.success) {
+    return result.response;
+  }
+
+  return context.html(
+    renderAdminAuthPage({
+      mode: 'login',
+      returnTo,
+      socialProviders: services.adminAuth.socialProviders,
+      error: result.message,
+    }),
+    result.status,
+  );
 }
 
 async function handleAuthForm(context: Context, services: AppServices, mode: AuthMode) {
@@ -58,6 +104,7 @@ async function handleAuthForm(context: Context, services: AppServices, mode: Aut
       renderAdminAuthPage({
         mode,
         returnTo,
+        socialProviders: services.adminAuth.socialProviders,
         error: validationError,
         email: values.email,
         name: values.name,
@@ -89,6 +136,7 @@ async function handleAuthForm(context: Context, services: AppServices, mode: Aut
     renderAdminAuthPage({
       mode,
       returnTo,
+      socialProviders: services.adminAuth.socialProviders,
       error: result.message,
       email: values.email,
       name: values.name,
@@ -127,6 +175,10 @@ function readFormString(form: FormData, name: string): string {
   const value = form.get(name);
 
   return typeof value === 'string' ? value : '';
+}
+
+function parseSocialProviderId(value: string | undefined): AdminAuthSocialProviderId | null {
+  return value === 'google' ? value : null;
 }
 
 function normalizeReturnTo(value: string | undefined): string {

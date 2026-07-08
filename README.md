@@ -274,6 +274,17 @@ To run the Worker locally:
 - keep the `DB` D1 binding present; it is the Worker persistence binding
 - apply D1 migrations from `src/db/d1_migrations` before using repository-backed
   Worker routes
+
+Google admin sign-in is optional. To enable it, create a Google OAuth web client
+with these redirect URIs:
+
+- `https://lantern.appboundary.com/api/auth/callback/google`
+- `http://localhost:8417/api/auth/callback/google`
+
+Then configure both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as Worker
+secrets, or put both values in local `.dev.vars`. Setting only one value fails
+startup clearly.
+
 - if you want the demo import path to work on Workers, provision the curated
   reference sources into the same bucket first with
   `deno task reference:sync --bucket=<bucket-name>` or

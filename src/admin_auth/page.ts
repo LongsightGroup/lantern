@@ -1,5 +1,6 @@
 import { escapeHtml } from '../admin/layout.ts';
 import { ADMIN_LAYOUT_STYLES } from '../admin/layout_styles.ts';
+import type { AdminAuthSocialProvider } from './config.ts';
 
 const AUTH_PAGE_STYLES = `${ADMIN_LAYOUT_STYLES}
       body { background: var(--color-bg); }
@@ -31,6 +32,26 @@ const AUTH_PAGE_STYLES = `${ADMIN_LAYOUT_STYLES}
       .auth-form {
         display: grid;
         gap: 16px;
+      }
+      .auth-stack {
+        display: grid;
+        gap: 18px;
+      }
+      .auth-divider {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 12px;
+        color: var(--color-muted);
+        font-size: 0.82rem;
+        font-weight: 650;
+        text-transform: uppercase;
+      }
+      .auth-divider::before,
+      .auth-divider::after {
+        content: "";
+        height: 1px;
+        background: var(--color-border);
       }
       .auth-field {
         display: grid;
@@ -74,6 +95,7 @@ const AUTH_PAGE_STYLES = `${ADMIN_LAYOUT_STYLES}
 export function renderAdminAuthPage(input: {
   mode: 'login' | 'signup';
   returnTo: string;
+  socialProviders: ReadonlyArray<AdminAuthSocialProvider>;
   error?: string;
   email?: string;
   name?: string;
@@ -92,6 +114,8 @@ export function renderAdminAuthPage(input: {
       'Use a Lantern admin account to review packages, manage LMS deployments, and inspect runtime activity.',
     body: `
         ${renderAuthError(input.error)}
+        <div class="auth-stack">
+        ${isSignup ? '' : renderSocialSignInForms(input.returnTo, input.socialProviders)}
         <form class="auth-form" method="post" action="${action}">
           <input type="hidden" name="returnTo" value="${escapeHtml(input.returnTo)}">
           ${isSignup ? renderNameField(input.name) : ''}
@@ -108,7 +132,8 @@ export function renderAdminAuthPage(input: {
       isSignup ? 'Create account' : 'Sign in'
     }</button>
           </div>
-        </form>`,
+        </form>
+        </div>`,
   });
 }
 
@@ -155,6 +180,25 @@ function renderAdminAuthShell(input: {
 
 function renderAuthError(error: string | undefined): string {
   return error ? `<div class="auth-error" role="alert">${escapeHtml(error)}</div>` : '';
+}
+
+function renderSocialSignInForms(
+  returnTo: string,
+  providers: ReadonlyArray<AdminAuthSocialProvider>,
+): string {
+  if (providers.length === 0) {
+    return '';
+  }
+
+  const forms = providers.map((provider) =>
+    `<form class="auth-form" method="post" action="/admin/login/${escapeHtml(provider.id)}">
+          <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}">
+          <button class="button" type="submit">Sign in with ${escapeHtml(provider.label)}</button>
+        </form>`
+  );
+
+  return `${forms.join('')}
+        <div class="auth-divider" aria-hidden="true">or</div>`;
 }
 
 function renderNameField(name: string | undefined): string {

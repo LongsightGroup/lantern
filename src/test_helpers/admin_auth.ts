@@ -4,6 +4,7 @@ import type {
   AdminAuthService,
   AdminAuthSession,
 } from '../admin_auth/service.ts';
+import type { AdminAuthSocialProvider } from '../admin_auth/config.ts';
 import {
   adminSessionCookieValue,
   expiredAdminSessionCookieValue,
@@ -59,10 +60,14 @@ export function createTestAdminAuth(input: {
   session: AdminAuthSession | null;
   duplicateSignupEmail?: string;
   signOutFailure?: AdminAuthFormFailure;
+  socialProviders?: ReadonlyArray<AdminAuthSocialProvider>;
+  socialSignInFailure?: AdminAuthFormFailure;
 }): AdminAuthService {
   let activeSession = input.session;
+  const socialProviders = input.socialProviders ?? [];
 
   return {
+    socialProviders,
     handleAuthRequest() {
       return Promise.resolve(new Response('Not found', { status: 404 }));
     },
@@ -98,6 +103,26 @@ export function createTestAdminAuth(input: {
 
       return Promise.resolve(
         redirectResult(signUpInput.returnTo, adminSessionCookieValue(ADMIN_TEST_SESSION_TOKEN)),
+      );
+    },
+    startSocialSignIn(signInInput) {
+      if (input.socialSignInFailure) {
+        return Promise.resolve(input.socialSignInFailure);
+      }
+
+      const provider = socialProviders.find((item) => item.id === signInInput.providerId);
+
+      if (!provider) {
+        return Promise.resolve(
+          authFailure('That sign-in provider is not configured for this Lantern environment.', 503),
+        );
+      }
+
+      return Promise.resolve(
+        redirectResult(
+          `https://accounts.google.com/o/oauth2/v2/auth?client_id=test-${provider.id}-client`,
+          'better-auth.state=test-state; Path=/; HttpOnly',
+        ),
       );
     },
     signOut(signOutInput) {
@@ -185,7 +210,7 @@ function redirectResult(location: string, cookie: string): AdminAuthFormResult {
   };
 }
 
-function authFailure(message: string, status: 401 | 409): AdminAuthFormFailure {
+function authFailure(message: string, status: 401 | 409 | 503): AdminAuthFormFailure {
   return {
     success: false,
     message,
