@@ -14,6 +14,7 @@ import {
   buildDeploymentBinding,
   createSyncedTestLtiStorage,
 } from './test_helpers/lti.ts';
+import { buildTestLtiJwtPayload } from './test_helpers/lti_session_builders.ts';
 
 Deno.test('Deep Linking picker shows preview only after a reviewed selection is saved and posts it in a new tab', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -222,7 +223,10 @@ Deno.test('POST /lti/deep-linking/sessions/:id/preview does not consume the Deep
       const ltiStorage = await createSyncedTestLtiStorage({ binding });
       await ltiStorage.addSession({
         id: 'lti-tool-session-preview-submit',
-        jwtPayload: {},
+        jwtPayload: buildTestLtiJwtPayload({
+          messageType: 'LtiDeepLinkingRequest',
+          targetLinkUri: 'https://lantern.example/lti/deep-linking',
+        }),
         user: {
           id: 'canvas-user-123',
           roles: ['http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor'],

@@ -87,10 +87,10 @@ export async function mapResourceLinkLaunch(input: {
     packageVersion: resolved.packageVersion.version,
     contentPath: resolved.contentPath,
     attemptId: createOpaqueToken(),
-    userId: input.session.user.id,
+    userId: requireString(input.session.user.id, 'Launch user.id is required.'),
     userDisplayName: input.session.user.name ?? null,
     userEmail: input.session.user.email ?? null,
-    userLogin: readOptionalString(input.session.jwtPayload.preferred_username),
+    userLogin: readVerifiedUserLogin(input.session.jwtPayload),
     userRole: resolveUserRole(input.message.roles),
     resourceLinkId: input.message.resourceLink.id,
     resourceLinkTitle: input.message.resourceLink.title ?? null,
@@ -108,7 +108,6 @@ export function mapDeepLinkingLaunch(input: {
   verifiedLaunch: LtiAuthorizedLaunch<LanternLaunchAuthorization>;
   session: LTISession;
   message: ResolvedLtiDeepLinkingLaunchMessage;
-  acceptLineItem: boolean;
 }): ValidatedDeepLinkingRequest {
   const deployment = input.verifiedLaunch.authorization.deployment;
   const binding = deployment.binding;
@@ -127,7 +126,7 @@ export function mapDeepLinkingLaunch(input: {
     internalDeploymentId: deployment.id,
     internalDeploymentSlug: deployment.slug,
     appId: deployment.appId,
-    userId: input.session.user.id,
+    userId: input.session.user.id ?? null,
     userRole: resolveUserRole(input.message.roles),
     contextId: input.message.context?.id ?? null,
     contextTitle: input.message.context?.title ?? null,
@@ -145,7 +144,7 @@ export function mapDeepLinkingLaunch(input: {
         ): value is DeepLinkingPresentationDocumentTarget =>
           value === 'iframe' || value === 'window' || value === 'embed'
         ),
-      acceptLineItem: input.acceptLineItem,
+      acceptLineItem: input.message.deepLinkingSettings.acceptLineItem ?? false,
     },
     issuedAt: issuedAtIso(input.session),
   };
@@ -196,6 +195,11 @@ function readLaunchPresentationReturnUrl(payload: LTISession['jwtPayload']): str
 
 function readOptionalString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+function readVerifiedUserLogin(_payload: LTISession['jwtPayload']): string | null {
+  // lti-tool verifies launches through a schema that does not expose Canvas preferred_username.
+  return null;
 }
 
 function requireString(value: unknown, message: string): string {

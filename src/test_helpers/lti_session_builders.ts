@@ -1,4 +1,5 @@
 import { resolveSubmissionMode } from '../../sdk/app-sdk.ts';
+import type { LTISession } from '@longsightgroup/lti-tool';
 import type {
   DeepLinkingSessionRecord,
   LmsType,
@@ -12,6 +13,40 @@ import {
   buildPlatformIdentity,
   TEST_NOW,
 } from './lti_identity_builders.ts';
+
+export function buildTestLtiJwtPayload(
+  input: {
+    messageType?: 'LtiResourceLinkRequest' | 'LtiDeepLinkingRequest';
+    targetLinkUri?: string;
+  } = {},
+): LTISession['jwtPayload'] {
+  const messageType = input.messageType ?? 'LtiResourceLinkRequest';
+  const targetLinkUri = input.targetLinkUri ?? 'http://localhost:8417/lti/launch';
+  const base = {
+    iss: 'https://canvas.instructure.com',
+    aud: '10000000000001',
+    exp: 4_102_444_800,
+    iat: 1_735_689_600,
+    nonce: 'nonce-123',
+    'https://purl.imsglobal.org/spec/lti/claim/version': '1.3.0',
+    'https://purl.imsglobal.org/spec/lti/claim/deployment_id': 'deployment-123',
+    'https://purl.imsglobal.org/spec/lti/claim/target_link_uri': targetLinkUri,
+  } as const;
+
+  if (messageType === 'LtiDeepLinkingRequest') {
+    return {
+      ...base,
+      sub: 'canvas-user-123',
+      'https://purl.imsglobal.org/spec/lti/claim/message_type': 'LtiDeepLinkingRequest',
+    };
+  }
+
+  return {
+    ...base,
+    sub: 'canvas-user-123',
+    'https://purl.imsglobal.org/spec/lti/claim/message_type': 'LtiResourceLinkRequest',
+  };
+}
 
 export function buildValidatedLaunch(overrides: Partial<ValidatedLaunch> = {}): ValidatedLaunch {
   const identity = buildPlatformIdentity({

@@ -10,8 +10,10 @@ Deno.test('loadToolSigningKey accepts one RS256 private JWK and projects a publi
   const loaded = await loadToolSigningKey(env);
   const jwks = await getPublicJwkSet(env);
 
-  assertEquals(loaded.privateJwk.kty, 'RSA');
+  assertEquals(loaded.alg, 'RS256');
+  assertEquals(loaded.privateKey.type, 'private');
   assertEquals(loaded.publicJwk.alg, 'RS256');
+  assertEquals(loaded.keyId, loaded.publicJwk.kid);
   assertEquals(jwks.keys.length, 1);
   assertEquals('d' in jwks.keys[0]!, false);
 });
@@ -27,7 +29,11 @@ Deno.test('loadToolSigningKey rejects non-RSA tool keys', async () => {
     }),
   });
 
-  await assertRejects(() => loadToolSigningKey(env), Error, 'must use kty=RSA');
+  await assertRejects(
+    () => loadToolSigningKey(env),
+    Error,
+    'LTI tool private JWK must be an RSA private JWK with private key parameters',
+  );
 });
 
 function createEnvReader(values: Record<string, string>): {

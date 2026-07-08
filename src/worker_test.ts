@@ -24,11 +24,22 @@ Deno.test('Cloudflare worker entrypoint serves Canvas config from worker env bin
   const body = (await response.json()) as {
     oidc_initiation_url: string;
     target_link_uri: string;
-    redirect_uris: string[];
+    extensions: Array<{
+      settings: {
+        placements: Array<{
+          target_link_uri: string;
+        }>;
+      };
+    }>;
   };
 
   assertEquals(response.status, 200);
   assertEquals(body.oidc_initiation_url, 'https://lantern.example/lti/login');
   assertEquals(body.target_link_uri, 'https://lantern.example/lti/launch');
-  assertEquals(body.redirect_uris.includes('https://lantern.example/lti/launch'), true);
+  assertEquals(
+    body.extensions.flatMap((extension) => extension.settings.placements).some((placement) =>
+      placement.target_link_uri === 'https://lantern.example/lti/launch'
+    ),
+    true,
+  );
 });

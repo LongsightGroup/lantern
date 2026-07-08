@@ -25,6 +25,7 @@ export function buildDeepLinkingResourceLinkContentItem(input: {
     custom: {
       [LANTERN_PLACEMENT_CUSTOM_KEY]: input.placement.placementId,
     },
+    ...buildOptionalPresentation(input.session.acceptPresentationDocumentTargets),
     ...buildOptionalLineItem({
       session: input.session,
       placement: input.placement,
@@ -33,19 +34,8 @@ export function buildDeepLinkingResourceLinkContentItem(input: {
     }),
   };
   const validated = createLtiResourceLinkContentItem(baseContentItem);
-  const presentationDocumentTarget = resolvePresentationDocumentTarget(
-    input.session.acceptPresentationDocumentTargets,
-  );
 
-  return {
-    type: validated.type,
-    ...baseContentItem,
-    ...(presentationDocumentTarget === null ? {} : {
-      presentation: {
-        documentTarget: presentationDocumentTarget,
-      },
-    }),
-  };
+  return validated;
 }
 
 function buildPlacementTitle(placement: ReviewedPlacementRecord): string {
@@ -82,14 +72,22 @@ function buildOptionalLineItem(input: {
   };
 }
 
-function resolvePresentationDocumentTarget(
+function buildOptionalPresentation(
   targets: DeepLinkingSessionRecord['acceptPresentationDocumentTargets'],
-): DeepLinkingPresentationDocumentTarget | null {
+): {
+  presentation?: {
+    documentTarget: DeepLinkingPresentationDocumentTarget;
+  };
+} {
   if (targets.length === 0) {
-    return null;
+    return {};
   }
 
-  return targets.includes('iframe') ? 'iframe' : (targets[0] ?? null);
+  return {
+    presentation: {
+      documentTarget: targets.includes('iframe') ? 'iframe' : (targets[0] ?? 'iframe'),
+    },
+  };
 }
 
 export function buildReviewedPlacementLineItemResourceId(

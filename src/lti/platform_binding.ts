@@ -1,3 +1,4 @@
+import { resolveCanvasPlatformBinding } from '@longsightgroup/lti-tool';
 import { resolveCanvasPlatform } from './canvas_platform.ts';
 import type { DeploymentBinding, LmsType } from './types.ts';
 
@@ -24,9 +25,9 @@ export function resolveBindingJwksUrl(binding: DeploymentBinding): string {
 export function resolveServiceTokenEndpoint(binding: DeploymentBinding): string {
   switch (binding.lms) {
     case 'canvas':
-      return resolveCanvasTokenEndpoint(
-        resolveCanvasPlatform(binding.issuer).authorizationEndpoint,
-      );
+      return resolveCanvasPlatformBinding(
+        resolveCanvasPlatform(binding.issuer).environment,
+      ).tokenUrl;
     case 'moodle':
     case 'sakai':
       return binding.accessTokenUrl;
@@ -42,13 +43,4 @@ export function formatLmsLabel(lms: LmsType): string {
     case 'sakai':
       return 'Sakai';
   }
-}
-
-function resolveCanvasTokenEndpoint(authorizationEndpoint: string): string {
-  const url = new URL(authorizationEndpoint);
-  url.pathname = '/login/oauth2/token';
-  url.search = '';
-  url.hash = '';
-
-  return url.toString();
 }

@@ -8,7 +8,6 @@ import {
   type LanternLtiToolContext,
   syncLtiToolDeploymentBinding,
 } from './lti/tool_provider.ts';
-import { CANVAS_LTI_SCOPES } from './lti/types.ts';
 import {
   buildDeploymentRecord,
   createInMemoryPackageReviewRepository,
@@ -31,6 +30,13 @@ interface LtiToolStateClaims {
   readonly clientId: string;
   readonly targetLinkUri: string;
 }
+
+const EXPECTED_CANVAS_STATIC_SCOPES = [
+  'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
+  'https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly',
+  'https://purl.imsglobal.org/spec/lti-ags/scope/score',
+  'https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly',
+];
 
 Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
@@ -91,7 +97,7 @@ Deno.test('GET /lti/canvas/config.json publishes the pilot Canvas config documen
     };
 
     assertEquals(typeof body.oidc_initiation_url, 'string');
-    assertEquals(body.scopes, [...CANVAS_LTI_SCOPES]);
+    assertEquals(body.scopes, EXPECTED_CANVAS_STATIC_SCOPES);
     assertEquals(body.extensions[0]?.settings.placements[0]?.placement, 'course_navigation');
     assertEquals(
       body.extensions[0]?.settings.placements.some(
@@ -125,15 +131,24 @@ Deno.test('GET /lti/canvas/config.json uses the forwarded public origin when Lan
     const body = (await response.json()) as {
       oidc_initiation_url: string;
       target_link_uri: string;
-      redirect_uris: string[];
+      extensions: Array<{
+        settings: {
+          placements: Array<{
+            placement: string;
+            target_link_uri: string;
+          }>;
+        };
+      }>;
     };
 
     assertEquals(body.oidc_initiation_url, 'https://lantern.example/lti/login');
     assertEquals(body.target_link_uri, 'https://lantern.example/lti/launch');
-    assertEquals(body.redirect_uris.includes('https://lantern.example/lti/launch'), true);
+    const placements = body.extensions.flatMap((extension) => extension.settings.placements);
+
     assertEquals(
-      body.redirect_uris.includes(
-        'https://lantern.example/lti/deep-linking?placement=resource_selection',
+      placements.some((placement) =>
+        placement.target_link_uri ===
+          'https://lantern.example/lti/deep-linking?placement=resource_selection'
       ),
       true,
     );

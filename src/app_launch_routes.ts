@@ -25,10 +25,6 @@ import {
   mapDeepLinkingLaunch,
   mapResourceLinkLaunch,
 } from './lti/launch_mapping.ts';
-import {
-  readLaunchIdToken,
-  readVerifiedDeepLinkingAcceptLineItemClaim,
-} from './lti/deep_linking_launch_settings.ts';
 import { adaptLtiToolHonoHandler } from './lti/hono_handler_adapter.ts';
 import { recordLaunchRejectedAudit } from './lti/launch_audit.ts';
 import { isLtiBoundaryDenialError } from './lti/lti_boundary_denial.ts';
@@ -47,7 +43,6 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
     const ltiContext = await services.getLtiToolContext(appOrigin);
     const repository = services.getRepository();
     const verificationAuditWrites: Array<Promise<unknown>> = [];
-    const launchIdToken = await readLaunchIdToken(context.req.raw.clone());
     const handler = customLaunchRouteHandler<LanternLaunchAuthorization>({
       ltiTool: ltiContext.tool,
       logger: ltiContext.logger,
@@ -63,7 +58,6 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
         renderLanternDeepLinkingLaunch({
           repository,
           launchContext,
-          launchIdToken,
         }),
       onVerificationFailure: async ({ hono, error }) => {
         await recordLaunchRejectedAudit({
@@ -197,19 +191,11 @@ async function renderLanternResourceLinkLaunch(input: {
 async function renderLanternDeepLinkingLaunch(input: {
   repository: PackageReviewRepository;
   launchContext: CustomDeepLinkingLaunchContext<LtiAuthorizedLaunch<LanternLaunchAuthorization>>;
-  launchIdToken: string | null;
 }): Promise<Response> {
-  const acceptLineItemClaim = readVerifiedDeepLinkingAcceptLineItemClaim(input.launchIdToken);
-
-  if (!acceptLineItemClaim.success) {
-    throw new Error(acceptLineItemClaim.message);
-  }
-
   const request = mapDeepLinkingLaunch({
     verifiedLaunch: input.launchContext.launch,
     session: input.launchContext.session,
     message: input.launchContext.message,
-    acceptLineItem: acceptLineItemClaim.value,
   });
   const session = await createDeepLinkingSession({
     repository: input.repository,

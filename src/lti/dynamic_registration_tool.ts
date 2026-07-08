@@ -75,7 +75,7 @@ export async function completeLanternDynamicRegistrationWithLtiTool(input: {
 
   const completed = await input.ltiContext.dynamicRegistration.completeDynamicRegistration({
     services: DEFAULT_DYNAMIC_REGISTRATION_SERVICES,
-    sessionToken: readRegistrationSessionToken(initiated.data),
+    sessionToken: initiated.data.sessionToken,
   });
 
   if (!completed.success) {
@@ -117,17 +117,6 @@ function buildDeploymentBinding(
     accessTokenUrl: launchConfig.tokenUrl,
     jwksUrl: launchConfig.jwksUrl,
   };
-}
-
-function readRegistrationSessionToken(html: string): string {
-  const match = html.match(/\bname=["']sessionToken["'][^>]*\bvalue=["']([^"']+)["']/i) ??
-    html.match(/\bvalue=["']([^"']+)["'][^>]*\bname=["']sessionToken["']/i);
-
-  if (match?.[1] === undefined || match[1].trim() === '') {
-    throw new Error('lti-tool dynamic registration did not return a registration session token.');
-  }
-
-  return match[1];
 }
 
 function readLanternDynamicRegistrationAppState(

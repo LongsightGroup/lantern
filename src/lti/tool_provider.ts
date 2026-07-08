@@ -1,7 +1,5 @@
 import {
   createNoopLogger,
-  type DynamicRegistrationConfig,
-  importLtiToolKeyPairFromJwk,
   LtiDynamicRegistration,
   type LtiLogger,
   type LTIStorage,
@@ -20,6 +18,7 @@ import {
   resolveServiceTokenEndpoint,
 } from './platform_binding.ts';
 import { loadToolSigningKey } from './tool_key.ts';
+import { buildDynamicRegistrationConfig } from './dynamic_registration_config.ts';
 import type { DeploymentBinding } from './types.ts';
 
 const LTI_STATE_SECRET_ENV = 'LTI_STATE_SECRET';
@@ -56,15 +55,14 @@ export async function createLanternLtiToolContext(
 ): Promise<LanternLtiToolContext> {
   const logger = input.logger ?? createNoopLogger();
   const toolSigningKey = await loadToolSigningKey(input.env);
-  const keyMaterial = await importLtiToolKeyPairFromJwk(toolSigningKey.privateJwk);
   const appOrigin = input.appOrigin ?? requireAppOrigin(input.env);
   const config = {
     stateSecret: readLtiStateSecret(input.env),
-    keyPair: keyMaterial.keyPair,
+    keyPair: toolSigningKey.keyPair,
     storage: input.storage,
     logger,
     security: {
-      keyId: keyMaterial.keyId,
+      keyId: toolSigningKey.keyId,
       remoteJwks: {
         timeoutDuration: 5_000,
         cooldownDuration: 30_000,
@@ -118,36 +116,4 @@ function readLtiStateSecret(env: EnvReader): Uint8Array {
   }
 
   return bytes;
-}
-
-function buildDynamicRegistrationConfig(appOrigin: string): DynamicRegistrationConfig {
-  return {
-    url: appOrigin,
-    name: 'Lantern',
-    description: 'Launch approved Lantern learning activities through the governed runtime.',
-    loginUri: `${appOrigin}/lti/login`,
-    launchUri: `${appOrigin}/lti/launch`,
-    jwksUri: `${appOrigin}/lti/jwks.json`,
-    deepLinkingUri: `${appOrigin}/lti/deep-linking`,
-    redirectUris: [
-      `${appOrigin}/lti/launch`,
-      `${appOrigin}/lti/deep-linking`,
-      `${appOrigin}/lti/deep-linking?placement=resource_selection`,
-    ],
-    platforms: {
-      canvas: {
-        privacyLevel: 'public',
-        toolId: 'lantern-demo-broker',
-        resourceLinkPlacements: ['course_navigation'],
-        deepLinkPlacements: ['assignment_selection', 'resource_selection'],
-      },
-      moodle: {
-        deepLinkPlacements: ['assignment_selection'],
-      },
-      sakai: {
-        resourceLinkPlacements: ['course_navigation'],
-        deepLinkPlacements: ['assignment_selection'],
-      },
-    },
-  };
 }

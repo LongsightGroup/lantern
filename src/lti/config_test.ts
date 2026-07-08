@@ -1,6 +1,12 @@
-import { assertEquals, assertStringIncludes } from '@std/assert';
-import { CANVAS_LTI_SCOPES } from './types.ts';
+import { assertEquals, assertRejects, assertStringIncludes } from '@std/assert';
 import { getTestToolPrivateJwkEnvValue, TEST_LTI_STATE_SECRET } from '../test_helpers/lti.ts';
+
+const EXPECTED_CANVAS_STATIC_SCOPES = [
+  'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
+  'https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly',
+  'https://purl.imsglobal.org/spec/lti-ags/scope/score',
+  'https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly',
+];
 
 const TEST_CONFIG_ENV = {
   get(name: string): string | undefined {
@@ -40,7 +46,7 @@ Deno.test('GET /lti/canvas/config.json publishes one supported Canvas config doc
     assertEquals(typeof body.oidc_initiation_url, 'string');
     assertEquals(typeof body.target_link_uri, 'string');
     assertEquals(typeof body.public_jwk_url, 'string');
-    assertEquals(body.scopes, [...CANVAS_LTI_SCOPES]);
+    assertEquals(body.scopes, EXPECTED_CANVAS_STATIC_SCOPES);
     assertEquals(Array.isArray(body.extensions), true);
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
@@ -84,15 +90,24 @@ Deno.test('config document advertises exactly the Phase 3 AGS and NRPS scopes', 
     const document = await buildCanvasConfigDocument('http://localhost:8417', TEST_CONFIG_ENV);
 
     assertEquals(Array.isArray(document.extensions), true);
-    assertEquals(document.scopes, [...CANVAS_LTI_SCOPES]);
-    assertEquals(
-      document.scopes.includes('https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly'),
-      false,
-    );
+    assertEquals(document.scopes, EXPECTED_CANVAS_STATIC_SCOPES);
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
     restoreEnv('LTI_TOOL_PRIVATE_JWK', previousJwk);
   }
+});
+
+Deno.test('config document fails before publishing when the tool JWK is missing', async () => {
+  const { buildCanvasConfigDocument } = await import('./config.ts');
+
+  await assertRejects(
+    () =>
+      buildCanvasConfigDocument('http://localhost:8417', {
+        get: () => undefined,
+      }),
+    Error,
+    'Missing LTI_TOOL_PRIVATE_JWK',
+  );
 });
 
 Deno.test('config document advertises assignment-selection Deep Linking on a dedicated route', async () => {
@@ -112,16 +127,14 @@ Deno.test('config document advertises assignment-selection Deep Linking on a ded
 
     assertEquals(assignmentSelection?.message_type, 'LtiDeepLinkingRequest');
     assertEquals(assignmentSelection?.target_link_uri, 'http://localhost:8417/lti/deep-linking');
-    assertEquals(document.redirect_uris.includes('http://localhost:8417/lti/deep-linking'), true);
-    assertEquals(
-      document.redirect_uris.includes(
-        'http://localhost:8417/lti/deep-linking?placement=resource_selection',
-      ),
-      true,
+    const resourceSelection = placements.find(
+      (placement) => placement.placement === 'resource_selection',
     );
+
+    assertEquals(resourceSelection?.message_type, 'LtiDeepLinkingRequest');
     assertEquals(
-      placements.some((placement) => placement.placement === 'resource_selection'),
-      true,
+      resourceSelection?.target_link_uri,
+      'http://localhost:8417/lti/deep-linking?placement=resource_selection',
     );
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);

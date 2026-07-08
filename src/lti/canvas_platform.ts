@@ -1,24 +1,10 @@
+import { resolveCanvasPlatformBinding } from '@longsightgroup/lti-tool';
 import type { CanvasEnvironment, CanvasPlatformConfig } from './types.ts';
 
 const CANVAS_PLATFORMS: Record<CanvasEnvironment, CanvasPlatformConfig> = {
-  production: {
-    environment: 'production',
-    issuer: 'https://canvas.instructure.com',
-    authorizationEndpoint: 'https://sso.canvaslms.com/api/lti/authorize_redirect',
-    jwksUrl: 'https://sso.canvaslms.com/api/lti/security/jwks',
-  },
-  beta: {
-    environment: 'beta',
-    issuer: 'https://canvas.beta.instructure.com',
-    authorizationEndpoint: 'https://sso.beta.canvaslms.com/api/lti/authorize_redirect',
-    jwksUrl: 'https://sso.beta.canvaslms.com/api/lti/security/jwks',
-  },
-  test: {
-    environment: 'test',
-    issuer: 'https://canvas.test.instructure.com',
-    authorizationEndpoint: 'https://sso.test.canvaslms.com/api/lti/authorize_redirect',
-    jwksUrl: 'https://sso.test.canvaslms.com/api/lti/security/jwks',
-  },
+  production: buildCanvasPlatformConfig('production'),
+  beta: buildCanvasPlatformConfig('beta'),
+  test: buildCanvasPlatformConfig('test'),
 };
 
 export function listCanvasPlatforms(): CanvasPlatformConfig[] {
@@ -37,4 +23,15 @@ export function resolveCanvasPlatform(value: CanvasEnvironment | string): Canvas
   }
 
   throw new Error(`Canvas issuer ${value} is not supported by Lantern.`);
+}
+
+function buildCanvasPlatformConfig(environment: CanvasEnvironment): CanvasPlatformConfig {
+  const binding = resolveCanvasPlatformBinding(environment);
+
+  return {
+    environment,
+    issuer: binding.iss,
+    authorizationEndpoint: binding.authUrl,
+    jwksUrl: binding.jwksUrl,
+  };
 }

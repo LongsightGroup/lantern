@@ -1,6 +1,4 @@
 import { type AttemptScoreResult } from '../grading/service.ts';
-import { withAgsLineItemTarget } from '../lti/ags_session.ts';
-import { requireLtiToolSession } from '../lti/lti_tool_session.ts';
 import type { LanternLtiToolContext } from '../lti/tool_provider.ts';
 import type { LTISession } from '@longsightgroup/lti-tool';
 import {
@@ -8,6 +6,7 @@ import {
   LTI_AGS_SCORE_SCOPE,
   type RuntimeSessionRecord,
 } from '../lti/types.ts';
+import { requireVerifiedLtiSessionWithContext } from '../lti/session_boundary.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type { AttemptRecord, PackageVersionRecord } from '../package_review/types.ts';
 import { requireRuntimeDeployment } from './gateway_context.ts';
@@ -143,16 +142,19 @@ async function publishRuntimeAttemptScoreWithLtiTool(input: {
     };
   }
 
-  const ltiContext = await input.getLtiToolContext();
+  let ltiContext: LanternLtiToolContext;
   let ltiSession: LTISession;
 
   try {
-    ltiSession = await requireLtiToolSession({
-      storage: ltiContext.storage,
-      ltiToolSessionId: input.session.ltiToolSessionId,
+    const loaded = await requireVerifiedLtiSessionWithContext({
+      getContext: input.getLtiToolContext,
+      sessionId: input.session.ltiToolSessionId,
       missingMessage: 'A verified lti-tool session is required before score publish can continue.',
       notFoundMessage: 'The verified LTI session for this runtime attempt was not found.',
     });
+
+    ltiContext = loaded.context;
+    ltiSession = loaded.session;
   } catch (error) {
     return {
       lineItemBinding: input.existingBinding,
@@ -211,15 +213,17 @@ async function publishRuntimeAttemptScoreWithLtiTool(input: {
       errorCode: null,
       errorDetail: null,
     });
-  const scoreSession = withAgsLineItemTarget(ltiSession, lineItemBinding.lineItemUrl);
-  const result = await ltiContext.tool.createAdvantage(scoreSession).submitScore({
-    userId: gradePublication.platformUserId,
-    scoreGiven: gradePublication.scoreGiven,
-    scoreMaximum: gradePublication.scoreMaximum,
-    activityProgress: gradePublication.activityProgress,
-    gradingProgress: 'FullyGraded',
-    timestamp: input.now().toISOString(),
-  });
+  const result = await ltiContext.tool.createAdvantage(ltiSession).submitScore(
+    {
+      userId: gradePublication.platformUserId,
+      scoreGiven: gradePublication.scoreGiven,
+      scoreMaximum: gradePublication.scoreMaximum,
+      activityProgress: gradePublication.activityProgress,
+      gradingProgress: 'FullyGraded',
+      timestamp: input.now().toISOString(),
+    },
+    { lineItemUrl: lineItemBinding.lineItemUrl },
+  );
 
   if (!result.success) {
     return {

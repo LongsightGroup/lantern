@@ -1,4 +1,5 @@
 import type { Capability, SubmissionMode, UserRole } from '../../sdk/app-sdk.ts';
+import type { DeepLinkingLtiResourceLink } from '@longsightgroup/lti-tool';
 
 export type CanvasEnvironment = 'production' | 'beta' | 'test';
 export const LTI_AGS_SCORE_SCOPE = 'https://purl.imsglobal.org/spec/lti-ags/scope/score';
@@ -213,24 +214,7 @@ export interface DeepLinkingSessionRecord {
   usedAt: string | null;
 }
 
-export interface DeepLinkingResponseLineItem {
-  scoreMaximum: number;
-  label: string;
-  resourceId: string;
-  tag: string;
-}
-
-export interface DeepLinkingResponseContentItem {
-  type: 'ltiResourceLink';
-  title: string;
-  text: string;
-  url: string;
-  custom: Record<string, string>;
-  lineItem?: DeepLinkingResponseLineItem;
-  presentation?: {
-    documentTarget: DeepLinkingPresentationDocumentTarget;
-  };
-}
+export type DeepLinkingResponseContentItem = DeepLinkingLtiResourceLink;
 
 export interface DeepLinkingResponseSubmission {
   returnUrl: string;

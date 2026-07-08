@@ -1,12 +1,11 @@
 import { errorMessage } from './app_status_support.ts';
-import { withAgsLineItemTarget } from './lti/ags_session.ts';
-import { requireLtiToolSession } from './lti/lti_tool_session.ts';
 import { buildResolvedLtiProfileDetail } from './lti/profile_resolution.ts';
 import type { ResolvedLtiProfile } from './lti/profile.ts';
 import type { DeploymentBinding, RuntimeSessionRecord } from './lti/types.ts';
 import { LTI_AGS_LINEITEM_SCOPE, LTI_AGS_SCORE_SCOPE } from './lti/types.ts';
 import type { LanternLtiToolContext } from './lti/tool_provider.ts';
 import type { LTISession } from '@longsightgroup/lti-tool';
+import { requireVerifiedLtiSessionWithContext } from './lti/session_boundary.ts';
 import type { PackageReviewRepository } from './package_review/repository.ts';
 import type { AttemptRecord, DeploymentRecord } from './package_review/types.ts';
 import { buildSmokeVerificationLineItemSpec } from './runtime/gateway_publication_support.ts';
@@ -127,15 +126,17 @@ export async function runGradeSmokeVerification(input: {
   }
 
   try {
-    const scoreResult = await ltiSession.ltiContext.tool.createAdvantage(
-      withAgsLineItemTarget(ltiSession.session, lineItemUrl),
-    ).submitScore({
-      userId: input.attempt.userId,
-      scoreGiven: 1,
-      scoreMaximum: 1,
-      activityProgress: 'Completed',
-      gradingProgress: 'FullyGraded',
-    });
+    const scoreResult = await ltiSession.ltiContext.tool.createAdvantage(ltiSession.session)
+      .submitScore(
+        {
+          userId: input.attempt.userId,
+          scoreGiven: 1,
+          scoreMaximum: 1,
+          activityProgress: 'Completed',
+          gradingProgress: 'FullyGraded',
+        },
+        { lineItemUrl },
+      );
 
     if (!scoreResult.success) {
       throw new Error(scoreResult.error.message);
@@ -183,24 +184,15 @@ async function loadSmokeVerificationLtiSession(input: {
     };
   }
 > {
-  let ltiContext: LanternLtiToolContext | undefined;
-
   try {
-    const session = await requireLtiToolSession({
-      getStorage: async () => {
-        ltiContext = await input.getLtiToolContext();
-        return ltiContext.storage;
-      },
-      ltiToolSessionId: input.session.ltiToolSessionId,
+    const loaded = await requireVerifiedLtiSessionWithContext({
+      getContext: input.getLtiToolContext,
+      sessionId: input.session.ltiToolSessionId,
       missingMessage: 'A verified lti-tool session is required for this grade return check.',
       notFoundMessage: 'The verified LTI session for this grade return check was not found.',
     });
 
-    if (ltiContext === undefined) {
-      throw new Error('The lti-tool context for this grade return check was not loaded.');
-    }
-
-    return { ltiContext, session };
+    return { ltiContext: loaded.context, session: loaded.session };
   } catch (error) {
     return {
       error: {

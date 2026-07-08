@@ -223,8 +223,8 @@ async function signRuntimeBootstrapPayload(input: {
 
   return await new CompactSign(textEncoder.encode(JSON.stringify(input.bootstrap)))
     .setProtectedHeader({
-      alg: toolKey.privateJwk.alg,
-      kid: toolKey.publicJwk.kid,
+      alg: toolKey.alg,
+      kid: toolKey.keyId,
       typ: RUNTIME_BOOTSTRAP_JWS_TYPE,
     })
     .sign(toolKey.privateKey);

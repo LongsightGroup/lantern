@@ -1,5 +1,6 @@
 import type { LTISession } from '@longsightgroup/lti-tool';
 import type { LanternLtiToolContext } from '../lti/tool_provider.ts';
+import { buildTestLtiJwtPayload } from './lti_session_builders.ts';
 
 export interface TestLtiToolContextInput {
   sessionId?: string;
@@ -92,7 +93,7 @@ export function createTestLtiToolContext(
 function buildTestLtiSession(input: { sessionId: string }): LTISession {
   return {
     id: input.sessionId,
-    jwtPayload: {},
+    jwtPayload: buildTestLtiJwtPayload(),
     user: {
       id: 'canvas-user-123',
       roles: ['http://purl.imsglobal.org/vocab/lis/v2/membership#Learner'],

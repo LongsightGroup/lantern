@@ -108,8 +108,8 @@ async function signReviewedRuntimeContract(input: {
     textEncoder.encode(serializeReviewedRuntimeContract(input.runtimeContract)),
   )
     .setProtectedHeader({
-      alg: toolKey.privateJwk.alg,
-      kid: toolKey.publicJwk.kid,
+      alg: toolKey.alg,
+      kid: toolKey.keyId,
       typ: REVIEWED_RUNTIME_CONTRACT_JWS_TYPE,
     })
     .sign(toolKey.privateKey);

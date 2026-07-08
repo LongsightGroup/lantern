@@ -7,7 +7,7 @@
     "jsr:@std/semver@1.0.8": "1.0.8",
     "npm:@cloudflare/puppeteer@1.1.0": "1.1.0",
     "npm:@cloudflare/puppeteer@latest": "1.1.0",
-    "npm:@longsightgroup/lti-tool@0.1.3": "0.1.3_drizzle-orm@0.45.2_hono@4.12.27",
+    "npm:@longsightgroup/lti-tool@0.1.4": "0.1.4_drizzle-orm@0.45.2_hono@4.12.27",
     "npm:ajv@8.20.0": "8.20.0",
     "npm:drizzle-orm@0.45.2": "0.45.2",
     "npm:happy-dom@20.10.6": "20.10.6",
@@ -43,8 +43,8 @@
         "ws"
       ]
     },
-    "@longsightgroup/lti-tool@0.1.3_drizzle-orm@0.45.2_hono@4.12.27": {
-      "integrity": "sha512-18FHLfLhfj/cacVq81i9cr+kdIayg8JAzGS8CNdDw3Kl0pBDAIknHBtsJ9dPkX8dbnjFnw3yCist3ELZkrkHsQ==",
+    "@longsightgroup/lti-tool@0.1.4_drizzle-orm@0.45.2_hono@4.12.27": {
+      "integrity": "sha512-9A/CzLz3roa9ZVHH3PiZs+mj4H0uWDOeW6boY4XjpxQ01Fv17wiilTHxlEzYn2FLtY0GU5ibl8WtmO0WC+oIEQ==",
       "dependencies": [
         "drizzle-orm",
         "hono",
@@ -584,7 +584,7 @@
       "jsr:@std/assert@^1.0.19",
       "jsr:@std/semver@1.0.8",
       "npm:@cloudflare/puppeteer@1.1.0",
-      "npm:@longsightgroup/lti-tool@0.1.3",
+      "npm:@longsightgroup/lti-tool@0.1.4",
       "npm:ajv@8.20.0",
       "npm:drizzle-orm@0.45.2",
       "npm:happy-dom@20.10.6",

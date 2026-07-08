@@ -1,15 +1,14 @@
-import type { CanvasEnvironment } from './types.ts';
 import {
-  CANVAS_LTI_SCOPES,
-  LTI_ASSIGNMENT_SELECTION_PLACEMENT,
-  LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-  LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
-  LTI_RESOURCE_SELECTION_PLACEMENT,
-} from './types.ts';
-import { getPublicJwkSet } from './tool_key.ts';
+  buildCanvasStaticRegistrationConfig,
+  type CanvasStaticRegistrationConfig,
+  type DynamicRegistrationConfig,
+} from '@longsightgroup/lti-tool';
+import type { CanvasEnvironment } from './types.ts';
 import { listCanvasPlatforms, resolveCanvasPlatform } from './canvas_platform.ts';
 import { type EnvReader, readEnv } from '../platform/env.ts';
 import { normalizePublicOrigin } from '../public_origin.ts';
+import { buildDynamicRegistrationConfig } from './dynamic_registration_config.ts';
+import { getPublicJwkSet } from './tool_key.ts';
 
 export interface CanvasEnvironmentOption {
   id: CanvasEnvironment;
@@ -17,47 +16,9 @@ export interface CanvasEnvironmentOption {
   issuer: string;
 }
 
-export interface CanvasConfigDocument {
-  title: string;
-  description: string;
-  oidc_initiation_url: string;
-  target_link_uri: string;
-  public_jwk_url: string;
-  redirect_uris: string[];
-  scopes: string[];
-  extensions: Array<{
-    domain: string;
-    tool_id: string;
-    platform: string;
-    privacy_level: 'public';
-    settings: {
-      text: string;
-      placements: CanvasConfigPlacement[];
-    };
-  }>;
-}
+export type CanvasConfigDocument = CanvasStaticRegistrationConfig;
 
 const APP_ORIGIN_ENV = 'APP_ORIGIN';
-
-export type CanvasConfigPlacement =
-  | {
-    placement: 'course_navigation';
-    message_type: typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE;
-    target_link_uri: string;
-    text: string;
-  }
-  | {
-    placement: typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT;
-    message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
-    target_link_uri: string;
-    text: string;
-  }
-  | {
-    placement: typeof LTI_RESOURCE_SELECTION_PLACEMENT;
-    message_type: typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
-    target_link_uri: string;
-    text: string;
-  };
 
 export function requireAppOrigin(env?: EnvReader): string {
   const appOrigin = readEnv(APP_ORIGIN_ENV, env)?.trim();
@@ -103,61 +64,35 @@ export function buildCanvasDeepLinkingUrl(appOrigin = requireAppOrigin()): strin
   return `${normalizePublicOrigin(appOrigin)}/lti/deep-linking`;
 }
 
-function buildCanvasResourceSelectionUrl(appOrigin = requireAppOrigin()): string {
-  return `${buildCanvasDeepLinkingUrl(appOrigin)}?placement=resource_selection`;
-}
-
 export async function buildCanvasConfigDocument(
   appOrigin: string,
   env: EnvReader,
 ): Promise<CanvasConfigDocument> {
   const normalizedOrigin = normalizePublicOrigin(appOrigin);
-  const origin = new URL(normalizedOrigin);
-  const launchUrl = buildCanvasLaunchUrl(normalizedOrigin);
-  const deepLinkingUrl = buildCanvasDeepLinkingUrl(normalizedOrigin);
-  const resourceSelectionUrl = buildCanvasResourceSelectionUrl(normalizedOrigin);
 
   await getPublicJwkSet(env);
 
+  return buildCanvasStaticRegistrationDocument(normalizedOrigin);
+}
+
+function buildCanvasStaticRegistrationDocument(
+  normalizedOrigin: string,
+): CanvasConfigDocument {
+  const registrationConfig = buildDynamicRegistrationConfig(normalizedOrigin);
+
+  return buildCanvasStaticRegistrationConfig({
+    config: buildCanvasStaticRegistrationConfigShape(registrationConfig, normalizedOrigin),
+    selectedServices: ['ags', 'nrps', 'deep_linking'],
+  });
+}
+
+function buildCanvasStaticRegistrationConfigShape(
+  registrationConfig: DynamicRegistrationConfig,
+  normalizedOrigin: string,
+): DynamicRegistrationConfig {
   return {
-    title: 'Lantern Demo Broker',
-    description: 'Launch one reviewed Lantern app through a governed Canvas LTI 1.3 path.',
-    oidc_initiation_url: `${normalizedOrigin}/lti/login`,
-    target_link_uri: launchUrl,
-    public_jwk_url: buildCanvasJwksUrl(normalizedOrigin),
-    redirect_uris: [launchUrl, deepLinkingUrl, resourceSelectionUrl],
-    scopes: [...CANVAS_LTI_SCOPES],
-    extensions: [
-      {
-        domain: origin.host,
-        tool_id: 'lantern-demo-broker',
-        platform: 'canvas.instructure.com',
-        privacy_level: 'public',
-        settings: {
-          text: 'Lantern Demo',
-          placements: [
-            {
-              placement: 'course_navigation',
-              message_type: LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE,
-              target_link_uri: launchUrl,
-              text: 'Lantern Demo',
-            },
-            {
-              placement: LTI_ASSIGNMENT_SELECTION_PLACEMENT,
-              message_type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-              target_link_uri: deepLinkingUrl,
-              text: 'Select Lantern activity',
-            },
-            {
-              placement: LTI_RESOURCE_SELECTION_PLACEMENT,
-              message_type: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-              target_link_uri: resourceSelectionUrl,
-              text: 'Select Lantern activity',
-            },
-          ],
-        },
-      },
-    ],
+    ...registrationConfig,
+    url: buildCanvasLaunchUrl(normalizedOrigin),
   };
 }
 

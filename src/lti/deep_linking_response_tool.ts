@@ -1,8 +1,8 @@
 import { buildDeepLinkingResourceLinkContentItem } from './deep_linking_content_item.ts';
-import { requireLtiToolSession } from './lti_tool_session.ts';
 import type { DeepLinkingSessionRecord } from './types.ts';
 import type { LanternLtiToolContext } from './tool_provider.ts';
 import type { PackageVersionRecord, ReviewedPlacementRecord } from '../package_review/types.ts';
+import { requireVerifiedLtiSession } from './session_boundary.ts';
 
 export async function createDeepLinkingReturnResponseWithLtiTool(input: {
   ltiContext: LanternLtiToolContext;
@@ -11,9 +11,9 @@ export async function createDeepLinkingReturnResponseWithLtiTool(input: {
   packageVersion: PackageVersionRecord;
   appOrigin?: string;
 }): Promise<Response> {
-  const ltiSession = await requireLtiToolSession({
+  const ltiSession = await requireVerifiedLtiSession({
     storage: input.ltiContext.storage,
-    ltiToolSessionId: input.session.ltiToolSessionId,
+    sessionId: input.session.ltiToolSessionId,
     missingMessage: 'Deep Linking return requires a verified lti-tool session.',
     notFoundMessage: 'The verified LTI session for this Deep Linking return was not found.',
   });

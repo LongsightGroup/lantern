@@ -12,6 +12,7 @@ import {
   buildDeploymentBinding,
   createSyncedTestLtiStorage,
 } from './test_helpers/lti.ts';
+import { buildTestLtiJwtPayload } from './test_helpers/lti_session_builders.ts';
 import {
   extractHiddenInputValue,
   verifyDeepLinkingResponseJwt,
@@ -23,7 +24,10 @@ Deno.test('POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
   const ltiStorage = await createSyncedTestLtiStorage({ binding });
   await ltiStorage.addSession({
     id: 'lti-tool-session-submit',
-    jwtPayload: {},
+    jwtPayload: buildTestLtiJwtPayload({
+      messageType: 'LtiDeepLinkingRequest',
+      targetLinkUri: 'https://lantern.example/lti/deep-linking',
+    }),
     user: {
       id: 'canvas-user-123',
       roles: ['http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor'],
