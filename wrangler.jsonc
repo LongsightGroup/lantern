@@ -26,6 +26,7 @@
     "APP_ADMIN_TIME_ZONE": "America/New_York",
     "APP_ORIGIN": "https://lantern.appboundary.com",
     "APP_RUNTIME_ORIGIN": "https://lantern.appboundary.com",
+    "ADMIN_AUTH_ALLOW_SIGNUP": "1",
     "APP_WRITER_MODEL": "@cf/moonshotai/kimi-k2.6"
   },
   "ai": {
