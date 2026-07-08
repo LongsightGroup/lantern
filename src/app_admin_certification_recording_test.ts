@@ -58,7 +58,7 @@ Deno.test('POST /admin/verification records workflow-keyed internal certificatio
   const statusesByWorkflow = new Map(
     workflowStatuses.map((status) => [status.workflowKey, status] as const),
   );
-  const latestVerification = await repository.getLatestBrokerVerification();
+  const latestVerification = await repository.getLatestBrokerVerificationStatus();
 
   assertEquals(statusesByWorkflow.get('deepLinking')?.latestInternal?.deploymentRecordId, 2);
   assertEquals(

@@ -42,6 +42,9 @@ import type { EvidenceArtifactStore } from './runtime/evidence_artifact_store.ts
 import { getDefaultEvidenceArtifactStore } from './runtime/evidence_artifact_store_fs.ts';
 import type { ManifestReviewData } from './package_review/manifest.ts';
 import type { AuthoringDraftRecord, PackageVersionRecord } from './package_review/types.ts';
+import { createMemoryLtiStorage, type LanternLtiToolContext } from './lti/tool_provider.ts';
+import { createCachedLtiToolContextFactory } from './lti/context_factory.ts';
+import type { LTIStorage } from '@longsightgroup/lti-tool';
 
 export interface AppServices {
   env: EnvReader;
@@ -65,6 +68,8 @@ export interface AppServices {
   }) => Promise<PackageVersionRecord>;
   getRepository: () => PackageReviewRepository;
   getOpsRepository: () => OpsRepository;
+  getLtiToolStorage: () => LTIStorage;
+  getLtiToolContext: (appOrigin?: string) => Promise<LanternLtiToolContext>;
   loadCanvasJwks: (url: string) => Promise<JSONWebKeySet>;
   readReferencePackageReviewData: (appId: string) => Promise<ManifestReviewData>;
   importPackageFromSource: (
@@ -87,9 +92,6 @@ export interface AppServices {
   ) => Promise<ImportedPackageVersion | null>;
 }
 
-let defaultRepository: PackageReviewRepository | null = null;
-let defaultOpsRepository: OpsRepository | null = null;
-
 const LOCAL_REPOSITORY_MESSAGE =
   'Lantern persistence is Cloudflare D1-only. Run Lantern through the Cloudflare Worker entrypoint with a DB binding.';
 
@@ -98,6 +100,8 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
   const getRepository = services.getRepository ?? getDefaultRepository;
   const snapshotStore = services.packageSnapshotStore ?? getDefaultPackageSnapshotStore();
   const runtimeArtifactStore = services.runtimeArtifactStore ?? getDefaultRuntimeArtifactStore();
+  const ltiStorage = services.getLtiToolStorage?.() ?? createMemoryLtiStorage();
+  const getLtiToolContext = createCachedLtiToolContextFactory({ env, storage: ltiStorage });
   const importPackageFromSource = services.importPackageFromSource ??
     ((source: PackageSource, options = {}) =>
       importPackage({
@@ -144,6 +148,8 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
 
         return isOpsRepository(repository) ? repository : getDefaultOpsRepository();
       }),
+    getLtiToolStorage: services.getLtiToolStorage ?? (() => ltiStorage),
+    getLtiToolContext: services.getLtiToolContext ?? getLtiToolContext,
     loadCanvasJwks: services.loadCanvasJwks ?? defaultLoadCanvasJwks,
     importPackageFromSource,
     loadPackageSnapshotFromSource,
@@ -163,21 +169,11 @@ function resolveReferencePackageSource(appId: string) {
 }
 
 function getDefaultRepository(): PackageReviewRepository {
-  if (defaultRepository === null) {
-    defaultRepository = createUnavailableLocalProxy<PackageReviewRepository>(
-      LOCAL_REPOSITORY_MESSAGE,
-    );
-  }
-
-  return defaultRepository;
+  throw new Error(LOCAL_REPOSITORY_MESSAGE);
 }
 
 function getDefaultOpsRepository(): OpsRepository {
-  if (defaultOpsRepository === null) {
-    defaultOpsRepository = createUnavailableLocalProxy<OpsRepository>(LOCAL_REPOSITORY_MESSAGE);
-  }
-
-  return defaultOpsRepository;
+  throw new Error(LOCAL_REPOSITORY_MESSAGE);
 }
 
 async function defaultLoadCanvasJwks(url: string): Promise<JSONWebKeySet> {
@@ -200,21 +196,4 @@ function isOpsRepository(
     typeof (repository as Partial<OpsRepository>).recordBrokerVerificationRun === 'function' &&
     typeof (repository as Partial<OpsRepository>).getRetryableGradePublicationLookup === 'function'
   );
-}
-
-function createUnavailableLocalProxy<T extends object>(message: string): T {
-  return new Proxy(
-    {},
-    {
-      get(_target, property) {
-        if (property === 'then') {
-          return null;
-        }
-
-        return () => {
-          throw new Error(message);
-        };
-      },
-    },
-  ) as T;
 }

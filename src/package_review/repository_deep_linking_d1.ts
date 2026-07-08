@@ -1,5 +1,13 @@
 import type { D1Database } from '../db/d1.ts';
 import { queryD1First, queryD1Objects, runD1 } from '../db/d1.ts';
+import {
+  type D1DeepLinkingSessionRow,
+  type D1PlacementAuditSnapshotRow,
+  type D1ReviewedPlacementRow,
+  mapD1DeepLinkingSessionFields,
+  mapD1PlacementAuditSnapshotFields,
+  mapD1ReviewedPlacementFields,
+} from './repository_deep_linking_d1_mapping.ts';
 import { mapOptionalPlacementAuditSnapshot } from './repository_mappers_review.ts';
 import {
   mapDeepLinkingSessionRow,
@@ -7,11 +15,6 @@ import {
   mapOptionalReviewedPlacement,
   mapReviewedPlacementRow,
 } from './repository_mappers_sessions.ts';
-import type {
-  DeepLinkingSessionRow,
-  PlacementAuditSnapshotRow,
-  ReviewedPlacementRow,
-} from './repository_row_types.ts';
 import {
   buildDeepLinkingResourceOptions,
   sortPackageVersions,
@@ -61,6 +64,7 @@ export function createD1DeepLinkingRepositoryMethods(
             INSERT INTO deep_linking_sessions (
               session_id,
               session_token,
+              lti_tool_session_id,
               deployment_record_id,
               deployment_slug,
               app_id,
@@ -82,11 +86,12 @@ export function createD1DeepLinkingRepositoryMethods(
               created_at,
               expires_at,
               used_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             record.sessionId,
             record.sessionToken,
+            record.ltiToolSessionId,
             record.deploymentRecordId,
             record.deploymentSlug,
             record.appId,
@@ -357,6 +362,7 @@ const D1_DEEP_LINKING_SESSION_SELECT = `
   SELECT
     session_id AS sessionId,
     session_token AS sessionToken,
+    lti_tool_session_id AS ltiToolSessionId,
     deployment_record_id AS deploymentRecordId,
     deployment_slug AS deploymentSlug,
     app_id AS appId,
@@ -476,61 +482,6 @@ const D1_PLACEMENT_AUDIT_SNAPSHOT_SELECT = `
   FROM reviewed_placements
 `;
 
-interface D1DeepLinkingSessionRow extends Record<string, unknown> {
-  sessionId: unknown;
-  sessionToken: unknown;
-  deploymentRecordId: unknown;
-  deploymentSlug: unknown;
-  appId: unknown;
-  userId: unknown;
-  userRole: unknown;
-  contextId: unknown;
-  contextTitle: unknown;
-  deepLinkReturnUrl: unknown;
-  data: unknown;
-  placement: unknown;
-  acceptTypes: unknown;
-  acceptMultiple: unknown;
-  acceptPresentationDocumentTargets: unknown;
-  acceptLineItem: unknown;
-  selectedPackageVersionId: unknown;
-  selectedPackageVersion: unknown;
-  selectedActivityId: unknown;
-  selectedContentPath: unknown;
-  createdAt: unknown;
-  expiresAt: unknown;
-  usedAt: unknown;
-}
-
-interface D1ReviewedPlacementRow extends Record<string, unknown> {
-  placementId: unknown;
-  deploymentRecordId: unknown;
-  deploymentSlug: unknown;
-  appId: unknown;
-  contextId: unknown;
-  contextTitle: unknown;
-  packageVersionId: unknown;
-  packageVersion: unknown;
-  packageTitle: unknown;
-  activityId: unknown;
-  contentPath: unknown;
-  contentTitle: unknown;
-  createdByUserId: unknown;
-  resourceLinkId: unknown;
-  createdAt: unknown;
-  boundAt: unknown;
-}
-
-interface D1PlacementAuditSnapshotRow extends D1ReviewedPlacementRow {
-  latestPreviewSessionId: unknown;
-  latestPreviewOccurredAt: unknown;
-  previewEvidenceCount: unknown;
-  deepLinkingRequestCount: unknown;
-  placementEventCount: unknown;
-  reviewerEventCount: unknown;
-  latestAuditOccurredAt: unknown;
-}
-
 async function requireDeepLinkingSession(db: D1Database, sessionId: string) {
   const row = await queryD1First<D1DeepLinkingSessionRow>(
     db,
@@ -559,155 +510,6 @@ async function requireReviewedPlacement(db: D1Database, placementId: string) {
   return mapReviewedPlacementRow(mapD1ReviewedPlacementFields(row));
 }
 
-function mapD1DeepLinkingSessionFields(row: D1DeepLinkingSessionRow): DeepLinkingSessionRow {
-  return {
-    sessionId: expectString(row.sessionId, 'sessionId'),
-    sessionToken: expectString(row.sessionToken, 'sessionToken'),
-    deploymentRecordId: expectNumber(row.deploymentRecordId, 'deploymentRecordId'),
-    deploymentSlug: expectString(row.deploymentSlug, 'deploymentSlug'),
-    appId: expectString(row.appId, 'appId'),
-    userId: expectNullableString(row.userId, 'userId'),
-    userRole: expectStringLiteral(row.userRole, 'userRole', ['learner', 'instructor']),
-    contextId: expectNullableString(row.contextId, 'contextId'),
-    contextTitle: expectNullableString(row.contextTitle, 'contextTitle'),
-    deepLinkReturnUrl: expectString(row.deepLinkReturnUrl, 'deepLinkReturnUrl'),
-    data: expectNullableString(row.data, 'data'),
-    placement: expectStringLiteral(row.placement, 'placement', [
-      'assignment_selection',
-      'resource_selection',
-    ]),
-    acceptTypes: parseJsonField(
-      row.acceptTypes,
-      'acceptTypes',
-    ) as DeepLinkingSessionRow['acceptTypes'],
-    acceptMultiple: expectBooleanInteger(row.acceptMultiple, 'acceptMultiple'),
-    acceptPresentationDocumentTargets: parseJsonField(
-      row.acceptPresentationDocumentTargets,
-      'acceptPresentationDocumentTargets',
-    ) as DeepLinkingSessionRow['acceptPresentationDocumentTargets'],
-    acceptLineItem: expectBooleanInteger(row.acceptLineItem, 'acceptLineItem'),
-    selectedPackageVersionId: expectNullableNumber(
-      row.selectedPackageVersionId,
-      'selectedPackageVersionId',
-    ),
-    selectedPackageVersion: expectNullableString(
-      row.selectedPackageVersion,
-      'selectedPackageVersion',
-    ),
-    selectedActivityId: expectNullableString(row.selectedActivityId, 'selectedActivityId'),
-    selectedContentPath: expectNullableString(row.selectedContentPath, 'selectedContentPath'),
-    createdAt: expectString(row.createdAt, 'createdAt'),
-    expiresAt: expectString(row.expiresAt, 'expiresAt'),
-    usedAt: expectNullableString(row.usedAt, 'usedAt'),
-  };
-}
-
-function mapD1ReviewedPlacementFields(row: D1ReviewedPlacementRow): ReviewedPlacementRow {
-  return {
-    placementId: expectString(row.placementId, 'placementId'),
-    deploymentRecordId: expectNumber(row.deploymentRecordId, 'deploymentRecordId'),
-    deploymentSlug: expectString(row.deploymentSlug, 'deploymentSlug'),
-    appId: expectString(row.appId, 'appId'),
-    contextId: expectNullableString(row.contextId, 'contextId'),
-    contextTitle: expectNullableString(row.contextTitle, 'contextTitle'),
-    packageVersionId: expectNumber(row.packageVersionId, 'packageVersionId'),
-    packageVersion: expectString(row.packageVersion, 'packageVersion'),
-    packageTitle: expectString(row.packageTitle, 'packageTitle'),
-    activityId: expectString(row.activityId, 'activityId'),
-    contentPath: expectString(row.contentPath, 'contentPath'),
-    contentTitle: expectNullableString(row.contentTitle, 'contentTitle'),
-    createdByUserId: expectNullableString(row.createdByUserId, 'createdByUserId'),
-    resourceLinkId: expectNullableString(row.resourceLinkId, 'resourceLinkId'),
-    createdAt: expectString(row.createdAt, 'createdAt'),
-    boundAt: expectNullableString(row.boundAt, 'boundAt'),
-  };
-}
-
-function mapD1PlacementAuditSnapshotFields(
-  row: D1PlacementAuditSnapshotRow,
-): PlacementAuditSnapshotRow {
-  return {
-    ...mapD1ReviewedPlacementFields(row),
-    latestPreviewSessionId: expectNullableString(
-      row.latestPreviewSessionId,
-      'latestPreviewSessionId',
-    ),
-    latestPreviewOccurredAt: expectNullableString(
-      row.latestPreviewOccurredAt,
-      'latestPreviewOccurredAt',
-    ),
-    previewEvidenceCount: expectNumber(row.previewEvidenceCount, 'previewEvidenceCount'),
-    deepLinkingRequestCount: expectNumber(row.deepLinkingRequestCount, 'deepLinkingRequestCount'),
-    placementEventCount: expectNumber(row.placementEventCount, 'placementEventCount'),
-    reviewerEventCount: expectNumber(row.reviewerEventCount, 'reviewerEventCount'),
-    latestAuditOccurredAt: expectNullableString(row.latestAuditOccurredAt, 'latestAuditOccurredAt'),
-  };
-}
-
 function isD1UniqueViolation(error: unknown): boolean {
   return error instanceof Error && error.message.includes('UNIQUE constraint failed');
-}
-
-function parseJsonField(value: unknown, fieldName: string): unknown {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be JSON text.`);
-  }
-
-  return JSON.parse(value);
-}
-
-function expectString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be text.`);
-  }
-
-  return value;
-}
-
-function expectNullableString(value: unknown, fieldName: string): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectString(value, fieldName);
-}
-
-function expectNumber(value: unknown, fieldName: string): number {
-  if (typeof value !== 'number') {
-    throw new TypeError(`Expected D1 ${fieldName} to be numeric.`);
-  }
-
-  return value;
-}
-
-function expectNullableNumber(value: unknown, fieldName: string): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectNumber(value, fieldName);
-}
-
-function expectBooleanInteger(value: unknown, fieldName: string): boolean {
-  if (value === 0) {
-    return false;
-  }
-
-  if (value === 1) {
-    return true;
-  }
-
-  throw new TypeError(`Expected D1 ${fieldName} to be 0 or 1.`);
-}
-
-function expectStringLiteral<T extends string>(
-  value: unknown,
-  fieldName: string,
-  allowed: readonly T[],
-): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Error(`Unexpected D1 ${fieldName} value.`);
-  }
-
-  return value as T;
 }

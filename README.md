@@ -341,10 +341,13 @@ Generated local environment:
 - `APP_ORIGIN`: defaults to `http://localhost:8417`
 - `APP_RUNTIME_ORIGIN`: defaults to `http://localhost:8417` so local preview and
   reviewed runtime stay on one origin
+- `LTI_STATE_SECRET`: generated automatically for local development
 - `LTI_TOOL_PRIVATE_JWK`: generated automatically for local development
 
 Manual minimum environment if you do not use `local:init`:
 
+- `LTI_STATE_SECRET`: one stable secret with at least 32 UTF-8 bytes used for
+  LTI OIDC state signing
 - `LTI_TOOL_PRIVATE_JWK`: one RSA private JWK used to publish Lantern's public
   JWKS and sign LTI assertions
 - `APP_ORIGIN`: recommended for stable local config and required anywhere

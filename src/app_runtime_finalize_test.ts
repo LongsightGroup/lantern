@@ -19,6 +19,7 @@ import {
   buildRuntimeSessionRecord,
   getTestToolPrivateJwkEnvValue,
 } from './test_helpers/lti.ts';
+import { createTestLtiToolContext } from './test_helpers/lti_tool_context.ts';
 
 const WEB_CHECKUP_SNAPSHOT_ROOT = 'examples/apps/web-checkup';
 
@@ -64,9 +65,20 @@ Deno.test('POST /runtime/sessions/:id/finalize finalizes the durable attempt and
             },
           }),
         ],
-        runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2099-03-26T02:45:00Z' })],
+        runtimeSessions: [
+          buildRuntimeSessionRecord({
+            ltiToolSessionId: 'lti-tool-session-123',
+            expiresAt: '2099-03-26T02:45:00Z',
+          }),
+        ],
       });
-      const app = createApp({ getRepository: () => repository });
+      const ltiToolContext = createTestLtiToolContext({
+        sessionId: 'lti-tool-session-123',
+      });
+      const app = createApp({
+        getRepository: () => repository,
+        getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
+      });
 
       await withFetchStub(
         (input) => {
@@ -255,6 +267,7 @@ Deno.test('POST /runtime/sessions/:id/finalize accepts browser grader results wh
         ],
         runtimeSessions: [
           buildRuntimeSessionRecord({
+            ltiToolSessionId: 'lti-tool-session-123',
             appId: 'web-checkup',
             deploymentSlug: 'web-checkup-pilot',
             capabilities: [
@@ -271,7 +284,13 @@ Deno.test('POST /runtime/sessions/:id/finalize accepts browser grader results wh
           }),
         ],
       });
-      const app = createApp({ getRepository: () => repository });
+      const ltiToolContext = createTestLtiToolContext({
+        sessionId: 'lti-tool-session-123',
+      });
+      const app = createApp({
+        getRepository: () => repository,
+        getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
+      });
 
       await withFetchStub(
         (input) => {
@@ -517,7 +536,7 @@ Deno.test('POST /runtime/sessions/:id/score-proposal accepts typed app proposals
   });
 });
 
-Deno.test('POST /runtime/sessions/:id/finalize records a failed grade publish when Canvas token exchange fails', async () => {
+Deno.test('POST /runtime/sessions/:id/finalize records a failed grade publish when lti-tool score publish fails', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
@@ -549,7 +568,17 @@ Deno.test('POST /runtime/sessions/:id/finalize records a failed grade publish wh
             },
           }),
         ],
-        runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2099-03-26T02:45:00Z' })],
+        runtimeSessions: [
+          buildRuntimeSessionRecord({
+            ltiToolSessionId: 'lti-tool-session-123',
+            expiresAt: '2099-03-26T02:45:00Z',
+          }),
+        ],
+      });
+      const ltiToolContext = createTestLtiToolContext({
+        sessionId: 'lti-tool-session-123',
+        submitScoreSuccess: false,
+        submitScoreMessage: 'simulated score failure',
       });
 
       await withFetchStub(
@@ -561,6 +590,7 @@ Deno.test('POST /runtime/sessions/:id/finalize records a failed grade publish wh
         async () => {
           const response = await createApp({
             getRepository: () => repository,
+            getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
           }).request(
             'https://runtime.lantern.example/runtime/sessions/runtime-session-123/finalize',
             {
@@ -587,7 +617,7 @@ Deno.test('POST /runtime/sessions/:id/finalize records a failed grade publish wh
           assertEquals(attempt?.status, 'completed');
           assertEquals(attemptAuditEvents.length, 1);
           assertEquals(failedGradeAuditEvents.length, 1);
-          assertEquals(failedGradeAuditEvents[0]?.detail.code, 'token_request_failed');
+          assertEquals(failedGradeAuditEvents[0]?.detail.code, 'score_publish_failed');
           assertObjectMatch(failedGradeAuditEvents[0]?.detail.request ?? {}, {
             method: 'POST',
             path: '/runtime/sessions/runtime-session-123/finalize',

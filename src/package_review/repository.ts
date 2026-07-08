@@ -21,7 +21,6 @@ import type {
   DeepLinkingSessionRecord,
   DeploymentBinding,
   DynamicRegistrationStateRecord,
-  LoginStateRecord,
   LtiPlacement,
   PersistedDeploymentLmsType,
   RuntimeSessionRecord,
@@ -63,9 +62,6 @@ export interface PackageReviewRepository {
     clientId: string;
     deploymentId: string;
   }): Promise<DeploymentRecord | null>;
-  createLoginState(record: LoginStateRecord): Promise<LoginStateRecord>;
-  getLoginStateByState(state: string): Promise<LoginStateRecord | null>;
-  consumeLoginState(input: { state: string; usedAt: string }): Promise<LoginStateRecord>;
   createDynamicRegistrationState(
     record: DynamicRegistrationStateRecord,
   ): Promise<DynamicRegistrationStateRecord>;
@@ -217,7 +213,7 @@ export interface PackageReviewRepository {
     label: string;
     appId: string;
     packageVersionId: number;
-    lmsType?: PersistedDeploymentLmsType;
+    lmsType: PersistedDeploymentLmsType;
   }): Promise<DeploymentRecord>;
   getLanternLtiProfileSettings(): Promise<import('./types.ts').LanternLtiProfileSettingsRecord>;
   saveLanternDefaultLtiProfile(input: {

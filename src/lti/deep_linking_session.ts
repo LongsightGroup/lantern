@@ -27,6 +27,7 @@ export async function createDeepLinkingSession(input: {
   return await input.repository.createDeepLinkingSession({
     sessionId: nextOpaqueToken(),
     sessionToken: nextOpaqueToken(),
+    ltiToolSessionId: input.request.ltiToolSessionId,
     deploymentRecordId: input.request.internalDeploymentId,
     deploymentSlug: input.request.internalDeploymentSlug,
     appId: input.request.appId,

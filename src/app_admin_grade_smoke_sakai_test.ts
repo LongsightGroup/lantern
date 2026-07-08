@@ -2,6 +2,7 @@ import { assertEquals } from '@std/assert';
 import { createApp } from './app.ts';
 import { restoreEnv, withFetchStub } from './admin/deployment_detail_test_helpers.ts';
 import { getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
+import { createTestLtiToolContext } from './test_helpers/lti_tool_context.ts';
 import {
   buildSmokeRouteFixture,
   buildSmokeVerificationFormData,
@@ -14,6 +15,10 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the bl
   const fixture = buildSmokeRouteFixture('sakai');
   const repository = createSmokeRouteRepository(fixture);
   const requestedUrls: string[] = [];
+  const ltiToolContext = createTestLtiToolContext({
+    sessionId: fixture.session.ltiToolSessionId ?? 'missing-lti-tool-session',
+    lineItemUrl: fixture.smokeLineItemUrl,
+  });
   const formData = buildSmokeVerificationFormData(fixture);
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
@@ -21,6 +26,7 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the bl
     await withFetchStub(createSuccessfulSmokeFetchHandler(fixture, requestedUrls), async () => {
       const response = await createApp({
         getRepository: () => repository,
+        getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
       }).request(
         'http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-grade-smoke',
         {

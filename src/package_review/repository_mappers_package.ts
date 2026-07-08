@@ -1,8 +1,4 @@
-import type {
-  DeploymentBinding,
-  DynamicRegistrationStateRecord,
-  LoginStateRecord,
-} from '../lti/types.ts';
+import type { DeploymentBinding, DynamicRegistrationStateRecord } from '../lti/types.ts';
 import { parseReviewedRuntimeContract } from './runtime_contract.ts';
 import {
   type DeploymentRecord,
@@ -12,7 +8,6 @@ import {
 import type {
   DeploymentRow,
   DynamicRegistrationStateRow,
-  LoginStateRow,
   PackageVersionRow,
 } from './repository_row_types.ts';
 import { normalizeOptionalTimestamp, normalizeTimestamp } from './repository_value_support.ts';
@@ -144,44 +139,6 @@ export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | nu
     case 'preview':
       return null;
   }
-}
-
-export function mapOptionalLoginState(row: LoginStateRow | undefined): LoginStateRecord | null {
-  if (!row) {
-    return null;
-  }
-
-  return mapLoginStateRow(row);
-}
-
-export function mapLoginStateRow(row: LoginStateRow | undefined): LoginStateRecord {
-  if (!row) {
-    throw new Error('Expected a login state row.');
-  }
-
-  if (row.lmsType === 'canvas' && row.canvasEnvironment === null) {
-    throw new Error('Canvas login state rows must include canvas_environment.');
-  }
-
-  if (row.lmsType !== 'canvas' && row.canvasEnvironment !== null) {
-    throw new Error(`${row.lmsType} login state rows cannot include canvas_environment.`);
-  }
-
-  return {
-    lms: row.lmsType,
-    state: row.state,
-    canvasEnvironment: row.canvasEnvironment,
-    issuer: row.issuer,
-    clientId: row.clientId,
-    deploymentId: row.deploymentId,
-    nonce: row.nonce,
-    loginHint: row.loginHint,
-    targetLinkUri: row.targetLinkUri,
-    ltiMessageHint: row.ltiMessageHint,
-    createdAt: normalizeTimestamp(row.createdAt),
-    expiresAt: normalizeTimestamp(row.expiresAt),
-    usedAt: normalizeOptionalTimestamp(row.usedAt),
-  };
 }
 
 export function mapOptionalDynamicRegistrationState(

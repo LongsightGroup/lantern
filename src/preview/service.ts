@@ -120,6 +120,7 @@ export async function launchPreviewRuntimeSession(input: {
   const runtimeSession = await input.repository.createRuntimeSession({
     sessionId: `preview-runtime-${createOpaqueToken()}`,
     sessionToken: createOpaqueToken(),
+    ltiToolSessionId: null,
     attemptId: runtimeAttemptId,
     deploymentRecordId: previewDeployment.id,
     deploymentSlug: previewDeployment.slug,

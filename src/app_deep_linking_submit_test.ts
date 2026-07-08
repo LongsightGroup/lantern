@@ -1,24 +1,65 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
 import {
-  LANTERN_PLACEMENT_CUSTOM_KEY,
-  LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
-} from './lti/types.ts';
-import {
   buildDeepLinkingResourceOption,
   buildDeepLinkingResourceSelection,
   buildDeploymentRecord,
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
-import { buildDeepLinkingSessionRecord, buildDeploymentBinding } from './test_helpers/lti.ts';
+import {
+  buildDeepLinkingSessionRecord,
+  buildDeploymentBinding,
+  createSyncedTestLtiStorage,
+} from './test_helpers/lti.ts';
 import {
   extractHiddenInputValue,
   verifyDeepLinkingResponseJwt,
   withCanvasReturnEnv,
 } from './app_test_support.ts';
 
-Deno.test('POST /lti/deep-linking/sessions/:id/submit creates one reviewed placement and returns an auto-post LMS form', async () => {
+Deno.test('POST /lti/deep-linking/sessions/:id/submit creates one reviewed placement and returns lti-tool auto-post HTML', async () => {
+  const binding = buildDeploymentBinding();
+  const ltiStorage = await createSyncedTestLtiStorage({ binding });
+  await ltiStorage.addSession({
+    id: 'lti-tool-session-submit',
+    jwtPayload: {},
+    user: {
+      id: 'canvas-user-123',
+      roles: ['http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor'],
+    },
+    context: {
+      id: 'course-42',
+      label: 'Physics 101',
+      title: 'Physics 101',
+    },
+    platform: {
+      issuer: binding.issuer,
+      clientId: binding.clientId,
+      deploymentId: binding.deploymentId,
+      name: 'Canvas',
+    },
+    launch: {
+      target: 'https://lantern.example/lti/deep-linking',
+    },
+    services: {
+      deepLinking: {
+        returnUrl: 'https://canvas.example/courses/42/deep_link_return',
+        acceptTypes: ['ltiResourceLink'],
+        acceptPresentationDocumentTargets: ['iframe'],
+        acceptMultiple: false,
+        autoCreate: false,
+        data: 'deep-linking-state-token',
+      },
+    },
+    customParameters: {},
+    isAdmin: false,
+    isInstructor: true,
+    isStudent: false,
+    isAssignmentAndGradesAvailable: false,
+    isDeepLinkingAvailable: true,
+    isNameAndRolesAvailable: false,
+  });
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -37,13 +78,15 @@ Deno.test('POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
         id: 1,
         enabledPackageVersionId: 2,
         enabledPackageVersion: '0.2.0',
-        binding: buildDeploymentBinding(),
+        binding,
       }),
     ],
     deepLinkingSessions: [
       buildDeepLinkingSessionRecord({
         sessionId: 'deep-linking-session-submit',
         sessionToken: 'deep-linking-token-submit',
+        ltiToolSessionId: 'lti-tool-session-submit',
+        acceptLineItem: true,
         selection: {
           packageVersionId: 2,
           packageVersion: '0.2.0',
@@ -71,6 +114,7 @@ Deno.test('POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
   await withCanvasReturnEnv(async () => {
     const response = await createApp({
       getRepository: () => repository,
+      getLtiToolStorage: () => ltiStorage,
     }).request('http://localhost/lti/deep-linking/sessions/deep-linking-session-submit/submit', {
       method: 'POST',
       body: formData,
@@ -85,38 +129,32 @@ Deno.test('POST /lti/deep-linking/sessions/:id/submit creates one reviewed place
       'https://purl.imsglobal.org/spec/lti-dl/claim/content_items'
     ] as Array<Record<string, unknown>>;
     const contentItem = contentItems[0] ?? {};
-    const placementId = (contentItem.custom as Record<string, unknown>)[
-      LANTERN_PLACEMENT_CUSTOM_KEY
-    ] as string;
-    const savedPlacement = await repository.getReviewedPlacementById(placementId);
+    const lineItem = contentItem.lineItem as Record<string, unknown> | undefined;
+    const presentation = contentItem.presentation as Record<string, unknown> | undefined;
     const savedSession = await repository.getDeepLinkingSessionById('deep-linking-session-submit');
     const auditEvents = await repository.listAuditEventsByEventType(
       'deep_linking.placement.created',
     );
+    const placementId = String(auditEvents[0]?.detail.placementId ?? '');
+    const savedPlacement = await repository.getReviewedPlacementById(placementId);
 
-    assertStringIncludes(body, '<!doctype html>');
+    assertStringIncludes(body, '<!DOCTYPE html>');
     assertStringIncludes(body, 'action="https://canvas.example/courses/42/deep_link_return"');
-    assertStringIncludes(body, 'id="lms-return-form"');
-    assertStringIncludes(body, 'Returning assignment resource to LMS');
-    assertStringIncludes(
-      body,
-      'Lantern created the reviewed placement and is posting this reviewed assignment resource back to the LMS.',
-    );
-    assertEquals(
-      verified.payload['https://purl.imsglobal.org/spec/lti/claim/message_type'],
-      LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE,
-    );
-    assertEquals(contentItem.type, 'ltiResourceLink');
+    assertStringIncludes(body, 'name="JWT"');
+    assertEquals(lineItem?.scoreMaximum, 25);
+    assertEquals(lineItem?.tag, 'final-grade');
+    assertEquals(presentation?.documentTarget, 'iframe');
     assertEquals(savedPlacement?.packageVersionId, 2);
     assertEquals(savedPlacement?.contentPath, '/content/bonus.json');
     assertEquals(savedPlacement?.resourceLinkId, null);
     assertEquals(savedSession?.usedAt !== null, true);
     assertEquals(auditEvents.length, 1);
-    assertEquals(String(auditEvents[0]?.detail.placementId ?? ''), placementId);
+    assertEquals(String(auditEvents[0]?.detail.placementId ?? ''), savedPlacement?.placementId);
     assertEquals(String(auditEvents[0]?.detail.contentPath ?? ''), '/content/bonus.json');
 
     const replay = await createApp({
       getRepository: () => repository,
+      getLtiToolStorage: () => ltiStorage,
     }).request('http://localhost/lti/deep-linking/sessions/deep-linking-session-submit/submit', {
       method: 'POST',
       body: formData,

@@ -56,6 +56,8 @@ import {
   type EvidenceArtifactStore,
 } from './runtime/evidence_artifact_store.ts';
 import type { AuthoringDraftRecord, PackageVersionRecord } from './package_review/types.ts';
+import { createD1LtiStorage } from './lti/tool_provider.ts';
+import { createCachedLtiToolContextFactory } from './lti/context_factory.ts';
 
 const WORKER_REPOSITORY_MESSAGE = 'Cloudflare Workers persistence requires a D1 binding named DB.';
 const WORKER_RUNTIME_ARTIFACT_MESSAGE =
@@ -93,6 +95,8 @@ export interface WorkerBindings extends Record<string, unknown> {
 export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader): AppServices {
   const repositories = resolveWorkerRepositories(bindings);
   const snapshotStore = resolveWorkerSnapshotStore(bindings);
+  const ltiStorage = resolveWorkerLtiStorage(bindings);
+  const getLtiToolContext = createCachedLtiToolContextFactory({ env, storage: ltiStorage });
   const importPackageFromSource = (source: PackageSource, options = {}) =>
     importPackage({
       ...options,
@@ -125,6 +129,8 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
     materializeDraftPreviewPackageVersion: createUnsupportedDraftPreviewMaterializer(),
     getRepository: () => repositories.repository,
     getOpsRepository: () => repositories.opsRepository,
+    getLtiToolStorage: () => ltiStorage,
+    getLtiToolContext,
     loadCanvasJwks: defaultLoadCanvasJwks,
     importPackageFromSource,
     loadPackageSnapshotFromSource,
@@ -135,6 +141,14 @@ export function resolveWorkerServices(bindings: WorkerBindings, env: EnvReader):
     loadReferencePackageSnapshot: (appId, options = {}) =>
       loadPackageSnapshotFromSource(resolveWorkerReferencePackageSource(bindings, appId), options),
   };
+}
+
+function resolveWorkerLtiStorage(bindings: WorkerBindings) {
+  if (isD1Database(bindings.DB)) {
+    return createD1LtiStorage(bindings.DB);
+  }
+
+  throw new Error(WORKER_REPOSITORY_MESSAGE);
 }
 
 function resolveWorkerAppWriterAgentSessions(bindings: WorkerBindings) {
@@ -219,10 +233,7 @@ function resolveWorkerRepositories(bindings: WorkerBindings): {
     };
   }
 
-  return {
-    repository: createUnsupportedWorkerProxy<PackageReviewRepository>(WORKER_REPOSITORY_MESSAGE),
-    opsRepository: createUnsupportedWorkerProxy<OpsRepository>(WORKER_REPOSITORY_MESSAGE),
-  };
+  throw new Error(WORKER_REPOSITORY_MESSAGE);
 }
 
 function resolveWorkerSnapshotStore(bindings: WorkerBindings): PackageSnapshotStore {
@@ -276,23 +287,6 @@ function createUnsupportedDraftPreviewMaterializer() {
   }): Promise<PackageVersionRecord> => {
     throw new Error(WORKER_AUTHORING_DRAFT_PREVIEW_MESSAGE);
   };
-}
-
-function createUnsupportedWorkerProxy<T>(message: string): T {
-  return new Proxy(
-    {},
-    {
-      get(_target, property) {
-        if (property === Symbol.toStringTag) {
-          return 'UnsupportedWorkerService';
-        }
-
-        return () => {
-          throw new Error(message);
-        };
-      },
-    },
-  ) as T;
 }
 
 function createUnsupportedSnapshotStore(message: string): PackageSnapshotStore {

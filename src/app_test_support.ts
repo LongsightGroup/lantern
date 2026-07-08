@@ -1,6 +1,10 @@
 import { createLocalJWKSet, jwtVerify } from 'jose';
 import { getPublicJwkSet } from './lti/tool_key.ts';
-import { buildDeploymentBinding, getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
+import {
+  buildDeploymentBinding,
+  getTestToolPrivateJwkEnvValue,
+  TEST_LTI_STATE_SECRET,
+} from './test_helpers/lti.ts';
 
 export const REFERENCE_APP_SNAPSHOT_ROOTS = {
   'chapter-4-asteroids': 'examples/apps/chapter-4-asteroids',
@@ -28,15 +32,18 @@ export function restoreEnv(name: string, value: string | undefined): void {
 export async function withCanvasReturnEnv(run: () => Promise<void>): Promise<void> {
   const previousAppOrigin = Deno.env.get('APP_ORIGIN');
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
 
   Deno.env.set('APP_ORIGIN', 'https://lantern.example');
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
 
   try {
     await run();
   } finally {
     restoreEnv('APP_ORIGIN', previousAppOrigin);
     restoreEnv('LTI_TOOL_PRIVATE_JWK', previousToolKey);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 }
 
@@ -49,15 +56,21 @@ export async function withRuntimeOriginEnv<T>(
 ): Promise<T> {
   const previousAppOrigin = Deno.env.get('APP_ORIGIN');
   const previousRuntimeOrigin = Deno.env.get('APP_RUNTIME_ORIGIN');
+  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
 
   Deno.env.set('APP_ORIGIN', options.appOrigin ?? 'https://lantern.example');
   Deno.env.set('APP_RUNTIME_ORIGIN', options.runtimeOrigin ?? 'https://runtime.lantern.example');
+  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
 
   try {
     return await run();
   } finally {
     restoreEnv('APP_ORIGIN', previousAppOrigin);
     restoreEnv('APP_RUNTIME_ORIGIN', previousRuntimeOrigin);
+    restoreEnv('LTI_TOOL_PRIVATE_JWK', previousToolKey);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 }
 
@@ -76,7 +89,11 @@ export async function verifyDeepLinkingResponseJwt(jwt: string) {
   const keySet = createLocalJWKSet(
     await getPublicJwkSet({
       get(name: string) {
-        return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
+        return name === 'LTI_TOOL_PRIVATE_JWK'
+          ? getTestToolPrivateJwkEnvValue()
+          : name === 'LTI_STATE_SECRET'
+          ? TEST_LTI_STATE_SECRET
+          : undefined;
       },
     }),
   );

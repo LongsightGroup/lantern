@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects } from '@std/assert';
+import { assertEquals, assertRejects, assertThrows } from '@std/assert';
 import { resolveWorkerServices } from './app_worker_services.ts';
 import { selectAppWriterContext } from './app_writer/context.ts';
 import type { AppGenerationPlan } from './app_writer/types.ts';
@@ -112,7 +112,7 @@ Deno.test('worker services import and reload the demo package from PACKAGE_ARTIF
   const env = createObjectEnvReader({
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
-  const services = resolveWorkerServices({ PACKAGE_ARTIFACTS: bucket }, env);
+  const services = resolveWorkerServices(withRequiredDb({ PACKAGE_ARTIFACTS: bucket }), env);
 
   assertEquals(await services.loadReferencePackageSnapshot('chapter-4-asteroids'), null);
 
@@ -165,7 +165,7 @@ Deno.test('worker services import and reload arbitrary reviewed package sources'
   const env = createObjectEnvReader({
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
-  const services = resolveWorkerServices({ PACKAGE_ARTIFACTS: bucket }, env);
+  const services = resolveWorkerServices(withRequiredDb({ PACKAGE_ARTIFACTS: bucket }), env);
   const source = createMemoryPackageSource(
     Object.entries(QUICK_STUDY_SOURCE_FILES).map(([relativePath, bytes]) => ({
       relativePath,
@@ -221,7 +221,7 @@ Deno.test('worker services expose Dynamic Worker runtime delivery only when LOAD
   });
 
   const missingLoaderServices = resolveWorkerServices(
-    { PACKAGE_ARTIFACTS: createInMemoryArtifactBucket({}) },
+    withRequiredDb({ PACKAGE_ARTIFACTS: createInMemoryArtifactBucket({}) }),
     env,
   );
 
@@ -237,10 +237,10 @@ Deno.test('worker services expose Dynamic Worker runtime delivery only when LOAD
   );
 
   const loaderServices = resolveWorkerServices(
-    {
+    withRequiredDb({
       PACKAGE_ARTIFACTS: createInMemoryArtifactBucket({}),
       LOADER: createStubDynamicWorkerLoader(),
-    },
+    }),
     env,
   );
 
@@ -275,7 +275,7 @@ Deno.test('worker services schedule app generation through APP_GENERATION_WORKFL
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const services = resolveWorkerServices(
-    {
+    withRequiredDb({
       APP_GENERATION_WORKFLOW: {
         create(input: unknown) {
           workflowCreateInputs.push(input);
@@ -283,7 +283,7 @@ Deno.test('worker services schedule app generation through APP_GENERATION_WORKFL
           return Promise.resolve({ id: 'workflow-1' });
         },
       },
-    },
+    }),
     env,
   );
 
@@ -311,7 +311,7 @@ Deno.test('worker services route app writer Agent sessions through APP_WRITER_AG
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const services = resolveWorkerServices(
-    {
+    withRequiredDb({
       APP_WRITER_AGENT: {
         idFromName(name: string) {
           return `agent:${name}`;
@@ -328,7 +328,7 @@ Deno.test('worker services route app writer Agent sessions through APP_WRITER_AG
           };
         },
       },
-    },
+    }),
     env,
   );
 
@@ -348,7 +348,7 @@ Deno.test('worker services route app writer workspace harness through APP_WRITER
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const services = resolveWorkerServices(
-    {
+    withRequiredDb({
       APP_WRITER_AGENT: {
         idFromName(name: string) {
           return `agent:${name}`;
@@ -383,7 +383,7 @@ Deno.test('worker services route app writer workspace harness through APP_WRITER
           };
         },
       },
-    },
+    }),
     env,
   );
   const contextSelection = selectAppWriterContext({
@@ -433,7 +433,7 @@ Deno.test('worker services use a platform source compiler binding when configure
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const services = resolveWorkerServices(
-    {
+    withRequiredDb({
       APP_WRITER_SOURCE_COMPILER: {
         fetch(request: Request) {
           compileRequests.push(request.clone());
@@ -452,7 +452,7 @@ Deno.test('worker services use a platform source compiler binding when configure
           );
         },
       },
-    },
+    }),
     env,
   );
 
@@ -483,7 +483,7 @@ Deno.test('worker services use a platform app previewer binding when configured'
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
   const services = resolveWorkerServices(
-    {
+    withRequiredDb({
       APP_WRITER_PREVIEWER: {
         fetch(request: Request) {
           previewRequests.push(request.clone());
@@ -511,7 +511,7 @@ Deno.test('worker services use a platform app previewer binding when configured'
           );
         },
       },
-    },
+    }),
     env,
   );
 
@@ -538,7 +538,7 @@ Deno.test('worker services fail clearly when app generation Workflow is not boun
   const env = createObjectEnvReader({
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
-  const services = resolveWorkerServices({}, env);
+  const services = resolveWorkerServices(withRequiredDb({}), env);
 
   assertEquals(services.appPackageSourceCompiler.supportsTypeScriptAuthoring, true);
   await assertRejects(
@@ -569,6 +569,18 @@ Deno.test('worker services fail clearly when app generation Workflow is not boun
       }),
     Error,
     'Cloudflare Workers app generation requires a Workflows binding named APP_GENERATION_WORKFLOW.',
+  );
+});
+
+Deno.test('worker services fail during composition when DB is not bound', () => {
+  const env = createObjectEnvReader({
+    LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
+  });
+
+  assertThrows(
+    () => resolveWorkerServices({}, env),
+    Error,
+    'Cloudflare Workers persistence requires a D1 binding named DB.',
   );
 });
 
@@ -681,6 +693,15 @@ function createStubD1Database(results: Array<Record<string, unknown>>): D1Databa
         duration: 0,
       });
     },
+  };
+}
+
+function withRequiredDb<T extends Record<string, unknown>>(
+  bindings: T,
+): T & { DB: D1Database } {
+  return {
+    ...bindings,
+    DB: createStubD1Database([]),
   };
 }
 

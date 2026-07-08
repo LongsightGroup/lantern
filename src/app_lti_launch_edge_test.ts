@@ -1,8 +1,8 @@
-import { assertEquals, assertObjectMatch, assertStringIncludes } from '@std/assert';
+import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
 import { withRuntimeOriginEnv } from './app_test_support.ts';
+import { isLaunchRejectionError } from './lti/launch_rejection.ts';
 import { rejectPackageNotApproved } from './lti/launch_support_matrix.ts';
-import { expectLaunchRejection } from './lti/launch_test_support.ts';
 import {
   buildDeploymentRecord,
   buildPackageVersionRecord,
@@ -11,9 +11,10 @@ import {
 } from './test_helpers/package_review.ts';
 import {
   buildDeploymentBinding,
-  buildLoginStateRecord,
+  createSyncedTestLtiStorage,
   getTestCanvasJwks,
   signCanvasIdToken,
+  signLtiToolState,
 } from './test_helpers/lti.ts';
 import { withFetchStub } from './app_test_support.ts';
 
@@ -24,7 +25,11 @@ Deno.test('launch rejection helpers classify governed approval denials as policy
       packageVersion: '0.1.0',
     });
   } catch (error) {
-    const rejection = expectLaunchRejection(error);
+    if (!isLaunchRejectionError(error)) {
+      throw error;
+    }
+
+    const rejection = error.rejection;
 
     assertEquals(rejection.category, 'policyDenied');
     assertEquals(rejection.code, 'package_not_approved');
@@ -34,6 +39,77 @@ Deno.test('launch rejection helpers classify governed approval denials as policy
   }
 
   throw new Error('Expected launch rejection.');
+});
+
+Deno.test('POST /lti/launch records governed rejection audit with deployment and profile context', async () => {
+  await withRuntimeOriginEnv(async () => {
+    const repository = createInMemoryPackageReviewRepository({
+      packageVersions: [
+        buildPackageVersionRecord({
+          id: 5,
+          approvalStatus: 'pending',
+          reviewedAt: null,
+        }),
+      ],
+      deployments: [
+        buildDeploymentRecord({
+          id: 3,
+          slug: 'chapter-4-asteroids-pilot',
+          label: 'Chapter 4 Asteroids Pilot Deployment',
+          enabledPackageVersionId: 5,
+          enabledPackageVersion: '0.1.0',
+          binding: buildDeploymentBinding(),
+          ltiProfileOverride: 'certification',
+        }),
+      ],
+    });
+    const ltiStorage = await createSyncedTestLtiStorage();
+    const formData = new FormData();
+
+    formData.set('state', await signLtiToolState({ nonce: 'nonce-unapproved-launch' }));
+    formData.set(
+      'id_token',
+      await signCanvasIdToken({
+        nonce: 'nonce-unapproved-launch',
+        audience: '10000000000001',
+        issuedAt: '2026-03-24T00:45:00Z',
+        expirationTime: '2h',
+      }),
+    );
+
+    await withFetchStub(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify(getTestCanvasJwks()), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
+      async () => {
+        const response = await createApp({
+          getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
+        }).request('http://localhost/lti/launch', {
+          method: 'POST',
+          body: formData,
+        });
+        const auditEvents = await repository.listAuditEventsByEventType('launch.rejected');
+
+        assertEquals(response.status, 409);
+        assertEquals(auditEvents.length, 1);
+        assertEquals(auditEvents[0]?.deploymentRecordId, 3);
+        assertEquals(auditEvents[0]?.packageVersionId, 5);
+        assertEquals(auditEvents[0]?.detail.code, 'package_not_approved');
+        assertEquals(auditEvents[0]?.detail.category, 'policyDenied');
+        assertEquals(auditEvents[0]?.detail.internalDeploymentSlug, 'chapter-4-asteroids-pilot');
+        assertEquals(auditEvents[0]?.detail.issuer, 'https://canvas.instructure.com');
+        assertEquals(auditEvents[0]?.detail.clientId, '10000000000001');
+        assertEquals(auditEvents[0]?.detail.deploymentId, 'deployment-123');
+        assertEquals(auditEvents[0]?.detail.ltiProfileId, 'certification');
+        assertEquals(auditEvents[0]?.detail.ltiProfileSource, 'deploymentOverride');
+      },
+    );
+  });
 });
 
 Deno.test('POST /lti/launch keeps reviewed assignment launches on the reviewed version and content after the deployment pin changes', async () => {
@@ -101,17 +177,11 @@ Deno.test('POST /lti/launch keeps reviewed assignment launches on the reviewed v
           contentTitle: 'Bonus Activity',
         }),
       ],
-      loginStates: [
-        buildLoginStateRecord({
-          state: 'state-reviewed-launch',
-          nonce: 'nonce-reviewed-launch',
-          expiresAt: '2030-03-26T02:45:00Z',
-        }),
-      ],
     });
+    const ltiStorage = await createSyncedTestLtiStorage();
     const formData = new FormData();
 
-    formData.set('state', 'state-reviewed-launch');
+    formData.set('state', await signLtiToolState({ nonce: 'nonce-reviewed-launch' }));
     formData.set(
       'id_token',
       await signCanvasIdToken({
@@ -135,6 +205,7 @@ Deno.test('POST /lti/launch keeps reviewed assignment launches on the reviewed v
       async () => {
         const response = await createApp({
           getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
         }).request('https://lantern.example/lti/launch', {
           method: 'POST',
           body: formData,
@@ -194,17 +265,11 @@ Deno.test('POST /lti/launch rejects bad signed launches before any runtime hando
         binding: buildDeploymentBinding(),
       }),
     ],
-    loginStates: [
-      buildLoginStateRecord({
-        state: 'state-invalid-launch',
-        nonce: 'nonce-invalid-launch',
-        expiresAt: '2030-03-26T02:45:00Z',
-      }),
-    ],
   });
+  const ltiStorage = await createSyncedTestLtiStorage();
   const formData = new FormData();
 
-  formData.set('state', 'state-invalid-launch');
+  formData.set('state', await signLtiToolState({ nonce: 'nonce-invalid-launch' }));
   formData.set(
     'id_token',
     await signCanvasIdToken({
@@ -214,49 +279,47 @@ Deno.test('POST /lti/launch rejects bad signed launches before any runtime hando
     }),
   );
 
-  await withFetchStub(
-    () =>
-      Promise.resolve(
-        new Response(JSON.stringify({ keys: [] }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      ),
-    async () => {
-      const response = await createApp({
-        getRepository: () => repository,
-      }).request('http://localhost/lti/launch', {
-        method: 'POST',
-        headers: {
-          'x-real-ip': '203.0.113.44',
-        },
-        body: formData,
-      });
-      const body = await response.text();
+  await withRuntimeOriginEnv(async () => {
+    await withFetchStub(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify({ keys: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
+      async () => {
+        const response = await createApp({
+          getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
+        }).request('http://localhost/lti/launch', {
+          method: 'POST',
+          headers: {
+            'x-real-ip': '203.0.113.44',
+          },
+          body: formData,
+        });
+        const body = await response.text();
 
-      assertEquals(response.status, 409);
-      assertStringIncludes(body, 'Launch id_token signature or issuer validation failed.');
+        assertEquals(response.status, 400);
+        assertStringIncludes(body, 'JWT verification failed');
 
-      const auditEvents = await repository.listAuditEventsByEventType('launch.rejected');
+        const auditEvents = await repository.listAuditEventsByEventType('launch.rejected');
 
-      assertEquals(auditEvents.length, 1);
-      assertEquals(auditEvents[0]?.deploymentRecordId, 3);
-      assertEquals(auditEvents[0]?.packageVersionId, 5);
-      assertEquals(auditEvents[0]?.detail.category, 'specInvalid');
-      assertEquals(auditEvents[0]?.detail.code, 'signature_validation_failed');
-      assertObjectMatch(auditEvents[0]?.detail.request ?? {}, {
-        method: 'POST',
-        path: '/lti/launch',
-        formKeys: ['id_token', 'state'],
-        queryKeys: [],
-        clientIpMasked: '203.0.113.x',
-      });
-      assertEquals(JSON.stringify(auditEvents[0]?.detail ?? {}).includes('secret-id-token'), false);
-    },
-  );
+        assertEquals(auditEvents.length, 1);
+        assertEquals(auditEvents[0]?.deploymentRecordId, null);
+        assertEquals(auditEvents[0]?.packageVersionId, null);
+        assertEquals(auditEvents[0]?.detail.code, 'jwt_verification_failed');
+        assertEquals(
+          JSON.stringify(auditEvents[0]?.detail ?? {}).includes('secret-id-token'),
+          false,
+        );
+      },
+    );
+  });
 });
 
-Deno.test('POST /lti/launch records interop evidence only when governed compatibility tolerates target_link_uri drift', async () => {
+Deno.test('POST /lti/launch rejects target_link_uri drift at the lti-tool protocol boundary', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -278,22 +341,21 @@ Deno.test('POST /lti/launch records interop evidence only when governed compatib
           ltiProfileOverride: 'governedCompatibility',
         }),
       ],
-      loginStates: [
-        buildLoginStateRecord({
-          state: 'state-target-drift-launch',
-          nonce: 'nonce-target-drift-launch',
-          expiresAt: '2030-03-26T02:45:00Z',
-          targetLinkUri: 'https://lantern.example/lti/launch/',
-        }),
-      ],
       lanternLtiProfileSettings: {
         defaultLtiProfile: 'certification',
         updatedAt: '2026-03-23T18:05:00Z',
       },
     });
+    const ltiStorage = await createSyncedTestLtiStorage();
     const formData = new FormData();
 
-    formData.set('state', 'state-target-drift-launch');
+    formData.set(
+      'state',
+      await signLtiToolState({
+        nonce: 'nonce-target-drift-launch',
+        targetLinkUri: 'https://lantern.example/lti/launch/',
+      }),
+    );
     formData.set(
       'id_token',
       await signCanvasIdToken({
@@ -316,22 +378,15 @@ Deno.test('POST /lti/launch records interop evidence only when governed compatib
       async () => {
         const response = await createApp({
           getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
         }).request('https://lantern.example/lti/launch', {
           method: 'POST',
           body: formData,
         });
         const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
 
-        assertEquals(response.status, 303);
-        assertEquals(
-          interopEvents.some(
-            (event) =>
-              event.detail.path === 'target_link_uri_drift' &&
-              event.detail.ltiProfileId === 'governedCompatibility' &&
-              event.detail.ltiProfileSource === 'deploymentOverride',
-          ),
-          true,
-        );
+        assertEquals(response.status, 400);
+        assertEquals(interopEvents.length, 0);
       },
     );
   });

@@ -6,7 +6,7 @@ import {
 import { normalizeOptionalString } from './app_request_support.ts';
 import { deepLinkingReturnErrorMessage } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
-import { buildDeepLinkingResponseSubmission } from './lti/deep_linking_response.ts';
+import { createDeepLinkingReturnResponseWithLtiTool } from './lti/deep_linking_response_tool.ts';
 import {
   authorizeDeepLinkingSession,
   createReviewedPlacementFromDeepLinkingSession,
@@ -14,8 +14,7 @@ import {
   resolveDeepLinkingSelection,
 } from './lti/deep_linking.ts';
 import type { DeepLinkingSessionRecord, LtiPlacement } from './lti/types.ts';
-import { readEnv } from './platform/env.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
+import { resolveRequestAppOrigin } from './app_origin.ts';
 
 const sessionVerificationFailureDetail =
   'Lantern could not verify this Deep Linking session. Reopen Deep Linking authoring from the LMS and try again.';
@@ -145,31 +144,16 @@ export function registerDeepLinkingSubmitRoutes(app: Hono, services: AppServices
         },
         occurredAt: new Date().toISOString(),
       });
-      const submission = await buildDeepLinkingResponseSubmission({
+      const appOrigin = resolveRequestAppOrigin(context, services.env);
+      const response = await createDeepLinkingReturnResponseWithLtiTool({
+        ltiContext: await services.getLtiToolContext(appOrigin),
         session,
-        deployment,
         placement,
         packageVersion,
-        appOrigin: resolveConfiguredPublicOrigin({
-          requestUrl: context.req.url,
-          forwardedHeader: context.req.header('forwarded') ?? null,
-          xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-          xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-          configuredOrigin: readEnv('APP_ORIGIN', services.env),
-        }),
-        env: services.env,
+        appOrigin,
       });
 
-      return context.html(
-        renderDeepLinkingSubmitStatusPage({
-          tone: 'success',
-          title: buildDeepLinkingReturnTitle(session.placement, 'returning'),
-          detail: buildDeepLinkingSuccessDetail(session.placement),
-          session,
-          selection,
-          submission,
-        }),
-      );
+      return response;
     } catch (error) {
       return context.html(
         renderDeepLinkingSubmitStatusPage({
@@ -204,7 +188,7 @@ function renderSessionVerificationFailure(context: Context, status: 404 | 409) {
 
 function buildDeepLinkingReturnTitle(
   placement: LtiPlacement,
-  state: 'alreadyUsed' | 'failed' | 'returning',
+  state: 'alreadyUsed' | 'failed',
 ): string {
   const resourceLabel = describeDeepLinkingPlacement(placement).capitalized;
 
@@ -213,8 +197,6 @@ function buildDeepLinkingReturnTitle(
       return `${resourceLabel} return already used`;
     case 'failed':
       return `${resourceLabel} return failed`;
-    case 'returning':
-      return `Returning ${describeDeepLinkingPlacement(placement).resource} to LMS`;
   }
 }
 
@@ -231,14 +213,6 @@ function buildDeepLinkingMissingSelectionDetail(placement: LtiPlacement): string
     'Save one reviewed ' +
     describeDeepLinkingPlacement(placement).resource +
     ' before returning it to the LMS.'
-  );
-}
-
-function buildDeepLinkingSuccessDetail(placement: LtiPlacement): string {
-  return (
-    'Lantern created the reviewed placement and is posting this reviewed ' +
-    describeDeepLinkingPlacement(placement).resource +
-    ' back to the LMS.'
   );
 }
 

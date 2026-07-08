@@ -21,6 +21,19 @@ Deno.test('D1 deployment repository maps deployment rows', async () => {
   assertEquals(db.statements[0]?.parameters, ['chapter-4-asteroids']);
 });
 
+Deno.test('D1 deployment repository rejects malformed deployment row literals', async () => {
+  const db = createPlannedD1Database({
+    allResults: [[buildD1DeploymentRow({ lmsType: 'blackboard' })]],
+  });
+  const repository = createD1DeploymentRepositoryMethods(db);
+
+  await assertRejects(
+    () => repository.listDeploymentsByApp('chapter-4-asteroids'),
+    Error,
+    'Unexpected D1 deployments.lmsType value.',
+  );
+});
+
 Deno.test('D1 deployment repository saves exact non-Canvas bindings', async () => {
   const saved = buildD1DeploymentRow({
     lmsType: 'moodle',
@@ -77,6 +90,7 @@ Deno.test('D1 deployment repository rejects unapproved package pins', async () =
         label: 'Canvas',
         appId: 'chapter-4-asteroids',
         packageVersionId: 1,
+        lmsType: 'canvas',
       }),
     Error,
     'Only approved package versions can be enabled.',

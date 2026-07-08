@@ -17,6 +17,7 @@ import {
   buildRuntimeSessionRecord,
   getTestToolPrivateJwkEnvValue,
 } from './test_helpers/lti.ts';
+import { createTestLtiToolContext } from './test_helpers/lti_tool_context.ts';
 
 Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish retries the failed grade publish through the SSR control plane', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
@@ -56,6 +57,7 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish retries th
     ],
     runtimeSessions: [
       buildRuntimeSessionRecord({
+        ltiToolSessionId: 'lti-tool-session-123',
         attemptId: 'attempt-123',
         deploymentRecordId: 3,
         packageVersionId: 5,
@@ -89,6 +91,9 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish retries th
       }),
     ],
   });
+  const ltiToolContext = createTestLtiToolContext({
+    sessionId: 'lti-tool-session-123',
+  });
   const formData = new FormData();
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
@@ -117,6 +122,7 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish retries th
       async () => {
         const response = await createApp({
           getRepository: () => repository,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
         }).request(
           'http://localhost/admin/packages/chapter-4-asteroids/deployment/retry-grade-publish',
           {
@@ -189,6 +195,7 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish records bo
     ],
     runtimeSessions: [
       buildRuntimeSessionRecord({
+        ltiToolSessionId: 'lti-tool-session-123',
         attemptId: 'attempt-123',
         deploymentRecordId: 3,
         packageVersionId: 5,
@@ -222,6 +229,11 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish records bo
       }),
     ],
   });
+  const ltiToolContext = createTestLtiToolContext({
+    sessionId: 'lti-tool-session-123',
+    submitScoreSuccess: false,
+    submitScoreMessage: 'simulated retry failure',
+  });
   const formData = new FormData();
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
@@ -237,6 +249,7 @@ Deno.test('POST /admin/packages/:appId/deployment/retry-grade-publish records bo
       async () => {
         const response = await createApp({
           getRepository: () => repository,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
         }).request(
           'http://localhost/admin/packages/chapter-4-asteroids/deployment/retry-grade-publish',
           {

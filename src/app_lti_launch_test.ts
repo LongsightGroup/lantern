@@ -12,12 +12,14 @@ import {
 } from './test_helpers/package_review.ts';
 import {
   buildDeploymentBinding,
-  buildLoginStateRecord,
+  createSyncedTestLtiStorage,
   getTestCanvasJwks,
   getTestToolPrivateJwkEnvValue,
   signCanvasIdToken,
+  signLtiToolState,
+  TEST_LTI_STATE_SECRET,
 } from './test_helpers/lti.ts';
-import { EXAMPLE_SNAPSHOT_ROOT, withFetchStub } from './app_test_support.ts';
+import { EXAMPLE_SNAPSHOT_ROOT, withFetchStub, withRuntimeOriginEnv } from './app_test_support.ts';
 
 Deno.test('POST /lti/launch validates the signed launch and redirects to a runtime-session handoff with a signed runtime bootstrap', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -47,14 +49,9 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
         ltiProfileOverride: 'certification',
       }),
     ],
-    loginStates: [
-      buildLoginStateRecord({
-        state: 'state-launch-123',
-        nonce: 'nonce-launch-123',
-        expiresAt: '2030-03-26T02:45:00Z',
-      }),
-    ],
   });
+  const ltiStorage = await createSyncedTestLtiStorage();
+  const state = await signLtiToolState({ nonce: 'nonce-launch-123' });
   const idToken = await signCanvasIdToken({
     nonce: 'nonce-launch-123',
     audience: '10000000000001',
@@ -68,10 +65,11 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
   const env = createObjectEnvReader({
     APP_ORIGIN: 'https://lantern.example',
     APP_RUNTIME_ORIGIN: 'https://runtime.lantern.example',
+    LTI_STATE_SECRET: TEST_LTI_STATE_SECRET,
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
   });
 
-  formData.set('state', 'state-launch-123');
+  formData.set('state', state);
   formData.set('id_token', idToken);
 
   await withFetchStub(
@@ -86,6 +84,7 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
       const app = createApp({
         env,
         getRepository: () => repository,
+        getLtiToolStorage: () => ltiStorage,
       });
       const response = await app.request('https://lantern.example/lti/launch', {
         method: 'POST',
@@ -130,12 +129,12 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
       assertEquals(attempt?.attemptId, saved.attemptId);
       assertEquals(attempt?.userDisplayName, 'Ada Lovelace');
       assertEquals(attempt?.userEmail, 'ada@example.com');
-      assertEquals(attempt?.userLogin, 'adal');
+      assertEquals(attempt?.userLogin, null);
       assertEquals(auditEvents.length, 1);
       assertEquals(auditEvents[0]?.attemptId, saved.attemptId);
       assertEquals(auditEvents[0]?.detail.userDisplayName, 'Ada Lovelace');
       assertEquals(auditEvents[0]?.detail.userEmail, 'ada@example.com');
-      assertEquals(auditEvents[0]?.detail.userLogin, 'adal');
+      assertEquals(auditEvents[0]?.detail.userLogin, null);
       assertEquals(auditEvents[0]?.detail.ltiProfileId, 'certification');
       assertEquals(auditEvents[0]?.detail.ltiProfileSource, 'deploymentOverride');
       assertEquals(
@@ -153,7 +152,7 @@ Deno.test('POST /lti/launch validates the signed launch and redirects to a runti
   );
 });
 
-Deno.test('POST /lti/launch rejects certification-profile launches when validation would need a JWKS refetch', async () => {
+Deno.test('POST /lti/launch records lti-tool JWKS refetch verification evidence', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -174,14 +173,9 @@ Deno.test('POST /lti/launch rejects certification-profile launches when validati
         ltiProfileOverride: 'certification',
       }),
     ],
-    loginStates: [
-      buildLoginStateRecord({
-        state: 'state-launch-cert-jwks',
-        nonce: 'nonce-launch-cert-jwks',
-        expiresAt: '2030-03-26T02:45:00Z',
-      }),
-    ],
   });
+  const ltiStorage = await createSyncedTestLtiStorage();
+  const state = await signLtiToolState({ nonce: 'nonce-launch-cert-jwks' });
   const idToken = await signCanvasIdToken({
     nonce: 'nonce-launch-cert-jwks',
     audience: '10000000000001',
@@ -191,36 +185,39 @@ Deno.test('POST /lti/launch rejects certification-profile launches when validati
   const formData = new FormData();
   let jwksRequests = 0;
 
-  formData.set('state', 'state-launch-cert-jwks');
+  formData.set('state', state);
   formData.set('id_token', idToken);
 
-  await withFetchStub(
-    () => {
-      jwksRequests += 1;
+  await withRuntimeOriginEnv(async () => {
+    await withFetchStub(
+      () => {
+        jwksRequests += 1;
 
-      return Promise.resolve(
-        new Response(JSON.stringify(jwksRequests === 1 ? { keys: [] } : getTestCanvasJwks()), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        }),
-      );
-    },
-    async () => {
-      const response = await createApp({
-        getRepository: () => repository,
-      }).request('http://localhost/lti/launch', {
-        method: 'POST',
-        body: formData,
-      });
-      const body = await response.text();
-      const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
+        return Promise.resolve(
+          new Response(JSON.stringify(jwksRequests === 1 ? { keys: [] } : getTestCanvasJwks()), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      },
+      async () => {
+        const response = await createApp({
+          getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
+        }).request('http://localhost/lti/launch', {
+          method: 'POST',
+          body: formData,
+        });
+        const body = await response.text();
+        const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
 
-      assertEquals(response.status, 409);
-      assertStringIncludes(body, 'Launch id_token signature or issuer validation failed.');
-      assertEquals(jwksRequests, 1);
-      assertEquals(interopEvents.length, 0);
-    },
-  );
+        assertEquals(response.status, 303, body);
+        assertEquals(jwksRequests, 2);
+        assertEquals(interopEvents.length, 1);
+        assertEquals(interopEvents[0]?.detail.path, 'jwks_refetch');
+      },
+    );
+  });
 });
 
 function extractBootstrapFromHtml(html: string): BootstrapPayload {
@@ -259,7 +256,11 @@ async function assertBootstrapSignature(bootstrap: BootstrapPayload): Promise<vo
 function createToolKeyEnv(): { get(name: string): string | undefined } {
   return {
     get(name: string): string | undefined {
-      return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
+      return name === 'LTI_TOOL_PRIVATE_JWK'
+        ? getTestToolPrivateJwkEnvValue()
+        : name === 'LTI_STATE_SECRET'
+        ? TEST_LTI_STATE_SECRET
+        : undefined;
     },
   };
 }

@@ -59,8 +59,8 @@ export type CanvasConfigPlacement =
     text: string;
   };
 
-export function requireAppOrigin(): string {
-  const appOrigin = readEnv(APP_ORIGIN_ENV)?.trim();
+export function requireAppOrigin(env?: EnvReader): string {
+  const appOrigin = readEnv(APP_ORIGIN_ENV, env)?.trim();
 
   if (!appOrigin) {
     throw new Error(

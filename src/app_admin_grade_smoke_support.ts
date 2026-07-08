@@ -1,23 +1,19 @@
 import { errorMessage } from './app_status_support.ts';
-import { getLtiProfileDefinition } from './lti/profile.ts';
+import { withAgsLineItemTarget } from './lti/ags_session.ts';
+import { requireLtiToolSession } from './lti/lti_tool_session.ts';
 import { buildResolvedLtiProfileDetail } from './lti/profile_resolution.ts';
 import type { ResolvedLtiProfile } from './lti/profile.ts';
 import type { DeploymentBinding, RuntimeSessionRecord } from './lti/types.ts';
 import { LTI_AGS_LINEITEM_SCOPE, LTI_AGS_SCORE_SCOPE } from './lti/types.ts';
-import { publishFinalScore, requestServiceAccessToken } from './lti/services.ts';
-import type { EnvReader } from './platform/env.ts';
+import type { LanternLtiToolContext } from './lti/tool_provider.ts';
+import type { LTISession } from '@longsightgroup/lti-tool';
 import type { PackageReviewRepository } from './package_review/repository.ts';
 import type { AttemptRecord, DeploymentRecord } from './package_review/types.ts';
-import {
-  buildSmokeVerificationLineItemSpec,
-  ensureManagedLineItem,
-  requestAccessToken,
-} from './runtime/gateway_publication_support.ts';
+import { buildSmokeVerificationLineItemSpec } from './runtime/gateway_publication_support.ts';
 import {
   formatGradeSmokeLmsLabel,
   type SupportedSmokeLms,
 } from './app_admin_grade_smoke_validation.ts';
-import { recordInteropPathUsed } from './interop_audit.ts';
 
 export interface GradeSmokeAuditDetail {
   lms: SupportedSmokeLms;
@@ -44,7 +40,7 @@ export async function runGradeSmokeVerification(input: {
   binding: Extract<DeploymentBinding, { lms: SupportedSmokeLms }>;
   session: RuntimeSessionRecord;
   attempt: AttemptRecord;
-  env: EnvReader;
+  getLtiToolContext: () => Promise<LanternLtiToolContext>;
   ltiProfile?: ResolvedLtiProfile | null;
 }): Promise<GradeSmokeVerificationResult> {
   const ags = input.session.services.ags;
@@ -75,14 +71,12 @@ export async function runGradeSmokeVerification(input: {
     });
   }
 
-  const accessToken = await requestAccessToken({
-    scope: ags.scope,
-    binding: input.binding,
-    lineItemBinding: null,
-    env: input.env,
+  const ltiSession = await loadSmokeVerificationLtiSession({
+    getLtiToolContext: input.getLtiToolContext,
+    session: input.session,
   });
 
-  if (typeof accessToken !== 'string') {
+  if ('error' in ltiSession) {
     return buildGradeSmokeFailureResult({
       lms: input.binding.lms,
       contextId: input.attempt.contextId,
@@ -90,59 +84,35 @@ export async function runGradeSmokeVerification(input: {
       agsCapable: true,
       publicationStatus: 'not_attempted',
       lineItemUrl: null,
-      code: accessToken.publishError?.code ?? 'token_request_failed',
-      message: accessToken.publishError?.message ??
-        'Lantern could not get a service token for this grade return check.',
+      code: ltiSession.error.code,
+      message: ltiSession.error.message,
     });
   }
 
   let lineItemUrl: string | null = null;
-  const retryUnauthorized = input.ltiProfile !== null &&
-      input.ltiProfile !== undefined &&
-      !getLtiProfileDefinition(input.ltiProfile.id).behavior.retryServiceUnauthorizedOnce
-    ? undefined
-    : async () => {
-      await recordInteropPathUsed({
-        repository: input.repository,
-        scope: 'service',
-        path: 'service_401_retry',
-        actorType: 'system',
-        deploymentRecordId: input.session.deploymentRecordId,
-        packageVersionId: input.session.packageVersionId,
-        attemptId: input.attempt.attemptId,
-        summary: 'Lantern retried an LMS service request after a 401.',
-        detail: {
-          lms: input.binding.lms,
-          deploymentSlug: input.session.deploymentSlug,
-        },
-        ltiProfile: input.ltiProfile ?? null,
-      });
-      const refreshed = await requestServiceAccessToken({
-        binding: input.binding,
-        scopes: ags.scope,
-        env: input.env,
-      });
-
-      return refreshed.accessToken;
-    };
 
   try {
-    const ensuredLineItem = await ensureManagedLineItem({
-      accessToken,
-      ags: {
-        ...ags,
-        lineitemUrl: null,
-      },
-      resourceLinkId: input.attempt.resourceLinkId,
-      spec: buildSmokeVerificationLineItemSpec({
-        appId: input.session.appId,
-        appTitle: input.appTitle,
-        lms: input.binding.lms,
-      }),
-      ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
+    const spec = buildSmokeVerificationLineItemSpec({
+      appId: input.session.appId,
+      appTitle: input.appTitle,
+      lms: input.binding.lms,
     });
+    const lineItemResult = await ltiSession.ltiContext.tool.createAdvantage(ltiSession.session)
+      .findOrCreateLineItem({
+        resourceLinkId: input.attempt.resourceLinkId,
+        resourceId: spec.resourceId,
+        tag: spec.tag,
+        create: {
+          label: spec.label,
+          scoreMaximum: spec.scoreMaximum,
+        },
+      });
 
-    lineItemUrl = ensuredLineItem.lineItemUrl;
+    if (!lineItemResult.success) {
+      throw new Error(lineItemResult.error.message);
+    }
+
+    lineItemUrl = lineItemResult.data.id;
   } catch (error) {
     return buildGradeSmokeFailureResult({
       lms: input.binding.lms,
@@ -157,16 +127,19 @@ export async function runGradeSmokeVerification(input: {
   }
 
   try {
-    await publishFinalScore({
-      accessToken,
-      lineItemUrl,
-      platformUserId: input.attempt.userId,
+    const scoreResult = await ltiSession.ltiContext.tool.createAdvantage(
+      withAgsLineItemTarget(ltiSession.session, lineItemUrl),
+    ).submitScore({
+      userId: input.attempt.userId,
       scoreGiven: 1,
       scoreMaximum: 1,
       activityProgress: 'Completed',
       gradingProgress: 'FullyGraded',
-      ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
     });
+
+    if (!scoreResult.success) {
+      throw new Error(scoreResult.error.message);
+    }
   } catch (error) {
     return buildGradeSmokeFailureResult({
       lms: input.binding.lms,
@@ -193,6 +166,49 @@ export async function runGradeSmokeVerification(input: {
       error: null,
     },
   };
+}
+
+async function loadSmokeVerificationLtiSession(input: {
+  getLtiToolContext: () => Promise<LanternLtiToolContext>;
+  session: RuntimeSessionRecord;
+}): Promise<
+  | {
+    ltiContext: LanternLtiToolContext;
+    session: LTISession;
+  }
+  | {
+    error: {
+      code: string;
+      message: string;
+    };
+  }
+> {
+  let ltiContext: LanternLtiToolContext | undefined;
+
+  try {
+    const session = await requireLtiToolSession({
+      getStorage: async () => {
+        ltiContext = await input.getLtiToolContext();
+        return ltiContext.storage;
+      },
+      ltiToolSessionId: input.session.ltiToolSessionId,
+      missingMessage: 'A verified lti-tool session is required for this grade return check.',
+      notFoundMessage: 'The verified LTI session for this grade return check was not found.',
+    });
+
+    if (ltiContext === undefined) {
+      throw new Error('The lti-tool context for this grade return check was not loaded.');
+    }
+
+    return { ltiContext, session };
+  } catch (error) {
+    return {
+      error: {
+        code: 'lti_session_missing',
+        message: errorMessage(error),
+      },
+    };
+  }
 }
 
 export async function recordGradeSmokeAuditEvent(

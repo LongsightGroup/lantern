@@ -1,5 +1,5 @@
 import type { D1Database } from '../db/d1.ts';
-import { queryD1First, queryD1Objects, runD1 } from '../db/d1.ts';
+import { queryD1First, queryD1Objects, runD1, runD1Batch } from '../db/d1.ts';
 import {
   mapAttemptEvidenceArtifactRow,
   mapAuditEventRow,
@@ -9,12 +9,16 @@ import {
   mapOptionalGradePublication,
   mapOptionalLineItemBinding,
 } from './repository_mappers_attempts.ts';
-import type {
-  AttemptEvidenceArtifactRow,
-  AuditEventRow,
-  GradePublicationRow,
-  LineItemBindingRow,
-} from './repository_row_types.ts';
+import {
+  type D1AttemptEvidenceArtifactRow,
+  type D1AuditEventRow,
+  type D1GradePublicationRow,
+  type D1LineItemBindingRow,
+  mapD1AttemptEvidenceArtifactRow,
+  mapD1AuditEventFields,
+  mapD1GradePublicationFields,
+  mapD1LineItemBindingFields,
+} from './repository_grading_d1_mapping.ts';
 import type { PackageReviewRepository } from './repository.ts';
 
 export function createD1GradingRepositoryMethods(
@@ -35,61 +39,78 @@ export function createD1GradingRepositoryMethods(
 > {
   return {
     async createAttemptEvidenceArtifact(input) {
-      const attempt = await queryD1First<{ attemptId: string }>(
-        db,
-        `
-          SELECT attempt_id AS attemptId
-          FROM attempts
-          WHERE attempt_id = ?
-        `,
-        [input.attemptId],
-      );
-
-      if (attempt === null) {
-        throw new Error(`Attempt ${input.attemptId} was not found.`);
-      }
-
-      const sequenceRow = await queryD1First<{ nextSequence: number }>(
-        db,
-        `
-          SELECT COALESCE(MAX(sequence), 0) + 1 AS nextSequence
-          FROM attempt_evidence_artifacts
-          WHERE attempt_id = ?
-        `,
-        [input.attemptId],
-      );
-      const nextSequence = sequenceRow?.nextSequence ?? 1;
-
       try {
-        await runD1(
+        const results = await runD1Batch<D1AttemptEvidenceArtifactRow>(
           db,
-          `
-            INSERT INTO attempt_evidence_artifacts (
-              artifact_id,
-              attempt_id,
-              sequence,
-              kind,
-              content_type,
-              file_name,
-              storage_key,
-              byte_size,
-              sha256,
-              created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `,
           [
-            input.artifactId,
-            input.attemptId,
-            nextSequence,
-            input.kind,
-            input.contentType,
-            input.fileName,
-            input.storageKey,
-            input.byteSize,
-            input.sha256,
-            input.createdAt,
+            {
+              sql: `
+                INSERT INTO attempt_evidence_artifacts (
+                  artifact_id,
+                  attempt_id,
+                  sequence,
+                  kind,
+                  content_type,
+                  file_name,
+                  storage_key,
+                  byte_size,
+                  sha256,
+                  created_at
+                )
+                SELECT
+                  ?,
+                  attempts.attempt_id,
+                  attempts.next_evidence_artifact_sequence,
+                  ?,
+                  ?,
+                  ?,
+                  ?,
+                  ?,
+                  ?,
+                  ?
+                FROM attempts
+                WHERE attempts.attempt_id = ?
+                RETURNING
+                  artifact_id AS artifactId,
+                  attempt_id AS attemptId,
+                  sequence,
+                  kind,
+                  content_type AS contentType,
+                  file_name AS fileName,
+                  storage_key AS storageKey,
+                  byte_size AS byteSize,
+                  sha256,
+                  created_at AS createdAt
+              `,
+              parameters: [
+                input.artifactId,
+                input.kind,
+                input.contentType,
+                input.fileName,
+                input.storageKey,
+                input.byteSize,
+                input.sha256,
+                input.createdAt,
+                input.attemptId,
+              ],
+            },
+            {
+              sql: `
+                UPDATE attempts
+                SET next_evidence_artifact_sequence = next_evidence_artifact_sequence + 1
+                WHERE attempt_id = ?
+              `,
+              parameters: [input.attemptId],
+            },
           ],
         );
+        const row = results[0]?.results?.[0] ?? null;
+
+        if (row === null) {
+          throw new Error(`Attempt ${input.attemptId} was not found.`);
+        }
+
+        return mapAttemptEvidenceArtifactRow(mapD1AttemptEvidenceArtifactRow(row));
       } catch (error) {
         if (isD1UniqueViolation(error)) {
           throw new Error(
@@ -99,8 +120,6 @@ export function createD1GradingRepositoryMethods(
 
         throw error;
       }
-
-      return await requireAttemptEvidenceArtifact(db, input.artifactId);
     },
 
     async getAttemptEvidenceArtifactById(artifactId) {
@@ -111,7 +130,7 @@ export function createD1GradingRepositoryMethods(
       );
 
       return mapOptionalAttemptEvidenceArtifact(
-        row === null ? undefined : mapD1AttemptEvidenceArtifactFields(row),
+        row === null ? undefined : mapD1AttemptEvidenceArtifactRow(row),
       );
     },
 
@@ -126,9 +145,7 @@ export function createD1GradingRepositoryMethods(
         [attemptId],
       );
 
-      return rows.map((row) =>
-        mapAttemptEvidenceArtifactRow(mapD1AttemptEvidenceArtifactFields(row))
-      );
+      return rows.map((row) => mapAttemptEvidenceArtifactRow(mapD1AttemptEvidenceArtifactRow(row)));
     },
 
     async getLineItemBinding(input) {
@@ -489,83 +506,6 @@ const D1_AUDIT_EVENT_SELECT = `
   FROM audit_events
 `;
 
-interface D1AttemptEvidenceArtifactRow extends Record<string, unknown> {
-  artifactId: unknown;
-  attemptId: unknown;
-  sequence: unknown;
-  kind: unknown;
-  contentType: unknown;
-  fileName: unknown;
-  storageKey: unknown;
-  byteSize: unknown;
-  sha256: unknown;
-  createdAt: unknown;
-}
-
-interface D1LineItemBindingRow extends Record<string, unknown> {
-  id: unknown;
-  deploymentRecordId: unknown;
-  packageVersionId: unknown;
-  contextId: unknown;
-  resourceLinkId: unknown;
-  activityId: unknown;
-  lineItemsUrl: unknown;
-  lineItemUrl: unknown;
-  resourceId: unknown;
-  tag: unknown;
-  label: unknown;
-  scoreMaximum: unknown;
-  createdAt: unknown;
-  updatedAt: unknown;
-}
-
-interface D1GradePublicationRow extends Record<string, unknown> {
-  id: unknown;
-  attemptId: unknown;
-  lineItemBindingId: unknown;
-  lineItemUrl: unknown;
-  platformUserId: unknown;
-  scoreGiven: unknown;
-  scoreMaximum: unknown;
-  activityProgress: unknown;
-  gradingProgress: unknown;
-  status: unknown;
-  createdAt: unknown;
-  updatedAt: unknown;
-  publishedAt: unknown;
-  errorCode: unknown;
-  errorDetail: unknown;
-}
-
-interface D1AuditEventRow extends Record<string, unknown> {
-  id: unknown;
-  eventType: unknown;
-  actorType: unknown;
-  actorId: unknown;
-  deploymentRecordId: unknown;
-  packageVersionId: unknown;
-  attemptId: unknown;
-  lineItemBindingId: unknown;
-  status: unknown;
-  summary: unknown;
-  detail: unknown;
-  occurredAt: unknown;
-}
-
-async function requireAttemptEvidenceArtifact(db: D1Database, artifactId: string) {
-  const row = await queryD1First<D1AttemptEvidenceArtifactRow>(
-    db,
-    `${D1_ATTEMPT_EVIDENCE_ARTIFACT_SELECT} WHERE artifact_id = ?`,
-    [artifactId],
-  );
-
-  if (row === null) {
-    throw new Error(`Attempt evidence artifact ${artifactId} was not found.`);
-  }
-
-  return mapAttemptEvidenceArtifactRow(mapD1AttemptEvidenceArtifactFields(row));
-}
-
 async function requireLineItemBindingByUrl(db: D1Database, lineItemUrl: string) {
   const row = await queryD1First<D1LineItemBindingRow>(
     db,
@@ -594,153 +534,6 @@ async function requireGradePublicationByAttemptId(db: D1Database, attemptId: str
   return mapGradePublicationRow(mapD1GradePublicationFields(row));
 }
 
-function mapD1AttemptEvidenceArtifactFields(
-  row: D1AttemptEvidenceArtifactRow,
-): AttemptEvidenceArtifactRow {
-  return {
-    artifactId: expectString(row.artifactId, 'artifactId'),
-    attemptId: expectString(row.attemptId, 'attemptId'),
-    sequence: expectNumber(row.sequence, 'sequence'),
-    kind: expectStringLiteral(row.kind, 'kind', ['screenshot_png', 'structured_json']),
-    contentType: expectString(row.contentType, 'contentType'),
-    fileName: expectString(row.fileName, 'fileName'),
-    storageKey: expectString(row.storageKey, 'storageKey'),
-    byteSize: expectNumber(row.byteSize, 'byteSize'),
-    sha256: expectString(row.sha256, 'sha256'),
-    createdAt: expectString(row.createdAt, 'createdAt'),
-  };
-}
-
-function mapD1LineItemBindingFields(row: D1LineItemBindingRow): LineItemBindingRow {
-  return {
-    id: expectNumber(row.id, 'id'),
-    deploymentRecordId: expectNumber(row.deploymentRecordId, 'deploymentRecordId'),
-    packageVersionId: expectNumber(row.packageVersionId, 'packageVersionId'),
-    contextId: expectString(row.contextId, 'contextId'),
-    resourceLinkId: expectString(row.resourceLinkId, 'resourceLinkId'),
-    activityId: expectString(row.activityId, 'activityId'),
-    lineItemsUrl: expectString(row.lineItemsUrl, 'lineItemsUrl'),
-    lineItemUrl: expectString(row.lineItemUrl, 'lineItemUrl'),
-    resourceId: expectString(row.resourceId, 'resourceId'),
-    tag: expectString(row.tag, 'tag'),
-    label: expectString(row.label, 'label'),
-    scoreMaximum: expectNumber(row.scoreMaximum, 'scoreMaximum'),
-    createdAt: expectString(row.createdAt, 'createdAt'),
-    updatedAt: expectString(row.updatedAt, 'updatedAt'),
-  };
-}
-
-function mapD1GradePublicationFields(row: D1GradePublicationRow): GradePublicationRow {
-  return {
-    id: expectNumber(row.id, 'id'),
-    attemptId: expectString(row.attemptId, 'attemptId'),
-    lineItemBindingId: expectNumber(row.lineItemBindingId, 'lineItemBindingId'),
-    lineItemUrl: expectString(row.lineItemUrl, 'lineItemUrl'),
-    platformUserId: expectString(row.platformUserId, 'platformUserId'),
-    scoreGiven: expectNumber(row.scoreGiven, 'scoreGiven'),
-    scoreMaximum: expectNumber(row.scoreMaximum, 'scoreMaximum'),
-    activityProgress: expectStringLiteral(row.activityProgress, 'activityProgress', [
-      'Completed',
-      'InProgress',
-      'Initialized',
-    ]),
-    gradingProgress: expectStringLiteral(row.gradingProgress, 'gradingProgress', [
-      'Pending',
-      'PendingManual',
-      'FullyGraded',
-      'Failed',
-    ]),
-    status: expectStringLiteral(row.status, 'status', ['pending', 'published', 'failed']),
-    createdAt: expectString(row.createdAt, 'createdAt'),
-    updatedAt: expectString(row.updatedAt, 'updatedAt'),
-    publishedAt: expectNullableString(row.publishedAt, 'publishedAt'),
-    errorCode: expectNullableString(row.errorCode, 'errorCode'),
-    errorDetail: parseNullableJsonField(row.errorDetail, 'errorDetail') as
-      | Record<
-        string,
-        unknown
-      >
-      | null,
-  };
-}
-
-function mapD1AuditEventFields(row: D1AuditEventRow): AuditEventRow {
-  return {
-    id: expectNumber(row.id, 'id'),
-    eventType: expectString(row.eventType, 'eventType'),
-    actorType: expectStringLiteral(row.actorType, 'actorType', ['user', 'system', 'platform']),
-    actorId: expectNullableString(row.actorId, 'actorId'),
-    deploymentRecordId: expectNullableNumber(row.deploymentRecordId, 'deploymentRecordId'),
-    packageVersionId: expectNullableNumber(row.packageVersionId, 'packageVersionId'),
-    attemptId: expectNullableString(row.attemptId, 'attemptId'),
-    lineItemBindingId: expectNullableNumber(row.lineItemBindingId, 'lineItemBindingId'),
-    status: expectStringLiteral(row.status, 'status', ['accepted', 'succeeded', 'failed']),
-    summary: expectString(row.summary, 'summary'),
-    detail: parseJsonField(row.detail, 'detail') as Record<string, unknown>,
-    occurredAt: expectString(row.occurredAt, 'occurredAt'),
-  };
-}
-
 function isD1UniqueViolation(error: unknown): boolean {
   return error instanceof Error && error.message.includes('UNIQUE constraint failed');
-}
-
-function parseJsonField(value: unknown, fieldName: string): unknown {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be JSON text.`);
-  }
-
-  return JSON.parse(value);
-}
-
-function parseNullableJsonField(value: unknown, fieldName: string): unknown | null {
-  if (value === null) {
-    return null;
-  }
-
-  return parseJsonField(value, fieldName);
-}
-
-function expectString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be text.`);
-  }
-
-  return value;
-}
-
-function expectNullableString(value: unknown, fieldName: string): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectString(value, fieldName);
-}
-
-function expectNumber(value: unknown, fieldName: string): number {
-  if (typeof value !== 'number') {
-    throw new TypeError(`Expected D1 ${fieldName} to be numeric.`);
-  }
-
-  return value;
-}
-
-function expectNullableNumber(value: unknown, fieldName: string): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectNumber(value, fieldName);
-}
-
-function expectStringLiteral<T extends string>(
-  value: unknown,
-  fieldName: string,
-  allowed: readonly T[],
-): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Error(`Unexpected D1 ${fieldName} value.`);
-  }
-
-  return value as T;
 }

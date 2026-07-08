@@ -29,7 +29,7 @@ import { targetVersionForContext, validateRevisionPackageIdentity } from './serv
 import type {
   RunAppPackageGenerationInput,
   RunAppPackageGenerationResult,
-} from './service_core.ts';
+} from './service_run_types.ts';
 
 interface FinishState {
   run: AppGenerationRunRecord;

@@ -11,6 +11,7 @@ const RUNTIME_SESSION_TTL_MS = 10 * 60 * 1000;
 export async function createRuntimeSession(input: {
   repository: PackageReviewRepository;
   launch: ValidatedLaunch;
+  ltiToolSessionId?: string | null;
   now?: () => Date;
   createOpaqueToken?: () => string;
 }): Promise<RuntimeSessionRecord> {
@@ -59,6 +60,7 @@ export async function createRuntimeSession(input: {
   return await input.repository.createRuntimeSession({
     sessionId: nextOpaqueToken(),
     sessionToken: nextOpaqueToken(),
+    ltiToolSessionId: input.ltiToolSessionId ?? null,
     attemptId: attempt.attemptId,
     deploymentRecordId: input.launch.internalDeploymentId,
     deploymentSlug: input.launch.internalDeploymentSlug,

@@ -195,6 +195,7 @@ export interface RetryLookupRow {
   bindingClientId: string | null;
   bindingDeploymentId: string | null;
   sessionId: string | null;
+  runtimeLtiToolSessionId: string | null;
   runtimeAttemptId: string | null;
   runtimeDeploymentRecordId: number | null;
   runtimeDeploymentSlug: string | null;
@@ -217,7 +218,6 @@ export interface OpsRepository {
   ): Promise<ControlPlaneDeploymentDetailSnapshot | null>;
   listCertificationWorkflowStatuses(): Promise<CertificationWorkflowStatus[]>;
   getLatestOfficialCertificationEvidence(): Promise<LatestOfficialCertificationEvidence | null>;
-  getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
   getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
   recordBrokerVerificationRun(input: RecordBrokerVerificationRunInput): Promise<void>;
   getRetryableGradePublicationLookup(

@@ -1,13 +1,7 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
-import {
-  extractHiddenInputValue,
-  verifyDeepLinkingResponseJwt,
-  withCanvasReturnEnv,
-  withRuntimeOriginEnv,
-} from './app_test_support.ts';
+import { withCanvasReturnEnv, withRuntimeOriginEnv } from './app_test_support.ts';
 import { buildDeepLinkingSelectionValue } from './lti/deep_linking.ts';
-import { LANTERN_PLACEMENT_CUSTOM_KEY } from './lti/types.ts';
 import {
   buildDeepLinkingResourceOption,
   buildDeepLinkingResourceSelection,
@@ -15,7 +9,11 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
-import { buildDeepLinkingSessionRecord, buildDeploymentBinding } from './test_helpers/lti.ts';
+import {
+  buildDeepLinkingSessionRecord,
+  buildDeploymentBinding,
+  createSyncedTestLtiStorage,
+} from './test_helpers/lti.ts';
 
 Deno.test('Deep Linking picker shows preview only after a reviewed selection is saved and posts it in a new tab', async () => {
   const repository = createInMemoryPackageReviewRepository({
@@ -220,6 +218,47 @@ Deno.test('POST /lti/deep-linking/sessions/:id/preview launches a governed runti
 Deno.test('POST /lti/deep-linking/sessions/:id/preview does not consume the Deep Linking session or break the later LMS return', async () => {
   await withRuntimeOriginEnv(async () => {
     await withAuthoringPreviewSnapshot(async (snapshotRoot) => {
+      const binding = buildDeploymentBinding();
+      const ltiStorage = await createSyncedTestLtiStorage({ binding });
+      await ltiStorage.addSession({
+        id: 'lti-tool-session-preview-submit',
+        jwtPayload: {},
+        user: {
+          id: 'canvas-user-123',
+          roles: ['http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor'],
+        },
+        context: {
+          id: 'course-42',
+          label: 'Physics 101',
+          title: 'Physics 101',
+        },
+        platform: {
+          issuer: binding.issuer,
+          clientId: binding.clientId,
+          deploymentId: binding.deploymentId,
+          name: 'Canvas',
+        },
+        launch: {
+          target: 'https://lantern.example/lti/deep-linking',
+        },
+        services: {
+          deepLinking: {
+            returnUrl: 'https://canvas.example/courses/42/deep_link_return',
+            acceptTypes: ['ltiResourceLink'],
+            acceptPresentationDocumentTargets: ['iframe'],
+            acceptMultiple: false,
+            autoCreate: false,
+            data: 'deep-linking-state-token',
+          },
+        },
+        customParameters: {},
+        isAdmin: false,
+        isInstructor: true,
+        isStudent: false,
+        isAssignmentAndGradesAvailable: false,
+        isDeepLinkingAvailable: true,
+        isNameAndRolesAvailable: false,
+      });
       const repository = createInMemoryPackageReviewRepository({
         packageVersions: [
           buildAuthoringPreviewPackageVersion({
@@ -233,13 +272,14 @@ Deno.test('POST /lti/deep-linking/sessions/:id/preview does not consume the Deep
             id: 1,
             enabledPackageVersionId: 8,
             enabledPackageVersion: '0.8.0',
-            binding: buildDeploymentBinding(),
+            binding,
           }),
         ],
         deepLinkingSessions: [
           buildDeepLinkingSessionRecord({
             sessionId: 'deep-linking-session-preview-submit',
             sessionToken: 'deep-linking-token-preview-submit',
+            ltiToolSessionId: 'lti-tool-session-preview-submit',
             selection: buildDeepLinkingResourceSelection({
               packageVersionId: 8,
               packageVersion: '0.8.0',
@@ -255,7 +295,10 @@ Deno.test('POST /lti/deep-linking/sessions/:id/preview does not consume the Deep
           packageVersion: '0.8.0',
         }),
       });
-      const app = createApp({ getRepository: () => repository });
+      const app = createApp({
+        getRepository: () => repository,
+        getLtiToolStorage: () => ltiStorage,
+      });
       const formData = new FormData();
 
       formData.set('token', 'deep-linking-token-preview-submit');
@@ -289,21 +332,16 @@ Deno.test('POST /lti/deep-linking/sessions/:id/preview does not consume the Deep
         assertEquals(submitResponse.status, 200);
 
         const body = await submitResponse.text();
-        const responseJwt = extractHiddenInputValue(body, 'JWT');
-        const verified = await verifyDeepLinkingResponseJwt(responseJwt);
-        const contentItems = verified.payload[
-          'https://purl.imsglobal.org/spec/lti-dl/claim/content_items'
-        ] as Array<Record<string, unknown>>;
-        const contentItem = contentItems[0] ?? {};
-        const placementId = (contentItem.custom as Record<string, unknown>)[
-          LANTERN_PLACEMENT_CUSTOM_KEY
-        ] as string;
+        const auditEvents = await repository.listAuditEventsByEventType(
+          'deep_linking.placement.created',
+        );
+        const placementId = String(auditEvents[0]?.detail.placementId ?? '');
         const savedPlacement = await repository.getReviewedPlacementById(placementId);
         const sessionAfterSubmit = await repository.getDeepLinkingSessionById(
           'deep-linking-session-preview-submit',
         );
 
-        assertStringIncludes(body, 'Returning assignment resource to LMS');
+        assertStringIncludes(body, 'name="JWT"');
         assertEquals(savedPlacement?.contentPath, '/content/bonus.json');
         assertEquals(savedPlacement?.activityId, '/content/bonus.json');
         assertEquals(sessionAfterSubmit?.usedAt !== null, true);

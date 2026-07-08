@@ -20,6 +20,18 @@ import type {
 import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 import { renderDecisionSection, renderHistoryRow } from './package_detail_sections.ts';
+import {
+  formatCapabilityNames,
+  formatChangeSummary,
+  formatPreviewEvidenceLabel,
+  formatPreviewSessionSummary,
+  formatRuntimeLogSummary,
+  renderCapabilityChangeSummary,
+  resolvePreviousApprovedVersion,
+  resolvePreviousVersion,
+  summarizeCapabilityChanges,
+  versionPreviewHref,
+} from './package_detail_support.ts';
 
 export function renderPackageDetailPage(input: {
   packageVersion: PackageVersionRecord;
@@ -576,188 +588,4 @@ function renderGenerationActivitySection(events: AuditEventRecord[]): string {
 
 function formatInstallScope(scope: PackageVersionRecord['installScope']): string {
   return scope === 'assignment' ? 'Assignment placement' : 'Course placement';
-}
-
-function resolvePreviousVersion(
-  history: readonly PackageVersionRecord[],
-  packageVersion: PackageVersionRecord,
-): PackageVersionRecord | null {
-  const currentIndex = history.findIndex((version) => version.id === packageVersion.id);
-
-  if (currentIndex < 0) {
-    return null;
-  }
-
-  return history[currentIndex + 1] ?? null;
-}
-
-function resolvePreviousApprovedVersion(
-  history: readonly PackageVersionRecord[],
-  packageVersion: PackageVersionRecord,
-): PackageVersionRecord | null {
-  const currentIndex = history.findIndex((version) => version.id === packageVersion.id);
-
-  if (currentIndex === -1) {
-    return null;
-  }
-
-  return history.slice(currentIndex + 1).find((version) => version.approvalStatus === 'approved') ??
-    null;
-}
-
-interface CapabilityChangeSummary {
-  previousApprovedVersion: PackageVersionRecord | null;
-  added: CapabilitySummary[];
-  removed: CapabilitySummary[];
-  unchanged: CapabilitySummary[];
-}
-
-function summarizeCapabilityChanges(input: {
-  current: CapabilitySummary[];
-  previousApprovedVersion: PackageVersionRecord | null;
-}): CapabilityChangeSummary {
-  if (input.previousApprovedVersion === null) {
-    return {
-      previousApprovedVersion: null,
-      added: input.current,
-      removed: [],
-      unchanged: [],
-    };
-  }
-
-  const currentIds = new Set(input.current.map((capability) => capability.id));
-  const previous = summarizeCapabilities(input.previousApprovedVersion.capabilities);
-  const previousIds = new Set(previous.map((capability) => capability.id));
-
-  return {
-    previousApprovedVersion: input.previousApprovedVersion,
-    added: input.current.filter((capability) => !previousIds.has(capability.id)),
-    removed: previous.filter((capability) => !currentIds.has(capability.id)),
-    unchanged: input.current.filter((capability) => previousIds.has(capability.id)),
-  };
-}
-
-function renderCapabilityChangeSummary(summary: CapabilityChangeSummary): string {
-  const addedSensitive = summary.added.filter((capability) => capability.flagged);
-
-  if (summary.previousApprovedVersion === null) {
-    return `<div class="detail-stack">
-      <p class="micro muted">Capability baseline: no previously approved version exists. Review every declared runtime capability before approval.</p>
-      ${renderCapabilityChangeGroup('Declared for first approval', summary.added)}
-    </div>`;
-  }
-
-  if (summary.added.length === 0 && summary.removed.length === 0) {
-    return `<div class="detail-stack">
-      <p class="micro muted">Capability changes since approved version ${
-      escapeHtml(summary.previousApprovedVersion.version)
-    }: no capability changes.</p>
-      ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
-    </div>`;
-  }
-
-  return `<div class="detail-stack">
-    <p class="micro muted">Capability changes since approved version ${
-    escapeHtml(summary.previousApprovedVersion.version)
-  }.</p>
-    ${renderCapabilityChangeGroup('Added', summary.added)}
-    ${renderCapabilityChangeGroup('Removed', summary.removed)}
-    ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
-    ${
-    addedSensitive.length === 0
-      ? ''
-      : `<p class="micro muted">Review impact: this version newly requests ${
-        escapeHtml(formatCapabilityNames(addedSensitive))
-      }. Confirm the assignment purpose, evidence or grading flow, and latest preview evidence before approval.</p>`
-  }
-  </div>`;
-}
-
-function renderCapabilityChangeGroup(label: string, capabilities: CapabilitySummary[]): string {
-  if (capabilities.length === 0) {
-    return `<p class="micro muted">${escapeHtml(label)}: none.</p>`;
-  }
-
-  return `<div>
-    <p class="micro muted">${escapeHtml(label)}</p>
-    <ul>
-      ${
-    capabilities
-      .map((capability) =>
-        `<li><strong>${escapeHtml(capability.label)}</strong>: ${escapeHtml(capability.detail)}${
-          capability.flagged
-            ? ` <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span>`
-            : ''
-        }</li>`
-      )
-      .join('')
-  }
-    </ul>
-  </div>`;
-}
-
-function formatChangeSummary(
-  packageVersion: PackageVersionRecord,
-  previousVersion: PackageVersionRecord | null,
-): string {
-  if (previousVersion === null) {
-    return `Version ${packageVersion.version} is the first saved version of this app.`;
-  }
-
-  return `Version ${packageVersion.version} is pending review against previous version ${previousVersion.version}.`;
-}
-
-function formatCapabilityNames(capabilities: CapabilitySummary[]): string {
-  return capabilities.map((capability) => capability.label).join(', ');
-}
-
-function formatPreviewSessionSummary(session: PreviewSessionRecord | null): string {
-  if (session === null) {
-    return 'No review test launch has been recorded yet.';
-  }
-
-  return `Latest review test launch ${session.sessionId} ran as ${
-    formatPreviewRole(
-      session.launch.userRole,
-    )
-  } in course ${session.launch.courseId}.`;
-}
-
-function formatRuntimeLogSummary(records: PreviewEvidenceRecord[]): string {
-  if (records.length === 0) {
-    return 'No runtime events have been recorded yet. Start a review test launch to see gateway activity here.';
-  }
-
-  return `${records.length} runtime event${
-    records.length === 1 ? '' : 's'
-  } recorded from the latest review test launch.`;
-}
-
-function formatPreviewEvidenceLabel(eventType: string): string {
-  switch (eventType) {
-    case 'preview.launch':
-      return 'Started test launch';
-    case 'preview.content_read':
-      return 'Loaded app content';
-    case 'preview.attempt_event':
-      return 'Received app progress update';
-    case 'preview.evidence_artifact':
-      return 'Stored anonymous evidence';
-    case 'preview.finalize':
-      return 'Finished test attempt';
-    default:
-      return eventType;
-  }
-}
-
-function formatPreviewRole(role: string): string {
-  return role === 'learner' ? 'Student' : role === 'instructor' ? 'Instructor' : role;
-}
-
-function versionPreviewHref(packageVersion: PackageVersionRecord): string {
-  return `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${
-    escapeHtml(
-      packageVersion.version,
-    )
-  }/preview`;
 }

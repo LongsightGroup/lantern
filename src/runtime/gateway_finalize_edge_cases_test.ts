@@ -20,8 +20,9 @@ import {
   TEST_RUNTIME_ENV,
   withFetchStub,
 } from './gateway_test_helpers.ts';
+import { createTestLtiToolContext } from '../test_helpers/lti_tool_context.ts';
 
-Deno.test('runtime gateway surfaces Canvas token failures clearly after the durable attempt is finalized', async () => {
+Deno.test('runtime gateway surfaces lti-tool score failures clearly after the durable attempt is finalized', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
@@ -54,7 +55,12 @@ Deno.test('runtime gateway surfaces Canvas token failures clearly after the dura
     ],
   });
   const session = buildRuntimeSessionRecord({
+    ltiToolSessionId: 'lti-tool-session-123',
     expiresAt: '2099-03-26T02:45:00Z',
+  });
+  const ltiToolContext = createTestLtiToolContext({
+    submitScoreSuccess: false,
+    submitScoreMessage: 'score publish failed',
   });
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
@@ -81,6 +87,7 @@ Deno.test('runtime gateway surfaces Canvas token failures clearly after the dura
             completionState: 'completed',
           },
           env: TEST_RUNTIME_ENV,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
           artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-03-24T02:35:00Z'),
         }),
@@ -88,8 +95,8 @@ Deno.test('runtime gateway surfaces Canvas token failures clearly after the dura
 
     assertEquals(result.finalizedNow, true);
     assertEquals(result.gradePublishedNow, false);
-    assertEquals(result.publishError?.code, 'token_request_failed');
-    assertEquals(result.gradePublication, null);
+    assertEquals(result.publishError?.code, 'score_publish_failed');
+    assertEquals(result.gradePublication?.status, 'failed');
 
     const attempt = await repository.getAttemptById('attempt-123');
 

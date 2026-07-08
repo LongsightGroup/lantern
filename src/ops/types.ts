@@ -188,6 +188,7 @@ export interface ControlPlaneAnonymousEvidenceArtifact {
 
 export interface RetryRuntimeSessionLookup {
   sessionId: string;
+  ltiToolSessionId: string | null;
   attemptId: string;
   deploymentRecordId: number;
   deploymentSlug: string;

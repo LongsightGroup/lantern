@@ -71,12 +71,29 @@ export async function createLocalToolPrivateJwkString(): Promise<string> {
   });
 }
 
+export function createLocalLtiStateSecret(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+
+  return encodeBase64Url(bytes);
+}
+
 export function defaultLocalEnvAssignments(): Record<string, string> {
   return {
     PORT: DEFAULT_LOCAL_PORT,
     APP_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
     APP_RUNTIME_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
   };
+}
+
+function encodeBase64Url(bytes: Uint8Array): string {
+  let binary = '';
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
 
 function defaultLocalEnvHeader(): string {

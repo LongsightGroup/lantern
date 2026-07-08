@@ -27,7 +27,6 @@ type OpsRepository = Pick<
   | 'listControlPlaneDiagnostics'
   | 'listCertificationWorkflowStatuses'
   | 'getLatestOfficialCertificationEvidence'
-  | 'getLatestBrokerVerification'
   | 'getLatestBrokerVerificationStatus'
   | 'recordBrokerVerificationRun'
   | 'getRetryableGradePublicationLookup'
@@ -84,11 +83,6 @@ export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryStat
           ? cloneRecord(state.latestOfficialCertificationEvidence)
           : null,
       );
-    },
-
-    getLatestBrokerVerification() {
-      const record = getLatestBrokerVerificationRecord(state.brokerVerifications);
-      return Promise.resolve(record ? cloneRecord(record) : null);
     },
 
     getLatestBrokerVerificationStatus() {
@@ -250,6 +244,7 @@ export function createInMemoryOpsRepositorySection(state: InMemoryRepositoryStat
           runtimeSession: runtimeSession
             ? buildRetryRuntimeSessionLookup({
               sessionId: runtimeSession.sessionId,
+              ltiToolSessionId: runtimeSession.ltiToolSessionId,
               attemptId: runtimeSession.attemptId,
               deploymentRecordId: runtimeSession.deploymentRecordId,
               deploymentSlug: runtimeSession.deploymentSlug,

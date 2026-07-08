@@ -1,10 +1,28 @@
 import type { D1Database } from '../db/d1.ts';
 import { queryD1First, queryD1Objects, runD1 } from '../db/d1.ts';
+import {
+  expectD1JsonRecord,
+  expectD1NullableNumber,
+  expectD1NullableString,
+  expectD1Number,
+  expectD1String,
+  expectD1StringArray,
+  expectD1StringLiteral,
+  parseD1JsonField,
+  parseD1NullableJsonField,
+} from '../db/d1_row.ts';
+import type { Capability, UserRole } from '../../sdk/app-sdk.ts';
 import type { ImportedPackageVersion } from './intake.ts';
 import { mapOptionalPackageVersion, mapPackageVersionRow } from './repository_mappers_package.ts';
 import type { PackageVersionRow } from './repository_row_types.ts';
 import { sortPackageVersions } from './repository_resource_options.ts';
 import type { PackageReviewRepository } from './repository.ts';
+import type {
+  AccessibilityReview,
+  AccessibilityReviewStatus,
+  ReviewedRuntimeContract,
+  ValidationIssue,
+} from './types.ts';
 import { createD1AuthoringRepositoryMethods } from './repository_authoring_d1.ts';
 import { createD1DeepLinkingRepositoryMethods } from './repository_deep_linking_d1.ts';
 import { createD1DeploymentRepositoryMethods } from './repository_deployments_d1.ts';
@@ -14,7 +32,7 @@ import { createD1PreviewRepositoryMethods } from './repository_preview_d1.ts';
 import { createD1AppGenerationRepositoryMethods } from '../app_writer/repository_d1.ts';
 
 export function createD1PackageReviewRepository(db: D1Database): PackageReviewRepository {
-  const portedMethods = {
+  const portedMethods: PackageReviewRepository = {
     ...createD1PackageVersionRepositoryMethods(db),
     ...createD1DeploymentRepositoryMethods(db),
     ...createD1LaunchStateRepositoryMethods(db),
@@ -25,27 +43,7 @@ export function createD1PackageReviewRepository(db: D1Database): PackageReviewRe
     ...createD1AppGenerationRepositoryMethods(db),
   };
 
-  return new Proxy(portedMethods, {
-    get(target, property, receiver) {
-      if (property === Symbol.toStringTag) {
-        return 'D1PackageReviewRepository';
-      }
-
-      if (property in target) {
-        return Reflect.get(target, property, receiver);
-      }
-
-      return () => {
-        throw new Error(
-          `D1 repository method ${
-            String(
-              property,
-            )
-          } is not ported yet. Continue the Cloudflare D1 repository migration before using this route on Workers.`,
-        );
-      };
-    },
-  }) as PackageReviewRepository;
+  return portedMethods;
 }
 
 export function createD1PackageVersionRepositoryMethods(
@@ -310,58 +308,72 @@ export function mapD1PackageVersionRow(row: D1PackageVersionRow) {
 
 function mapD1PackageVersionFields(row: D1PackageVersionRow): PackageVersionRow {
   return {
-    id: expectNumber(row.id, 'id'),
-    appId: expectString(row.appId, 'appId'),
-    version: expectString(row.version, 'version'),
-    title: expectString(row.title, 'title'),
-    description: expectNullableString(row.description, 'description'),
-    ownerType: expectStringLiteral(row.ownerType, 'ownerType', ['user']),
-    ownerId: expectString(row.ownerId, 'ownerId'),
-    entrypoint: expectString(row.entrypoint, 'entrypoint'),
-    roles: parseJsonField(row.roles, 'roles') as PackageVersionRow['roles'],
-    installScope: expectStringLiteral(row.installScope, 'installScope', ['course', 'assignment']),
-    capabilities: parseJsonField(
+    id: expectD1Number(row.id, 'package_versions.id'),
+    appId: expectD1String(row.appId, 'package_versions.appId'),
+    version: expectD1String(row.version, 'package_versions.version'),
+    title: expectD1String(row.title, 'package_versions.title'),
+    description: expectD1NullableString(row.description, 'package_versions.description'),
+    ownerType: expectD1StringLiteral(row.ownerType, 'package_versions.ownerType', ['user']),
+    ownerId: expectD1String(row.ownerId, 'package_versions.ownerId'),
+    entrypoint: expectD1String(row.entrypoint, 'package_versions.entrypoint'),
+    roles: parseD1JsonField(row.roles, 'package_versions.roles', parseUserRoleArray),
+    installScope: expectD1StringLiteral(row.installScope, 'package_versions.installScope', [
+      'course',
+      'assignment',
+    ]),
+    capabilities: parseD1JsonField(
       row.capabilities,
-      'capabilities',
-    ) as PackageVersionRow['capabilities'],
-    gradingMode: expectStringLiteral(row.gradingMode, 'gradingMode', [
+      'package_versions.capabilities',
+      parseCapabilityArray,
+    ),
+    gradingMode: expectD1StringLiteral(row.gradingMode, 'package_versions.gradingMode', [
       'declarative',
       'manual',
       'completion',
       'browser',
     ]),
-    gradingRubricFile: expectNullableString(row.gradingRubricFile, 'gradingRubricFile'),
-    gradingMaxScore: expectNullableNumber(row.gradingMaxScore, 'gradingMaxScore'),
-    approvalStatus: expectStringLiteral(row.approvalStatus, 'approvalStatus', [
+    gradingRubricFile: expectD1NullableString(
+      row.gradingRubricFile,
+      'package_versions.gradingRubricFile',
+    ),
+    gradingMaxScore: expectD1NullableNumber(
+      row.gradingMaxScore,
+      'package_versions.gradingMaxScore',
+    ),
+    approvalStatus: expectD1StringLiteral(row.approvalStatus, 'package_versions.approvalStatus', [
       'pending',
       'approved',
       'rejected',
     ]),
-    reviewNotes: expectNullableString(row.reviewNotes, 'reviewNotes'),
-    accessibilityReview: parseNullableJsonField(
+    reviewNotes: expectD1NullableString(row.reviewNotes, 'package_versions.reviewNotes'),
+    accessibilityReview: parseD1NullableJsonField(
       row.accessibilityReview,
-      'accessibilityReview',
-    ) as PackageVersionRow['accessibilityReview'],
-    reviewedAt: expectNullableString(row.reviewedAt, 'reviewedAt'),
-    validationIssues: parseJsonField(
-      row.validationIssues,
-      'validationIssues',
-    ) as PackageVersionRow['validationIssues'],
-    manifestJson: parseJsonField(
-      row.manifestJson,
-      'manifestJson',
-    ) as PackageVersionRow['manifestJson'],
-    artifactRoot: expectString(row.artifactRoot, 'artifactRoot'),
-    artifactDigest: expectString(row.artifactDigest, 'artifactDigest'),
-    runtimeContract: parseNullableJsonField(
-      row.runtimeContract,
-      'runtimeContract',
-    ) as PackageVersionRow['runtimeContract'],
-    runtimeContractSignature: expectNullableString(
-      row.runtimeContractSignature,
-      'runtimeContractSignature',
+      'package_versions.accessibilityReview',
+      parseAccessibilityReview,
     ),
-    importedAt: expectString(row.importedAt, 'importedAt'),
+    reviewedAt: expectD1NullableString(row.reviewedAt, 'package_versions.reviewedAt'),
+    validationIssues: parseD1JsonField(
+      row.validationIssues,
+      'package_versions.validationIssues',
+      parseValidationIssues,
+    ),
+    manifestJson: parseD1JsonField(
+      row.manifestJson,
+      'package_versions.manifestJson',
+      expectD1JsonRecord,
+    ),
+    artifactRoot: expectD1String(row.artifactRoot, 'package_versions.artifactRoot'),
+    artifactDigest: expectD1String(row.artifactDigest, 'package_versions.artifactDigest'),
+    runtimeContract: parseD1NullableJsonField(
+      row.runtimeContract,
+      'package_versions.runtimeContract',
+      parseReviewedRuntimeContract,
+    ),
+    runtimeContractSignature: expectD1NullableString(
+      row.runtimeContractSignature,
+      'package_versions.runtimeContractSignature',
+    ),
+    importedAt: expectD1String(row.importedAt, 'package_versions.importedAt'),
   };
 }
 
@@ -369,62 +381,89 @@ function isD1UniqueViolation(error: unknown): boolean {
   return error instanceof Error && error.message.includes('UNIQUE constraint failed');
 }
 
-function parseJsonField(value: unknown, fieldName: string): unknown {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 package_versions.${fieldName} to be JSON text.`);
-  }
-
-  return JSON.parse(value);
+function parseUserRoleArray(value: unknown, fieldName: string): UserRole[] {
+  return expectD1StringArray(value, fieldName).map((role, index) =>
+    expectD1StringLiteral(role, `${fieldName}[${index}]`, ['learner', 'instructor'])
+  );
 }
 
-function parseNullableJsonField(value: unknown, fieldName: string): unknown | null {
-  if (value === null) {
-    return null;
-  }
-
-  return parseJsonField(value, fieldName);
+function parseCapabilityArray(value: unknown, fieldName: string): Capability[] {
+  return expectD1StringArray(value, fieldName).map((capability, index) =>
+    expectD1StringLiteral(capability, `${fieldName}[${index}]`, [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_attempt_event',
+      'submit_evidence_artifact',
+      'finalize_attempt',
+      'read_local_state',
+      'write_local_state',
+    ])
+  );
 }
 
-function expectString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 package_versions.${fieldName} to be text.`);
-  }
+function parseAccessibilityReview(value: unknown, fieldName: string): AccessibilityReview {
+  const record = expectD1JsonRecord(value, fieldName);
 
-  return value;
+  return {
+    keyboard: parseAccessibilityReviewStatus(record.keyboard, `${fieldName}.keyboard`),
+    focusVisible: parseAccessibilityReviewStatus(record.focusVisible, `${fieldName}.focusVisible`),
+    focusNotObscured: parseAccessibilityReviewStatus(
+      record.focusNotObscured,
+      `${fieldName}.focusNotObscured`,
+    ),
+    structure: parseAccessibilityReviewStatus(record.structure, `${fieldName}.structure`),
+    contrast: parseAccessibilityReviewStatus(record.contrast, `${fieldName}.contrast`),
+    reducedMotion: parseAccessibilityReviewStatus(
+      record.reducedMotion,
+      `${fieldName}.reducedMotion`,
+    ),
+    equivalentAlternatives: parseAccessibilityReviewStatus(
+      record.equivalentAlternatives,
+      `${fieldName}.equivalentAlternatives`,
+    ),
+    failureNotes: expectD1NullableString(record.failureNotes, `${fieldName}.failureNotes`),
+    exceptionNote: expectD1NullableString(record.exceptionNote, `${fieldName}.exceptionNote`),
+  };
 }
 
-function expectNullableString(value: unknown, fieldName: string): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectString(value, fieldName);
-}
-
-function expectNumber(value: unknown, fieldName: string): number {
-  if (typeof value !== 'number') {
-    throw new TypeError(`Expected D1 package_versions.${fieldName} to be numeric.`);
-  }
-
-  return value;
-}
-
-function expectNullableNumber(value: unknown, fieldName: string): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectNumber(value, fieldName);
-}
-
-function expectStringLiteral<T extends string>(
+function parseAccessibilityReviewStatus(
   value: unknown,
   fieldName: string,
-  allowed: readonly T[],
-): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Error(`Unexpected D1 package_versions.${fieldName} value.`);
+): AccessibilityReviewStatus {
+  return expectD1StringLiteral(value, fieldName, ['pass', 'fail', 'not_applicable']);
+}
+
+function parseValidationIssues(value: unknown, fieldName: string): ValidationIssue[] {
+  return expectJsonRecordArray(value, fieldName).map((issue, index) => ({
+    field: expectD1String(issue.field, `${fieldName}[${index}].field`),
+    message: expectD1String(issue.message, `${fieldName}[${index}].message`),
+    keyword: expectD1String(issue.keyword, `${fieldName}[${index}].keyword`),
+    severity: expectD1StringLiteral(issue.severity, `${fieldName}[${index}].severity`, ['error']),
+  }));
+}
+
+function parseReviewedRuntimeContract(
+  value: unknown,
+  fieldName: string,
+): ReviewedRuntimeContract {
+  const record = expectD1JsonRecord(value, fieldName);
+
+  return {
+    appId: expectD1String(record.appId, `${fieldName}.appId`),
+    packageVersion: expectD1String(record.packageVersion, `${fieldName}.packageVersion`),
+    artifactDigest: expectD1String(record.artifactDigest, `${fieldName}.artifactDigest`),
+    entrypoint: expectD1String(record.entrypoint, `${fieldName}.entrypoint`),
+    capabilities: parseCapabilityArray(record.capabilities, `${fieldName}.capabilities`),
+  };
+}
+
+function expectJsonRecordArray(
+  value: unknown,
+  fieldName: string,
+): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`Expected D1 ${fieldName} JSON to be an object array.`);
   }
 
-  return value as T;
+  return value.map((item, index) => expectD1JsonRecord(item, `${fieldName}[${index}]`));
 }

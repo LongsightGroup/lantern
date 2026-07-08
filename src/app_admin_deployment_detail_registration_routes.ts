@@ -7,15 +7,12 @@ import {
   normalizeOptionalQueryValue,
   requireTrimmedQueryValue,
 } from './app_admin_deployment_detail_route_support.ts';
-import { recordInteropPathUsed } from './interop_audit.ts';
-import { completeCanvasDynamicRegistration } from './lti/canvas_dynamic_registration.ts';
 import { consumeDynamicRegistrationState } from './lti/dynamic_registration_state.ts';
-import { completeMoodleDynamicRegistration } from './lti/moodle_dynamic_registration.ts';
-import { completeSakaiDynamicRegistration } from './lti/sakai_dynamic_registration.ts';
+import { completeLanternDynamicRegistrationWithLtiTool } from './lti/dynamic_registration_tool.ts';
 import { errorMessage, statusForError } from './app_status_support.ts';
-import { readEnv } from './platform/env.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
+import { resolveRequestAppOrigin } from './app_origin.ts';
 import type { AppServices } from './app_services.ts';
+import type { DeploymentBinding } from './lti/types.ts';
 
 export function registerAdminDeploymentDynamicRegistrationRoutes(
   app: Hono,
@@ -26,13 +23,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
 
     try {
       const repository = services.getRepository();
-      const appOrigin = resolveConfiguredPublicOrigin({
-        requestUrl: context.req.url,
-        forwardedHeader: context.req.header('forwarded') ?? null,
-        xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-        xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: readEnv('APP_ORIGIN', services.env),
-      });
+      const appOrigin = resolveRequestAppOrigin(context, services.env);
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const searchParams = new URL(context.req.url).searchParams;
       const openidConfigurationUrl = requireTrimmedQueryValue(
@@ -53,19 +44,21 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         lms: 'canvas',
       });
       const slot = getManagedDeploymentSlot(detail.slots, 'canvas');
-      const registration = await completeCanvasDynamicRegistration({
-        appTitle: detail.appTitle,
+      const registration = await completeLanternDynamicRegistrationWithLtiTool({
+        ltiContext: await services.getLtiToolContext(appOrigin),
+        appId,
+        lms: 'canvas',
+        requestPath: new URL(context.req.url).pathname,
         openidConfigurationUrl,
         registrationToken,
-        appOrigin,
       });
       const deployment = await repository.saveCanvasRegistration({
         slug: slot.deployment.slug,
         label: slot.deployment.label,
         appId,
-        canvasEnvironment: registration.canvasEnvironment,
-        issuer: registration.issuer,
-        clientId: registration.clientId,
+        canvasEnvironment: registration.canvasEnvironment ?? 'production',
+        issuer: registration.launchConfig.iss,
+        clientId: registration.launchConfig.clientId,
       });
 
       await repository.recordAuditEvent({
@@ -84,8 +77,8 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
           deploymentSlug: deployment.slug,
           registrationMode: 'dynamic',
           canvasEnvironment: registration.canvasEnvironment,
-          issuer: registration.issuer,
-          clientId: registration.clientId,
+          issuer: registration.launchConfig.iss,
+          clientId: registration.launchConfig.clientId,
           deploymentId: null,
         },
         occurredAt: new Date().toISOString(),
@@ -122,13 +115,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
 
     try {
       const repository = services.getRepository();
-      const appOrigin = resolveConfiguredPublicOrigin({
-        requestUrl: context.req.url,
-        forwardedHeader: context.req.header('forwarded') ?? null,
-        xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-        xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: readEnv('APP_ORIGIN', services.env),
-      });
+      const appOrigin = resolveRequestAppOrigin(context, services.env);
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const searchParams = new URL(context.req.url).searchParams;
       const openidConfigurationUrl = requireTrimmedQueryValue(
@@ -146,35 +133,21 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         lms: 'moodle',
       });
       const slot = getManagedDeploymentSlot(detail.slots, 'moodle');
-      const registration = await completeMoodleDynamicRegistration({
-        appTitle: detail.appTitle,
+      const registration = await completeLanternDynamicRegistrationWithLtiTool({
+        ltiContext: await services.getLtiToolContext(appOrigin),
+        appId,
+        lms: 'moodle',
+        requestPath: new URL(context.req.url).pathname,
         openidConfigurationUrl,
         registrationToken,
-        appOrigin,
       });
+      const binding = requireMoodleDynamicRegistrationBinding(registration.binding);
       const deployment = await repository.saveDeploymentBinding({
         slug: slot.deployment.slug,
         label: slot.deployment.label,
         appId,
-        binding: registration.binding,
+        binding,
       });
-
-      if (registration.interoperability.usedDeploymentIdFallback) {
-        await recordInteropPathUsed({
-          repository,
-          scope: 'deployment',
-          path: 'dynamic_registration_deployment_id_fallback',
-          actorType: 'platform',
-          deploymentRecordId: deployment.id,
-          packageVersionId: deployment.enabledPackageVersionId,
-          summary: 'Lantern used a Moodle dynamic registration compatibility path.',
-          detail: {
-            lms: 'moodle',
-            deploymentSlug: deployment.slug,
-            deploymentIdSource: registration.interoperability.deploymentIdSource,
-          },
-        });
-      }
 
       await repository.recordAuditEvent({
         eventType: 'deployment.binding_saved',
@@ -189,7 +162,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         detail: {
           deploymentSlug: deployment.slug,
           registrationMode: 'dynamic',
-          ...buildBindingAuditDetail(registration.binding),
+          ...buildBindingAuditDetail(binding),
         },
         occurredAt: new Date().toISOString(),
       });
@@ -244,13 +217,7 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
 
     try {
       const repository = services.getRepository();
-      const appOrigin = resolveConfiguredPublicOrigin({
-        requestUrl: context.req.url,
-        forwardedHeader: context.req.header('forwarded') ?? null,
-        xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-        xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: readEnv('APP_ORIGIN', services.env),
-      });
+      const appOrigin = resolveRequestAppOrigin(context, services.env);
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       await consumeDynamicRegistrationState({
         repository,
@@ -262,13 +229,15 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
         lms: 'sakai',
       });
       const slot = getManagedDeploymentSlot(detail.slots, 'sakai');
-      const binding = await completeSakaiDynamicRegistration({
+      const registration = await completeLanternDynamicRegistrationWithLtiTool({
+        ltiContext: await services.getLtiToolContext(appOrigin),
         appId,
-        appTitle: detail.appTitle,
+        lms: 'sakai',
+        requestPath: new URL(context.req.url).pathname,
         openidConfigurationUrl,
         registrationToken,
-        appOrigin,
       });
+      const binding = requireSakaiDynamicRegistrationBinding(registration.binding);
       const deployment = await repository.saveDeploymentBinding({
         slug: slot.deployment.slug,
         label: slot.deployment.label,
@@ -319,4 +288,24 @@ export function registerAdminDeploymentDynamicRegistrationRoutes(
       );
     }
   });
+}
+
+function requireMoodleDynamicRegistrationBinding(
+  binding: DeploymentBinding | null,
+): Extract<DeploymentBinding, { lms: 'moodle' }> {
+  if (binding?.lms !== 'moodle') {
+    throw new Error('lti-tool dynamic registration did not return a Moodle binding.');
+  }
+
+  return binding;
+}
+
+function requireSakaiDynamicRegistrationBinding(
+  binding: DeploymentBinding | null,
+): Extract<DeploymentBinding, { lms: 'sakai' }> {
+  if (binding?.lms !== 'sakai') {
+    throw new Error('lti-tool dynamic registration did not return a Sakai binding.');
+  }
+
+  return binding;
 }

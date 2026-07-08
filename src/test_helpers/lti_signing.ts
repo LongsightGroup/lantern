@@ -1,5 +1,5 @@
 import { importJWK, SignJWT } from 'jose';
-import type { CanvasDeploymentBinding } from '../lti/types.ts';
+import type { CanvasDeploymentBinding, DeploymentBinding } from '../lti/types.ts';
 import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE as DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from '../lti/types.ts';
 import {
   type AgsShape,
@@ -9,10 +9,12 @@ import {
   TEST_NOW,
 } from './lti_identity_builders.ts';
 import { buildDeepLinkingSettingsClaimValue } from './lti_session_builders.ts';
+import { createMemoryLtiStorage, syncLtiToolDeploymentBinding } from '../lti/tool_provider.ts';
 
 export const TEST_TOOL_PRIVATE_JWK = {
   kty: 'RSA',
   alg: 'RS256',
+  kid: 'lantern-test-tool-key',
   n: 'uqAz51P9MxAXrvGI_6QMTdFQhpUqjLtialtYuIvFkJaB98npMnFuBMfMpXH0vTEWlyTWNencpsco4t0X4PBVEk7n3kol3JvRSGqNSotQ0lx4omi9qeCNljAWiSc6FyEn-FfWOxwKwQZxhbgBclBxsVQqrHAtcADA2pUzG9HzZaPmNLHyZ7zzr3D8PNIEM2qmqhUp9cm1UTZu8iJg6B7X-Jcazpa5N_nbkYIwAjyE6iep4IP4HoRIxOSoewdmxyEhtii7a-wz6bGVICht0cOegTe1mmZIo7xQHvz0I4v0y2xkhfCBCOEI8HeGWiGU95_KazbNdC_qZyIsGDqLndTigw',
   e: 'AQAB',
   d: 'G38vJo5BaBye4K_Ft6S8C1sjujCQLFwPjAwZbldprHwAejnNmhkMVLf7dwTrQlTRN0O-LANg91GwvHxG4GWIo0Hs99uE6JQsqbbJSopsRhJJ0-QKzdTAB7jeGScmb_H6qaSHc_4Vt4rzfvg1flpL5gy4nN-KUk5KG-qPtTGh4v-aqkfzkxVnEBb-VfB_o5nafMimKp1TMXSPcL-4NjjwFioP8YcQDYxwKJGHHm7_CqSfCu5AMx7UByVxsVFNTsaua0lFUQDaVR13eHFFOdUZiAUe97Ua_JYec6Gxe4-3g1bCmGbGm9U_35fGM5kt4NXWND0ULgJfI8alAUDjxblQQQ',
@@ -26,6 +28,8 @@ export const TEST_TOOL_PRIVATE_JWK = {
     'X9i7s0LnslcujfZlwBXIbpEU6lz7P11_DPID3j24OhzSTXCadpL7tLLOGG3LuHKx4-izFsVVcrCJ4xnYAG7rwvOVrGm-DTyPrA7AmopnZJ9xxJC2NmDbQc-xVykeSdgUGRl7YkitHdfsmUn6Biy738ihxbGYaZMDd3fRW9hssio',
   use: 'sig',
 } as const;
+
+export const TEST_LTI_STATE_SECRET = 'lantern-test-lti-state-secret-32-bytes';
 
 export const TEST_CANVAS_PRIVATE_JWK = {
   kty: 'EC',
@@ -168,6 +172,42 @@ export async function signCanvasIdToken(input: CanvasLaunchTokenInput = {}): Pro
   }
 
   return await token.sign(signingKey);
+}
+
+export async function signLtiToolState(input: {
+  nonce?: string;
+  issuer?: string;
+  clientId?: string;
+  targetLinkUri?: string;
+  expiresAt?: string;
+} = {}): Promise<string> {
+  return await new SignJWT({
+    nonce: input.nonce ?? 'nonce-123',
+    iss: input.issuer ?? 'https://canvas.instructure.com',
+    client_id: input.clientId ?? '10000000000001',
+    target_link_uri: input.targetLinkUri ?? 'http://localhost:8417/lti/launch',
+    exp: Math.floor(Date.parse(input.expiresAt ?? '2030-03-26T02:45:00Z') / 1000),
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .sign(new TextEncoder().encode(TEST_LTI_STATE_SECRET));
+}
+
+export async function createSyncedTestLtiStorage(input: {
+  binding?: DeploymentBinding;
+  appTitle?: string;
+  deploymentSlug?: string;
+} = {}) {
+  const binding = input.binding ?? buildDeploymentBinding();
+  const storage = createMemoryLtiStorage();
+
+  await syncLtiToolDeploymentBinding({
+    storage,
+    appTitle: input.appTitle ?? 'Chapter 4 Asteroids',
+    deploymentSlug: input.deploymentSlug ?? 'chapter-4-asteroids-pilot',
+    binding,
+  });
+
+  return storage;
 }
 
 export function getTestCanvasJwks(): {

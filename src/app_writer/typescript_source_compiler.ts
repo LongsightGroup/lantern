@@ -10,7 +10,7 @@ const SOURCE_APP_PATH = 'source/app.ts';
 const SOURCE_CONTENT_MODEL_PATH = 'source/content_model.ts';
 const GENERATED_SDK_DECLARATION_PATH = 'source/lantern-sdk.d.ts';
 const DIST_APP_PATH = 'dist/app.js';
-const TYPESCRIPT_LIBRARY_BASE_URL = 'https://esm.sh/typescript@5.9.3/lib/';
+const TYPESCRIPT_LIBRARY_BASE_URL = `https://esm.sh/typescript@${ts.version}/lib/`;
 const TYPESCRIPT_ROOT_LIBRARY_FILES = [
   'lib.es2022.d.ts',
   'lib.dom.d.ts',
@@ -378,7 +378,7 @@ function compilerOptions(): ts.CompilerOptions {
     noUncheckedIndexedAccess: true,
     exactOptionalPropertyTypes: true,
     target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.None,
+    module: ts.ModuleKind.ES2022,
     lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'],
     skipLibCheck: true,
     noEmitOnError: true,

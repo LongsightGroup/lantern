@@ -15,8 +15,7 @@ import {
 import { listCanvasEnvironments } from './lti/config.ts';
 import { retryFailedGradePublication } from './ops/service.ts';
 import type { AppServices } from './app_services.ts';
-import { readEnv } from './platform/env.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
+import { resolveRequestAppOrigin } from './app_origin.ts';
 import { buildRequestAuditEnvelope } from './request_audit.ts';
 
 export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServices): void {
@@ -28,13 +27,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
     let request = buildRequestAuditEnvelope({ context });
 
     try {
-      const appOrigin = resolveConfiguredPublicOrigin({
-        requestUrl: context.req.url,
-        forwardedHeader: context.req.header('forwarded') ?? null,
-        xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-        xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: readEnv('APP_ORIGIN', services.env),
-      });
+      const appOrigin = resolveRequestAppOrigin(context, services.env);
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const canvasDeployment = detail.canvasDeployment;
 
@@ -52,15 +45,12 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
       attemptId = requireTrimmedFormValue(formData.get('attemptId'), 'Retry attempt is required.');
       const retryResult = await retryFailedGradePublication({
         repository: {
-          getDeploymentByBinding: (binding) => repository.getDeploymentByBinding(binding),
-          getLanternLtiProfileSettings: () => repository.getLanternLtiProfileSettings(),
           getRetryableGradePublicationLookup: (candidateAttemptId) =>
             opsRepository.getRetryableGradePublicationLookup(candidateAttemptId),
-          recordAuditEvent: (input) => repository.recordAuditEvent(input),
           updateGradePublication: (input) => repository.updateGradePublication(input),
         },
         attemptId,
-        env: services.env,
+        getLtiToolContext: () => services.getLtiToolContext(appOrigin),
       });
 
       if (retryResult.publication.status === 'published') {
@@ -130,13 +120,7 @@ export function registerAdminDeploymentRetryRoutes(app: Hono, services: AppServi
       const detail = await loadDeploymentDetailStateSafe(
         repository,
         appId,
-        resolveConfiguredPublicOrigin({
-          requestUrl: context.req.url,
-          forwardedHeader: context.req.header('forwarded') ?? null,
-          xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-          xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-          configuredOrigin: readEnv('APP_ORIGIN', services.env),
-        }),
+        resolveRequestAppOrigin(context, services.env),
       );
       const canvasDeployment = detail.canvasDeployment;
 

@@ -1,5 +1,5 @@
 import { assertEquals } from '@std/assert';
-import { createRuntimeSession } from './launch.ts';
+import { createRuntimeSession } from './runtime_session.ts';
 import { buildRuntimeSessionRecord, buildValidatedLaunch } from '../test_helpers/lti.ts';
 import {
   buildPackageVersionRecord,

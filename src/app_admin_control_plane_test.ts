@@ -22,9 +22,6 @@ function createFailingOpsRepository(message: string): OpsRepository {
     getControlPlaneDeploymentDetail() {
       return Promise.reject(new Error(message));
     },
-    getLatestBrokerVerification() {
-      return Promise.reject(new Error(message));
-    },
     getLatestBrokerVerificationStatus() {
       return Promise.reject(new Error(message));
     },
@@ -354,7 +351,7 @@ Deno.test('POST /admin/verification records deployment-scoped broker verificatio
   assertEquals(response.status, 303);
   assertEquals(response.headers.get('location'), '/admin/verification');
 
-  const latestVerification = await repository.getLatestBrokerVerification();
+  const latestVerification = await repository.getLatestBrokerVerificationStatus();
   const deployments = await repository.listControlPlaneDeployments();
   const moodleVerification = deployments.find(
     (deployment) => deployment.deploymentId === 2,

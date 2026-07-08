@@ -44,6 +44,30 @@ Deno.test('D1 app generation repository creates and refetches generation runs', 
   assertEquals(db.statements[0]?.parameters[10], 'simple-activity');
 });
 
+Deno.test('D1 app generation repository rejects malformed persisted run JSON', async () => {
+  const record = buildAppGenerationRunRecord({
+    normalizedRequest: buildNormalizedRequest(),
+  });
+  const db = createPlannedD1Database({
+    firstResults: [
+      {
+        ...toD1AppGenerationRunRow(record),
+        normalizedRequestJson: JSON.stringify({
+          ...record.normalizedRequest,
+          safeToGenerate: 'yes',
+        }),
+      },
+    ],
+  });
+  const repository = createD1AppGenerationRepositoryMethods(db);
+
+  await assertRejects(
+    () => repository.getAppGenerationRunById(record.generationId),
+    TypeError,
+    'app_generation_runs.normalizedRequestJson.safeToGenerate must be boolean.',
+  );
+});
+
 Deno.test('D1 app generation repository updates generation runs', async () => {
   const record = buildAppGenerationRunRecord({
     status: 'planning',
@@ -126,6 +150,25 @@ Deno.test('D1 app generation repository saves and refetches generation workspace
   assertEquals(saved.repairAttemptCount, 1);
   assertEquals(typeof db.statements[0]?.parameters[2], 'string');
   assertEquals(typeof db.statements[0]?.parameters[3], 'string');
+});
+
+Deno.test('D1 app generation repository rejects malformed persisted workspace JSON', async () => {
+  const record = buildAppGenerationWorkspaceRecord();
+  const db = createPlannedD1Database({
+    firstResults: [
+      {
+        ...toD1AppGenerationWorkspaceRow(record),
+        filesJson: JSON.stringify([{ path: 'manifest.json', contents: 42 }]),
+      },
+    ],
+  });
+  const repository = createD1AppGenerationRepositoryMethods(db);
+
+  await assertRejects(
+    () => repository.getAppGenerationWorkspaceByGenerationId(record.generationId),
+    TypeError,
+    'filesJson[0].contents must be text.',
+  );
 });
 
 Deno.test('D1 app generation repository reports duplicate generation ids clearly', async () => {

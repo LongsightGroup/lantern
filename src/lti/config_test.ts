@@ -1,6 +1,6 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { CANVAS_LTI_SCOPES } from './types.ts';
-import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
+import { getTestToolPrivateJwkEnvValue, TEST_LTI_STATE_SECRET } from '../test_helpers/lti.ts';
 
 const TEST_CONFIG_ENV = {
   get(name: string): string | undefined {
@@ -8,6 +8,8 @@ const TEST_CONFIG_ENV = {
       ? 'http://localhost:8417'
       : name === 'LTI_TOOL_PRIVATE_JWK'
       ? getTestToolPrivateJwkEnvValue()
+      : name === 'LTI_STATE_SECRET'
+      ? TEST_LTI_STATE_SECRET
       : undefined;
   },
 };
@@ -15,9 +17,11 @@ const TEST_CONFIG_ENV = {
 Deno.test('GET /lti/canvas/config.json publishes one supported Canvas config document', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
   const previousJwk = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
 
   Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
 
   try {
     const { createApp } = await import('../app.ts');
@@ -41,13 +45,16 @@ Deno.test('GET /lti/canvas/config.json publishes one supported Canvas config doc
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
     restoreEnv('LTI_TOOL_PRIVATE_JWK', previousJwk);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 });
 
 Deno.test('GET /lti/jwks.json exposes only the public Lantern tool JWK', async () => {
   const previousJwk = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
 
   try {
     const { createApp } = await import('../app.ts');
@@ -61,6 +68,7 @@ Deno.test('GET /lti/jwks.json exposes only the public Lantern tool JWK', async (
     assertEquals(body.includes('"d"'), false);
   } finally {
     restoreEnv('LTI_TOOL_PRIVATE_JWK', previousJwk);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 });
 

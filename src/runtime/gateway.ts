@@ -6,6 +6,7 @@ import type {
 import type { RuntimeSessionRecord } from '../lti/types.ts';
 import { createOpaqueToken } from '../lti/token_support.ts';
 import type { EnvReader } from '../platform/env.ts';
+import type { LanternLtiToolContext } from '../lti/tool_provider.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type {
   AttemptEvidenceArtifactRecord,
@@ -40,8 +41,6 @@ import type {
 export type {
   FinalizeAttemptInput,
   FinalizeAttemptResult,
-  GovernedGradePublicationInput,
-  GovernedGradePublicationResult,
   RuntimeBoundary,
   RuntimeBrokerDenial,
   RuntimeBrokerDenialCategory,
@@ -61,7 +60,6 @@ export {
   parseScoreProposal,
   requireRuntimeCapability,
 } from './gateway_parsing.ts';
-export { publishGovernedGradePublication } from './gateway_publication.ts';
 
 export async function readAttemptLocalState(input: {
   repository: PackageReviewRepository;
@@ -249,6 +247,7 @@ export async function finalizeRuntimeAttempt(input: {
   session: RuntimeSessionRecord;
   payload: unknown;
   env: EnvReader;
+  getLtiToolContext?: () => Promise<LanternLtiToolContext>;
   artifactStore: RuntimeArtifactStore;
   now?: () => Date;
 }): Promise<FinalizeAttemptResult> {
@@ -416,7 +415,7 @@ export async function finalizeRuntimeAttempt(input: {
       attempt: finalizedAttempt,
       packageVersion,
       score,
-      env: input.env,
+      getLtiToolContext: requireLtiToolContext(input.getLtiToolContext),
       now,
     });
 
@@ -446,6 +445,16 @@ export async function finalizeRuntimeAttempt(input: {
 
     throw toFinalizeError(error);
   }
+}
+
+function requireLtiToolContext(
+  getLtiToolContext: (() => Promise<LanternLtiToolContext>) | undefined,
+): () => Promise<LanternLtiToolContext> {
+  if (getLtiToolContext === undefined) {
+    throw new Error('LTI tool context is required for live score publication.');
+  }
+
+  return getLtiToolContext;
 }
 
 function validateBrowserGraderResult(input: {

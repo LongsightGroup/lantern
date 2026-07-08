@@ -9,9 +9,6 @@ import { cloneRecord } from './package_review_in_memory_shared.ts';
 type SessionRepository =
   & Pick<
     PackageReviewRepository,
-    | 'createLoginState'
-    | 'getLoginStateByState'
-    | 'consumeLoginState'
     | 'createDynamicRegistrationState'
     | 'getDynamicRegistrationStateByState'
     | 'consumeDynamicRegistrationState'
@@ -24,44 +21,6 @@ type SessionRepository =
 
 export function createInMemorySessionRepository(state: InMemoryRepositoryState): SessionRepository {
   return {
-    createLoginState(record) {
-      const existing = state.loginStates.find((candidate) => candidate.state === record.state);
-
-      if (existing) {
-        throw new Error(`Login state ${record.state} already exists and cannot be reused.`);
-      }
-
-      state.loginStates.push(cloneRecord(record));
-      return Promise.resolve(cloneRecord(record));
-    },
-
-    getLoginStateByState(stateId) {
-      const record = state.loginStates.find((candidate) => candidate.state === stateId);
-      return Promise.resolve(record ? cloneRecord(record) : null);
-    },
-
-    consumeLoginState(input) {
-      const index = state.loginStates.findIndex((candidate) => candidate.state === input.state);
-
-      if (index < 0) {
-        throw new Error(`Login state ${input.state} was not found.`);
-      }
-
-      const existing = state.loginStates[index];
-
-      if (!existing) {
-        throw new Error(`Login state ${input.state} was not found.`);
-      }
-
-      if (existing.usedAt !== null) {
-        throw new Error(`Login state ${input.state} has already been used.`);
-      }
-
-      const nextRecord = cloneRecord({ ...existing, usedAt: input.usedAt });
-      state.loginStates.splice(index, 1, nextRecord);
-      return Promise.resolve(cloneRecord(nextRecord));
-    },
-
     createDynamicRegistrationState(record) {
       const existing = state.dynamicRegistrationStates.find(
         (candidate) => candidate.state === record.state,

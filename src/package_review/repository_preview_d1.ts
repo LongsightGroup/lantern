@@ -1,5 +1,15 @@
 import type { D1Database } from '../db/d1.ts';
-import { queryD1First, queryD1Objects, runD1 } from '../db/d1.ts';
+import { queryD1First, queryD1Objects, runD1, runD1Batch } from '../db/d1.ts';
+import {
+  expectD1JsonRecord,
+  expectD1NullableString,
+  expectD1Number,
+  expectD1String,
+  expectD1StringArray,
+  expectD1StringLiteral,
+  parseD1JsonField,
+} from '../db/d1_row.ts';
+import type { Capability } from '../../sdk/app-sdk.ts';
 import {
   mapOptionalPreviewSession,
   mapPreviewEvidenceRow,
@@ -7,6 +17,7 @@ import {
 } from './repository_mappers_review.ts';
 import type { PreviewEvidenceRow, PreviewSessionRow } from './repository_row_types.ts';
 import type { PackageReviewRepository } from './repository.ts';
+import type { PreviewFixtureData } from './types.ts';
 
 export function createD1PreviewRepositoryMethods(
   db: D1Database,
@@ -124,56 +135,66 @@ export function createD1PreviewRepositoryMethods(
     },
 
     async appendPreviewEvidence(input) {
-      const session = await queryD1First<{ sessionId: string }>(
+      const results = await runD1Batch<D1PreviewEvidenceRow>(
         db,
-        `
-          SELECT session_id AS sessionId
-          FROM preview_sessions
-          WHERE session_id = ?
-        `,
-        [input.previewSessionId],
+        [
+          {
+            sql: `
+              INSERT INTO preview_evidence (
+                preview_session_id,
+                sequence,
+                event_type,
+                capability,
+                summary,
+                detail,
+                occurred_at
+              )
+              SELECT
+                preview_sessions.session_id,
+                preview_sessions.next_evidence_sequence,
+                ?,
+                ?,
+                ?,
+                ?,
+                ?
+              FROM preview_sessions
+              WHERE preview_sessions.session_id = ?
+              RETURNING
+                id,
+                preview_session_id AS previewSessionId,
+                sequence,
+                event_type AS eventType,
+                capability,
+                summary,
+                detail,
+                occurred_at AS occurredAt
+            `,
+            parameters: [
+              input.eventType,
+              input.capability,
+              input.summary,
+              input.detail,
+              input.occurredAt,
+              input.previewSessionId,
+            ],
+          },
+          {
+            sql: `
+              UPDATE preview_sessions
+              SET next_evidence_sequence = next_evidence_sequence + 1
+              WHERE session_id = ?
+            `,
+            parameters: [input.previewSessionId],
+          },
+        ],
       );
+      const row = results[0]?.results?.[0] ?? null;
 
-      if (session === null) {
+      if (row === null) {
         throw new Error(`Preview session ${input.previewSessionId} was not found.`);
       }
 
-      const sequenceRow = await queryD1First<{ nextSequence: number }>(
-        db,
-        `
-          SELECT COALESCE(MAX(sequence), 0) + 1 AS nextSequence
-          FROM preview_evidence
-          WHERE preview_session_id = ?
-        `,
-        [input.previewSessionId],
-      );
-      const nextSequence = sequenceRow?.nextSequence ?? 1;
-
-      await runD1(
-        db,
-        `
-          INSERT INTO preview_evidence (
-            preview_session_id,
-            sequence,
-            event_type,
-            capability,
-            summary,
-            detail,
-            occurred_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `,
-        [
-          input.previewSessionId,
-          nextSequence,
-          input.eventType,
-          input.capability,
-          input.summary,
-          input.detail,
-          input.occurredAt,
-        ],
-      );
-
-      return await requirePreviewEvidence(db, input.previewSessionId, nextSequence);
+      return mapPreviewEvidenceRow(mapD1PreviewEvidenceFields(row));
     },
 
     async listPreviewEvidence(previewSessionId) {
@@ -278,72 +299,52 @@ async function requirePreviewSession(db: D1Database, sessionId: string) {
   return mapPreviewSessionRow(mapD1PreviewSessionFields(row));
 }
 
-async function requirePreviewEvidence(db: D1Database, previewSessionId: string, sequence: number) {
-  const row = await queryD1First<D1PreviewEvidenceRow>(
-    db,
-    `
-      ${D1_PREVIEW_EVIDENCE_SELECT}
-      WHERE preview_session_id = ?
-        AND sequence = ?
-    `,
-    [previewSessionId, sequence],
-  );
-
-  if (row === null) {
-    throw new Error(`Preview evidence ${previewSessionId}#${sequence} was not found.`);
-  }
-
-  return mapPreviewEvidenceRow(mapD1PreviewEvidenceFields(row));
-}
-
 function mapD1PreviewSessionFields(row: D1PreviewSessionRow): PreviewSessionRow {
   return {
-    sessionId: expectString(row.sessionId, 'sessionId'),
-    packageVersionId: expectNumber(row.packageVersionId, 'packageVersionId'),
-    appId: expectString(row.appId, 'appId'),
-    packageVersion: expectString(row.packageVersion, 'packageVersion'),
-    packageTitle: expectString(row.packageTitle, 'packageTitle'),
-    origin: expectStringLiteral(row.origin, 'origin', [
+    sessionId: expectD1String(row.sessionId, 'sessionId'),
+    packageVersionId: expectD1Number(row.packageVersionId, 'packageVersionId'),
+    appId: expectD1String(row.appId, 'appId'),
+    packageVersion: expectD1String(row.packageVersion, 'packageVersion'),
+    packageTitle: expectD1String(row.packageTitle, 'packageTitle'),
+    origin: expectD1StringLiteral(row.origin, 'origin', [
       'adminTestLaunch',
       'deepLinkingAuthoring',
       'adminAuthoringDraft',
     ]),
-    contentPath: expectString(row.contentPath, 'contentPath'),
-    deepLinkingSessionId: expectNullableString(row.deepLinkingSessionId, 'deepLinkingSessionId'),
-    capabilities: parseJsonField(
+    contentPath: expectD1String(row.contentPath, 'contentPath'),
+    deepLinkingSessionId: expectD1NullableString(row.deepLinkingSessionId, 'deepLinkingSessionId'),
+    capabilities: parseD1JsonField(
       row.capabilities,
       'capabilities',
-    ) as PreviewSessionRow['capabilities'],
-    snapshotRoot: expectString(row.snapshotRoot, 'snapshotRoot'),
-    entrypointPath: expectString(row.entrypointPath, 'entrypointPath'),
-    launchUserId: expectString(row.launchUserId, 'launchUserId'),
-    launchUserRole: expectStringLiteral(row.launchUserRole, 'launchUserRole', [
+      parseCapabilityArray,
+    ),
+    snapshotRoot: expectD1String(row.snapshotRoot, 'snapshotRoot'),
+    entrypointPath: expectD1String(row.entrypointPath, 'entrypointPath'),
+    launchUserId: expectD1String(row.launchUserId, 'launchUserId'),
+    launchUserRole: expectD1StringLiteral(row.launchUserRole, 'launchUserRole', [
       'learner',
       'instructor',
     ]),
-    launchCourseId: expectString(row.launchCourseId, 'launchCourseId'),
-    launchAssignmentId: expectNullableString(row.launchAssignmentId, 'launchAssignmentId'),
-    launchActivityId: expectString(row.launchActivityId, 'launchActivityId'),
-    fakeAttemptId: expectString(row.fakeAttemptId, 'fakeAttemptId'),
-    fakeScoreMaximum: expectNumber(row.fakeScoreMaximum, 'fakeScoreMaximum'),
-    fixtureData: parseJsonField(row.fixtureData, 'fixtureData') as PreviewSessionRow['fixtureData'],
-    createdAt: expectString(row.createdAt, 'createdAt'),
+    launchCourseId: expectD1String(row.launchCourseId, 'launchCourseId'),
+    launchAssignmentId: expectD1NullableString(row.launchAssignmentId, 'launchAssignmentId'),
+    launchActivityId: expectD1String(row.launchActivityId, 'launchActivityId'),
+    fakeAttemptId: expectD1String(row.fakeAttemptId, 'fakeAttemptId'),
+    fakeScoreMaximum: expectD1Number(row.fakeScoreMaximum, 'fakeScoreMaximum'),
+    fixtureData: parseD1JsonField(row.fixtureData, 'fixtureData', parsePreviewFixtureData),
+    createdAt: expectD1String(row.createdAt, 'createdAt'),
   };
 }
 
 function mapD1PreviewEvidenceFields(row: D1PreviewEvidenceRow): PreviewEvidenceRow {
   return {
-    id: expectNumber(row.id, 'id'),
-    previewSessionId: expectString(row.previewSessionId, 'previewSessionId'),
-    sequence: expectNumber(row.sequence, 'sequence'),
-    eventType: expectString(row.eventType, 'eventType'),
-    capability: expectNullableString(
-      row.capability,
-      'capability',
-    ) as PreviewEvidenceRow['capability'],
-    summary: expectString(row.summary, 'summary'),
-    detail: parseJsonField(row.detail, 'detail') as PreviewEvidenceRow['detail'],
-    occurredAt: expectString(row.occurredAt, 'occurredAt'),
+    id: expectD1Number(row.id, 'id'),
+    previewSessionId: expectD1String(row.previewSessionId, 'previewSessionId'),
+    sequence: expectD1Number(row.sequence, 'sequence'),
+    eventType: expectD1String(row.eventType, 'eventType'),
+    capability: parseNullableCapability(row.capability, 'capability'),
+    summary: expectD1String(row.summary, 'summary'),
+    detail: parseD1JsonField(row.detail, 'detail', expectD1JsonRecord),
+    occurredAt: expectD1String(row.occurredAt, 'occurredAt'),
   };
 }
 
@@ -351,46 +352,60 @@ function isD1UniqueViolation(error: unknown): boolean {
   return error instanceof Error && error.message.includes('UNIQUE constraint failed');
 }
 
-function parseJsonField(value: unknown, fieldName: string): unknown {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be JSON text.`);
-  }
-
-  return JSON.parse(value);
+function parseCapabilityArray(value: unknown, fieldName: string): Capability[] {
+  return expectD1StringArray(value, fieldName).map((capability, index) =>
+    expectD1StringLiteral(capability, `${fieldName}[${index}]`, [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_attempt_event',
+      'submit_evidence_artifact',
+      'finalize_attempt',
+      'read_local_state',
+      'write_local_state',
+    ])
+  );
 }
 
-function expectString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be text.`);
-  }
-
-  return value;
-}
-
-function expectNullableString(value: unknown, fieldName: string): string | null {
+function parseNullableCapability(value: unknown, fieldName: string): Capability | null {
   if (value === null) {
     return null;
   }
 
-  return expectString(value, fieldName);
+  return expectD1StringLiteral(
+    value,
+    fieldName,
+    [
+      'read_launch_context',
+      'read_activity_content',
+      'submit_attempt_event',
+      'submit_evidence_artifact',
+      'finalize_attempt',
+      'read_local_state',
+      'write_local_state',
+    ] as const,
+  );
 }
 
-function expectNumber(value: unknown, fieldName: string): number {
-  if (typeof value !== 'number') {
-    throw new TypeError(`Expected D1 ${fieldName} to be numeric.`);
-  }
+function parsePreviewFixtureData(value: unknown, fieldName: string): PreviewFixtureData {
+  const record = expectD1JsonRecord(value, fieldName);
+  const launch = expectD1JsonRecord(record.launch, `${fieldName}.launch`);
 
-  return value;
-}
-
-function expectStringLiteral<T extends string>(
-  value: unknown,
-  fieldName: string,
-  allowed: readonly T[],
-): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Error(`Unexpected D1 ${fieldName} value.`);
-  }
-
-  return value as T;
+  return {
+    launch: {
+      user_role: expectD1StringLiteral(launch.user_role, `${fieldName}.launch.user_role`, [
+        'learner',
+        'instructor',
+      ]),
+      course_id: expectD1String(launch.course_id, `${fieldName}.launch.course_id`),
+      assignment_id: expectD1NullableString(
+        launch.assignment_id,
+        `${fieldName}.launch.assignment_id`,
+      ),
+      activity_id: expectD1String(launch.activity_id, `${fieldName}.launch.activity_id`),
+    },
+    attempt_id: expectD1String(record.attempt_id, `${fieldName}.attempt_id`),
+    local_state: record.local_state === null
+      ? null
+      : expectD1JsonRecord(record.local_state, `${fieldName}.local_state`),
+  };
 }

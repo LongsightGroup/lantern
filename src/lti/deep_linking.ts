@@ -1,4 +1,3 @@
-export { validateDeepLinkingRequest } from './deep_linking_request.ts';
 export {
   authorizeDeepLinkingSession,
   createDeepLinkingSession,

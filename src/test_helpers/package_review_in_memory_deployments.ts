@@ -214,7 +214,6 @@ export function createInMemoryDeploymentRepository(
     },
 
     pinDeploymentVersion(input) {
-      const lmsType = input.lmsType ?? 'canvas';
       const packageVersion = state.packageVersions.find(
         (candidate) => candidate.id === input.packageVersionId,
       );
@@ -225,7 +224,7 @@ export function createInMemoryDeploymentRepository(
 
       if (
         packageVersion.approvalStatus !== 'approved' &&
-        !(lmsType === 'preview' && packageVersion.approvalStatus === 'pending')
+        !(input.lmsType === 'preview' && packageVersion.approvalStatus === 'pending')
       ) {
         throw new Error('Only approved package versions can be enabled.');
       }
@@ -242,9 +241,9 @@ export function createInMemoryDeploymentRepository(
         throw new Error(`Deployment ${input.slug} belongs to app ${existing.appId}.`);
       }
 
-      if (existing && existing.lmsType !== lmsType) {
+      if (existing && existing.lmsType !== input.lmsType) {
         throw new Error(
-          `Deployment ${input.slug} is already reserved as ${existing.lmsType} and cannot change to ${lmsType}.`,
+          `Deployment ${input.slug} is already reserved as ${existing.lmsType} and cannot change to ${input.lmsType}.`,
         );
       }
 
@@ -255,7 +254,7 @@ export function createInMemoryDeploymentRepository(
         appId: input.appId,
         enabledPackageVersionId: packageVersion.id,
         enabledPackageVersion: packageVersion.version,
-        lmsType,
+        lmsType: input.lmsType,
         binding: existing?.binding ?? null,
         ltiProfileOverride: existing?.ltiProfileOverride ?? null,
         updatedAt: DEFAULT_UPDATED_AT,

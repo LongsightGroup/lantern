@@ -14,20 +14,20 @@ import type { AppServices } from './app_services.ts';
 import {
   recordRuntimeCapabilityAllowed,
   recordRuntimeRouteFailure,
-  recordRuntimeScoreProposalAccepted,
-  recordRuntimeSessionExited,
   recordRuntimeSessionStarted,
   requireRuntimeSession,
   resolveRuntimeSessionForAudit,
 } from './app_runtime_support.ts';
 import {
-  acceptAttemptEvent,
-  finalizeRuntimeAttempt,
   readAttemptLocalState,
   submitEvidenceArtifact,
-  submitScoreProposal,
   writeAttemptLocalState,
 } from './runtime/gateway.ts';
+import {
+  acceptRuntimeAttemptEvent,
+  acceptRuntimeScoreProposal,
+  finalizeRuntimeSession,
+} from './runtime/route_commands.ts';
 import { failRuntimeOutcome, toRuntimeBrokerResult } from './runtime/gateway_errors.ts';
 import type { RuntimeDeliveryDescriptor } from './runtime/delivery.ts';
 import {
@@ -173,36 +173,10 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
         const payload = await context.req.json();
         runtime.setRequestBody(payload);
-        const attemptEvent = await acceptAttemptEvent({
+        await acceptRuntimeAttemptEvent({
           repository: runtime.repository,
           session: runtime.session,
           payload,
-        });
-        await runtime.repository.recordAuditEvent({
-          eventType: 'attempt.submitted',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: null,
-          status: 'accepted',
-          summary: 'Accepted attempt submission through the runtime gateway.',
-          detail: {
-            sequence: attemptEvent.sequence,
-            eventType: attemptEvent.eventType,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-        await recordRuntimeCapabilityAllowed({
-          repository: runtime.repository,
-          session: runtime.session,
-          capability: 'submit_attempt_event',
-          route: 'attempt-events',
-          detail: {
-            eventType: attemptEvent.eventType,
-            sequence: attemptEvent.sequence,
-          },
         });
 
         return context.json({ accepted: true }, 202);
@@ -254,7 +228,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
         const payload = await context.req.json();
         runtime.setRequestBody(payload);
-        const result = await submitScoreProposal({
+        const result = await acceptRuntimeScoreProposal({
           repository: runtime.repository,
           session: runtime.session,
           payload,
@@ -263,13 +237,6 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         if (!result.accepted) {
           return context.json(result, result.denial.category === 'policyDenied' ? 409 : 400);
         }
-
-        await recordRuntimeScoreProposalAccepted({
-          repository: runtime.repository,
-          session: runtime.session,
-          scoreProposal: result.scoreProposal,
-          route: 'score-proposal',
-        });
 
         return context.json(result, 202);
       },
@@ -289,85 +256,19 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
       const payload = await context.req.json();
       runtime.setRequestBody(payload);
-      const result = await finalizeRuntimeAttempt({
+      const result = await finalizeRuntimeSession({
+        env: services.env,
+        getLtiToolContext: services.getLtiToolContext,
+        artifactStore: services.runtimeArtifactStore,
         repository: runtime.repository,
         session: runtime.session,
         payload,
-        env: services.env,
-        artifactStore: services.runtimeArtifactStore,
+        reviewedPackage,
+        delivery: runtime.delivery,
+        request: runtime.request,
       });
 
-      if (result.finalizedNow) {
-        await runtime.repository.recordAuditEvent({
-          eventType: 'attempt.finalized',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: null,
-          status: 'accepted',
-          summary: 'Finalized the durable attempt inside the runtime gateway.',
-          detail: buildFinalizeAuditDetail(result),
-          occurredAt: new Date().toISOString(),
-        });
-        await recordRuntimeSessionExited({
-          repository: runtime.repository,
-          session: runtime.session,
-          reviewedPackage,
-          delivery: runtime.delivery,
-          completionState: result.attempt.completionState,
-          scoreGiven: result.score.scoreGiven,
-          scoreMaximum: result.score.scoreMaximum,
-          gradePublished: result.gradePublication?.status === 'published',
-          submissionMode: result.submissionMode,
-          evidenceArtifactCount: result.evidenceArtifacts.length,
-          evidenceArtifacts: result.evidenceArtifacts,
-          browserGraderResult: result.browserGraderResult,
-          route: 'finalize',
-        });
-      }
-
-      if (result.gradePublishedNow && result.gradePublication !== null) {
-        await runtime.repository.recordAuditEvent({
-          eventType: 'grade_publish.succeeded',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: result.lineItemBinding?.id ?? null,
-          status: 'succeeded',
-          summary: 'Published the final score to Canvas through AGS.',
-          detail: {
-            lineItemUrl: result.gradePublication.lineItemUrl,
-            scoreGiven: result.gradePublication.scoreGiven,
-            scoreMaximum: result.gradePublication.scoreMaximum,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-      }
-
       if (result.publishError !== null) {
-        await runtime.repository.recordAuditEvent({
-          eventType: 'grade_publish.failed',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: result.lineItemBinding?.id ?? null,
-          status: 'failed',
-          summary: 'Canvas AGS score publish failed.',
-          detail: {
-            code: result.publishError.code,
-            message: result.publishError.message,
-            request: runtime.request,
-            ...result.publishError.detail,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-
         return context.text(
           result.publishError.message,
           statusForFinalizePublishError(result.publishError.code),
@@ -575,22 +476,6 @@ function authorizeRuntimeBearerToken(context: Context, session: RuntimeSessionRe
     ),
     expected: session,
   });
-}
-
-function buildFinalizeAuditDetail(
-  result: Awaited<ReturnType<typeof finalizeRuntimeAttempt>>,
-): Record<string, unknown> {
-  return {
-    completionState: result.attempt.completionState,
-    scoreGiven: result.score.scoreGiven,
-    scoreMaximum: result.score.scoreMaximum,
-    submissionMode: result.submissionMode,
-    evidenceArtifactCount: result.evidenceArtifacts.length,
-    evidenceArtifacts: result.evidenceArtifacts,
-    ...(result.browserGraderResult === null
-      ? {}
-      : { browserGraderResult: result.browserGraderResult }),
-  };
 }
 
 function requireRuntimeOriginBoundary(context: Context, services: AppServices): string {

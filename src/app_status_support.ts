@@ -1,10 +1,13 @@
-import { isLaunchRejectionError, isLtiBoundaryDenialError } from './lti/launch_rejection.ts';
 import { isRuntimeBrokerDenialError, isRuntimeOutcomeError } from './runtime/gateway_errors.ts';
 
 export function deepLinkingReturnErrorMessage(error: unknown): string {
   const message = errorMessage(error);
 
-  if (message.includes('APP_ORIGIN') || message.includes('LTI_TOOL_PRIVATE_JWK')) {
+  if (
+    message.includes('APP_ORIGIN') ||
+    message.includes('LTI_TOOL_PRIVATE_JWK') ||
+    message.includes('LTI_STATE_SECRET')
+  ) {
     return 'Lantern could not prepare the signed LMS return. Contact an operator and try again.';
   }
 
@@ -12,10 +15,6 @@ export function deepLinkingReturnErrorMessage(error: unknown): string {
 }
 
 export function statusForError(error: unknown): 409 | 500 {
-  if (isLaunchRejectionError(error)) {
-    return 409;
-  }
-
   if (!(error instanceof Error)) {
     return 500;
   }
@@ -37,6 +36,7 @@ export function statusForError(error: unknown): 409 | 500 {
     error.message.includes('Choose ') ||
     error.message.includes('belongs to another deployment') ||
     error.message.includes('must send client_id') ||
+    error.message.includes('duplicate LMS bindings') ||
     error.message.includes('Choose one supported Canvas environment') ||
     error.message.includes('Choose one supported LMS deployment') ||
     error.message.includes('active LTI profile') ||
@@ -53,14 +53,6 @@ export function statusForError(error: unknown): 409 | 500 {
     loweredMessage.includes('test launch')
   ) {
     return 409;
-  }
-
-  return 500;
-}
-
-export function statusForDeepLinkingError(error: unknown): 400 | 409 | 500 {
-  if (isLtiBoundaryDenialError(error)) {
-    return error.category === 'policyDenied' ? 409 : 400;
   }
 
   return 500;

@@ -6,15 +6,21 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import {
-  buildLoginStateRecord,
   buildMoodleDeploymentBinding,
   buildSakaiDeploymentBinding,
+  createSyncedTestLtiStorage,
   getTestCanvasJwks,
   signCanvasIdToken,
+  signLtiToolState,
 } from './test_helpers/lti.ts';
 import { withFetchStub, withRuntimeOriginEnv } from './app_test_support.ts';
 
 Deno.test('POST /lti/launch accepts a signed Moodle resource-link launch and records shared audit evidence', async () => {
+  const binding = buildMoodleDeploymentBinding({
+    issuer: 'https://moodle.example',
+    clientId: 'moodle-client-123',
+    deploymentId: 'moodle-deployment-123',
+  });
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -31,28 +37,21 @@ Deno.test('POST /lti/launch accepts a signed Moodle resource-link launch and rec
         label: 'Chapter 4 Asteroids Moodle Deployment',
         enabledPackageVersionId: 5,
         enabledPackageVersion: '0.1.0',
-        binding: buildMoodleDeploymentBinding({
-          issuer: 'https://moodle.example',
-          clientId: 'moodle-client-123',
-          deploymentId: 'moodle-deployment-123',
-        }),
-      }),
-    ],
-    loginStates: [
-      buildLoginStateRecord({
-        lms: 'moodle',
-        issuer: 'https://moodle.example',
-        clientId: 'moodle-client-123',
-        deploymentId: 'moodle-deployment-123',
-        state: 'state-moodle-launch',
-        nonce: 'nonce-moodle-launch',
-        expiresAt: '2030-03-26T02:45:00Z',
+        binding,
       }),
     ],
   });
+  const ltiStorage = await createSyncedTestLtiStorage({ binding });
   const formData = new FormData();
 
-  formData.set('state', 'state-moodle-launch');
+  formData.set(
+    'state',
+    await signLtiToolState({
+      nonce: 'nonce-moodle-launch',
+      issuer: binding.issuer,
+      clientId: binding.clientId,
+    }),
+  );
   formData.set(
     'id_token',
     await signCanvasIdToken({
@@ -84,6 +83,7 @@ Deno.test('POST /lti/launch accepts a signed Moodle resource-link launch and rec
       async () => {
         const response = await createApp({
           getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
         }).request('http://localhost/lti/launch', {
           method: 'POST',
           body: formData,
@@ -120,6 +120,11 @@ Deno.test('POST /lti/launch accepts a signed Moodle resource-link launch and rec
 });
 
 Deno.test('POST /lti/launch accepts a signed Sakai resource-link launch and records shared audit evidence', async () => {
+  const binding = buildSakaiDeploymentBinding({
+    issuer: 'https://sakai.example',
+    clientId: 'sakai-client-123',
+    deploymentId: 'sakai-deployment-123',
+  });
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -136,28 +141,21 @@ Deno.test('POST /lti/launch accepts a signed Sakai resource-link launch and reco
         label: 'Chapter 4 Asteroids Sakai Deployment',
         enabledPackageVersionId: 5,
         enabledPackageVersion: '0.1.0',
-        binding: buildSakaiDeploymentBinding({
-          issuer: 'https://sakai.example',
-          clientId: 'sakai-client-123',
-          deploymentId: 'sakai-deployment-123',
-        }),
-      }),
-    ],
-    loginStates: [
-      buildLoginStateRecord({
-        lms: 'sakai',
-        issuer: 'https://sakai.example',
-        clientId: 'sakai-client-123',
-        deploymentId: 'sakai-deployment-123',
-        state: 'state-sakai-launch',
-        nonce: 'nonce-sakai-launch',
-        expiresAt: '2030-03-26T02:45:00Z',
+        binding,
       }),
     ],
   });
+  const ltiStorage = await createSyncedTestLtiStorage({ binding });
   const formData = new FormData();
 
-  formData.set('state', 'state-sakai-launch');
+  formData.set(
+    'state',
+    await signLtiToolState({
+      nonce: 'nonce-sakai-launch',
+      issuer: binding.issuer,
+      clientId: binding.clientId,
+    }),
+  );
   formData.set(
     'id_token',
     await signCanvasIdToken({
@@ -189,6 +187,7 @@ Deno.test('POST /lti/launch accepts a signed Sakai resource-link launch and reco
       async () => {
         const response = await createApp({
           getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
         }).request('http://localhost/lti/launch', {
           method: 'POST',
           body: formData,

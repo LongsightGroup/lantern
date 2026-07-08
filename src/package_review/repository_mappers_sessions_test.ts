@@ -16,6 +16,7 @@ function buildRuntimeSessionRow(overrides: Partial<RuntimeSessionRow> = {}): Run
   return {
     sessionId: 'runtime-session-123',
     sessionToken: 'runtime-token-123',
+    ltiToolSessionId: null,
     attemptId: 'attempt-123',
     deploymentRecordId: 1,
     deploymentSlug: 'flashcard-practice-preview',

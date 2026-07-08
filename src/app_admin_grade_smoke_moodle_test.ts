@@ -2,6 +2,7 @@ import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
 import { restoreEnv, withFetchStub } from './admin/deployment_detail_test_helpers.ts';
 import { getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
+import { createTestLtiToolContext } from './test_helpers/lti_tool_context.ts';
 import {
   buildSmokeRouteFixture,
   buildSmokeVerificationFormData,
@@ -14,6 +15,10 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Mo
   const fixture = buildSmokeRouteFixture('moodle');
   const repository = createSmokeRouteRepository(fixture);
   const requestedUrls: string[] = [];
+  const ltiToolContext = createTestLtiToolContext({
+    sessionId: fixture.session.ltiToolSessionId ?? 'missing-lti-tool-session',
+    lineItemUrl: fixture.smokeLineItemUrl,
+  });
   const formData = buildSmokeVerificationFormData(fixture);
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
   await repository.saveLanternDefaultLtiProfile({
@@ -24,6 +29,7 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Mo
     await withFetchStub(createSuccessfulSmokeFetchHandler(fixture, requestedUrls), async () => {
       const response = await createApp({
         getRepository: () => repository,
+        getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
       }).request(
         'http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-grade-smoke',
         {
@@ -61,27 +67,27 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke runs the Mo
   }
 });
 
-Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke records bounded deployment-scoped failure evidence when the service token request fails', async () => {
+Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke records bounded deployment-scoped failure evidence when lti-tool score publish fails', async () => {
   const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
   const fixture = buildSmokeRouteFixture('moodle');
   const repository = createSmokeRouteRepository(fixture);
+  const ltiToolContext = createTestLtiToolContext({
+    sessionId: fixture.session.ltiToolSessionId ?? 'missing-lti-tool-session',
+    submitScoreSuccess: false,
+    submitScoreMessage: 'simulated score failure',
+  });
   const formData = buildSmokeVerificationFormData(fixture);
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
   try {
     await withFetchStub(
       (input) => {
-        const url = String(input);
-
-        if (url === fixture.binding.accessTokenUrl) {
-          throw new Error('simulated token failure');
-        }
-
-        throw new Error(`Unexpected smoke request GET ${url}`);
+        throw new Error(`Unexpected smoke request GET ${String(input)}`);
       },
       async () => {
         const response = await createApp({
           getRepository: () => repository,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
         }).request(
           'http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-grade-smoke',
           {
@@ -109,10 +115,9 @@ Deno.test('POST /admin/packages/:appId/deployment/verify-grade-smoke records bou
         assertEquals(auditEvents[0]?.status, 'failed');
         assertEquals(auditEvents[0]?.detail.lms, 'moodle');
         assertEquals(auditEvents[0]?.detail.agsCapable, true);
-        assertEquals(auditEvents[0]?.detail.publicationStatus, 'not_attempted');
-        assertEquals(auditEvents[0]?.detail.lineItemUrl, null);
-        assertEquals(errorDetail?.code, 'token_request_failed');
-        assertEquals(errorDetail?.message, 'simulated token failure');
+        assertEquals(auditEvents[0]?.detail.publicationStatus, 'failed');
+        assertEquals(errorDetail?.code, 'score_publish_failed');
+        assertEquals(errorDetail?.message, 'simulated score failure');
         assertEquals(JSON.stringify(auditEvents[0]?.detail ?? {}).includes('final-grade'), false);
       },
     );
@@ -127,6 +132,10 @@ Deno.test('deployment smoke verification renders the latest Moodle result back o
   const repository = createSmokeRouteRepository(fixture, {
     includeControlPlaneDetail: true,
   });
+  const ltiToolContext = createTestLtiToolContext({
+    sessionId: fixture.session.ltiToolSessionId ?? 'missing-lti-tool-session',
+    lineItemUrl: fixture.smokeLineItemUrl,
+  });
   const formData = buildSmokeVerificationFormData(fixture);
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
@@ -134,6 +143,7 @@ Deno.test('deployment smoke verification renders the latest Moodle result back o
     await withFetchStub(createSuccessfulSmokeFetchHandler(fixture), async () => {
       const postResponse = await createApp({
         getRepository: () => repository,
+        getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
       }).request(
         'http://localhost/admin/packages/chapter-4-asteroids/deployment/verify-grade-smoke',
         {

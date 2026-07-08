@@ -1,5 +1,6 @@
 import {
   appendMissingEnvAssignments,
+  createLocalLtiStateSecret,
   createLocalToolPrivateJwkString,
   DEFAULT_LOCAL_ENV_PATH,
   defaultLocalEnvAssignments,
@@ -16,6 +17,7 @@ if (import.meta.main) {
     existingText,
     assignments: {
       ...assignments,
+      LTI_STATE_SECRET: createLocalLtiStateSecret(),
       LTI_TOOL_PRIVATE_JWK: generatedJwk,
     },
   });

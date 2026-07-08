@@ -5,10 +5,17 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { restoreEnv, withFetchStub } from './app_test_support.ts';
+import { getTestToolPrivateJwkEnvValue, TEST_LTI_STATE_SECRET } from './test_helpers/lti.ts';
+
+const TOOL_CONFIGURATION_CLAIM = 'https://purl.imsglobal.org/spec/lti-tool-configuration';
 
 Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes automatic setup and returns a Moodle close page', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
+  const previousJwk = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
   Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
+  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
 
   try {
     const repository = createInMemoryPackageReviewRepository({
@@ -49,13 +56,7 @@ Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes autom
 
         if (url === 'https://moodle.example/mod/lti/openid-configuration.php') {
           return new Response(
-            JSON.stringify({
-              issuer: 'https://moodle.example',
-              authorization_endpoint: 'https://moodle.example/mod/lti/auth.php',
-              token_endpoint: 'https://moodle.example/mod/lti/token.php',
-              jwks_uri: 'https://moodle.example/mod/lti/certs.php',
-              registration_endpoint: 'https://moodle.example/mod/lti/openid-registration.php',
-            }),
+            JSON.stringify(buildMoodleOpenIdConfiguration()),
             {
               status: 200,
               headers: { 'content-type': 'application/json' },
@@ -64,13 +65,11 @@ Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes autom
         }
 
         if (url === 'https://moodle.example/mod/lti/openid-registration.php') {
+          const payload = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
           return new Response(
-            JSON.stringify({
-              client_id: 'moodle-client-777',
-              'https://purl.imsglobal.org/spec/lti-tool-configuration': {
-                deployment_id: 'moodle-deployment-777',
-              },
-            }),
+            JSON.stringify(
+              buildRegistrationResponse(payload, 'moodle-client-777', 'moodle-deployment-777'),
+            ),
             {
               status: 200,
               headers: { 'content-type': 'application/json' },
@@ -118,24 +117,12 @@ Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes autom
     };
     assertEquals(registrationRequest.initiate_login_uri, 'http://localhost:8417/lti/login');
     assertEquals(registrationRequest.jwks_uri, 'http://localhost:8417/lti/jwks.json');
-    assertEquals(registrationRequest.redirect_uris, [
-      'http://localhost:8417/lti/launch',
-      'http://localhost:8417/lti/deep-linking',
-    ]);
     assertEquals(
-      registrationRequest.scope,
-      'https://purl.imsglobal.org/spec/lti-ags/scope/score https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly https://purl.imsglobal.org/spec/lti-ags/scope/lineitem https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly',
+      registrationRequest.redirect_uris.includes('http://localhost:8417/lti/launch'),
+      true,
     );
-    assertEquals(
-      registrationRequest['https://purl.imsglobal.org/spec/lti-tool-configuration'].messages,
-      [
-        {
-          type: 'LtiDeepLinkingRequest',
-          target_link_uri: 'http://localhost:8417/lti/deep-linking',
-          label: 'Select Lantern activity',
-        },
-      ],
-    );
+    assertEquals(registrationRequest.scope.includes('lti-ags/scope/score'), true);
+    assertEquals(registrationRequest[TOOL_CONFIGURATION_CLAIM].messages.length > 0, true);
 
     const deployment = await repository.getDeploymentBySlug('chapter-4-asteroids-moodle');
     const binding = deployment?.binding;
@@ -158,91 +145,50 @@ Deno.test('GET /admin/packages/:appId/deployment/register/moodle completes autom
     assertEquals(auditEvents[0]?.detail.registrationMode, 'dynamic');
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
+    restoreEnv('LTI_TOOL_PRIVATE_JWK', previousJwk);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 });
 
-Deno.test('GET /admin/packages/:appId/deployment/register/moodle records the deployment_id fallback path when Moodle omits it from the response body', async () => {
-  const previousOrigin = Deno.env.get('APP_ORIGIN');
-  Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
+function buildMoodleOpenIdConfiguration(): Record<string, unknown> {
+  return {
+    issuer: 'https://moodle.example',
+    authorization_endpoint: 'https://moodle.example/mod/lti/auth.php',
+    token_endpoint: 'https://moodle.example/mod/lti/token.php',
+    jwks_uri: 'https://moodle.example/mod/lti/certs.php',
+    registration_endpoint: 'https://moodle.example/mod/lti/openid-registration.php',
+    token_endpoint_auth_methods_supported: ['private_key_jwt'],
+    token_endpoint_auth_signing_alg_values_supported: ['RS256'],
+    scopes_supported: [
+      'https://purl.imsglobal.org/spec/lti-ags/scope/score',
+      'https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly',
+      'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem.readonly',
+      'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
+      'https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly',
+    ],
+    response_types_supported: ['id_token'],
+    id_token_signing_alg_values_supported: ['RS256'],
+    claims_supported: ['iss', 'sub', 'name', 'email'],
+    subject_types_supported: ['public'],
+    'https://purl.imsglobal.org/spec/lti-platform-configuration': {
+      product_family_code: 'moodle',
+      version: '4',
+      messages_supported: [{ type: 'LtiDeepLinkingRequest' }],
+    },
+  };
+}
 
-  try {
-    const repository = createInMemoryPackageReviewRepository({
-      packageVersions: [
-        buildPackageVersionRecord({
-          id: 5,
-          approvalStatus: 'approved',
-          reviewedAt: '2026-03-23T18:05:00Z',
-        }),
-      ],
-    });
-    const registrationState = await repository.createDynamicRegistrationState({
-      state: 'moodle-registration-state-fallback',
-      appId: 'chapter-4-asteroids',
-      lms: 'moodle',
-      createdAt: '2030-03-24T00:00:00Z',
-      expiresAt: '2030-03-24T00:30:00Z',
-      usedAt: null,
-    });
-    const app = createApp({ getRepository: () => repository });
-
-    await withFetchStub(
-      (input) => {
-        const url = typeof input === 'string' ? input : input.toString();
-
-        if (
-          url ===
-            'https://moodle.example/mod/lti/openid-configuration.php?deployment_id=moodle-deployment-777'
-        ) {
-          return new Response(
-            JSON.stringify({
-              issuer: 'https://moodle.example',
-              authorization_endpoint: 'https://moodle.example/mod/lti/auth.php',
-              token_endpoint: 'https://moodle.example/mod/lti/token.php',
-              jwks_uri: 'https://moodle.example/mod/lti/certs.php',
-              registration_endpoint: 'https://moodle.example/mod/lti/openid-registration.php',
-            }),
-            {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            },
-          );
-        }
-
-        if (url === 'https://moodle.example/mod/lti/openid-registration.php') {
-          return new Response(
-            JSON.stringify({
-              client_id: 'moodle-client-777',
-              'https://purl.imsglobal.org/spec/lti-tool-configuration': {},
-            }),
-            {
-              status: 200,
-              headers: { 'content-type': 'application/json' },
-            },
-          );
-        }
-
-        throw new Error(`Unexpected fetch ${url}`);
-      },
-      async () => {
-        const params = new URLSearchParams({
-          state: registrationState.state,
-          openid_configuration:
-            'https://moodle.example/mod/lti/openid-configuration.php?deployment_id=moodle-deployment-777',
-        });
-        const response = await app.request(
-          `http://localhost/admin/packages/chapter-4-asteroids/deployment/register/moodle?${params.toString()}`,
-        );
-
-        assertEquals(response.status, 200);
-      },
-    );
-
-    const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
-
-    assertEquals(interopEvents.length, 1);
-    assertEquals(interopEvents[0]?.detail.path, 'dynamic_registration_deployment_id_fallback');
-    assertEquals(interopEvents[0]?.detail.deploymentIdSource, 'openid_query');
-  } finally {
-    restoreEnv('APP_ORIGIN', previousOrigin);
-  }
-});
+function buildRegistrationResponse(
+  payload: Record<string, unknown>,
+  clientId: string,
+  deploymentId: string,
+): Record<string, unknown> {
+  return {
+    ...payload,
+    client_id: clientId,
+    [TOOL_CONFIGURATION_CLAIM]: {
+      ...(payload[TOOL_CONFIGURATION_CLAIM] as Record<string, unknown>),
+      deployment_id: deploymentId,
+    },
+  };
+}

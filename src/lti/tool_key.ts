@@ -27,7 +27,8 @@ export interface LoadedToolSigningKey {
   publicJwk: ToolPublicJwk;
 }
 
-export async function loadToolSigningKey(env: EnvReader): Promise<LoadedToolSigningKey> {
+/** Loads the raw private JWK string used by Lantern and LTI Tool. */
+export function readToolPrivateJwkValue(env: EnvReader): string {
   const rawValue = env.get(TOOL_PRIVATE_JWK_ENV);
 
   if (!rawValue) {
@@ -36,7 +37,11 @@ export async function loadToolSigningKey(env: EnvReader): Promise<LoadedToolSign
     );
   }
 
-  const privateJwk = await parseToolPrivateJwk(rawValue);
+  return rawValue;
+}
+
+export async function loadToolSigningKey(env: EnvReader): Promise<LoadedToolSigningKey> {
+  const privateJwk = await parseToolPrivateJwk(readToolPrivateJwkValue(env));
   const importedKey = await importJWK(privateJwk, privateJwk.alg);
 
   if (!(importedKey instanceof CryptoKey) || importedKey.type !== 'private') {

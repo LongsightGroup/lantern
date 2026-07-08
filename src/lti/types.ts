@@ -59,22 +59,6 @@ export interface CanvasPlatformConfig {
   jwksUrl: string;
 }
 
-export interface LoginStateRecord {
-  lms: LmsType;
-  canvasEnvironment: CanvasEnvironment | null;
-  issuer: string;
-  clientId: string;
-  deploymentId: string;
-  state: string;
-  nonce: string;
-  loginHint: string;
-  targetLinkUri: string;
-  ltiMessageHint: string | null;
-  createdAt: string;
-  expiresAt: string;
-  usedAt: string | null;
-}
-
 export interface DynamicRegistrationStateRecord {
   state: string;
   appId: string;
@@ -132,6 +116,7 @@ export interface ValidatedLaunch {
 export interface RuntimeSessionRecord {
   sessionId: string;
   sessionToken: string;
+  ltiToolSessionId: string | null;
   attemptId: string;
   deploymentRecordId: number;
   deploymentSlug: string;
@@ -176,6 +161,7 @@ export type LtiPlacement =
   | typeof LTI_RESOURCE_SELECTION_PLACEMENT;
 
 export interface ValidatedDeepLinkingRequest {
+  ltiToolSessionId: string | null;
   lms: LmsType;
   canvasEnvironment: CanvasEnvironment | null;
   issuer: string;
@@ -206,6 +192,7 @@ export interface DeepLinkingSessionSelection {
 export interface DeepLinkingSessionRecord {
   sessionId: string;
   sessionToken: string;
+  ltiToolSessionId: string | null;
   deploymentRecordId: number;
   deploymentSlug: string;
   appId: string;

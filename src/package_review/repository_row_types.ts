@@ -16,11 +16,9 @@ import type {
 } from './types.ts';
 import type { LtiProfileId } from '../lti/profile.ts';
 import type {
-  CanvasDeploymentBinding,
   CanvasEnvironment,
   DeepLinkingSessionRecord,
   DynamicRegistrationStateRecord,
-  LmsType,
   PersistedDeploymentLmsType,
   RuntimeSessionRecord,
 } from '../lti/types.ts';
@@ -77,22 +75,6 @@ export interface LanternLtiProfileSettingsRow {
   updatedAt: Date | string;
 }
 
-export interface LoginStateRow {
-  lmsType: LmsType;
-  state: string;
-  canvasEnvironment: CanvasDeploymentBinding['canvasEnvironment'] | null;
-  issuer: CanvasDeploymentBinding['issuer'];
-  clientId: CanvasDeploymentBinding['clientId'];
-  deploymentId: CanvasDeploymentBinding['deploymentId'];
-  nonce: string;
-  loginHint: string;
-  targetLinkUri: string;
-  ltiMessageHint: string | null;
-  createdAt: Date | string;
-  expiresAt: Date | string;
-  usedAt: Date | string | null;
-}
-
 export interface DynamicRegistrationStateRow {
   state: string;
   appId: string;
@@ -105,6 +87,7 @@ export interface DynamicRegistrationStateRow {
 export interface RuntimeSessionRow {
   sessionId: string;
   sessionToken: string;
+  ltiToolSessionId: string | null;
   attemptId?: string | null;
   deploymentRecordId: number;
   deploymentSlug: string;
@@ -132,6 +115,7 @@ export interface RuntimeSessionRow {
 export interface DeepLinkingSessionRow {
   sessionId: string;
   sessionToken: string;
+  ltiToolSessionId: string | null;
   deploymentRecordId: number;
   deploymentSlug: string;
   appId: string;

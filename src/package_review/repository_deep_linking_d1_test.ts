@@ -35,8 +35,8 @@ Deno.test('D1 deep linking repository creates and parses JSON-backed session set
   assertEquals(session.acceptMultiple, true);
   assertEquals(session.acceptPresentationDocumentTargets, ['iframe', 'window']);
   assertEquals(session.selection?.activityId, 'asteroids');
-  assertEquals(db.statements[0]?.parameters[12], '["ltiResourceLink"]');
-  assertEquals(db.statements[0]?.parameters[13], 1);
+  assertEquals(db.statements[0]?.parameters[13], '["ltiResourceLink"]');
+  assertEquals(db.statements[0]?.parameters[14], 1);
 });
 
 Deno.test('D1 deep linking repository rejects already-used sessions', async () => {
@@ -240,6 +240,7 @@ function buildDeepLinkingSessionRow(
   return {
     sessionId: 'deep-linking-session-123',
     sessionToken: 'deep-linking-token-123',
+    ltiToolSessionId: null,
     deploymentRecordId: 1,
     deploymentSlug: 'chapter-4-asteroids-pilot',
     appId: 'chapter-4-asteroids',

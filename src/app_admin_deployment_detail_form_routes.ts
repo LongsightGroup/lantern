@@ -20,6 +20,7 @@ import type { LmsType } from './lti/types.ts';
 import type { AppServices } from './app_services.ts';
 import { readEnv } from './platform/env.ts';
 import { resolveConfiguredPublicOrigin } from './public_origin.ts';
+import { syncLtiToolDeploymentBinding } from './lti/tool_provider.ts';
 
 export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServices): void {
   app.post('/admin/packages/:appId/deployment/pin', async (context) => {
@@ -164,6 +165,12 @@ export function registerAdminDeploymentFormRoutes(app: Hono, services: AppServic
         slug: slot.deployment.slug,
         label: slot.deployment.label,
         appId,
+        binding,
+      });
+      await syncLtiToolDeploymentBinding({
+        storage: services.getLtiToolStorage(),
+        appTitle: detail.appTitle,
+        deploymentSlug: deployment.slug,
         binding,
       });
       await repository.recordAuditEvent({

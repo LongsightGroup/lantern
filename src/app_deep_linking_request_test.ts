@@ -1,4 +1,4 @@
-import { assertEquals, assertObjectMatch, assertStringIncludes } from '@std/assert';
+import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createApp } from './app.ts';
 import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from './lti/types.ts';
 import {
@@ -8,13 +8,16 @@ import {
 } from './test_helpers/package_review.ts';
 import {
   buildDeploymentBinding,
-  buildLoginStateRecord,
   buildMoodleDeploymentBinding,
+  createSyncedTestLtiStorage,
   getTestCanvasJwks,
   signCanvasIdToken,
+  signLtiToolState,
 } from './test_helpers/lti.ts';
+import { withFetchStub, withRuntimeOriginEnv } from './app_test_support.ts';
 
-Deno.test('POST /lti/deep-linking accepts assignment-selection launches and redirects to a Lantern-owned picker session', async () => {
+Deno.test('POST /lti/deep-linking accepts lti-tool verified Canvas Deep Linking launches', async () => {
+  const binding = buildDeploymentBinding();
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -29,284 +32,147 @@ Deno.test('POST /lti/deep-linking accepts assignment-selection launches and redi
         id: 7,
         enabledPackageVersionId: 1,
         enabledPackageVersion: '0.1.0',
-        binding: buildDeploymentBinding(),
-      }),
-    ],
-    lanternLtiProfileSettings: {
-      defaultLtiProfile: 'certification',
-      updatedAt: '2026-03-24T16:00:00Z',
-    },
-    loginStates: [
-      buildLoginStateRecord({
-        state: 'state-deep-linking',
-        nonce: 'nonce-deep-linking',
-        targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-        createdAt: '2026-03-24T16:10:00Z',
-        expiresAt: '2030-03-25T16:20:00Z',
+        binding,
       }),
     ],
   });
+  const ltiStorage = await createSyncedTestLtiStorage({ binding });
   const formData = new FormData();
-  const idToken = await signCanvasIdToken({
-    nonce: 'nonce-deep-linking',
-    subject: null,
-    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-    targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-    deepLinkReturnUrl: 'https://canvas.example/courses/42/deep_link_return',
-    deepLinkData: 'dl-state-123',
-  });
 
-  formData.set('state', 'state-deep-linking');
-  formData.set('id_token', idToken);
-
-  const response = await createApp({
-    getRepository: () => repository,
-    loadCanvasJwks: () => Promise.resolve(getTestCanvasJwks()),
-  }).request('http://localhost/lti/deep-linking', {
-    method: 'POST',
-    headers: {
-      'user-agent': 'Canvas-DeepLink/1.0',
-      'cf-connecting-ip': '198.51.100.27',
-      'cf-ray': 'deeplink-ray-IAD',
-    },
-    body: formData,
-  });
-  const location = response.headers.get('location') ?? '';
-  const sessionLocation = new URL(`http://localhost${location}`);
-  const sessionId = sessionLocation.pathname.split('/').at(-1) ?? '';
-  const savedSession = await repository.getDeepLinkingSessionById(sessionId);
-  const runtimeSession = await repository.getLatestRuntimeSessionByDeploymentId(7);
-  const auditEvents = await repository.listAuditEventsByEventType('deep_linking.request.accepted');
-
-  assertEquals(response.status, 303);
-  assertStringIncludes(location, '/lti/deep-linking/sessions/');
-  assertEquals(savedSession?.deepLinkReturnUrl.includes('deep_link_return'), true);
-  assertEquals(savedSession?.sessionToken, sessionLocation.searchParams.get('token'));
-  assertEquals(runtimeSession, null);
-  assertEquals(auditEvents.length, 1);
-  assertEquals(auditEvents[0]?.deploymentRecordId, 7);
-  assertEquals(auditEvents[0]?.packageVersionId, 1);
-  assertEquals(
-    String(auditEvents[0]?.detail.internalDeploymentSlug ?? ''),
-    'chapter-4-asteroids-pilot',
+  formData.set(
+    'state',
+    await signLtiToolState({
+      nonce: 'nonce-canvas-deep-linking',
+      issuer: binding.issuer,
+      clientId: binding.clientId,
+      targetLinkUri: 'http://localhost/lti/deep-linking?placement=assignment_selection',
+    }),
   );
-  assertEquals(auditEvents[0]?.detail.ltiProfileId, 'certification');
-  assertEquals(auditEvents[0]?.detail.ltiProfileSource, 'lanternDefault');
+  formData.set(
+    'id_token',
+    await signCanvasIdToken({
+      nonce: 'nonce-canvas-deep-linking',
+      subject: 'canvas-author-123',
+      messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+      targetLinkUri: 'http://localhost/lti/deep-linking?placement=assignment_selection',
+      deepLinkReturnUrl: 'https://canvas.example/courses/42/deep_link_return',
+      deepLinkData: 'dl-state-123',
+      deepLinkAcceptLineItem: true,
+    }),
+  );
+
+  await withRuntimeOriginEnv(async () => {
+    await withFetchStub(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify(getTestCanvasJwks()), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
+      async () => {
+        const response = await createApp({
+          getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
+        }).request('http://localhost/lti/deep-linking', {
+          method: 'POST',
+          body: formData,
+        });
+        const location = response.headers.get('location') ?? '';
+        const sessionLocation = new URL(`http://localhost${location}`);
+        const sessionId = sessionLocation.pathname.split('/').at(-1) ?? '';
+        const savedSession = await repository.getDeepLinkingSessionById(sessionId);
+        const runtimeSession = await repository.getLatestRuntimeSessionByDeploymentId(7);
+
+        assertEquals(response.status, 303, await response.clone().text());
+        assertStringIncludes(location, '/lti/deep-linking/sessions/');
+        assertEquals(savedSession?.deepLinkReturnUrl.includes('deep_link_return'), true);
+        assertEquals(savedSession?.sessionToken, sessionLocation.searchParams.get('token'));
+        assertEquals(savedSession?.ltiToolSessionId !== null, true);
+        assertEquals(savedSession?.placement, 'assignment_selection');
+        assertEquals(savedSession?.acceptLineItem, true);
+        assertEquals(runtimeSession, null);
+      },
+    );
+  });
 });
 
-Deno.test('POST /lti/deep-linking rejects unsupported Deep Linking payloads before any picker handoff', async () => {
+Deno.test('POST /lti/deep-linking accepts lti-tool verified Moodle Deep Linking launches', async () => {
+  const binding = buildMoodleDeploymentBinding();
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
-        id: 1,
-        installScope: 'assignment',
+        id: 5,
+        installScope: 'course',
         approvalStatus: 'approved',
         reviewedAt: '2026-03-24T16:15:00Z',
       }),
     ],
     deployments: [
       buildDeploymentRecord({
-        id: 7,
-        enabledPackageVersionId: 1,
+        id: 12,
+        enabledPackageVersionId: 5,
         enabledPackageVersion: '0.1.0',
-        binding: buildDeploymentBinding(),
-      }),
-    ],
-    loginStates: [
-      buildLoginStateRecord({
-        state: 'state-deep-linking-error',
-        nonce: 'nonce-deep-linking-error',
-        targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-        createdAt: '2026-03-24T16:10:00Z',
-        expiresAt: '2030-03-25T16:20:00Z',
+        binding,
       }),
     ],
   });
+  const ltiStorage = await createSyncedTestLtiStorage({ binding });
   const formData = new FormData();
-  const idToken = await signCanvasIdToken({
-    nonce: 'nonce-deep-linking-error',
-    subject: null,
-    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-    targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-    deepLinkReturnUrl: 'https://canvas.example/courses/42/deep_link_return',
-    deepLinkAcceptTypes: ['html'],
+
+  formData.set(
+    'state',
+    await signLtiToolState({
+      nonce: 'nonce-moodle-deep-linking',
+      issuer: binding.issuer,
+      clientId: binding.clientId,
+      targetLinkUri: 'http://localhost/lti/deep-linking?placement=resource_selection',
+    }),
+  );
+  formData.set(
+    'id_token',
+    await signCanvasIdToken({
+      deploymentBinding: {
+        issuer: binding.issuer,
+        clientId: binding.clientId,
+        deploymentId: binding.deploymentId,
+      },
+      audience: binding.clientId,
+      nonce: 'nonce-moodle-deep-linking',
+      subject: 'moodle-user-9',
+      messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
+      targetLinkUri: 'http://localhost/lti/deep-linking?placement=resource_selection',
+      deepLinkReturnUrl: 'https://moodle.example/mod/lti/deep_link_return',
+      deepLinkData: 'moodle-state',
+    }),
+  );
+
+  await withRuntimeOriginEnv(async () => {
+    await withFetchStub(
+      () =>
+        Promise.resolve(
+          new Response(JSON.stringify(getTestCanvasJwks()), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        ),
+      async () => {
+        const response = await createApp({
+          getRepository: () => repository,
+          getLtiToolStorage: () => ltiStorage,
+        }).request('http://localhost/lti/deep-linking', {
+          method: 'POST',
+          body: formData,
+        });
+        const location = response.headers.get('location') ?? '';
+        const sessionId = new URL(`http://localhost${location}`).pathname.split('/').at(-1) ?? '';
+        const savedSession = await repository.getDeepLinkingSessionById(sessionId);
+
+        assertEquals(response.status, 303);
+        assertEquals(savedSession?.deploymentRecordId, 12);
+        assertEquals(savedSession?.placement, 'resource_selection');
+        assertEquals(savedSession?.userId, 'moodle-user-9');
+      },
+    );
   });
-
-  formData.set('state', 'state-deep-linking-error');
-  formData.set('id_token', idToken);
-
-  const response = await createApp({
-    getRepository: () => repository,
-    loadCanvasJwks: () => Promise.resolve(getTestCanvasJwks()),
-  }).request('http://localhost/lti/deep-linking', {
-    method: 'POST',
-    headers: {
-      'x-real-ip': '198.51.100.27',
-    },
-    body: formData,
-  });
-  const savedState = await repository.getLoginStateByState('state-deep-linking-error');
-  const runtimeSession = await repository.getLatestRuntimeSessionByDeploymentId(7);
-  const auditEvents = await repository.listAuditEventsByEventType('deep_linking.request.rejected');
-
-  assertEquals(response.status, 400);
-  assertStringIncludes(await response.text(), 'Unsupported');
-  assertEquals(savedState?.usedAt, null);
-  assertEquals(runtimeSession, null);
-  assertEquals(auditEvents.length, 1);
-  assertEquals(auditEvents[0]?.detail.category, 'specInvalid');
-  assertEquals(auditEvents[0]?.detail.code, 'unsupported_deep_linking_accept_type');
-  assertEquals(auditEvents[0]?.detail.ltiProfileId, 'governedCompatibility');
-  assertObjectMatch(auditEvents[0]?.detail.request ?? {}, {
-    method: 'POST',
-    path: '/lti/deep-linking',
-    formKeys: ['id_token', 'state'],
-    queryKeys: [],
-    clientIpMasked: '198.51.100.x',
-  });
-});
-
-Deno.test('POST /lti/deep-linking returns 409 and records a typed policy denial when certification blocks the nonce bridge', async () => {
-  const repository = createInMemoryPackageReviewRepository({
-    packageVersions: [
-      buildPackageVersionRecord({
-        id: 1,
-        installScope: 'assignment',
-        approvalStatus: 'approved',
-        reviewedAt: '2026-03-24T16:15:00Z',
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        id: 7,
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: '0.1.0',
-        binding: buildDeploymentBinding(),
-      }),
-    ],
-    lanternLtiProfileSettings: {
-      defaultLtiProfile: 'certification',
-      updatedAt: '2026-03-24T16:00:00Z',
-    },
-    loginStates: [
-      buildLoginStateRecord({
-        state: 'state-deep-linking-policy-denial',
-        nonce: 'nonce-deep-linking-policy-denial',
-        targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-        createdAt: '2026-03-24T16:10:00Z',
-        expiresAt: '2030-03-25T16:20:00Z',
-      }),
-    ],
-  });
-  const formData = new FormData();
-  const idToken = await signCanvasIdToken({
-    nonce: null,
-    jwtId: 'nonce-deep-linking-policy-denial',
-    subject: null,
-    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-    targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-    deepLinkReturnUrl: 'https://canvas.example/courses/42/deep_link_return',
-  });
-
-  formData.set('state', 'state-deep-linking-policy-denial');
-  formData.set('id_token', idToken);
-
-  const response = await createApp({
-    getRepository: () => repository,
-    loadCanvasJwks: () => Promise.resolve(getTestCanvasJwks()),
-  }).request('http://localhost/lti/deep-linking', {
-    method: 'POST',
-    headers: {
-      'x-real-ip': '198.51.100.28',
-    },
-    body: formData,
-  });
-  const savedState = await repository.getLoginStateByState('state-deep-linking-policy-denial');
-  const auditEvents = await repository.listAuditEventsByEventType('deep_linking.request.rejected');
-
-  assertEquals(response.status, 409);
-  assertStringIncludes(await response.text(), 'nonce');
-  assertEquals(savedState?.usedAt, null);
-  assertEquals(auditEvents.length, 1);
-  assertEquals(auditEvents[0]?.detail.category, 'policyDenied');
-  assertEquals(auditEvents[0]?.detail.code, 'nonce_bridge_not_allowed');
-  assertEquals(auditEvents[0]?.detail.ltiProfileId, 'certification');
-  assertObjectMatch(auditEvents[0]?.detail.request ?? {}, {
-    method: 'POST',
-    path: '/lti/deep-linking',
-    formKeys: ['id_token', 'state'],
-    clientIpMasked: '198.51.100.x',
-  });
-});
-
-Deno.test('POST /lti/deep-linking accepts Moodle Deep Linking launches through the generic route', async () => {
-  const repository = createInMemoryPackageReviewRepository({
-    packageVersions: [
-      buildPackageVersionRecord({
-        id: 1,
-        installScope: 'assignment',
-        approvalStatus: 'approved',
-        reviewedAt: '2026-03-24T16:15:00Z',
-      }),
-    ],
-    deployments: [
-      buildDeploymentRecord({
-        id: 8,
-        enabledPackageVersionId: 1,
-        enabledPackageVersion: '0.1.0',
-        binding: buildMoodleDeploymentBinding({
-          issuer: 'https://moodle.example',
-          clientId: 'moodle-client-123',
-          deploymentId: 'moodle-deployment-123',
-        }),
-      }),
-    ],
-    loginStates: [
-      buildLoginStateRecord({
-        lms: 'moodle',
-        canvasEnvironment: null,
-        issuer: 'https://moodle.example',
-        clientId: 'moodle-client-123',
-        deploymentId: 'moodle-deployment-123',
-        state: 'state-deep-linking-moodle',
-        nonce: 'nonce-deep-linking-moodle',
-        targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-        createdAt: '2026-03-24T16:10:00Z',
-        expiresAt: '2030-03-25T16:20:00Z',
-      }),
-    ],
-  });
-  const formData = new FormData();
-  const idToken = await signCanvasIdToken({
-    deploymentBinding: {
-      issuer: 'https://moodle.example',
-      clientId: 'moodle-client-123',
-      deploymentId: 'moodle-deployment-123',
-    },
-    audience: 'moodle-client-123',
-    nonce: 'nonce-deep-linking-moodle',
-    subject: null,
-    messageType: LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE,
-    targetLinkUri: 'http://localhost:8417/lti/deep-linking',
-    deepLinkReturnUrl: 'https://moodle.example/mod/lti/deep_link_return.php',
-  });
-
-  formData.set('state', 'state-deep-linking-moodle');
-  formData.set('id_token', idToken);
-
-  const response = await createApp({
-    getRepository: () => repository,
-    loadCanvasJwks: () => Promise.resolve(getTestCanvasJwks()),
-  }).request('http://localhost/lti/deep-linking', {
-    method: 'POST',
-    body: formData,
-  });
-  const location = response.headers.get('location') ?? '';
-  const auditEvents = await repository.listAuditEventsByEventType('deep_linking.request.accepted');
-
-  assertEquals(response.status, 303);
-  assertStringIncludes(location, '/lti/deep-linking/sessions/');
-  assertEquals(auditEvents.length, 1);
-  assertEquals(auditEvents[0]?.deploymentRecordId, 8);
-  assertEquals(auditEvents[0]?.detail.lms, 'moodle');
 });

@@ -1,6 +1,7 @@
 import { assert, assertEquals } from '@std/assert';
 import {
   appendMissingEnvAssignments,
+  createLocalLtiStateSecret,
   createLocalToolPrivateJwkString,
   defaultLocalEnvAssignments,
   listDeclaredEnvKeys,
@@ -12,6 +13,7 @@ Deno.test('appendMissingEnvAssignments creates the default local env file', asyn
     existingText: null,
     assignments: {
       ...defaultLocalEnvAssignments(),
+      LTI_STATE_SECRET: createLocalLtiStateSecret(),
       LTI_TOOL_PRIVATE_JWK: generatedJwk,
     },
   });
@@ -21,9 +23,11 @@ Deno.test('appendMissingEnvAssignments creates the default local env file', asyn
     'PORT',
     'APP_ORIGIN',
     'APP_RUNTIME_ORIGIN',
+    'LTI_STATE_SECRET',
     'LTI_TOOL_PRIVATE_JWK',
   ]);
   assert(result.text.includes('APP_ORIGIN=http://localhost:8417'));
+  assert(result.text.includes('LTI_STATE_SECRET='));
   assert(result.text.includes('LTI_TOOL_PRIVATE_JWK="{'));
 });
 
@@ -32,12 +36,18 @@ Deno.test('appendMissingEnvAssignments preserves existing keys and appends only 
     existingText: ['APP_ORIGIN=http://localhost:9000', ''].join('\n'),
     assignments: {
       ...defaultLocalEnvAssignments(),
+      LTI_STATE_SECRET: 'local-state-secret-local-state-secret',
       LTI_TOOL_PRIVATE_JWK: '{"kty":"RSA"}',
     },
   });
 
   assertEquals(result.created, false);
-  assertEquals(result.addedKeys, ['PORT', 'APP_RUNTIME_ORIGIN', 'LTI_TOOL_PRIVATE_JWK']);
+  assertEquals(result.addedKeys, [
+    'PORT',
+    'APP_RUNTIME_ORIGIN',
+    'LTI_STATE_SECRET',
+    'LTI_TOOL_PRIVATE_JWK',
+  ]);
   assert(result.text.includes('APP_ORIGIN=http://localhost:9000'));
 });
 

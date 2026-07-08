@@ -1,6 +1,14 @@
 import type { D1Database } from '../db/d1.ts';
 import { queryD1First, queryD1Objects, runD1 } from '../db/d1.ts';
 import {
+  expectD1JsonRecord,
+  expectD1NullableString,
+  expectD1Number,
+  expectD1String,
+  expectD1StringLiteral,
+  parseD1JsonField,
+} from '../db/d1_row.ts';
+import {
   normalizeAuthoringDraftPath,
   readBrowserAutograderContract,
 } from './repository_authoring_contract.ts';
@@ -268,17 +276,17 @@ async function requireAuthoringPackageVersion(
   }
 
   const packageVersion = {
-    id: expectNumber(row.id, 'id'),
-    appId: expectString(row.appId, 'appId'),
-    version: expectString(row.version, 'version'),
-    title: expectString(row.title, 'title'),
-    approvalStatus: expectStringLiteral(row.approvalStatus, 'approvalStatus', [
+    id: expectD1Number(row.id, 'id'),
+    appId: expectD1String(row.appId, 'appId'),
+    version: expectD1String(row.version, 'version'),
+    title: expectD1String(row.title, 'title'),
+    approvalStatus: expectD1StringLiteral(row.approvalStatus, 'approvalStatus', [
       'pending',
       'approved',
       'rejected',
     ]),
-    manifestJson: parseJsonField(row.manifestJson, 'manifestJson') as Record<string, unknown>,
-    artifactRoot: expectString(row.artifactRoot, 'artifactRoot'),
+    manifestJson: parseD1JsonField(row.manifestJson, 'manifestJson', expectD1JsonRecord),
+    artifactRoot: expectD1String(row.artifactRoot, 'artifactRoot'),
   };
 
   if (packageVersion.approvalStatus !== 'approved') {
@@ -375,29 +383,35 @@ async function hydrateAuthoringDraft(
 
 function mapD1AuthoringDraftFields(row: D1AuthoringDraftRow): AuthoringDraftRow {
   return {
-    draftId: expectString(row.draftId, 'draftId'),
-    packageVersionId: expectNumber(row.packageVersionId, 'packageVersionId'),
-    appId: expectString(row.appId, 'appId'),
-    packageVersion: expectString(row.packageVersion, 'packageVersion'),
-    packageTitle: expectString(row.packageTitle, 'packageTitle'),
-    authoringKind: expectStringLiteral(row.authoringKind, 'authoringKind', ['browser_autograder']),
-    authoringPaths: parseJsonField(row.authoringPaths, 'authoringPaths'),
-    baseSnapshotRoot: expectString(row.baseSnapshotRoot, 'baseSnapshotRoot'),
-    latestPromptText: expectNullableString(row.latestPromptText, 'latestPromptText'),
-    latestGenerationNotes: parseJsonField(row.latestGenerationNotes, 'latestGenerationNotes'),
-    savedSource: expectStringLiteral(row.savedSource, 'savedSource', ['manual', 'ai']),
-    lastPreviewedAt: expectNullableString(row.lastPreviewedAt, 'lastPreviewedAt'),
-    createdAt: expectString(row.createdAt, 'createdAt'),
-    updatedAt: expectString(row.updatedAt, 'updatedAt'),
+    draftId: expectD1String(row.draftId, 'draftId'),
+    packageVersionId: expectD1Number(row.packageVersionId, 'packageVersionId'),
+    appId: expectD1String(row.appId, 'appId'),
+    packageVersion: expectD1String(row.packageVersion, 'packageVersion'),
+    packageTitle: expectD1String(row.packageTitle, 'packageTitle'),
+    authoringKind: expectD1StringLiteral(row.authoringKind, 'authoringKind', [
+      'browser_autograder',
+    ]),
+    authoringPaths: parseD1JsonField(row.authoringPaths, 'authoringPaths', readStringArray),
+    baseSnapshotRoot: expectD1String(row.baseSnapshotRoot, 'baseSnapshotRoot'),
+    latestPromptText: expectD1NullableString(row.latestPromptText, 'latestPromptText'),
+    latestGenerationNotes: parseD1JsonField(
+      row.latestGenerationNotes,
+      'latestGenerationNotes',
+      readStringArray,
+    ),
+    savedSource: expectD1StringLiteral(row.savedSource, 'savedSource', ['manual', 'ai']),
+    lastPreviewedAt: expectD1NullableString(row.lastPreviewedAt, 'lastPreviewedAt'),
+    createdAt: expectD1String(row.createdAt, 'createdAt'),
+    updatedAt: expectD1String(row.updatedAt, 'updatedAt'),
   };
 }
 
 function mapD1AuthoringDraftFileFields(row: D1AuthoringDraftFileRow): AuthoringDraftFileRow {
   return {
-    draftId: expectString(row.draftId, 'draftId'),
-    relativePath: expectString(row.relativePath, 'relativePath'),
-    contents: expectString(row.contents, 'contents'),
-    sequence: expectNumber(row.sequence, 'sequence'),
+    draftId: expectD1String(row.draftId, 'draftId'),
+    relativePath: expectD1String(row.relativePath, 'relativePath'),
+    contents: expectD1String(row.contents, 'contents'),
+    sequence: expectD1Number(row.sequence, 'sequence'),
   };
 }
 
@@ -417,48 +431,4 @@ function readStringArray(value: unknown, field: string): string[] {
 
 function isD1UniqueViolation(error: unknown): boolean {
   return error instanceof Error && error.message.includes('UNIQUE constraint failed');
-}
-
-function parseJsonField(value: unknown, fieldName: string): unknown {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be JSON text.`);
-  }
-
-  return JSON.parse(value);
-}
-
-function expectString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 ${fieldName} to be text.`);
-  }
-
-  return value;
-}
-
-function expectNullableString(value: unknown, fieldName: string): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectString(value, fieldName);
-}
-
-function expectNumber(value: unknown, fieldName: string): number {
-  if (typeof value !== 'number') {
-    throw new TypeError(`Expected D1 ${fieldName} to be numeric.`);
-  }
-
-  return value;
-}
-
-function expectStringLiteral<T extends string>(
-  value: unknown,
-  fieldName: string,
-  allowed: readonly T[],
-): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Error(`Unexpected D1 ${fieldName} value.`);
-  }
-
-  return value as T;
 }

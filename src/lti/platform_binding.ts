@@ -1,5 +1,4 @@
 import { resolveCanvasPlatform } from './canvas_platform.ts';
-import { resolveCanvasTokenEndpoint } from './service_support.ts';
 import type { DeploymentBinding, LmsType } from './types.ts';
 
 export function resolveAuthorizationEndpoint(binding: DeploymentBinding): string {
@@ -43,4 +42,13 @@ export function formatLmsLabel(lms: LmsType): string {
     case 'sakai':
       return 'Sakai';
   }
+}
+
+function resolveCanvasTokenEndpoint(authorizationEndpoint: string): string {
+  const url = new URL(authorizationEndpoint);
+  url.pathname = '/login/oauth2/token';
+  url.search = '';
+  url.hash = '';
+
+  return url.toString();
 }

@@ -21,6 +21,7 @@ import {
   TEST_RUNTIME_ENV,
   withFetchStub,
 } from './gateway_test_helpers.ts';
+import { createTestLtiToolContext } from '../test_helpers/lti_tool_context.ts';
 
 const WEB_CHECKUP_SNAPSHOT_ROOT = 'examples/apps/web-checkup';
 
@@ -77,8 +78,10 @@ Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubr
     ],
   });
   const session = buildRuntimeSessionRecord({
+    ltiToolSessionId: 'lti-tool-session-123',
     expiresAt: '2099-03-26T02:45:00Z',
   });
+  const ltiToolContext = createTestLtiToolContext();
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
@@ -115,6 +118,7 @@ Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubr
             completionState: 'completed',
           },
           env: TEST_RUNTIME_ENV,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
           artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-03-24T02:35:00Z'),
         });
@@ -125,6 +129,7 @@ Deno.test('runtime gateway finalizes declarative attempts from the reviewed rubr
             completionState: 'abandoned',
           },
           env: TEST_RUNTIME_ENV,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
           artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-03-24T02:40:00Z'),
         });
@@ -207,6 +212,7 @@ Deno.test('runtime gateway finalizes browser grading through the reviewed browse
     ],
   });
   const session = buildRuntimeSessionRecord({
+    ltiToolSessionId: 'lti-tool-session-123',
     appId: 'web-checkup',
     deploymentSlug: 'web-checkup-pilot',
     snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
@@ -214,6 +220,7 @@ Deno.test('runtime gateway finalizes browser grading through the reviewed browse
     contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
     expiresAt: '2099-03-26T02:45:00Z',
   });
+  const ltiToolContext = createTestLtiToolContext();
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
@@ -266,6 +273,7 @@ Deno.test('runtime gateway finalizes browser grading through the reviewed browse
             },
           },
           env: TEST_RUNTIME_ENV,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
           artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-04-08T18:05:00Z'),
         });
@@ -330,6 +338,7 @@ Deno.test('runtime gateway rejects anonymous finalize when no evidence artifacts
     ],
   });
   const session = buildRuntimeSessionRecord({
+    ltiToolSessionId: 'lti-tool-session-123',
     appId: 'web-checkup',
     deploymentSlug: 'web-checkup-pilot',
     capabilities: [
@@ -453,6 +462,7 @@ Deno.test('runtime gateway finalizes anonymous browser attempts only after evide
     ],
   });
   const session = buildRuntimeSessionRecord({
+    ltiToolSessionId: 'lti-tool-session-123',
     appId: 'web-checkup',
     deploymentSlug: 'web-checkup-pilot',
     capabilities: [
@@ -467,6 +477,7 @@ Deno.test('runtime gateway finalizes anonymous browser attempts only after evide
     contentPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/content/activity.json`,
     expiresAt: '2099-03-26T02:45:00Z',
   });
+  const ltiToolContext = createTestLtiToolContext();
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
@@ -519,6 +530,7 @@ Deno.test('runtime gateway finalizes anonymous browser attempts only after evide
             },
           },
           env: TEST_RUNTIME_ENV,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
           artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-04-08T19:02:00Z'),
         });
@@ -574,6 +586,7 @@ Deno.test('runtime gateway keeps the AGS line-item resource id aligned with the 
     ],
   });
   const session = buildRuntimeSessionRecord({
+    ltiToolSessionId: 'lti-tool-session-123',
     contentPath: `${EXAMPLE_SNAPSHOT_ROOT}/content/bonus.json`,
     launch: {
       userRole: 'learner',
@@ -584,6 +597,7 @@ Deno.test('runtime gateway keeps the AGS line-item resource id aligned with the 
     },
     expiresAt: '2099-03-26T02:45:00Z',
   });
+  const ltiToolContext = createTestLtiToolContext();
 
   Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
 
@@ -620,6 +634,7 @@ Deno.test('runtime gateway keeps the AGS line-item resource id aligned with the 
             completionState: 'completed',
           },
           env: TEST_RUNTIME_ENV,
+          getLtiToolContext: () => Promise.resolve(ltiToolContext.context),
           artifactStore: FILE_SYSTEM_RUNTIME_ARTIFACT_STORE,
           now: () => new Date('2026-03-24T02:35:00Z'),
         });

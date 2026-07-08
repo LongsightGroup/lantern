@@ -88,6 +88,7 @@ export function buildValidatedDeepLinkingRequest(
   });
 
   return {
+    ltiToolSessionId: overrides.ltiToolSessionId ?? null,
     internalDeploymentId: overrides.internalDeploymentId ?? 1,
     internalDeploymentSlug: overrides.internalDeploymentSlug ?? 'chapter-4-asteroids-pilot',
     appId: overrides.appId ?? 'chapter-4-asteroids',
@@ -119,6 +120,7 @@ export function buildRuntimeSessionRecord(
   return {
     sessionId: sessionOverrides.sessionId ?? 'runtime-session-123',
     sessionToken: sessionOverrides.sessionToken ?? 'runtime-token-123',
+    ltiToolSessionId: sessionOverrides.ltiToolSessionId ?? null,
     attemptId: sessionOverrides.attemptId ?? 'attempt-123',
     deploymentRecordId: sessionOverrides.deploymentRecordId ?? 1,
     deploymentSlug: sessionOverrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
@@ -170,6 +172,7 @@ export function buildDeepLinkingSessionRecord(
   return {
     sessionId: overrides.sessionId ?? 'deep-linking-session-123',
     sessionToken: overrides.sessionToken ?? 'deep-linking-token-123',
+    ltiToolSessionId: overrides.ltiToolSessionId ?? null,
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
     deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
     appId: overrides.appId ?? 'chapter-4-asteroids',

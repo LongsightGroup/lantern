@@ -5,7 +5,13 @@ import { mapDeploymentRow } from './repository_mappers_package.ts';
 import type { DeploymentRow } from './repository_row_types.ts';
 import type { PackageReviewRepository } from './repository.ts';
 import type { LanternLtiProfileSettingsRecord } from './types.ts';
-import { normalizeTimestamp } from './repository_value_support.ts';
+import {
+  D1_DEPLOYMENT_SELECT,
+  type D1DeploymentRow,
+  type D1LanternSettingsRow,
+  mapD1DeploymentFields,
+  mapD1LanternLtiProfileSettingsRow,
+} from './repository_deployments_d1_mapping.ts';
 
 export function createD1DeploymentRepositoryMethods(
   db: D1Database,
@@ -40,7 +46,7 @@ export function createD1DeploymentRepositoryMethods(
         [appId],
       );
 
-      return rows.map(mapD1DeploymentRow);
+      return rows.map((row) => mapDeploymentRow(mapD1DeploymentFields(row)));
     },
 
     async getDeploymentByBinding(binding) {
@@ -86,7 +92,7 @@ export function createD1DeploymentRepositoryMethods(
         );
       }
 
-      return mapD1DeploymentRow(rows[0]!);
+      return mapDeploymentRow(mapD1DeploymentFields(rows[0]!));
     },
 
     async completePendingCanvasBinding(input) {
@@ -249,7 +255,6 @@ export function createD1DeploymentRepositoryMethods(
     },
 
     async pinDeploymentVersion(input) {
-      const lmsType = input.lmsType ?? 'canvas';
       const packageVersion = await queryD1First<{
         appId: string;
         approvalStatus: string;
@@ -273,7 +278,7 @@ export function createD1DeploymentRepositoryMethods(
 
       if (
         packageVersion.approvalStatus !== 'approved' &&
-        !(lmsType === 'preview' && packageVersion.approvalStatus === 'pending')
+        !(input.lmsType === 'preview' && packageVersion.approvalStatus === 'pending')
       ) {
         throw new Error('Only approved package versions can be enabled.');
       }
@@ -282,7 +287,7 @@ export function createD1DeploymentRepositoryMethods(
         db,
         input.slug,
         input.appId,
-        lmsType,
+        input.lmsType,
       );
       const deploymentAppId = existingDeployment?.appId ?? input.appId;
 
@@ -308,7 +313,7 @@ export function createD1DeploymentRepositoryMethods(
             enabled_package_version_id = excluded.enabled_package_version_id,
             updated_at = CURRENT_TIMESTAMP
         `,
-        [input.slug, input.label, deploymentAppId, lmsType, input.packageVersionId],
+        [input.slug, input.label, deploymentAppId, input.lmsType, input.packageVersionId],
       );
 
       return await requireDeploymentBySlug(db, input.slug);
@@ -360,53 +365,6 @@ export function createD1DeploymentRepositoryMethods(
   };
 }
 
-const D1_DEPLOYMENT_SELECT = `
-  SELECT
-    deployments.id,
-    deployments.slug,
-    deployments.label,
-    deployments.app_id AS appId,
-    deployments.enabled_package_version_id AS enabledPackageVersionId,
-    package_versions.version AS enabledPackageVersion,
-    deployments.lms_type AS lmsType,
-    deployments.canvas_environment AS canvasEnvironment,
-    deployments.issuer,
-    deployments.client_id AS clientId,
-    deployments.deployment_id AS deploymentId,
-    deployments.authorization_endpoint AS authorizationEndpoint,
-    deployments.access_token_url AS accessTokenUrl,
-    deployments.jwks_url AS jwksUrl,
-    deployments.lti_profile_override AS ltiProfileOverride,
-    deployments.updated_at AS updatedAt
-  FROM deployments
-  LEFT JOIN package_versions
-    ON package_versions.id = deployments.enabled_package_version_id
-`;
-
-interface D1DeploymentRow extends Record<string, unknown> {
-  id: unknown;
-  slug: unknown;
-  label: unknown;
-  appId: unknown;
-  enabledPackageVersionId: unknown;
-  enabledPackageVersion: unknown;
-  lmsType: unknown;
-  canvasEnvironment: unknown;
-  issuer: unknown;
-  clientId: unknown;
-  deploymentId: unknown;
-  authorizationEndpoint: unknown;
-  accessTokenUrl: unknown;
-  jwksUrl: unknown;
-  ltiProfileOverride: unknown;
-  updatedAt: unknown;
-}
-
-interface D1LanternSettingsRow extends Record<string, unknown> {
-  defaultLtiProfile: unknown;
-  updatedAt: unknown;
-}
-
 async function getDeploymentByField(
   db: D1Database,
   whereClause: string,
@@ -418,7 +376,7 @@ async function getDeploymentByField(
     parameters,
   );
 
-  return row === null ? null : mapD1DeploymentRow(row);
+  return row === null ? null : mapDeploymentRow(mapD1DeploymentFields(row));
 }
 
 async function requireDeploymentBySlug(db: D1Database, slug: string) {
@@ -638,111 +596,6 @@ function bindingColumns(
   }
 }
 
-function mapD1DeploymentRow(row: D1DeploymentRow) {
-  return mapDeploymentRow(mapD1DeploymentFields(row));
-}
-
-function mapD1DeploymentFields(row: D1DeploymentRow): DeploymentRow {
-  return {
-    id: expectNumber(row.id, 'id'),
-    slug: expectString(row.slug, 'slug'),
-    label: expectString(row.label, 'label'),
-    appId: expectString(row.appId, 'appId'),
-    enabledPackageVersionId: expectNullableNumber(
-      row.enabledPackageVersionId,
-      'enabledPackageVersionId',
-    ),
-    enabledPackageVersion: expectNullableString(row.enabledPackageVersion, 'enabledPackageVersion'),
-    lmsType: expectStringLiteral(row.lmsType, 'lmsType', ['canvas', 'moodle', 'sakai', 'preview']),
-    canvasEnvironment: expectNullableStringLiteral(row.canvasEnvironment, 'canvasEnvironment', [
-      'production',
-      'beta',
-      'test',
-    ]),
-    issuer: expectNullableString(row.issuer, 'issuer'),
-    clientId: expectNullableString(row.clientId, 'clientId'),
-    deploymentId: expectNullableString(row.deploymentId, 'deploymentId'),
-    authorizationEndpoint: expectNullableString(row.authorizationEndpoint, 'authorizationEndpoint'),
-    accessTokenUrl: expectNullableString(row.accessTokenUrl, 'accessTokenUrl'),
-    jwksUrl: expectNullableString(row.jwksUrl, 'jwksUrl'),
-    ltiProfileOverride: expectNullableStringLiteral(row.ltiProfileOverride, 'ltiProfileOverride', [
-      'certification',
-      'governedCompatibility',
-    ]),
-    updatedAt: expectString(row.updatedAt, 'updatedAt'),
-  };
-}
-
-function mapD1LanternLtiProfileSettingsRow(
-  row: D1LanternSettingsRow,
-): LanternLtiProfileSettingsRecord {
-  const defaultLtiProfile = expectString(row.defaultLtiProfile, 'defaultLtiProfile');
-
-  return {
-    defaultLtiProfile: requireLtiProfileId(
-      defaultLtiProfile,
-      `Unsupported saved LTI profile ${defaultLtiProfile}.`,
-    ),
-    updatedAt: normalizeTimestamp(expectString(row.updatedAt, 'updatedAt')),
-  };
-}
-
 function formatBindingLabel(lms: DeploymentRow['lmsType']): string {
   return `${lms[0]?.toUpperCase() ?? ''}${lms.slice(1)} binding`;
-}
-
-function expectString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`Expected D1 deployments.${fieldName} to be text.`);
-  }
-
-  return value;
-}
-
-function expectNullableString(value: unknown, fieldName: string): string | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectString(value, fieldName);
-}
-
-function expectNumber(value: unknown, fieldName: string): number {
-  if (typeof value !== 'number') {
-    throw new TypeError(`Expected D1 deployments.${fieldName} to be numeric.`);
-  }
-
-  return value;
-}
-
-function expectNullableNumber(value: unknown, fieldName: string): number | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectNumber(value, fieldName);
-}
-
-function expectStringLiteral<T extends string>(
-  value: unknown,
-  fieldName: string,
-  allowed: readonly T[],
-): T {
-  if (typeof value !== 'string' || !allowed.includes(value as T)) {
-    throw new Error(`Unexpected D1 deployments.${fieldName} value.`);
-  }
-
-  return value as T;
-}
-
-function expectNullableStringLiteral<T extends string>(
-  value: unknown,
-  fieldName: string,
-  allowed: readonly T[],
-): T | null {
-  if (value === null) {
-    return null;
-  }
-
-  return expectStringLiteral(value, fieldName, allowed);
 }

@@ -1,85 +1,21 @@
 import { type AttemptScoreResult } from '../grading/service.ts';
-import { publishFinalScore, requestServiceAccessToken } from '../lti/services.ts';
-import type { EnvReader } from '../platform/env.ts';
+import { withAgsLineItemTarget } from '../lti/ags_session.ts';
+import { requireLtiToolSession } from '../lti/lti_tool_session.ts';
+import type { LanternLtiToolContext } from '../lti/tool_provider.ts';
+import type { LTISession } from '@longsightgroup/lti-tool';
 import {
   LTI_AGS_LINEITEM_SCOPE,
   LTI_AGS_SCORE_SCOPE,
   type RuntimeSessionRecord,
 } from '../lti/types.ts';
-import { getLtiProfileDefinition } from '../lti/profile.ts';
-import { resolveLtiProfileForDeployment } from '../lti/profile_resolution.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type { AttemptRecord, PackageVersionRecord } from '../package_review/types.ts';
-import { recordInteropPathUsed } from '../interop_audit.ts';
 import { requireRuntimeDeployment } from './gateway_context.ts';
-import { errorMessage } from './gateway_errors.ts';
 import {
-  ensureLineItemBinding,
-  requestAccessToken,
+  buildFinalGradeLineItemSpec,
   resolveActivityProgress,
 } from './gateway_publication_support.ts';
-import type {
-  FinalizeAttemptResult,
-  GovernedGradePublicationInput,
-  GovernedGradePublicationResult,
-} from './gateway_types.ts';
-
-export async function publishGovernedGradePublication(
-  input: GovernedGradePublicationInput,
-): Promise<GovernedGradePublicationResult> {
-  const publishScore = input.publishScore ?? publishFinalScore;
-  const timestamp = input.now().toISOString();
-
-  try {
-    await publishScore({
-      accessToken: input.accessToken,
-      lineItemUrl: input.publication.lineItemUrl,
-      platformUserId: input.publication.platformUserId,
-      scoreGiven: input.publication.scoreGiven,
-      scoreMaximum: input.publication.scoreMaximum,
-      activityProgress: input.publication.activityProgress,
-      gradingProgress: 'FullyGraded',
-      timestamp,
-      ...(input.retryUnauthorized === undefined
-        ? {}
-        : { retryUnauthorized: input.retryUnauthorized }),
-    });
-
-    return {
-      gradePublication: await input.repository.updateGradePublication({
-        attemptId: input.attemptId,
-        status: 'published',
-        updatedAt: timestamp,
-        publishedAt: timestamp,
-        errorCode: null,
-        errorDetail: null,
-      }),
-      gradePublishedNow: true,
-      publishError: null,
-    };
-  } catch (error) {
-    return {
-      gradePublication: await input.repository.updateGradePublication({
-        attemptId: input.attemptId,
-        status: 'failed',
-        updatedAt: timestamp,
-        publishedAt: null,
-        errorCode: 'score_publish_failed',
-        errorDetail: {
-          message: errorMessage(error),
-        },
-      }),
-      gradePublishedNow: false,
-      publishError: {
-        code: 'score_publish_failed',
-        message: errorMessage(error),
-        detail: {
-          lineItemUrl: input.publication.lineItemUrl,
-        },
-      },
-    };
-  }
-}
+import type { FinalizeAttemptResult } from './gateway_types.ts';
 
 export async function publishRuntimeAttemptScore(input: {
   repository: PackageReviewRepository;
@@ -87,7 +23,7 @@ export async function publishRuntimeAttemptScore(input: {
   attempt: AttemptRecord;
   packageVersion: PackageVersionRecord;
   score: AttemptScoreResult;
-  env: EnvReader;
+  getLtiToolContext: () => Promise<LanternLtiToolContext>;
   now: () => Date;
 }): Promise<
   Pick<
@@ -96,10 +32,6 @@ export async function publishRuntimeAttemptScore(input: {
   >
 > {
   const deployment = await requireRuntimeDeployment(input.repository, input.session);
-  const ltiProfile = await resolveLtiProfileForDeployment({
-    repository: input.repository,
-    deployment,
-  });
 
   if (deployment.binding === null) {
     return {
@@ -111,6 +43,21 @@ export async function publishRuntimeAttemptScore(input: {
         message: 'Deployment binding is required before score publish can continue.',
         detail: {
           deploymentSlug: deployment.slug,
+        },
+      },
+    };
+  }
+
+  if (input.session.ltiToolSessionId === null) {
+    return {
+      lineItemBinding: null,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: 'lti_session_missing',
+        message: 'A verified lti-tool session is required before score publish can continue.',
+        detail: {
+          attemptId: input.attempt.attemptId,
         },
       },
     };
@@ -158,49 +105,77 @@ export async function publishRuntimeAttemptScore(input: {
     };
   }
 
-  const accessToken = await requestAccessToken({
-    scope: ags.scope,
-    binding: deployment.binding,
-    lineItemBinding: existingBinding,
-    env: input.env,
+  return await publishRuntimeAttemptScoreWithLtiTool({
+    ...input,
+    existingBinding,
   });
+}
 
-  if (typeof accessToken !== 'string') {
-    return accessToken;
+async function publishRuntimeAttemptScoreWithLtiTool(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+  attempt: AttemptRecord;
+  packageVersion: PackageVersionRecord;
+  score: AttemptScoreResult;
+  getLtiToolContext: () => Promise<LanternLtiToolContext>;
+  existingBinding: Awaited<ReturnType<PackageReviewRepository['getLineItemBinding']>>;
+  now: () => Date;
+}): Promise<
+  Pick<
+    FinalizeAttemptResult,
+    'lineItemBinding' | 'gradePublication' | 'gradePublishedNow' | 'publishError'
+  >
+> {
+  const ags = input.session.services.ags;
+
+  if (ags === null) {
+    return {
+      lineItemBinding: input.existingBinding,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: 'missing_ags_context',
+        message: 'Launch did not provide AGS service context for this attempt.',
+        detail: {
+          attemptId: input.attempt.attemptId,
+        },
+      },
+    };
   }
 
-  const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
-      .retryServiceUnauthorizedOnce
-    ? async () => {
-      await recordInteropPathUsed({
-        repository: input.repository,
-        scope: 'service',
-        path: 'service_401_retry',
-        actorType: 'system',
-        deploymentRecordId: deployment.id,
-        packageVersionId: deployment.enabledPackageVersionId,
-        attemptId: input.attempt.attemptId,
-        summary: 'Lantern retried an LMS service request after a 401.',
+  const ltiContext = await input.getLtiToolContext();
+  let ltiSession: LTISession;
+
+  try {
+    ltiSession = await requireLtiToolSession({
+      storage: ltiContext.storage,
+      ltiToolSessionId: input.session.ltiToolSessionId,
+      missingMessage: 'A verified lti-tool session is required before score publish can continue.',
+      notFoundMessage: 'The verified LTI session for this runtime attempt was not found.',
+    });
+  } catch (error) {
+    return {
+      lineItemBinding: input.existingBinding,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: 'lti_session_missing',
+        message: error instanceof Error
+          ? error.message
+          : 'The verified LTI session is unavailable.',
         detail: {
-          lms: deployment.binding!.lms,
-          deploymentSlug: deployment.slug,
+          ltiToolSessionId: input.session.ltiToolSessionId,
         },
-        ltiProfile,
-      });
-      const refreshed = await requestServiceAccessToken({
-        binding: deployment.binding!,
-        scopes: ags.scope,
-        env: input.env,
-      });
+      },
+    };
+  }
 
-      return refreshed.accessToken;
-    }
-    : undefined;
-
-  const lineItemBinding = await ensureLineItemBinding(existingBinding, accessToken, {
-    ...input,
-    ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
-  });
+  const lineItemBinding = input.existingBinding ??
+    await createLineItemBindingWithLtiTool({
+      ...input,
+      ltiContext,
+      ltiSession,
+    });
 
   if ('publishError' in lineItemBinding) {
     return lineItemBinding;
@@ -220,7 +195,7 @@ export async function publishRuntimeAttemptScore(input: {
   }
 
   const gradePublication = existingPublication ??
-    (await input.repository.createGradePublication({
+    await input.repository.createGradePublication({
       attemptId: input.attempt.attemptId,
       lineItemBindingId: lineItemBinding.id,
       lineItemUrl: lineItemBinding.lineItemUrl,
@@ -235,18 +210,124 @@ export async function publishRuntimeAttemptScore(input: {
       publishedAt: null,
       errorCode: null,
       errorDetail: null,
-    }));
-  const published = await publishGovernedGradePublication({
-    repository: input.repository,
-    attemptId: input.attempt.attemptId,
-    publication: gradePublication,
-    accessToken,
-    now: input.now,
-    ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
+    });
+  const scoreSession = withAgsLineItemTarget(ltiSession, lineItemBinding.lineItemUrl);
+  const result = await ltiContext.tool.createAdvantage(scoreSession).submitScore({
+    userId: gradePublication.platformUserId,
+    scoreGiven: gradePublication.scoreGiven,
+    scoreMaximum: gradePublication.scoreMaximum,
+    activityProgress: gradePublication.activityProgress,
+    gradingProgress: 'FullyGraded',
+    timestamp: input.now().toISOString(),
   });
+
+  if (!result.success) {
+    return {
+      lineItemBinding,
+      gradePublication: await input.repository.updateGradePublication({
+        attemptId: input.attempt.attemptId,
+        status: 'failed',
+        updatedAt: input.now().toISOString(),
+        publishedAt: null,
+        errorCode: 'score_publish_failed',
+        errorDetail: {
+          message: result.error.message,
+          code: result.error.code,
+          serviceKind: result.error.serviceKind,
+          operation: result.error.operation,
+        },
+      }),
+      gradePublishedNow: false,
+      publishError: {
+        code: 'score_publish_failed',
+        message: result.error.message,
+        detail: {
+          lineItemUrl: lineItemBinding.lineItemUrl,
+          serviceKind: result.error.serviceKind,
+          operation: result.error.operation,
+        },
+      },
+    };
+  }
 
   return {
     lineItemBinding,
-    ...published,
+    gradePublication: await input.repository.updateGradePublication({
+      attemptId: input.attempt.attemptId,
+      status: 'published',
+      updatedAt: input.now().toISOString(),
+      publishedAt: input.now().toISOString(),
+      errorCode: null,
+      errorDetail: null,
+    }),
+    gradePublishedNow: true,
+    publishError: null,
   };
+}
+
+async function createLineItemBindingWithLtiTool(input: {
+  repository: PackageReviewRepository;
+  session: RuntimeSessionRecord;
+  attempt: AttemptRecord;
+  packageVersion: PackageVersionRecord;
+  score: AttemptScoreResult;
+  ltiContext: LanternLtiToolContext;
+  ltiSession: LTISession;
+  now: () => Date;
+}): Promise<
+  | Awaited<ReturnType<PackageReviewRepository['saveLineItemBinding']>>
+  | Pick<
+    FinalizeAttemptResult,
+    'lineItemBinding' | 'gradePublication' | 'gradePublishedNow' | 'publishError'
+  >
+> {
+  const spec = buildFinalGradeLineItemSpec({
+    session: input.session,
+    packageVersion: input.packageVersion,
+    scoreMaximum: input.score.scoreMaximum,
+  });
+  const result = await input.ltiContext.tool.createAdvantage(input.ltiSession).findOrCreateLineItem(
+    {
+      resourceLinkId: input.attempt.resourceLinkId,
+      resourceId: spec.resourceId,
+      tag: spec.tag,
+      create: {
+        label: spec.label,
+        scoreMaximum: spec.scoreMaximum,
+      },
+    },
+  );
+
+  if (!result.success) {
+    return {
+      lineItemBinding: null,
+      gradePublication: null,
+      gradePublishedNow: false,
+      publishError: {
+        code: 'line_item_failed',
+        message: result.error.message,
+        detail: {
+          attemptId: input.attempt.attemptId,
+          serviceKind: result.error.serviceKind,
+          operation: result.error.operation,
+        },
+      },
+    };
+  }
+
+  return await input.repository.saveLineItemBinding({
+    deploymentRecordId: input.session.deploymentRecordId,
+    packageVersionId: input.session.packageVersionId,
+    contextId: input.attempt.contextId,
+    resourceLinkId: input.attempt.resourceLinkId,
+    activityId: input.attempt.activityId,
+    lineItemsUrl: input.session.services.ags?.lineitemsUrl ?? '',
+    lineItemUrl: result.data.id,
+    resourceId: result.data.resourceId ?? spec.resourceId,
+    tag: result.data.tag ?? spec.tag,
+    label: result.data.label,
+    scoreMaximum: result.data.scoreMaximum,
+    createdAt: input.now().toISOString(),
+    updatedAt: input.now().toISOString(),
+  });
 }

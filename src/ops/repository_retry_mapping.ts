@@ -53,6 +53,7 @@ function mapRetryRuntimeSession(row: RetryLookupRow): RetryRuntimeSessionLookup 
 
   return {
     sessionId: row.sessionId,
+    ltiToolSessionId: row.runtimeLtiToolSessionId,
     attemptId: row.runtimeAttemptId ?? row.attemptId,
     deploymentRecordId: row.runtimeDeploymentRecordId,
     deploymentSlug: row.runtimeDeploymentSlug,

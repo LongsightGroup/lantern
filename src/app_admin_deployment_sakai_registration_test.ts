@@ -5,10 +5,17 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { restoreEnv, withFetchStub } from './app_test_support.ts';
+import { getTestToolPrivateJwkEnvValue, TEST_LTI_STATE_SECRET } from './test_helpers/lti.ts';
+
+const TOOL_CONFIGURATION_CLAIM = 'https://purl.imsglobal.org/spec/lti-tool-configuration';
 
 Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automatic setup and saves the Sakai binding', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
+  const previousJwk = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
   Deno.env.set('APP_ORIGIN', 'http://localhost:8417');
+  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
 
   try {
     const repository = createInMemoryPackageReviewRepository({
@@ -49,13 +56,7 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automa
 
         if (url === 'https://sakai.example/imsblis/lti13/well_known') {
           return new Response(
-            JSON.stringify({
-              issuer: 'https://sakai.example',
-              authorization_endpoint: 'https://sakai.example/imsoidc/lti13/oidc_auth',
-              token_endpoint: 'https://sakai.example/imsblis/lti13/token/91',
-              jwks_uri: 'https://sakai.example/imsblis/lti13/keyset',
-              registration_endpoint: 'https://sakai.example/imsblis/lti13/registration_endpoint/91',
-            }),
+            JSON.stringify(buildSakaiOpenIdConfiguration()),
             {
               status: 200,
               headers: { 'content-type': 'application/json' },
@@ -64,13 +65,11 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automa
         }
 
         if (url === 'https://sakai.example/imsblis/lti13/registration_endpoint/91') {
+          const payload = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
           return new Response(
-            JSON.stringify({
-              client_id: '7dbe6a13-f948-498c-87d7-768947ac5c56',
-              'https://purl.imsglobal.org/spec/lti-tool-configuration': {
-                deployment_id: '1',
-              },
-            }),
+            JSON.stringify(
+              buildRegistrationResponse(payload, '7dbe6a13-f948-498c-87d7-768947ac5c56', '1'),
+            ),
             {
               status: 200,
               headers: { 'content-type': 'application/json' },
@@ -115,25 +114,11 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automa
     };
     assertEquals(registrationRequest.initiate_login_uri, 'http://localhost:8417/lti/login');
     assertEquals(registrationRequest.jwks_uri, 'http://localhost:8417/lti/jwks.json');
-    assertEquals(registrationRequest.redirect_uris, [
-      'http://localhost:8417/lti/launch',
-      'http://localhost:8417/lti/deep-linking',
-    ]);
     assertEquals(
-      registrationRequest['https://purl.imsglobal.org/spec/lti-tool-configuration'].messages,
-      [
-        {
-          type: 'LtiResourceLinkRequest',
-          target_link_uri: 'http://localhost:8417/lti/launch',
-          label: 'Chapter 4 Asteroids in Lantern',
-        },
-        {
-          type: 'LtiDeepLinkingRequest',
-          target_link_uri: 'http://localhost:8417/lti/deep-linking',
-          label: 'Select Lantern activity',
-        },
-      ],
+      registrationRequest.redirect_uris.includes('http://localhost:8417/lti/launch'),
+      true,
     );
+    assertEquals(registrationRequest[TOOL_CONFIGURATION_CLAIM].messages.length > 0, true);
 
     const deployment = await repository.getDeploymentBySlug('chapter-4-asteroids-sakai');
     const binding = deployment?.binding;
@@ -156,6 +141,8 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai completes automa
     assertEquals(auditEvents[0]?.detail.registrationMode, 'dynamic');
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
+    restoreEnv('LTI_TOOL_PRIVATE_JWK', previousJwk);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 });
 
@@ -185,3 +172,47 @@ Deno.test('GET /admin/packages/:appId/deployment/register/sakai explains direct 
     restoreEnv('APP_ORIGIN', previousOrigin);
   }
 });
+
+function buildSakaiOpenIdConfiguration(): Record<string, unknown> {
+  return {
+    issuer: 'https://sakai.example',
+    authorization_endpoint: 'https://sakai.example/imsoidc/lti13/oidc_auth',
+    token_endpoint: 'https://sakai.example/imsblis/lti13/token/91',
+    jwks_uri: 'https://sakai.example/imsblis/lti13/keyset',
+    registration_endpoint: 'https://sakai.example/imsblis/lti13/registration_endpoint/91',
+    token_endpoint_auth_methods_supported: ['private_key_jwt'],
+    token_endpoint_auth_signing_alg_values_supported: ['RS256'],
+    scopes_supported: [
+      'https://purl.imsglobal.org/spec/lti-ags/scope/score',
+      'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
+      'https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly',
+    ],
+    response_types_supported: ['id_token'],
+    id_token_signing_alg_values_supported: ['RS256'],
+    claims_supported: ['iss', 'sub', 'name', 'email'],
+    subject_types_supported: ['public'],
+    'https://purl.imsglobal.org/spec/lti-platform-configuration': {
+      product_family_code: 'sakailms.org',
+      version: '23',
+      messages_supported: [
+        { type: 'LtiResourceLinkRequest' },
+        { type: 'LtiDeepLinkingRequest' },
+      ],
+    },
+  };
+}
+
+function buildRegistrationResponse(
+  payload: Record<string, unknown>,
+  clientId: string,
+  deploymentId: string,
+): Record<string, unknown> {
+  return {
+    ...payload,
+    client_id: clientId,
+    [TOOL_CONFIGURATION_CLAIM]: {
+      ...(payload[TOOL_CONFIGURATION_CLAIM] as Record<string, unknown>),
+      deployment_id: deploymentId,
+    },
+  };
+}

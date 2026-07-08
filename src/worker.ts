@@ -9,7 +9,11 @@ import {
   runAppGenerationPlanningWorkflowStep,
 } from './app_writer/workflow_runner.ts';
 import { resolveWorkerServices, type WorkerBindings } from './app_worker_services.ts';
+import { statusForError } from './app_status_support.ts';
+import { buildCanvasConfigDocument } from './lti/config.ts';
 import { createObjectEnvReader } from './platform/env.ts';
+import { readEnv } from './platform/env.ts';
+import { resolveConfiguredPublicOrigin } from './public_origin.ts';
 
 interface WorkflowEntrypointRuntimeClass {
   new (): object;
@@ -55,11 +59,63 @@ export default {
     env: WorkerBindings = {},
     executionContext?: WorkerExecutionContext,
   ): Response | Promise<Response> {
+    const publicResponse = handlePublicWorkerRequest(request, env);
+
+    if (publicResponse !== null) {
+      return publicResponse;
+    }
+
     const app = buildApp(resolveWorkerServices(env, createObjectEnvReader(env)));
 
     return app.fetch(request, env, toHonoExecutionContext(executionContext));
   },
 };
+
+function handlePublicWorkerRequest(
+  request: Request,
+  env: WorkerBindings,
+): Response | Promise<Response> | null {
+  const url = new URL(request.url);
+
+  if (url.pathname === '/health') {
+    return Response.json({ ok: true, appWriterHarness: 'workspace-runner-v1' });
+  }
+
+  if (url.pathname !== '/lti/canvas/config.json') {
+    return null;
+  }
+
+  return buildWorkerCanvasConfigResponse(request, env);
+}
+
+async function buildWorkerCanvasConfigResponse(
+  request: Request,
+  env: WorkerBindings,
+): Promise<Response> {
+  const envReader = createObjectEnvReader(env);
+
+  try {
+    return Response.json(
+      await buildCanvasConfigDocument(
+        resolveConfiguredPublicOrigin({
+          requestUrl: request.url,
+          forwardedHeader: request.headers.get('forwarded'),
+          xForwardedHost: request.headers.get('x-forwarded-host'),
+          xForwardedProto: request.headers.get('x-forwarded-proto'),
+          configuredOrigin: readEnv('APP_ORIGIN', envReader),
+        }),
+        envReader,
+      ),
+    );
+  } catch (error) {
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : 'Config unavailable.',
+      },
+      { status: statusForError(error) },
+    );
+  }
+}
 
 export class AppGenerationWorkflow extends WorkflowEntrypointBase {
   declare readonly env: WorkerBindings;

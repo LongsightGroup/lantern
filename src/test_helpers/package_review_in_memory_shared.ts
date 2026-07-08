@@ -3,7 +3,6 @@ import { CERTIFICATION_WORKFLOW_KEYS } from '../ops/types.ts';
 import type {
   DeepLinkingSessionRecord,
   DynamicRegistrationStateRecord,
-  LoginStateRecord,
   LtiPlacement,
   RuntimeSessionRecord,
 } from '../lti/types.ts';
@@ -51,7 +50,6 @@ export interface InMemoryOpsRepository {
   listControlPlaneDiagnostics(deploymentRecordId: number): Promise<ControlPlaneDiagnosticItem[]>;
   listCertificationWorkflowStatuses(): Promise<CertificationWorkflowStatus[]>;
   getLatestOfficialCertificationEvidence(): Promise<LatestOfficialCertificationEvidence | null>;
-  getLatestBrokerVerification(): Promise<BrokerVerificationStatus | null>;
   getLatestBrokerVerificationStatus(): Promise<BrokerVerificationStatus | null>;
   recordBrokerVerificationRun(input: {
     deploymentRecordId: number | null;
@@ -109,7 +107,6 @@ export type InMemoryPackageReviewRepositoryOptions = {
   lineItemBindings?: LineItemBindingRecord[];
   gradePublications?: GradePublicationRecord[];
   auditEvents?: AuditEventRecord[];
-  loginStates?: LoginStateRecord[];
   dynamicRegistrationStates?: DynamicRegistrationStateRecord[];
   runtimeSessions?: RuntimeSessionRecord[];
   deepLinkingSessions?: DeepLinkingSessionRecord[];
@@ -149,7 +146,6 @@ export function createState(
     lineItemBindings: cloneRecord(options.lineItemBindings ?? []),
     gradePublications: cloneRecord(options.gradePublications ?? []),
     auditEvents: cloneRecord(options.auditEvents ?? []),
-    loginStates: cloneRecord(options.loginStates ?? []),
     dynamicRegistrationStates: cloneRecord(options.dynamicRegistrationStates ?? []),
     runtimeSessions: cloneRecord(options.runtimeSessions ?? []),
     deepLinkingSessions: cloneRecord(options.deepLinkingSessions ?? []),

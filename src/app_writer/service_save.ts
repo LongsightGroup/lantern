@@ -7,7 +7,7 @@ import { recordGenerationActivity } from './service_audit.ts';
 import type {
   RunAppPackageGenerationInput,
   RunAppPackageGenerationResult,
-} from './service_core.ts';
+} from './service_run_types.ts';
 import { updateGenerationPlanStepInWorkspace } from './service_workspace_snapshot.ts';
 import type { ImportedPackageVersion } from '../package_review/intake.ts';
 import { createMemoryPackageSource } from '../package_review/package_source.ts';

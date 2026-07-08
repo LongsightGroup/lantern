@@ -398,8 +398,6 @@ export function describeCompatibilityPathSummary(
       return 'Lantern last retried Deep Linking JWKS lookup on the saved deployment path.';
     case 'deep_linking:target_link_uri_drift':
       return 'Lantern last used Deep Linking target drift tolerance on the saved deployment path.';
-    case 'service:service_401_retry':
-      return 'Lantern last retried an LMS service request after a 401 on the saved deployment path.';
     default:
       return snapshot.summary;
   }

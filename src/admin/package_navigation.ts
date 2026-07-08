@@ -1,5 +1,6 @@
 import type { PackageVersionRecord } from '../package_review/types.ts';
 import { escapeHtml } from './layout.ts';
+import { resolvePreviousPackageVersion } from './package_version_history.ts';
 
 export type PackagePageSection =
   | 'overview'
@@ -22,7 +23,7 @@ export function renderPackagePageNav(input: {
   const authoringVersion = resolveAuthoringVersion(input.history, input.currentVersion ?? null);
   const diffBaseVersion = currentVersion === null
     ? null
-    : resolvePreviousVersion(input.history, currentVersion);
+    : resolvePreviousPackageVersion(input.history, currentVersion);
   const links = [
     renderNavLink({
       label: 'Overview',
@@ -126,19 +127,6 @@ function resolveAuthoringVersion(
       (version) => version.approvalStatus === 'approved' && supportsAuthoringDrafts(version),
     ) ?? null
   );
-}
-
-function resolvePreviousVersion(
-  history: PackageVersionRecord[],
-  currentVersion: PackageVersionRecord,
-): PackageVersionRecord | null {
-  const currentIndex = history.findIndex((version) => version.id === currentVersion.id);
-
-  if (currentIndex < 0) {
-    return null;
-  }
-
-  return history[currentIndex + 1] ?? null;
 }
 
 function renderNavLink(input: { label: string; href: string; current: boolean }): string {

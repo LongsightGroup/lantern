@@ -9,17 +9,13 @@ import {
 import { combineNotices, createErrorNotice } from './app_notice_support.ts';
 import { errorMessage, statusForNrpsError } from './app_status_support.ts';
 import { listCanvasEnvironments } from './lti/config.ts';
-import { getLtiProfileDefinition } from './lti/profile.ts';
 import {
   buildResolvedLtiProfileDetail,
   resolveLtiProfileForDeployment,
 } from './lti/profile_resolution.ts';
-import { LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE } from './lti/types.ts';
-import { readContextMemberships, requestCanvasServiceAccessToken } from './lti/services.ts';
-import { recordInteropPathUsed } from './interop_audit.ts';
 import type { AppServices } from './app_services.ts';
-import { readEnv } from './platform/env.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
+import { resolveRequestAppOrigin } from './app_origin.ts';
+import { readNrpsMemberCount } from './lti/nrps_roster_verification.ts';
 
 export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServices): void {
   app.post('/admin/packages/:appId/deployment/verify-roster', async (context) => {
@@ -27,13 +23,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
     const repository = services.getRepository();
 
     try {
-      const appOrigin = resolveConfiguredPublicOrigin({
-        requestUrl: context.req.url,
-        forwardedHeader: context.req.header('forwarded') ?? null,
-        xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-        xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: readEnv('APP_ORIGIN', services.env),
-      });
+      const appOrigin = resolveRequestAppOrigin(context, services.env);
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const canvasDeployment = detail.canvasDeployment;
 
@@ -64,47 +54,9 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
         repository,
         deployment: canvasDeployment,
       });
-      const retryUnauthorized = getLtiProfileDefinition(ltiProfile.id).behavior
-          .retryServiceUnauthorizedOnce
-        ? async () => {
-          await recordInteropPathUsed({
-            repository,
-            scope: 'service',
-            path: 'service_401_retry',
-            actorType: 'system',
-            deploymentRecordId: canvasDeployment.id,
-            packageVersionId: canvasDeployment.enabledPackageVersionId,
-            attemptId: latestSession.attemptId,
-            summary: 'Lantern retried an LMS service request after a 401.',
-            detail: {
-              lms: 'canvas',
-              deploymentSlug: canvasDeployment.slug,
-            },
-            ltiProfile,
-          });
-          const refreshed = await requestCanvasServiceAccessToken({
-            issuer: canvasDeployment.binding!.issuer,
-            clientId: canvasDeployment.binding!.clientId,
-            deploymentId: canvasDeployment.binding!.deploymentId,
-            scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
-            env: services.env,
-          });
-
-          return refreshed.accessToken;
-        }
-        : undefined;
-
-      const token = await requestCanvasServiceAccessToken({
-        issuer: canvasDeployment.binding.issuer,
-        clientId: canvasDeployment.binding.clientId,
-        deploymentId: canvasDeployment.binding.deploymentId,
-        scopes: [LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE],
-        env: services.env,
-      });
-      const members = await readContextMemberships({
-        accessToken: token.accessToken,
-        contextMembershipsUrl: latestSession.services.nrps.contextMembershipsUrl,
-        ...(retryUnauthorized === undefined ? {} : { retryUnauthorized }),
+      const memberCount = await readNrpsMemberCount({
+        services,
+        session: latestSession,
       });
 
       await repository.recordAuditEvent({
@@ -119,7 +71,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
         summary: 'Read Canvas roster memberships through the launch-scoped NRPS service.',
         detail: {
           contextId: latestSession.launch.courseId,
-          memberCount: members.length,
+          memberCount,
           ...buildResolvedLtiProfileDetail(ltiProfile),
         },
         occurredAt: new Date().toISOString(),
@@ -130,13 +82,7 @@ export function registerAdminDeploymentRosterRoute(app: Hono, services: AppServi
       const detail = await loadDeploymentDetailStateSafe(
         repository,
         appId,
-        resolveConfiguredPublicOrigin({
-          requestUrl: context.req.url,
-          forwardedHeader: context.req.header('forwarded') ?? null,
-          xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-          xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-          configuredOrigin: readEnv('APP_ORIGIN', services.env),
-        }),
+        resolveRequestAppOrigin(context, services.env),
       );
       const canvasDeployment = detail.canvasDeployment;
       const ltiProfile = canvasDeployment === null ? null : await resolveLtiProfileForDeployment({

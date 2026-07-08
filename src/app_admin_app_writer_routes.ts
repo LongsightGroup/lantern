@@ -4,7 +4,10 @@ import {
   AppPackageGenerationFailedError,
   startAppPackageGenerationRun,
 } from './app_writer/service.ts';
-import type { RunAppPackageGenerationResult } from './app_writer/service.ts';
+import {
+  recordAppWriterWorkflowQueuedEvent,
+  scheduleAppWriterContinuation,
+} from './app_writer/background_execution.ts';
 import {
   renderAppGenerationRunPage,
   renderAppWriterPage,
@@ -17,9 +20,7 @@ import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
 import { type AppWriterSelectedContext, selectAppWriterContext } from './app_writer/context.ts';
 import { buildLanternOwnedAppGenerationPlanningResult } from './app_writer/planning.ts';
-import type { AppGenerationRunRecord } from './app_writer/types.ts';
 import type { AppGenerationPlanningResult, AppWriterAuthoringMode } from './app_writer/types.ts';
-import type { PackageReviewRepository } from './package_review/repository.ts';
 
 export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): void {
   app.get('/admin/app-writer', (context) => {
@@ -91,16 +92,18 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       });
 
       if (scheduleResult.mode === 'workflow') {
-        await recordWorkflowQueuedEvent({
+        await recordAppWriterWorkflowQueuedEvent({
           repository,
           run: started.run,
           workflowInstanceId: scheduleResult.workflowInstanceId,
+          summary: 'Queued app writer generation in Cloudflare Workflow.',
         });
       } else {
-        scheduleGenerationContinuation(
+        scheduleAppWriterContinuation(
           context,
           started.continueGeneration(),
           started.run.generationId,
+          'generation',
         );
       }
 
@@ -191,76 +194,6 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       context.req.raw,
     );
   });
-}
-
-async function recordWorkflowQueuedEvent(input: {
-  repository: Pick<PackageReviewRepository, 'recordAuditEvent'>;
-  run: AppGenerationRunRecord;
-  workflowInstanceId: string | null;
-}): Promise<void> {
-  await input.repository.recordAuditEvent({
-    eventType: 'app_generation.generating',
-    actorType: 'user',
-    actorId: input.run.ownerId,
-    deploymentRecordId: null,
-    packageVersionId: input.run.packageVersionId,
-    attemptId: null,
-    lineItemBindingId: null,
-    status: 'accepted',
-    summary: 'Queued app writer generation in Cloudflare Workflow.',
-    detail: {
-      generationId: input.run.generationId,
-      generationStatus: input.run.status,
-      requestedAppId: input.run.requestedAppId,
-      generatedAppId: input.run.generatedAppId,
-      selectedStarterId: input.run.selectedStarterId,
-      repairAttemptCount: input.run.repairAttemptCount,
-      findingCount: input.run.validationFindings.length,
-      workflowInstanceId: input.workflowInstanceId,
-      backgroundRunner: 'workflow',
-    },
-    occurredAt: input.run.updatedAt,
-  });
-}
-
-function scheduleGenerationContinuation(
-  context: unknown,
-  continuation: Promise<RunAppPackageGenerationResult>,
-  generationId: string,
-): void {
-  const handled = continuation
-    .then(() => {})
-    .catch((error) => {
-      console.error(`App writer generation ${generationId} failed in background.`, error);
-    });
-  const executionContext = readExecutionContext(context);
-
-  if (executionContext !== null) {
-    executionContext.waitUntil(handled);
-    return;
-  }
-
-  void handled;
-}
-
-function readExecutionContext(
-  context: unknown,
-): { waitUntil(promise: Promise<void>): void } | null {
-  try {
-    const candidate = (context as { executionCtx?: unknown }).executionCtx;
-
-    if (
-      candidate !== null &&
-      typeof candidate === 'object' &&
-      typeof (candidate as { waitUntil?: unknown }).waitUntil === 'function'
-    ) {
-      return candidate as { waitUntil(promise: Promise<void>): void };
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
 }
 
 function normalizeAppWriterAction(value: FormDataEntryValue | null): 'preview' | 'generate' {

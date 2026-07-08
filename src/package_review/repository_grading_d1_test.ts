@@ -5,7 +5,7 @@ import { createD1GradingRepositoryMethods } from './repository_grading_d1.ts';
 Deno.test('D1 grading repository stores attempt evidence with next sequence', async () => {
   const artifactRow = buildAttemptEvidenceArtifactRow({ sequence: 2 });
   const db = createPlannedD1Database({
-    firstResults: [{ attemptId: 'attempt-1' }, { nextSequence: 2 }, artifactRow],
+    firstResults: [artifactRow],
   });
   const repository = createD1GradingRepositoryMethods(db);
 
@@ -22,13 +22,26 @@ Deno.test('D1 grading repository stores attempt evidence with next sequence', as
   });
 
   assertEquals(artifact.sequence, 2);
-  assertEquals(db.statements[2]?.parameters.slice(0, 3), ['artifact-1', 'attempt-1', 2]);
+  assertEquals(db.statements[0]?.query.includes('next_evidence_artifact_sequence'), true);
+  assertEquals(db.statements[0]?.query.includes('COALESCE(MAX'), false);
+  assertEquals(db.statements[0]?.parameters, [
+    'artifact-1',
+    'structured_json',
+    'application/json',
+    'evidence.json',
+    'attempts/attempt-1/evidence.json',
+    128,
+    'sha256',
+    '2026-05-13T12:00:00.000Z',
+    'attempt-1',
+  ]);
+  assertEquals(db.statements[1]?.query.includes('SET next_evidence_artifact_sequence'), true);
+  assertEquals(db.statements[1]?.parameters, ['attempt-1']);
 });
 
 Deno.test('D1 grading repository reports duplicate evidence artifacts clearly', async () => {
   const db = createPlannedD1Database({
-    firstResults: [{ attemptId: 'attempt-1' }, { nextSequence: 1 }],
-    runError: new Error('UNIQUE constraint failed: attempt_evidence_artifacts.artifact_id'),
+    batchError: new Error('UNIQUE constraint failed: attempt_evidence_artifacts.artifact_id'),
   });
   const repository = createD1GradingRepositoryMethods(db);
 
@@ -145,6 +158,8 @@ Deno.test('D1 grading repository records audit events with JSON detail', async (
 interface PlannedD1Options {
   allResults?: Array<Array<Record<string, unknown>>>;
   firstResults?: Array<Record<string, unknown> | null>;
+  firstError?: Error;
+  batchError?: Error;
   runError?: Error;
 }
 
@@ -165,8 +180,32 @@ function createPlannedD1Database(
     prepare(query) {
       return createPlannedD1Statement(query, statements, allResults, firstResults, options);
     },
-    batch(_statements) {
-      return Promise.resolve([]);
+    batch<T>(batchStatements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
+      for (const statement of batchStatements) {
+        const recorded = statement as D1PreparedStatement & RecordedStatement;
+        statements.push({
+          query: recorded.query,
+          parameters: recorded.parameters,
+        });
+      }
+
+      if (options.batchError !== undefined) {
+        return Promise.resolve(
+          [
+            {
+              success: false,
+              error: options.batchError.message,
+            },
+          ] satisfies D1Result<T>[],
+        );
+      }
+
+      return Promise.resolve(
+        batchStatements.map((_statement, index) => ({
+          success: true,
+          results: (index === 0 ? [firstResults.shift()].filter(isRecord) : []) as T[],
+        })) satisfies D1Result<T>[],
+      );
     },
     exec(_query) {
       return Promise.resolve({
@@ -186,8 +225,12 @@ function createPlannedD1Statement(
 ): D1PreparedStatement {
   let parameters: D1Parameter[] = [];
 
-  return {
-    bind(...values) {
+  const statement = {
+    query,
+    get parameters() {
+      return parameters;
+    },
+    bind(...values: D1Parameter[]) {
       parameters = values;
       return this;
     },
@@ -200,6 +243,10 @@ function createPlannedD1Statement(
     },
     first<T>() {
       statements.push({ query, parameters });
+      if (options.firstError !== undefined) {
+        throw options.firstError;
+      }
+
       return Promise.resolve((firstResults.shift() as T | null | undefined) ?? null);
     },
     run() {
@@ -215,6 +262,14 @@ function createPlannedD1Statement(
       return Promise.resolve([] as T[]);
     },
   };
+
+  return statement;
+}
+
+function isRecord(
+  value: Record<string, unknown> | null | undefined,
+): value is Record<string, unknown> {
+  return value !== null && value !== undefined;
 }
 
 function buildAttemptEvidenceArtifactRow(

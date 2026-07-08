@@ -50,11 +50,7 @@ Deno.test('D1 preview repository gets latest preview with optional origin filter
 
 Deno.test('D1 preview repository appends evidence with the next sequence', async () => {
   const db = createPlannedD1Database({
-    firstResults: [
-      { sessionId: 'preview-session-123' },
-      { nextSequence: 3 },
-      buildPreviewEvidenceRow({ sequence: 3 }),
-    ],
+    firstResults: [buildPreviewEvidenceRow({ sequence: 3 })],
   });
   const repository = createD1PreviewRepositoryMethods(db);
 
@@ -68,7 +64,18 @@ Deno.test('D1 preview repository appends evidence with the next sequence', async
   });
 
   assertEquals(evidence.sequence, 3);
-  assertEquals(db.statements[2]?.parameters[5], '{"route":"/admin/preview"}');
+  assertEquals(db.statements[0]?.query.includes('next_evidence_sequence'), true);
+  assertEquals(db.statements[0]?.query.includes('COALESCE(MAX'), false);
+  assertEquals(db.statements[0]?.parameters, [
+    'preview.launch',
+    'read_launch_context',
+    'Preview launched.',
+    '{"route":"/admin/preview"}',
+    '2026-05-13T12:00:00.000Z',
+    'preview-session-123',
+  ]);
+  assertEquals(db.statements[1]?.query.includes('SET next_evidence_sequence'), true);
+  assertEquals(db.statements[1]?.parameters, ['preview-session-123']);
 });
 
 Deno.test('D1 preview repository lists parsed evidence in sequence order', async () => {
@@ -110,8 +117,21 @@ function createPlannedD1Database(
     prepare(query) {
       return createPlannedD1Statement(query, statements, allResults, firstResults, options);
     },
-    batch(_statements) {
-      return Promise.resolve([]);
+    batch<T>(batchStatements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
+      for (const statement of batchStatements) {
+        const recorded = statement as D1PreparedStatement & RecordedStatement;
+        statements.push({
+          query: recorded.query,
+          parameters: recorded.parameters,
+        });
+      }
+
+      return Promise.resolve(
+        batchStatements.map((_statement, index) => ({
+          success: true,
+          results: (index === 0 ? [firstResults.shift()].filter(isRecord) : []) as T[],
+        })) satisfies D1Result<T>[],
+      );
     },
     exec(_query) {
       return Promise.resolve({
@@ -131,8 +151,12 @@ function createPlannedD1Statement(
 ): D1PreparedStatement {
   let parameters: D1Parameter[] = [];
 
-  return {
-    bind(...values) {
+  const statement = {
+    query,
+    get parameters() {
+      return parameters;
+    },
+    bind(...values: D1Parameter[]) {
       parameters = values;
       return this;
     },
@@ -160,6 +184,14 @@ function createPlannedD1Statement(
       return Promise.resolve([] as T[]);
     },
   };
+
+  return statement;
+}
+
+function isRecord(
+  value: Record<string, unknown> | null | undefined,
+): value is Record<string, unknown> {
+  return value !== null && value !== undefined;
 }
 
 function buildPreviewSessionRow(

@@ -1,6 +1,6 @@
 import type { AppPackageGenerationResult, AppWriterWorkspaceFile } from './types.ts';
 import { buildTypeScriptCompilerMissingFinding } from './service_failures.ts';
-import type { RunAppPackageGenerationInput } from './service_core.ts';
+import type { RunAppPackageGenerationInput } from './service_run_types.ts';
 import {
   mergeWorkspaceFiles,
   selectNonPackageWorkspaceFiles,

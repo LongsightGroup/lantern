@@ -1,10 +1,19 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import type { Hono } from '@hono/hono';
+import { decodeJwt } from 'jose';
 import { createApp } from './app.ts';
+import {
+  createLanternLtiToolContext,
+  createMemoryLtiStorage,
+  type LanternLtiToolContext,
+  syncLtiToolDeploymentBinding,
+} from './lti/tool_provider.ts';
 import { CANVAS_LTI_SCOPES } from './lti/types.ts';
 import {
   buildDeploymentRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import type { InMemoryRepository } from './test_helpers/package_review_in_memory_shared.ts';
 import {
   buildCanvasLoginRequest,
   buildDeploymentBinding,
@@ -12,9 +21,56 @@ import {
   buildSakaiDeploymentBinding,
   buildSakaiLoginRequest,
   getTestToolPrivateJwkEnvValue,
+  TEST_LTI_STATE_SECRET,
   TEST_NOW,
 } from './test_helpers/lti.ts';
 import { restoreEnv } from './app_test_support.ts';
+
+interface LtiToolStateClaims {
+  readonly iss: string;
+  readonly clientId: string;
+  readonly targetLinkUri: string;
+}
+
+Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
+
+async function createLoginTestApp(repository: InMemoryRepository): Promise<Hono> {
+  const storage = createMemoryLtiStorage();
+  const contexts = new Map<string, Promise<LanternLtiToolContext>>();
+
+  for (const deployment of await repository.listDeploymentsByApp('chapter-4-asteroids')) {
+    if (deployment.binding === null) {
+      continue;
+    }
+
+    await syncLtiToolDeploymentBinding({
+      storage,
+      appTitle: deployment.label,
+      deploymentSlug: deployment.slug,
+      binding: deployment.binding,
+    });
+  }
+
+  return createApp({
+    getRepository: () => repository,
+    getLtiToolContext(appOrigin) {
+      const cacheKey = appOrigin ?? '';
+      let context = contexts.get(cacheKey);
+
+      if (context === undefined) {
+        context = createLanternLtiToolContext({
+          env: Deno.env,
+          storage,
+          ...(appOrigin === undefined ? {} : { appOrigin }),
+        });
+        contexts.set(cacheKey, context);
+      }
+
+      return context;
+    },
+  });
+}
 
 Deno.test('GET /lti/canvas/config.json publishes the pilot Canvas config document', async () => {
   const previousOrigin = Deno.env.get('APP_ORIGIN');
@@ -92,9 +148,7 @@ Deno.test('GET /lti/login persists login state and redirects to the Canvas autho
     deployments: [buildDeploymentRecord({ binding: buildDeploymentBinding() })],
   });
   const loginRequest = buildCanvasLoginRequest();
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     `http://localhost/lti/login?iss=${
       encodeURIComponent(
         loginRequest.iss,
@@ -133,14 +187,14 @@ Deno.test('GET /lti/login persists login state and redirects to the Canvas autho
     throw new Error('Expected saved login state in the Canvas redirect.');
   }
 
-  const saved = await repository.getLoginStateByState(state);
+  const saved = readLtiToolStateClaims(state);
 
   assertEquals(
     redirected.origin + redirected.pathname,
     'https://sso.canvaslms.com/api/lti/authorize_redirect',
   );
-  assertEquals(saved?.clientId, loginRequest.clientId);
-  assertEquals(saved?.deploymentId, loginRequest.deploymentId);
+  assertEquals(saved.clientId, loginRequest.clientId);
+  assertEquals(redirected.searchParams.get('lti_deployment_id'), loginRequest.deploymentId);
 });
 
 Deno.test('GET /lti/login returns a top-level launch escape page for iframe-embedded initiation', async () => {
@@ -148,9 +202,7 @@ Deno.test('GET /lti/login returns a top-level launch escape page for iframe-embe
     deployments: [buildDeploymentRecord({ binding: buildDeploymentBinding() })],
   });
   const loginRequest = buildCanvasLoginRequest();
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     `http://localhost/lti/login?iss=${
       encodeURIComponent(
         loginRequest.iss,
@@ -193,9 +245,7 @@ Deno.test('GET /lti/login uses LTI platform storage when the LMS advertises lti_
     deployments: [buildDeploymentRecord({ binding: buildDeploymentBinding() })],
   });
   const loginRequest = buildCanvasLoginRequest();
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     `http://localhost/lti/login?iss=${
       encodeURIComponent(
         loginRequest.iss,
@@ -260,9 +310,7 @@ Deno.test('GET /lti/login accepts Sakai-style login initiation and redirects to 
     clientId: '7dbe6a13-f948-498c-87d7-768947ac5c56',
     deploymentId: '1',
   });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     `http://localhost/lti/login?iss=${
       encodeURIComponent(
         loginRequest.iss,
@@ -297,16 +345,15 @@ Deno.test('GET /lti/login accepts Sakai-style login initiation and redirects to 
     throw new Error('Expected saved login state in the Sakai redirect.');
   }
 
-  const saved = await repository.getLoginStateByState(state);
+  const saved = readLtiToolStateClaims(state);
 
   assertEquals(
     redirected.origin + redirected.pathname,
     'https://sakai.example/imsoidc/lti13/oidc_auth',
   );
-  assertEquals(saved?.lms, 'sakai');
-  assertEquals(saved?.canvasEnvironment, null);
-  assertEquals(saved?.clientId, loginRequest.clientId ?? null);
-  assertEquals(saved?.deploymentId, loginRequest.deploymentId);
+  assertEquals(saved.iss, loginRequest.iss);
+  assertEquals(saved.clientId, loginRequest.clientId ?? null);
+  assertEquals(redirected.searchParams.get('lti_deployment_id'), loginRequest.deploymentId);
 });
 
 Deno.test('GET /lti/login accepts Moodle-style login initiation and redirects to the saved authentication endpoint', async () => {
@@ -321,9 +368,7 @@ Deno.test('GET /lti/login accepts Moodle-style login initiation and redirects to
       }),
     ],
   });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque-login-hint&target_link_uri=http%3A%2F%2Flocalhost%3A8417%2Flti%2Flaunch&client_id=moodle-client-123&deployment_id=moodle-deployment-123',
   );
 
@@ -342,13 +387,12 @@ Deno.test('GET /lti/login accepts Moodle-style login initiation and redirects to
     throw new Error('Expected saved login state in the Moodle redirect.');
   }
 
-  const saved = await repository.getLoginStateByState(state);
+  const saved = readLtiToolStateClaims(state);
 
   assertEquals(redirected.origin + redirected.pathname, 'https://moodle.example/mod/lti/auth.php');
-  assertEquals(saved?.lms, 'moodle');
-  assertEquals(saved?.canvasEnvironment, null);
-  assertEquals(saved?.clientId, 'moodle-client-123');
-  assertEquals(saved?.deploymentId, 'moodle-deployment-123');
+  assertEquals(saved.iss, 'https://moodle.example');
+  assertEquals(saved.clientId, 'moodle-client-123');
+  assertEquals(redirected.searchParams.get('lti_deployment_id'), 'moodle-deployment-123');
 });
 
 Deno.test('GET /lti/login tolerates one extra percent-encoding layer on opaque LMS hints', async () => {
@@ -363,9 +407,7 @@ Deno.test('GET /lti/login tolerates one extra percent-encoding layer on opaque L
       }),
     ],
   });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque%252Flogin%253Fhint&target_link_uri=http%3A%2F%2Flocalhost%3A8417%2Flti%2Flaunch&client_id=moodle-client-123&deployment_id=moodle-deployment-123&lti_message_hint=context%2523value',
   );
 
@@ -384,12 +426,10 @@ Deno.test('GET /lti/login tolerates one extra percent-encoding layer on opaque L
     throw new Error('Expected saved login state in the Moodle redirect.');
   }
 
-  const saved = await repository.getLoginStateByState(state);
   const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
 
   assertEquals(redirected.searchParams.get('login_hint'), 'opaque/login?hint');
-  assertEquals(saved?.loginHint, 'opaque/login?hint');
-  assertEquals(saved?.ltiMessageHint, 'context#value');
+  assertEquals(redirected.searchParams.get('lti_message_hint'), 'context#value');
   assertEquals(
     interopEvents.some((event) => event.detail.path === 'opaque_login_hint_decode'),
     true,
@@ -421,9 +461,7 @@ Deno.test('GET /lti/login applies deployment override compatibility behavior onl
         updatedAt: TEST_NOW,
       },
     });
-    const response = await createApp({
-      getRepository: () => repository,
-    }).request(
+    const response = await (await createLoginTestApp(repository)).request(
       'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque%252Flogin%253Fhint&client_id=moodle-client-123&deployment_id=moodle-deployment-123&lti_message_hint=context%2523value',
     );
 
@@ -442,13 +480,12 @@ Deno.test('GET /lti/login applies deployment override compatibility behavior onl
       throw new Error('Expected saved login state in the Moodle redirect.');
     }
 
-    const saved = await repository.getLoginStateByState(state);
+    const saved = readLtiToolStateClaims(state);
     const interopEvents = await repository.listAuditEventsByEventType('interop.path_used');
 
     assertEquals(redirected.searchParams.get('login_hint'), 'opaque/login?hint');
-    assertEquals(saved?.loginHint, 'opaque/login?hint');
-    assertEquals(saved?.ltiMessageHint, 'context#value');
-    assertEquals(saved?.targetLinkUri, 'http://localhost/lti/launch');
+    assertEquals(redirected.searchParams.get('lti_message_hint'), 'context#value');
+    assertEquals(saved.targetLinkUri, 'http://localhost/lti/launch');
     assertEquals(
       interopEvents.some(
         (event) =>
@@ -497,9 +534,7 @@ Deno.test('GET /lti/login rejects opaque hint compatibility decoding when the re
       updatedAt: TEST_NOW,
     },
   });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque%252Flogin%253Fhint&target_link_uri=http%3A%2F%2Flocalhost%3A8417%2Flti%2Flaunch&client_id=moodle-client-123&deployment_id=moodle-deployment-123&lti_message_hint=context%2523value',
   );
   const body = await response.text();
@@ -526,9 +561,7 @@ Deno.test("GET /lti/login falls back to Lantern's singular launch route when a n
         }),
       ],
     });
-    const response = await createApp({
-      getRepository: () => repository,
-    }).request(
+    const response = await (await createLoginTestApp(repository)).request(
       'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque-login-hint&client_id=moodle-client-123&deployment_id=moodle-deployment-123',
     );
 
@@ -547,10 +580,10 @@ Deno.test("GET /lti/login falls back to Lantern's singular launch route when a n
       throw new Error('Expected saved login state in the Moodle redirect.');
     }
 
-    const saved = await repository.getLoginStateByState(state);
+    const saved = readLtiToolStateClaims(state);
 
     assertEquals(redirected.searchParams.get('redirect_uri'), 'http://localhost:8417/lti/launch');
-    assertEquals(saved?.targetLinkUri, 'http://localhost:8417/lti/launch');
+    assertEquals(saved.targetLinkUri, 'http://localhost:8417/lti/launch');
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
   }
@@ -576,9 +609,7 @@ Deno.test('GET /lti/login rejects an omitted non-Canvas target_link_uri when the
         updatedAt: TEST_NOW,
       },
     });
-    const response = await createApp({
-      getRepository: () => repository,
-    }).request(
+    const response = await (await createLoginTestApp(repository)).request(
       'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque-login-hint&client_id=moodle-client-123&deployment_id=moodle-deployment-123',
     );
     const body = await response.text();
@@ -608,9 +639,7 @@ Deno.test('GET /lti/login uses the forwarded public origin when Lantern fills a 
         }),
       ],
     });
-    const response = await createApp({
-      getRepository: () => repository,
-    }).request(
+    const response = await (await createLoginTestApp(repository)).request(
       'http://worker.internal/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque-login-hint&client_id=moodle-client-123&deployment_id=moodle-deployment-123',
       {
         headers: {
@@ -635,10 +664,10 @@ Deno.test('GET /lti/login uses the forwarded public origin when Lantern fills a 
       throw new Error('Expected saved login state in the Moodle redirect.');
     }
 
-    const saved = await repository.getLoginStateByState(state);
+    const saved = readLtiToolStateClaims(state);
 
     assertEquals(redirected.searchParams.get('redirect_uri'), 'https://lantern.example/lti/launch');
-    assertEquals(saved?.targetLinkUri, 'https://lantern.example/lti/launch');
+    assertEquals(saved.targetLinkUri, 'https://lantern.example/lti/launch');
   } finally {
     restoreEnv('APP_ORIGIN', previousOrigin);
   }
@@ -648,9 +677,7 @@ Deno.test('GET /lti/login still rejects an omitted Canvas target_link_uri when m
   const repository = createInMemoryPackageReviewRepository({
     deployments: [buildDeploymentRecord({ binding: buildDeploymentBinding() })],
   });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     'http://localhost/lti/login?iss=https%3A%2F%2Fcanvas.instructure.com&login_hint=opaque-login-hint&client_id=10000000000001&deployment_id=deployment-123',
   );
   const body = await response.text();
@@ -671,9 +698,7 @@ Deno.test('GET /lti/login recovers when client_id is omitted but issuer and depl
       }),
     ],
   });
-  const response = await createApp({
-    getRepository: () => repository,
-  }).request(
+  const response = await (await createLoginTestApp(repository)).request(
     'http://localhost/lti/login?iss=https%3A%2F%2Fmoodle.example&login_hint=opaque-login-hint&target_link_uri=http%3A%2F%2Flocalhost%3A8417%2Flti%2Flaunch&deployment_id=moodle-deployment-123',
   );
 
@@ -692,12 +717,33 @@ Deno.test('GET /lti/login recovers when client_id is omitted but issuer and depl
     throw new Error('Expected saved login state in the Moodle redirect.');
   }
 
-  const saved = await repository.getLoginStateByState(state);
+  const saved = readLtiToolStateClaims(state);
 
   assertEquals(redirected.searchParams.get('client_id'), 'moodle-client-123');
-  assertEquals(saved?.clientId, 'moodle-client-123');
-  assertEquals(saved?.deploymentId, 'moodle-deployment-123');
+  assertEquals(saved.clientId, 'moodle-client-123');
+  assertEquals(redirected.searchParams.get('lti_deployment_id'), 'moodle-deployment-123');
 });
+
+function readLtiToolStateClaims(state: string): LtiToolStateClaims {
+  const claims = decodeJwt(state);
+  const iss = readStringClaim(claims.iss, 'iss');
+  const clientId = readStringClaim(claims.client_id, 'client_id');
+  const targetLinkUri = readStringClaim(claims.target_link_uri, 'target_link_uri');
+
+  return {
+    iss,
+    clientId,
+    targetLinkUri,
+  };
+}
+
+function readStringClaim(value: unknown, name: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`Expected lti-tool state claim ${name}.`);
+  }
+
+  return value;
+}
 
 Deno.test('GET /lti/login rejects ambiguous platform identity before redirecting', async () => {
   const repository = createInMemoryPackageReviewRepository({

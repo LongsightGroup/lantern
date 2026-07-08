@@ -30,6 +30,7 @@ export function mapRuntimeSessionRow(row: RuntimeSessionRow | undefined): Runtim
   return {
     sessionId: row.sessionId,
     sessionToken: row.sessionToken,
+    ltiToolSessionId: row.ltiToolSessionId,
     attemptId: row.attemptId ?? row.sessionId,
     deploymentRecordId: row.deploymentRecordId,
     deploymentSlug: row.deploymentSlug,
@@ -78,6 +79,7 @@ export function mapDeepLinkingSessionRow(
   return {
     sessionId: row.sessionId,
     sessionToken: row.sessionToken,
+    ltiToolSessionId: row.ltiToolSessionId,
     deploymentRecordId: row.deploymentRecordId,
     deploymentSlug: row.deploymentSlug,
     appId: row.appId,

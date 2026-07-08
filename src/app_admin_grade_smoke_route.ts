@@ -13,8 +13,7 @@ import {
   recordGradeSmokeAuditEvent,
   runGradeSmokeVerification,
 } from './app_admin_grade_smoke_support.ts';
-import { readEnv } from './platform/env.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
+import { resolveRequestAppOrigin } from './app_origin.ts';
 import {
   formatGradeSmokeLmsLabel,
   parseDeploymentRecordId,
@@ -34,13 +33,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
     let deploymentRecordId: number | null = null;
 
     try {
-      const appOrigin = resolveConfiguredPublicOrigin({
-        requestUrl: context.req.url,
-        forwardedHeader: context.req.header('forwarded') ?? null,
-        xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-        xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: readEnv('APP_ORIGIN', services.env),
-      });
+      const appOrigin = resolveRequestAppOrigin(context, services.env);
       const detail = await loadDeploymentDetailState(repository, appId, appOrigin);
       const formData = await context.req.formData();
 
@@ -85,7 +78,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
         binding,
         session: latestSession,
         attempt,
-        env: services.env,
+        getLtiToolContext: () => services.getLtiToolContext(appOrigin),
         ltiProfile,
       });
 
@@ -134,13 +127,7 @@ export function registerAdminGradeSmokeRoute(app: Hono, services: AppServices): 
       const detail = await loadDeploymentDetailStateSafe(
         repository,
         appId,
-        resolveConfiguredPublicOrigin({
-          requestUrl: context.req.url,
-          forwardedHeader: context.req.header('forwarded') ?? null,
-          xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-          xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-          configuredOrigin: readEnv('APP_ORIGIN', services.env),
-        }),
+        resolveRequestAppOrigin(context, services.env),
       );
 
       if (detail.history.length === 0) {

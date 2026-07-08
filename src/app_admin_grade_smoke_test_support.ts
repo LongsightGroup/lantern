@@ -43,6 +43,7 @@ export function buildSmokeFixture(lms: 'moodle' | 'sakai'): SmokeFixture {
   return {
     binding,
     session: buildRuntimeSessionRecord({
+      ltiToolSessionId: `${lms}-lti-tool-session-123`,
       deploymentRecordId: lms === 'moodle' ? 2 : 3,
       deploymentSlug: `chapter-4-asteroids-${lms}`,
       attemptId: `${lms}-attempt-123`,
@@ -92,6 +93,7 @@ export function buildSmokeRouteFixture(lms: 'moodle' | 'sakai'): SmokeRouteFixtu
     finalGradeLineItemUrl,
     smokeLineItemUrl,
     session: buildRuntimeSessionRecord({
+      ltiToolSessionId: `${lms}-lti-tool-session-123`,
       deploymentRecordId: deploymentId,
       deploymentSlug,
       attemptId,

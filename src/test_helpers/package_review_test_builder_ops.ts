@@ -154,6 +154,7 @@ export function buildRetryRuntimeSessionLookup(
 ): RetryRuntimeSessionLookup {
   return {
     sessionId: overrides.sessionId ?? 'runtime-session-123',
+    ltiToolSessionId: overrides.ltiToolSessionId ?? 'lti-tool-session-123',
     attemptId: overrides.attemptId ?? 'attempt-123',
     deploymentRecordId: overrides.deploymentRecordId ?? 1,
     deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',

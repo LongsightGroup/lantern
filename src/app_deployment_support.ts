@@ -8,10 +8,8 @@ import {
 } from './admin/deployment_detail.ts';
 import { getCanvasConfigUrlNoticeSafe } from './app_notice_support.ts';
 import { requireAppOrigin } from './lti/config.ts';
-import { buildCanvasDynamicRegistrationUrl } from './lti/canvas_dynamic_registration.ts';
 import { createDynamicRegistrationState } from './lti/dynamic_registration_state.ts';
-import { buildMoodleDynamicRegistrationUrl } from './lti/moodle_dynamic_registration.ts';
-import { buildSakaiDynamicRegistrationUrl } from './lti/sakai_dynamic_registration.ts';
+import { buildDynamicRegistrationUrl } from './lti/dynamic_registration_tool.ts';
 import type { PackageReviewRepository } from './package_review/repository.ts';
 import type {
   AuditEventRecord,
@@ -135,7 +133,7 @@ async function getCanvasDynamicRegistrationUrlSafe(
       appId,
       lms: 'canvas',
     });
-    return buildCanvasDynamicRegistrationUrl(appId, state.state, appOrigin);
+    return buildDynamicRegistrationUrl(appId, 'canvas', state.state, appOrigin);
   } catch {
     return null;
   }
@@ -155,7 +153,7 @@ async function getMoodleDynamicRegistrationUrlSafe(
       appId,
       lms: 'moodle',
     });
-    return buildMoodleDynamicRegistrationUrl(appId, state.state, appOrigin);
+    return buildDynamicRegistrationUrl(appId, 'moodle', state.state, appOrigin);
   } catch {
     return null;
   }
@@ -175,7 +173,7 @@ async function getSakaiDynamicRegistrationUrlSafe(
       appId,
       lms: 'sakai',
     });
-    return buildSakaiDynamicRegistrationUrl(appId, state.state, appOrigin);
+    return buildDynamicRegistrationUrl(appId, 'sakai', state.state, appOrigin);
   } catch {
     return null;
   }
