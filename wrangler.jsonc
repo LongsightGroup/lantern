@@ -91,7 +91,7 @@
     {
       "binding": "DB",
       "database_name": "lantern",
-      "database_id": "3ed3e887-c7c3-458e-8549-51974a9e9ac6",
+      "database_id": "0f0a956c-c1f8-43dd-bcdb-80577be94856",
       "migrations_dir": "src/db/d1_migrations"
     }
   ],
