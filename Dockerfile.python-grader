@@ -1,0 +1,5 @@
+FROM docker.io/cloudflare/sandbox:0.12.3-python
+
+# Keep the graded interpreter free of third-party packages. The fixed command
+# also uses -I -S, so Python does not add user or site-package paths.
+RUN rm -rf /usr/local/lib/python*/site-packages /usr/lib/python*/site-packages

@@ -8,6 +8,7 @@ import { getReferencePackageBucketSourceRoot } from './package_review/intake.ts'
 import { createMemoryPackageSource } from './package_review/package_source.ts';
 import { verifyReviewedRuntimeContractSignature } from './package_review/runtime_contract.ts';
 import type { RuntimeArtifactBucket } from './runtime/artifact_store.ts';
+import type { PythonLabArtifactBucket } from './python_lab/artifact_store.ts';
 import { getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
 import {
   buildPackageVersionRecord,
@@ -18,7 +19,7 @@ const DEMO_BUCKET_SOURCE_ROOT = getReferencePackageBucketSourceRoot('chapter-4-a
 const DEMO_SNAPSHOT_ROOT = 'var/packages/chapter-4-asteroids/0.1.0';
 const DEMO_REFERENCE_SOURCE_FILES = {
   'manifest.json': `{
-  "schema_version": "1",
+  "schema_version": "2",
   "app_id": "chapter-4-asteroids",
   "version": "0.1.0",
   "title": "Chapter 4 Asteroids",
@@ -27,7 +28,7 @@ const DEMO_REFERENCE_SOURCE_FILES = {
     "type": "user",
     "id": "instructor_123"
   },
-  "entrypoint": "/dist/index.html",
+  "runtime": { "kind": "browser", "entrypoint": "/dist/index.html" },
   "roles": ["learner", "instructor"],
   "install_scope": "course",
   "capabilities": [
@@ -64,7 +65,7 @@ const DEMO_REFERENCE_SOURCE_FILES = {
 } as const;
 const QUICK_STUDY_SOURCE_FILES = {
   'manifest.json': `{
-  "schema_version": "1",
+  "schema_version": "2",
   "app_id": "quick-study",
   "version": "0.1.0",
   "title": "Quick Study",
@@ -73,7 +74,7 @@ const QUICK_STUDY_SOURCE_FILES = {
     "type": "user",
     "id": "instructor_123"
   },
-  "entrypoint": "/dist/index.html",
+  "runtime": { "kind": "browser", "entrypoint": "/dist/index.html" },
   "roles": ["learner", "instructor"],
   "install_scope": "course",
   "capabilities": [
@@ -255,10 +256,9 @@ Deno.test('worker services expose Dynamic Worker runtime delivery only when LOAD
 
 Deno.test('worker services route D1 persistence through ported repository slices', async () => {
   const env = createWorkerTestEnv();
-  const services = resolveWorkerServices({ DB: createStubD1Database([]) }, env);
+  const services = resolveWorkerServices(withRequiredDb({}), env);
 
   assertEquals(await services.getRepository().listPackageVersions(), []);
-  assertEquals(await services.getOpsRepository().listControlPlaneDeployments(), []);
 });
 
 Deno.test('worker services schedule app generation through APP_GENERATION_WORKFLOW when bound', async () => {
@@ -623,7 +623,7 @@ function createSeededArtifactBucket(
 
 function createInMemoryArtifactBucket(
   files: Record<string, Uint8Array | string>,
-): RuntimeArtifactBucket {
+): RuntimeArtifactBucket & PythonLabArtifactBucket {
   const storedFiles = new Map(
     Object.entries(files).map(([key, value]) => [key, toUint8Array(value)]),
   );
@@ -645,6 +645,10 @@ function createInMemoryArtifactBucket(
     put(key, value) {
       storedFiles.set(key, toUint8Array(value));
 
+      return Promise.resolve();
+    },
+    delete(key) {
+      storedFiles.delete(key);
       return Promise.resolve();
     },
     list(options) {
@@ -698,10 +702,13 @@ function createStubD1Database(results: Array<Record<string, unknown>>): D1Databa
 
 function withRequiredDb<T extends Record<string, unknown>>(
   bindings: T,
-): T & { DB: D1Database } {
+): T & { DB: D1Database; PACKAGE_ARTIFACTS: RuntimeArtifactBucket & PythonLabArtifactBucket } {
   return {
     ...bindings,
     DB: createStubD1Database([]),
+    PACKAGE_ARTIFACTS: 'PACKAGE_ARTIFACTS' in bindings
+      ? bindings.PACKAGE_ARTIFACTS as RuntimeArtifactBucket & PythonLabArtifactBucket
+      : createInMemoryArtifactBucket({}),
   };
 }
 

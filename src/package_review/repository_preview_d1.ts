@@ -57,7 +57,6 @@ export function createD1PreviewRepositoryMethods(
               package_title,
               origin,
               content_path,
-              deep_linking_session_id,
               capabilities,
               snapshot_root,
               entrypoint_path,
@@ -70,7 +69,7 @@ export function createD1PreviewRepositoryMethods(
               fake_score_maximum,
               fixture_data,
               created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             record.sessionId,
@@ -80,7 +79,6 @@ export function createD1PreviewRepositoryMethods(
             record.packageTitle,
             record.origin,
             record.contentPath,
-            record.deepLinkingSessionId,
             record.capabilities,
             record.snapshotRoot,
             record.entrypointPath,
@@ -222,7 +220,6 @@ const D1_PREVIEW_SESSION_SELECT = `
     package_title AS packageTitle,
     origin,
     content_path AS contentPath,
-    deep_linking_session_id AS deepLinkingSessionId,
     capabilities,
     snapshot_root AS snapshotRoot,
     entrypoint_path AS entrypointPath,
@@ -259,7 +256,6 @@ interface D1PreviewSessionRow extends Record<string, unknown> {
   packageTitle: unknown;
   origin: unknown;
   contentPath: unknown;
-  deepLinkingSessionId: unknown;
   capabilities: unknown;
   snapshotRoot: unknown;
   entrypointPath: unknown;
@@ -308,11 +304,9 @@ function mapD1PreviewSessionFields(row: D1PreviewSessionRow): PreviewSessionRow 
     packageTitle: expectD1String(row.packageTitle, 'packageTitle'),
     origin: expectD1StringLiteral(row.origin, 'origin', [
       'adminTestLaunch',
-      'deepLinkingAuthoring',
       'adminAuthoringDraft',
     ]),
     contentPath: expectD1String(row.contentPath, 'contentPath'),
-    deepLinkingSessionId: expectD1NullableString(row.deepLinkingSessionId, 'deepLinkingSessionId'),
     capabilities: parseD1JsonField(
       row.capabilities,
       'capabilities',

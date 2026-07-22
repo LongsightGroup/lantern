@@ -6,17 +6,10 @@ import type {
   AttemptEvidenceArtifactRecord,
   AttemptRecord,
   AuditEventRecord,
-  DeploymentRecord,
-  GradePublicationRecord,
-  LineItemBindingRecord,
   PackageVersionRecord,
 } from '../package_review/types.ts';
 import { normalizeAttemptEvent } from '../runtime/attempt_event_normalization.ts';
-import {
-  DEFAULT_IMPORTED_AT,
-  DEFAULT_PHASE3_AT,
-  DEFAULT_UPDATED_AT,
-} from './package_review_test_defaults.ts';
+import { DEFAULT_IMPORTED_AT, DEFAULT_PHASE3_AT } from './package_review_test_defaults.ts';
 
 export function buildAccessibilityReview(
   overrides: Partial<AccessibilityReview> = {},
@@ -45,7 +38,7 @@ export function buildPackageVersionRecord(
     title: 'Chapter 4 Asteroids',
     description: 'Shoot the correct vocabulary target.',
     owner: { type: 'user', id: 'instructor_123' },
-    entrypoint: '/dist/index.html',
+    runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
     roles: ['learner', 'instructor'],
     installScope: 'course',
     capabilities: [
@@ -61,6 +54,7 @@ export function buildPackageVersionRecord(
       rubricFile: '/scoring/rubric.json',
       maxScore: 100,
     },
+    catalogVisibility: 'catalog',
     approvalStatus: 'pending',
     reviewNotes: null,
     accessibilityReview: null,
@@ -88,7 +82,7 @@ export function buildPackageVersionRecord(
         reviewData: {
           appId: record.appId,
           version: record.version,
-          entrypoint: record.entrypoint,
+          runtime: record.runtime,
           capabilities: record.capabilities,
         },
         artifactDigest: record.artifact.digest,
@@ -110,7 +104,7 @@ export function buildImportedPackageVersion(
       title: record.title,
       description: record.description,
       owner: record.owner,
-      entrypoint: record.entrypoint,
+      runtime: record.runtime,
       roles: record.roles,
       installScope: record.installScope,
       capabilities: record.capabilities,
@@ -124,59 +118,11 @@ export function buildImportedPackageVersion(
   };
 }
 
-export function buildDeploymentRecord(overrides: Partial<DeploymentRecord> = {}): DeploymentRecord {
-  const appId = overrides.appId ?? 'chapter-4-asteroids';
-  const binding = overrides.binding ?? null;
-  const lmsType = overrides.lmsType ?? binding?.lms ?? 'canvas';
-  const defaultDeploymentIdentity = (() => {
-    switch (lmsType) {
-      case 'canvas':
-        return {
-          slug: `${appId}-pilot`,
-          label: 'Pilot Deployment',
-        };
-      case 'moodle':
-        return {
-          slug: `${appId}-moodle`,
-          label: 'Moodle Deployment',
-        };
-      case 'sakai':
-        return {
-          slug: `${appId}-sakai`,
-          label: 'Sakai Deployment',
-        };
-      case 'preview':
-        return {
-          slug: `${appId}-preview`,
-          label: 'Preview Deployment',
-        };
-    }
-  })();
-
-  return {
-    id: 1,
-    slug: defaultDeploymentIdentity.slug,
-    label: `${appId.replaceAll('-', ' ')} ${defaultDeploymentIdentity.label}`
-      .split(' ')
-      .map((segment) => (segment[0] ? `${segment[0].toUpperCase()}${segment.slice(1)}` : segment))
-      .join(' '),
-    appId,
-    enabledPackageVersionId: 1,
-    enabledPackageVersion: '0.1.0',
-    lmsType,
-    binding,
-    ltiProfileOverride: null,
-    updatedAt: DEFAULT_UPDATED_AT,
-    ...overrides,
-  };
-}
-
 export function buildAttemptRecord(overrides: Partial<AttemptRecord> = {}): AttemptRecord {
   return {
     id: overrides.id ?? 1,
     attemptId: overrides.attemptId ?? 'attempt-123',
-    deploymentRecordId: overrides.deploymentRecordId ?? 1,
-    deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
+    previewSessionId: overrides.previewSessionId ?? 'preview-session-123',
     appId: overrides.appId ?? 'chapter-4-asteroids',
     packageVersionId: overrides.packageVersionId ?? 1,
     packageVersion: overrides.packageVersion ?? '0.1.0',
@@ -239,59 +185,14 @@ export function buildAttemptEvidenceArtifactRecord(
   };
 }
 
-export function buildLineItemBindingRecord(
-  overrides: Partial<LineItemBindingRecord> = {},
-): LineItemBindingRecord {
-  return {
-    id: overrides.id ?? 1,
-    deploymentRecordId: overrides.deploymentRecordId ?? 1,
-    packageVersionId: overrides.packageVersionId ?? 1,
-    contextId: overrides.contextId ?? 'course-42',
-    resourceLinkId: overrides.resourceLinkId ?? 'resource-link-123',
-    activityId: overrides.activityId ?? 'activity-123',
-    lineItemsUrl: overrides.lineItemsUrl ?? 'https://canvas.example/api/lti/courses/42/line_items',
-    lineItemUrl: overrides.lineItemUrl ?? 'https://canvas.example/api/lti/courses/42/line_items/9',
-    resourceId: overrides.resourceId ?? 'chapter-4-asteroids:0.1.0',
-    tag: overrides.tag ?? 'final-grade',
-    label: overrides.label ?? 'Chapter 4 Asteroids Final Grade',
-    scoreMaximum: overrides.scoreMaximum ?? 100,
-    createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
-    updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
-  };
-}
-
-export function buildGradePublicationRecord(
-  overrides: Partial<GradePublicationRecord> = {},
-): GradePublicationRecord {
-  return {
-    id: overrides.id ?? 1,
-    attemptId: overrides.attemptId ?? 'attempt-123',
-    lineItemBindingId: overrides.lineItemBindingId ?? 1,
-    lineItemUrl: overrides.lineItemUrl ?? 'https://canvas.example/api/lti/courses/42/line_items/9',
-    platformUserId: overrides.platformUserId ?? 'canvas-user-123',
-    scoreGiven: overrides.scoreGiven ?? 85,
-    scoreMaximum: overrides.scoreMaximum ?? 100,
-    activityProgress: overrides.activityProgress ?? 'Completed',
-    gradingProgress: overrides.gradingProgress ?? 'FullyGraded',
-    status: overrides.status ?? 'published',
-    createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,
-    updatedAt: overrides.updatedAt ?? DEFAULT_PHASE3_AT,
-    publishedAt: overrides.publishedAt ?? DEFAULT_PHASE3_AT,
-    errorCode: overrides.errorCode ?? null,
-    errorDetail: overrides.errorDetail ?? null,
-  };
-}
-
 export function buildAuditEventRecord(overrides: Partial<AuditEventRecord> = {}): AuditEventRecord {
   return {
     id: overrides.id ?? 1,
     eventType: overrides.eventType ?? 'attempt.submitted',
     actorType: overrides.actorType ?? 'system',
     actorId: overrides.actorId ?? null,
-    deploymentRecordId: overrides.deploymentRecordId ?? 1,
     packageVersionId: overrides.packageVersionId ?? 1,
     attemptId: overrides.attemptId === undefined ? 'attempt-123' : overrides.attemptId,
-    lineItemBindingId: overrides.lineItemBindingId ?? null,
     status: overrides.status ?? 'accepted',
     summary: overrides.summary ?? 'Accepted attempt submission.',
     detail: overrides.detail ?? {

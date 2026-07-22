@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import {
   createR2RuntimeArtifactStore,
@@ -222,6 +222,9 @@ function createStubRuntimeDelivery(input: {
         bytes: new TextEncoder().encode(contents),
         contentType: contentTypeForRuntimePath(assetPath),
       });
+    },
+    invokeReviewedWorker() {
+      return Promise.reject(new Error('Stub Worker invocation was not configured.'));
     },
   };
 }

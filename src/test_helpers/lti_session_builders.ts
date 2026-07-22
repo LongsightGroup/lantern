@@ -1,26 +1,13 @@
 import { resolveSubmissionMode } from '../../sdk/app-sdk.ts';
 import type { LTISession } from '@longsightgroup/lti-tool';
-import type {
-  DeepLinkingSessionRecord,
-  LmsType,
-  RuntimeSessionRecord,
-  ValidatedDeepLinkingRequest,
-  ValidatedLaunch,
-} from '../lti/types.ts';
-import { LTI_ASSIGNMENT_SELECTION_PLACEMENT as DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT } from '../lti/types.ts';
-import {
-  buildLaunchServiceClaims,
-  buildPlatformIdentity,
-  TEST_NOW,
-} from './lti_identity_builders.ts';
+import type { LmsType, RuntimeSessionRecord } from '../lti/types.ts';
+import { buildLaunchServiceClaims, TEST_NOW } from './lti_identity_builders.ts';
 
 export function buildTestLtiJwtPayload(
   input: {
-    messageType?: 'LtiResourceLinkRequest' | 'LtiDeepLinkingRequest';
     targetLinkUri?: string;
   } = {},
 ): LTISession['jwtPayload'] {
-  const messageType = input.messageType ?? 'LtiResourceLinkRequest';
   const targetLinkUri = input.targetLinkUri ?? 'http://localhost:8417/lti/launch';
   const base = {
     iss: 'https://canvas.instructure.com',
@@ -33,117 +20,10 @@ export function buildTestLtiJwtPayload(
     'https://purl.imsglobal.org/spec/lti/claim/target_link_uri': targetLinkUri,
   } as const;
 
-  if (messageType === 'LtiDeepLinkingRequest') {
-    return {
-      ...base,
-      sub: 'canvas-user-123',
-      'https://purl.imsglobal.org/spec/lti/claim/message_type': 'LtiDeepLinkingRequest',
-    };
-  }
-
   return {
     ...base,
     sub: 'canvas-user-123',
     'https://purl.imsglobal.org/spec/lti/claim/message_type': 'LtiResourceLinkRequest',
-  };
-}
-
-export function buildValidatedLaunch(overrides: Partial<ValidatedLaunch> = {}): ValidatedLaunch {
-  const identity = buildPlatformIdentity({
-    ...(overrides.lms === undefined ? {} : { lms: overrides.lms }),
-    ...(overrides.canvasEnvironment === undefined
-      ? {}
-      : { canvasEnvironment: overrides.canvasEnvironment }),
-    ...(overrides.issuer === undefined ? {} : { issuer: overrides.issuer }),
-    ...(overrides.clientId === undefined ? {} : { clientId: overrides.clientId }),
-    ...(overrides.deploymentId === undefined ? {} : { deploymentId: overrides.deploymentId }),
-  });
-
-  return {
-    internalDeploymentId: overrides.internalDeploymentId ?? 1,
-    internalDeploymentSlug: overrides.internalDeploymentSlug ?? 'chapter-4-asteroids-pilot',
-    appId: overrides.appId ?? 'chapter-4-asteroids',
-    packageVersionId: overrides.packageVersionId ?? 1,
-    packageVersion: overrides.packageVersion ?? '0.1.0',
-    contentPath: overrides.contentPath ?? '/content/activity.json',
-    attemptId: overrides.attemptId ?? 'attempt-123',
-    userId: overrides.userId ?? 'canvas-user-123',
-    userDisplayName: overrides.userDisplayName ?? null,
-    userEmail: overrides.userEmail ?? null,
-    userLogin: overrides.userLogin ?? null,
-    userRole: overrides.userRole ?? 'learner',
-    resourceLinkId: overrides.resourceLinkId ?? 'resource-link-123',
-    resourceLinkTitle: overrides.resourceLinkTitle ?? 'Chapter 4 Asteroids',
-    contextId: overrides.contextId ?? 'course-42',
-    contextTitle: overrides.contextTitle ?? 'Physics 101',
-    targetLinkUri: overrides.targetLinkUri ?? 'http://localhost:8417/lti/launch',
-    returnUrl: overrides.returnUrl ?? 'https://canvas.example/return',
-    activityId: overrides.activityId ?? 'activity-123',
-    services: overrides.services ??
-      buildLaunchServiceClaims({
-        lms: identity.lms,
-      }),
-    issuedAt: overrides.issuedAt ?? TEST_NOW,
-    ...identity,
-  };
-}
-
-export function buildDeepLinkingSettingsClaimValue(
-  input: {
-    acceptTypes?: string[] | undefined;
-    acceptMultiple?: boolean | undefined;
-    acceptPresentationDocumentTargets?: string[] | undefined;
-    acceptLineItem?: boolean | undefined;
-    deepLinkReturnUrl?: string | undefined;
-    data?: string | null | undefined;
-  } = {},
-): Record<string, unknown> {
-  return {
-    accept_types: input.acceptTypes ?? ['ltiResourceLink'],
-    accept_multiple: input.acceptMultiple ?? false,
-    accept_presentation_document_targets: input.acceptPresentationDocumentTargets ?? ['iframe'],
-    accept_lineitem: input.acceptLineItem ?? false,
-    deep_link_return_url: input.deepLinkReturnUrl ??
-      'https://canvas.example/courses/42/deep_link_return',
-    ...(input.data === undefined ? {} : { data: input.data }),
-  };
-}
-
-export function buildValidatedDeepLinkingRequest(
-  overrides: Partial<ValidatedDeepLinkingRequest> = {},
-): ValidatedDeepLinkingRequest {
-  const identity = buildPlatformIdentity({
-    ...(overrides.lms === undefined ? {} : { lms: overrides.lms }),
-    ...(overrides.canvasEnvironment === undefined
-      ? {}
-      : { canvasEnvironment: overrides.canvasEnvironment }),
-    ...(overrides.issuer === undefined ? {} : { issuer: overrides.issuer }),
-    ...(overrides.clientId === undefined ? {} : { clientId: overrides.clientId }),
-    ...(overrides.deploymentId === undefined ? {} : { deploymentId: overrides.deploymentId }),
-  });
-
-  return {
-    ltiToolSessionId: overrides.ltiToolSessionId ?? null,
-    internalDeploymentId: overrides.internalDeploymentId ?? 1,
-    internalDeploymentSlug: overrides.internalDeploymentSlug ?? 'chapter-4-asteroids-pilot',
-    appId: overrides.appId ?? 'chapter-4-asteroids',
-    userId: overrides.userId ?? 'canvas-user-123',
-    userRole: overrides.userRole ?? 'instructor',
-    contextId: overrides.contextId ?? 'course-42',
-    contextTitle: overrides.contextTitle ?? 'Physics 101',
-    targetLinkUri: overrides.targetLinkUri ?? 'http://localhost:8417/lti/deep-linking',
-    deepLinkReturnUrl: overrides.deepLinkReturnUrl ??
-      'https://canvas.example/courses/42/deep_link_return',
-    data: overrides.data ?? 'deep-linking-state-token',
-    placement: overrides.placement ?? DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
-    settings: overrides.settings ?? {
-      acceptTypes: ['ltiResourceLink'],
-      acceptMultiple: false,
-      acceptPresentationDocumentTargets: ['iframe'],
-      acceptLineItem: false,
-    },
-    issuedAt: overrides.issuedAt ?? TEST_NOW,
-    ...identity,
   };
 }
 
@@ -157,8 +37,6 @@ export function buildRuntimeSessionRecord(
     sessionToken: sessionOverrides.sessionToken ?? 'runtime-token-123',
     ltiToolSessionId: sessionOverrides.ltiToolSessionId ?? null,
     attemptId: sessionOverrides.attemptId ?? 'attempt-123',
-    deploymentRecordId: sessionOverrides.deploymentRecordId ?? 1,
-    deploymentSlug: sessionOverrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
     appId: sessionOverrides.appId ?? 'chapter-4-asteroids',
     packageVersionId: sessionOverrides.packageVersionId ?? 1,
     packageVersion: sessionOverrides.packageVersion ?? '0.1.0',
@@ -195,37 +73,10 @@ export function buildRuntimeSessionRecord(
         ],
       ),
     },
-    ...(sessionOverrides.preview === undefined ? {} : { preview: sessionOverrides.preview }),
+    preview: sessionOverrides.preview ?? {
+      previewSessionId: 'preview-session-123',
+    },
     createdAt: sessionOverrides.createdAt ?? TEST_NOW,
     expiresAt: sessionOverrides.expiresAt ?? '2099-03-26T22:47:00Z',
-  };
-}
-
-export function buildDeepLinkingSessionRecord(
-  overrides: Partial<DeepLinkingSessionRecord> = {},
-): DeepLinkingSessionRecord {
-  return {
-    sessionId: overrides.sessionId ?? 'deep-linking-session-123',
-    sessionToken: overrides.sessionToken ?? 'deep-linking-token-123',
-    ltiToolSessionId: overrides.ltiToolSessionId ?? null,
-    deploymentRecordId: overrides.deploymentRecordId ?? 1,
-    deploymentSlug: overrides.deploymentSlug ?? 'chapter-4-asteroids-pilot',
-    appId: overrides.appId ?? 'chapter-4-asteroids',
-    userId: overrides.userId ?? 'canvas-user-123',
-    userRole: overrides.userRole ?? 'instructor',
-    contextId: overrides.contextId ?? 'course-42',
-    contextTitle: overrides.contextTitle ?? 'Physics 101',
-    deepLinkReturnUrl: overrides.deepLinkReturnUrl ??
-      'https://canvas.example/courses/42/deep_link_return',
-    data: overrides.data ?? 'deep-linking-state-token',
-    placement: overrides.placement ?? DEFAULT_ASSIGNMENT_SELECTION_PLACEMENT,
-    acceptTypes: overrides.acceptTypes ?? ['ltiResourceLink'],
-    acceptMultiple: overrides.acceptMultiple ?? false,
-    acceptPresentationDocumentTargets: overrides.acceptPresentationDocumentTargets ?? ['iframe'],
-    acceptLineItem: overrides.acceptLineItem ?? false,
-    selection: overrides.selection ?? null,
-    createdAt: overrides.createdAt ?? TEST_NOW,
-    expiresAt: overrides.expiresAt ?? '2026-03-26T22:50:00Z',
-    usedAt: overrides.usedAt ?? null,
   };
 }

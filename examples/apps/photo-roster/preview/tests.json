@@ -1,0 +1,9 @@
+[
+  {
+    "name": "renders the roster heading",
+    "assert": {
+      "selector": "h1",
+      "text": "Photo Roster"
+    }
+  }
+]

@@ -75,6 +75,13 @@ function readAdminTimeZone(): string {
 export function defaultNav(activePath?: string): NavItem[] {
   return [
     {
+      label: 'Governance',
+      href: '/admin/governance',
+      icon:
+        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>`,
+      active: activePath?.startsWith('/admin/governance') ?? false,
+    },
+    {
       label: 'Apps',
       href: '/admin/packages',
       icon:
@@ -89,26 +96,11 @@ export function defaultNav(activePath?: string): NavItem[] {
       active: activePath?.startsWith('/admin/app-writer') ?? false,
     },
     {
-      label: 'Connections',
-      href: '/admin/deployments',
+      label: 'Lab Requests',
+      href: '/admin/python-lab-requests',
       icon:
-        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><line x1="7" y1="7" x2="7.01" y2="7"/><line x1="7" y1="17" x2="7.01" y2="17"/><line x1="11" y1="7" x2="17" y2="7"/><line x1="11" y1="17" x2="17" y2="17"/></svg>`,
-      active: activePath?.startsWith('/admin/deployments') ?? false,
-    },
-    {
-      label: 'Verification',
-      href: '/admin/verification',
-      icon:
-        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8-7 9-3.5-1-7-4-7-9V7l7-4z"/><path d="M9 12l2 2 4-4"/></svg>`,
-      active: activePath?.startsWith('/admin/verification') ?? false,
-      children: buildVerificationNav(activePath),
-    },
-    {
-      label: 'Placements',
-      href: '/admin/placements',
-      icon:
-        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-4.35-6-10a6 6 0 1 1 12 0c0 5.65-6 10-6 10z"/><circle cx="12" cy="11" r="2.5"/></svg>`,
-      active: activePath?.startsWith('/admin/placements') ?? false,
+        `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6.5L5.5 18a2 2 0 0 0 1.7 3h9.6a2 2 0 0 0 1.7-3L14 9.5V3"/><path d="M8.5 15h7"/></svg>`,
+      active: activePath?.startsWith('/admin/python-lab-requests') ?? false,
     },
   ];
 }
@@ -233,33 +225,4 @@ function normalizeIdentityValue(value: string | undefined): string | null {
   const normalized = value.trim();
 
   return normalized.length > 0 ? normalized : null;
-}
-
-function buildVerificationNav(activePath?: string): NavChildItem[] {
-  if (!activePath?.startsWith('/admin/verification')) {
-    return [];
-  }
-
-  return [
-    {
-      label: 'Checklist',
-      href: '/admin/verification',
-      active: activePath === '/admin/verification',
-    },
-    {
-      label: 'Official evidence',
-      href: '/admin/verification/official',
-      active: activePath.startsWith('/admin/verification/official'),
-    },
-    {
-      label: 'Add result',
-      href: '/admin/verification/new',
-      active: activePath.startsWith('/admin/verification/new'),
-    },
-    {
-      label: 'Lantern default',
-      href: '/admin/verification/lti-profile',
-      active: activePath.startsWith('/admin/verification/lti-profile'),
-    },
-  ];
 }

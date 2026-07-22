@@ -1,5 +1,5 @@
 {
-  "schema_version": "1",
+  "schema_version": "2",
   "app_id": "typescript-ladder-game",
   "version": "0.2.2",
   "title": "TypeScript Ladder Game",
@@ -8,7 +8,10 @@
     "type": "user",
     "id": "author_123"
   },
-  "entrypoint": "/dist/index.html",
+  "runtime": {
+    "kind": "browser",
+    "entrypoint": "/dist/index.html"
+  },
   "roles": ["learner", "instructor"],
   "install_scope": "assignment",
   "capabilities": [

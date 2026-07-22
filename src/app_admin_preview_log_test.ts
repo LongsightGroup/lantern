@@ -1,6 +1,6 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import type { Capability } from '../sdk/app-sdk.ts';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { EXAMPLE_SNAPSHOT_ROOT, withRuntimeOriginEnv } from './app_test_support.ts';
 import {
   buildAdminPreviewSessionRecord,
@@ -405,10 +405,8 @@ Deno.test('test-launch runtime diagnostics exclude authoring preview session fai
     eventType: 'runtime.capability.denied',
     actorType: 'system',
     actorId: null,
-    deploymentRecordId: null,
     packageVersionId: 52,
     attemptId: 'preview-attempt-authoring-diagnostics',
-    lineItemBindingId: null,
     status: 'failed',
     summary: 'Denied authoring preview capability.',
     detail: {

@@ -1,7 +1,6 @@
 import type { Hono } from '@hono/hono';
 import type { AppServices } from './app_services.ts';
 import { renderHomePage } from './pages/home.ts';
-import { buildCanvasConfigDocument } from './lti/config.ts';
 import { statusForError } from './app_status_support.ts';
 import { resolveRequestAppOrigin } from './app_origin.ts';
 
@@ -14,24 +13,6 @@ export function registerBasicRoutes(app: Hono, services: AppServices): void {
 
   app.get('/health', (context) => {
     return context.json({ ok: true, appWriterHarness: APP_WRITER_HARNESS });
-  });
-
-  app.get('/lti/canvas/config.json', async (context) => {
-    try {
-      return context.json(
-        await buildCanvasConfigDocument(
-          resolveRequestAppOrigin(context, services.env),
-          services.env,
-        ),
-      );
-    } catch (error) {
-      return context.json(
-        {
-          error: error instanceof Error ? error.message : 'Config unavailable.',
-        },
-        statusForError(error),
-      );
-    }
   });
 
   app.get('/lti/jwks', async (context) => {

@@ -5,33 +5,23 @@ import type {
   AttemptRecord,
   AuditEventRecord,
   AuthoringDraftRecord,
-  DeepLinkingResourceOption,
-  DeploymentRecord,
-  GradePublicationRecord,
-  LineItemBindingRecord,
   PackageVersionRecord,
-  PlacementAuditSnapshot,
   PreviewEvidenceRecord,
   PreviewSessionOrigin,
   PreviewSessionRecord,
-  ReviewedPlacementRecord,
 } from './types.ts';
 import type { ImportedPackageVersion } from './intake.ts';
-import type {
-  DeepLinkingSessionRecord,
-  DeploymentBinding,
-  DynamicRegistrationStateRecord,
-  LtiPlacement,
-  PersistedDeploymentLmsType,
-  RuntimeSessionRecord,
-} from '../lti/types.ts';
-import type { LtiProfileId } from '../lti/profile.ts';
+import type { RuntimeSessionRecord } from '../lti/types.ts';
 import type { AppGenerationRunRecord, AppGenerationWorkspaceRecord } from '../app_writer/types.ts';
 
 export interface PackageReviewRepository {
   registerPackageVersion(input: ImportedPackageVersion): Promise<PackageVersionRecord>;
+  registerPythonLabTrialPackageVersion(
+    input: ImportedPackageVersion,
+  ): Promise<PackageVersionRecord>;
   listPackageVersions(): Promise<PackageVersionRecord[]>;
   listPackageVersionsByApp(appId: string): Promise<PackageVersionRecord[]>;
+  deletePythonLabPackageVersion(id: number): Promise<void>;
   getPackageVersionById(id: number): Promise<PackageVersionRecord | null>;
   getPackageVersionByAppVersion(
     appId: string,
@@ -47,55 +37,6 @@ export interface PackageReviewRepository {
     reviewNotes: string | null;
     accessibilityReview: AccessibilityReview | null;
   }): Promise<PackageVersionRecord>;
-  getDeploymentBySlug(slug: string): Promise<DeploymentRecord | null>;
-  listDeploymentsByApp(appId: string): Promise<DeploymentRecord[]>;
-  getDeploymentByBinding(
-    binding: Pick<DeploymentBinding, 'lms' | 'issuer' | 'clientId' | 'deploymentId'>,
-  ): Promise<DeploymentRecord | null>;
-  getDeploymentByPlatformIdentity(input: {
-    issuer: string;
-    clientId: string | null;
-    deploymentId: string;
-  }): Promise<DeploymentRecord | null>;
-  completePendingCanvasBinding(input: {
-    issuer: string;
-    clientId: string;
-    deploymentId: string;
-  }): Promise<DeploymentRecord | null>;
-  createDynamicRegistrationState(
-    record: DynamicRegistrationStateRecord,
-  ): Promise<DynamicRegistrationStateRecord>;
-  getDynamicRegistrationStateByState(state: string): Promise<DynamicRegistrationStateRecord | null>;
-  consumeDynamicRegistrationState(input: {
-    state: string;
-    usedAt: string;
-  }): Promise<DynamicRegistrationStateRecord>;
-  createDeepLinkingSession(record: DeepLinkingSessionRecord): Promise<DeepLinkingSessionRecord>;
-  getDeepLinkingSessionById(sessionId: string): Promise<DeepLinkingSessionRecord | null>;
-  consumeDeepLinkingSession(input: {
-    sessionId: string;
-    usedAt: string;
-  }): Promise<DeepLinkingSessionRecord>;
-  updateDeepLinkingSessionSelection(input: {
-    sessionId: string;
-    selection: DeepLinkingSessionRecord['selection'];
-  }): Promise<DeepLinkingSessionRecord>;
-  listDeepLinkingResourceOptions(
-    appId: string,
-    placement: LtiPlacement,
-  ): Promise<DeepLinkingResourceOption[]>;
-  createReviewedPlacement(record: ReviewedPlacementRecord): Promise<ReviewedPlacementRecord>;
-  getReviewedPlacementById(placementId: string): Promise<ReviewedPlacementRecord | null>;
-  listReviewedPlacementsByPackageVersion(
-    packageVersionId: number,
-  ): Promise<ReviewedPlacementRecord[]>;
-  getPlacementAuditSnapshotById(placementId: string): Promise<PlacementAuditSnapshot | null>;
-  requirePlacementAuditSnapshotById(placementId: string): Promise<PlacementAuditSnapshot>;
-  bindReviewedPlacementResourceLink(input: {
-    placementId: string;
-    resourceLinkId: string;
-    boundAt: string;
-  }): Promise<ReviewedPlacementRecord>;
   createPreviewSession(record: PreviewSessionRecord): Promise<PreviewSessionRecord>;
   getPreviewSessionById(sessionId: string): Promise<PreviewSessionRecord | null>;
   getLatestPreviewSessionByPackageVersion(
@@ -140,9 +81,6 @@ export interface PackageReviewRepository {
   listPreviewEvidence(previewSessionId: string): Promise<PreviewEvidenceRecord[]>;
   createRuntimeSession(record: RuntimeSessionRecord): Promise<RuntimeSessionRecord>;
   getRuntimeSessionById(sessionId: string): Promise<RuntimeSessionRecord | null>;
-  getLatestRuntimeSessionByDeploymentId(
-    deploymentRecordId: number,
-  ): Promise<RuntimeSessionRecord | null>;
   createAttempt(record: Omit<AttemptRecord, 'id'>): Promise<AttemptRecord>;
   getAttemptById(attemptId: string): Promise<AttemptRecord | null>;
   listAttemptsByApp(appId: string): Promise<AttemptRecord[]>;
@@ -171,58 +109,7 @@ export interface PackageReviewRepository {
     attemptId: string;
     localState: AttemptRecord['localState'];
   }): Promise<AttemptRecord>;
-  getLineItemBinding(input: {
-    deploymentRecordId: number;
-    packageVersionId: number;
-    contextId: string;
-    resourceLinkId: string;
-    activityId: string;
-  }): Promise<LineItemBindingRecord | null>;
-  saveLineItemBinding(record: Omit<LineItemBindingRecord, 'id'>): Promise<LineItemBindingRecord>;
-  getGradePublicationByAttemptId(attemptId: string): Promise<GradePublicationRecord | null>;
-  createGradePublication(
-    record: Omit<GradePublicationRecord, 'id'>,
-  ): Promise<GradePublicationRecord>;
-  updateGradePublication(input: {
-    attemptId: string;
-    status: GradePublicationRecord['status'];
-    updatedAt: string;
-    publishedAt: string | null;
-    errorCode: string | null;
-    errorDetail: Record<string, unknown> | null;
-  }): Promise<GradePublicationRecord>;
   recordAuditEvent(record: Omit<AuditEventRecord, 'id'>): Promise<AuditEventRecord>;
   listAuditEventsByAttemptId(attemptId: string): Promise<AuditEventRecord[]>;
   listAuditEventsByEventType(eventType: string): Promise<AuditEventRecord[]>;
-  saveDeploymentBinding(input: {
-    slug: string;
-    label: string;
-    appId: string;
-    binding: DeploymentBinding;
-  }): Promise<DeploymentRecord>;
-  saveCanvasRegistration(input: {
-    slug: string;
-    label: string;
-    appId: string;
-    canvasEnvironment: Extract<DeploymentBinding, { lms: 'canvas' }>['canvasEnvironment'];
-    issuer: string;
-    clientId: string;
-  }): Promise<DeploymentRecord>;
-  pinDeploymentVersion(input: {
-    slug: string;
-    label: string;
-    appId: string;
-    packageVersionId: number;
-    lmsType: PersistedDeploymentLmsType;
-  }): Promise<DeploymentRecord>;
-  getLanternLtiProfileSettings(): Promise<import('./types.ts').LanternLtiProfileSettingsRecord>;
-  saveLanternDefaultLtiProfile(input: {
-    defaultLtiProfile: LtiProfileId;
-  }): Promise<import('./types.ts').LanternLtiProfileSettingsRecord>;
-  saveDeploymentLtiProfileOverride(input: {
-    deploymentId: number;
-    ltiProfileOverride: LtiProfileId | null;
-  }): Promise<DeploymentRecord>;
 }
-
-export { derivePlacementAuditStatus } from './repository_mappers_review.ts';

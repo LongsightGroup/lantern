@@ -18,6 +18,8 @@ const DYNAMIC_WORKER_COMPATIBILITY_DATE = '2026-04-06';
 const REVIEWED_RUNTIME_ENVELOPE_VERSION = 'v1';
 const INTERNAL_BROWSER_GRADER_PREFIX = '/_lantern_internal/browser-grader';
 const INTERNAL_RUNTIME_ORIGIN = 'https://reviewed-runtime.internal';
+const REVIEWED_WORKER_CPU_MS = 50;
+const REVIEWED_WORKER_SUBREQUESTS = 8;
 
 const textEncoder = new TextEncoder();
 
@@ -26,7 +28,15 @@ export interface DynamicWorkerEntrypoint {
 }
 
 export interface DynamicWorkerInstance {
-  getEntrypoint(): DynamicWorkerEntrypoint;
+  getEntrypoint(
+    name?: string | null,
+    options?: {
+      readonly limits?: {
+        readonly cpuMs: number;
+        readonly subRequests: number;
+      };
+    },
+  ): DynamicWorkerEntrypoint;
 }
 
 export interface DynamicWorkerCode {
@@ -34,6 +44,11 @@ export interface DynamicWorkerCode {
   mainModule: string;
   modules: Record<string, string>;
   globalOutbound: null;
+  limits: {
+    cpuMs: number;
+    subRequests: number;
+  };
+  env?: Record<string, unknown>;
 }
 
 export interface DynamicWorkerLoader {
@@ -51,6 +66,10 @@ interface ImmutableRuntimeAsset {
 export function createDynamicWorkerRuntimeDelivery(input: {
   loader: DynamicWorkerLoader;
   snapshotStore: PackageSnapshotStore;
+  createLmsBinding?: (identity: {
+    readonly appId: string;
+    readonly packageVersionId: number;
+  }) => unknown;
   envelopeVersion?: string;
 }): RuntimeDelivery {
   const envelopeVersion = input.envelopeVersion ?? REVIEWED_RUNTIME_ENVELOPE_VERSION;
@@ -111,6 +130,36 @@ export function createDynamicWorkerRuntimeDelivery(input: {
         relativePath: delivery.assetPath,
       });
     },
+    async invokeReviewedWorker(delivery) {
+      if (delivery.reviewedPackage.runtime.kind !== 'worker') {
+        throw new Error('Only reviewed Worker packages can be invoked as server apps.');
+      }
+      if (input.createLmsBinding === undefined) {
+        throw new Error('Reviewed Worker apps require the Lantern LMS capability binding.');
+      }
+      const workerId = buildReviewedRuntimeWorkerId({
+        runtimeContractSignature: delivery.reviewedPackage.runtimeContractSignature,
+        envelopeVersion,
+      });
+      const worker = input.loader.get(
+        workerId,
+        () =>
+          buildReviewedAppWorkerCode({
+            ...delivery,
+            snapshotStore: input.snapshotStore,
+            lmsBinding: input.createLmsBinding!({
+              appId: delivery.reviewedPackage.appId,
+              packageVersionId: delivery.reviewedPackage.id,
+            }),
+          }),
+      );
+      return await worker.getEntrypoint(null, {
+        limits: {
+          cpuMs: REVIEWED_WORKER_CPU_MS,
+          subRequests: REVIEWED_WORKER_SUBREQUESTS,
+        },
+      }).fetch(delivery.request);
+    },
   };
 }
 
@@ -138,6 +187,45 @@ export async function buildReviewedRuntimeWorkerCode(
       'index.js': buildReviewedRuntimeWorkerSource(assets),
     },
     globalOutbound: null,
+    limits: {
+      cpuMs: REVIEWED_WORKER_CPU_MS,
+      subRequests: REVIEWED_WORKER_SUBREQUESTS,
+    },
+  };
+}
+
+export async function buildReviewedAppWorkerCode(
+  input: ReviewedRuntimeDeliveryContext & {
+    snapshotStore: PackageSnapshotStore;
+    lmsBinding: unknown;
+  },
+): Promise<DynamicWorkerCode> {
+  if (input.reviewedPackage.runtime.kind !== 'worker') {
+    throw new Error('Reviewed app Worker code requires a worker runtime contract.');
+  }
+  const relativePath = requireRelativeSnapshotPath(
+    trimLeadingSlash(input.reviewedPackage.runtime.entrypoint),
+    'Reviewed Worker entrypoint must stay inside the package snapshot.',
+  );
+  const bytes = await input.snapshotStore.readBytes(input.session.snapshotRoot, relativePath);
+  let source: string;
+  try {
+    source = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error('Reviewed Worker entrypoint must be valid UTF-8 JavaScript.');
+  }
+  return {
+    compatibilityDate: DYNAMIC_WORKER_COMPATIBILITY_DATE,
+    mainModule: 'index.js',
+    modules: { 'index.js': source },
+    globalOutbound: null,
+    limits: {
+      cpuMs: REVIEWED_WORKER_CPU_MS,
+      subRequests: REVIEWED_WORKER_SUBREQUESTS,
+    },
+    env: {
+      LANTERN_LMS: input.lmsBinding,
+    },
   };
 }
 

@@ -12,10 +12,8 @@ export async function recordAppWriterWorkflowQueuedEvent(input: {
     eventType: 'app_generation.generating',
     actorType: 'user',
     actorId: input.run.ownerId,
-    deploymentRecordId: null,
     packageVersionId: input.run.packageVersionId,
     attemptId: null,
-    lineItemBindingId: null,
     status: 'accepted',
     summary: input.summary,
     detail: {

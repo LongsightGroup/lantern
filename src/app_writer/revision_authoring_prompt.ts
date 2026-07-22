@@ -11,7 +11,7 @@ export function buildRevisionAuthoringPrompt(input: {
     targetVersion: input.targetVersion,
     title: packageVersion.title,
     description: packageVersion.description,
-    entrypoint: packageVersion.entrypoint,
+    entrypoint: packageVersion.runtime.entrypoint,
     roles: packageVersion.roles,
     installScope: packageVersion.installScope,
     grading: packageVersion.grading,

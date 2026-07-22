@@ -324,7 +324,6 @@ Deno.test('preview service defaults admin launches to admin origin and canonical
 
     assertEquals(prepared.origin, 'adminTestLaunch');
     assertEquals(prepared.contentPath, '/content/activity.json');
-    assertEquals(prepared.deepLinkingSessionId, null);
   } finally {
     await Deno.remove(snapshotRoot, { recursive: true });
   }
@@ -390,8 +389,7 @@ Deno.test('preview service keeps explicit authoring origin and selected content 
         activityId: '/content/bonus.json',
         contentPath: '/content/bonus.json',
       },
-      previewOrigin: 'deepLinkingAuthoring',
-      deepLinkingSessionId: 'deep-linking-session-42',
+      previewOrigin: 'adminAuthoringDraft',
       now: () => new Date('2026-04-01T10:05:00Z'),
       createOpaqueToken: () => {
         const token = tokens[index] ?? 'opaque-fallback';
@@ -400,9 +398,8 @@ Deno.test('preview service keeps explicit authoring origin and selected content 
       },
     });
 
-    assertEquals(launched.previewSession.origin, 'deepLinkingAuthoring');
+    assertEquals(launched.previewSession.origin, 'adminAuthoringDraft');
     assertEquals(launched.previewSession.contentPath, '/content/bonus.json');
-    assertEquals(launched.previewSession.deepLinkingSessionId, 'deep-linking-session-42');
     assertEquals(launched.runtimeSession.contentPath, `${snapshotRoot}/content/bonus.json`);
     assertEquals(launched.runtimeSession.launch.activityId, '/content/bonus.json');
     assertEquals(launched.runtimeSession.launch.submissionMode, 'anonymous_submission');
@@ -470,8 +467,7 @@ Deno.test('preview runtime sessions from admin and authoring origins both keep l
         activityId: '/content/bonus.json',
         contentPath: '/content/bonus.json',
       },
-      previewOrigin: 'deepLinkingAuthoring',
-      deepLinkingSessionId: 'deep-linking-session-84',
+      previewOrigin: 'adminAuthoringDraft',
       now: () => new Date('2026-04-01T10:08:00Z'),
       createOpaqueToken: () => crypto.randomUUID(),
     });
@@ -599,7 +595,7 @@ async function writePreviewManifest(snapshotRoot: string, fixturesFile: string):
   await Deno.writeTextFile(
     `${snapshotRoot}/manifest.json`,
     JSON.stringify({
-      schema_version: '1',
+      schema_version: '2',
       app_id: 'chapter-4-asteroids',
       version: '0.1.0',
       title: 'Chapter 4 Asteroids',
@@ -607,7 +603,7 @@ async function writePreviewManifest(snapshotRoot: string, fixturesFile: string):
         type: 'user',
         id: 'instructor_123',
       },
-      entrypoint: '/dist/index.html',
+      runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
       roles: ['learner', 'instructor'],
       install_scope: 'course',
       capabilities: [

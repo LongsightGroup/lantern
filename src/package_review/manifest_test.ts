@@ -24,7 +24,10 @@ type ManifestFixture = {
     type: 'user';
     id: string;
   };
-  entrypoint: string;
+  runtime: {
+    kind: 'browser' | 'worker';
+    entrypoint: string;
+  };
   roles: string[];
   install_scope?: string;
   capabilities: string[];
@@ -131,7 +134,7 @@ async function createPackageFixture(
 
 function buildValidManifest(): ManifestFixture {
   return {
-    schema_version: '1',
+    schema_version: '2',
     app_id: 'chapter-4-asteroids',
     version: '0.1.0',
     title: 'Chapter 4 Asteroids',
@@ -140,7 +143,7 @@ function buildValidManifest(): ManifestFixture {
       type: 'user',
       id: 'instructor_123',
     },
-    entrypoint: '/dist/index.html',
+    runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
     roles: ['learner', 'instructor'],
     install_scope: 'course',
     capabilities: [
@@ -194,10 +197,33 @@ Deno.test('validateManifest accepts the demo manifest and returns typed review d
   assertEquals(result.reviewData.version, '0.1.0');
   assertEquals(result.reviewData.title, 'Chapter 4 Asteroids');
   assertEquals(result.reviewData.owner.id, 'instructor_123');
-  assertEquals(result.reviewData.entrypoint, '/dist/index.html');
+  assertEquals(result.reviewData.runtime.entrypoint, '/dist/index.html');
   assertEquals(result.reviewData.grading.mode, 'declarative');
   assertEquals(result.reviewData.grading.rubricFile, '/scoring/rubric.json');
   assertEquals(result.reviewData.validationIssues, []);
+});
+
+Deno.test('validateManifest rejects manifest v1 instead of using a compatibility parser', async () => {
+  const root = await createPackageFixture({
+    ...buildValidManifest(),
+    schema_version: '1',
+  });
+  try {
+    const result = await validateManifest(createFileSystemPackageSource(root));
+    assertEquals(result.ok, false);
+    if (result.ok) {
+      throw new Error('Expected manifest v1 to be rejected.');
+    }
+    assertEquals(
+      result.issues.some((issue) =>
+        issue.field === '/schema_version' &&
+        issue.message === 'Schema version must be "2".'
+      ),
+      true,
+    );
+  } finally {
+    await Deno.remove(root, { recursive: true });
+  }
 });
 
 Deno.test('reviewed runtime contracts fail closed when the approved artifact, capability manifest, or signature drifts', async () => {
@@ -272,15 +298,19 @@ Deno.test('validateManifest accepts each curated reference app manifest and keep
     }
 
     assertEquals(result.reviewData.appId, appId);
-    assertEquals(result.reviewData.capabilities.includes('finalize_attempt'), true);
-    assertEquals(result.reviewData.capabilities.includes('read_activity_content'), true);
+    if (result.reviewData.runtime.kind === 'browser') {
+      assertEquals(result.reviewData.capabilities.includes('finalize_attempt'), true);
+      assertEquals(result.reviewData.capabilities.includes('read_activity_content'), true);
+    } else {
+      assertEquals(result.reviewData.capabilities.includes('lms.roster.members.read'), true);
+    }
   }
 });
 
 Deno.test('validateManifest maps schema failures into a plain-language fix list', async () => {
   const root = await createPackageFixture({
     ...buildValidManifest(),
-    entrypoint: '/index.html',
+    runtime: { kind: 'browser', entrypoint: '/index.html' },
     grading: {
       mode: 'declarative',
     },
@@ -297,11 +327,17 @@ Deno.test('validateManifest maps schema failures into a plain-language fix list'
 
     assertEquals(
       result.issues.map((issue: { field: string }) => issue.field),
-      ['/entrypoint', '/grading/rubric_file', '/grading/max_score'],
+      [
+        '/runtime/entrypoint',
+        '/runtime/kind',
+        '/runtime',
+        '/grading/rubric_file',
+        '/grading/max_score',
+      ],
     );
-    assertStringIncludes(result.issues[0]?.message ?? '', 'Entrypoint');
-    assertStringIncludes(result.issues[1]?.message ?? '', 'rubric file');
-    assertStringIncludes(result.issues[2]?.message ?? '', 'max score');
+    assertStringIncludes(result.issues[0]?.message ?? '', 'entrypoint');
+    assertStringIncludes(result.issues[3]?.message ?? '', 'rubric file');
+    assertStringIncludes(result.issues[4]?.message ?? '', 'max score');
     for (const issue of result.issues) {
       assert(!issue.message.includes('must match pattern'));
       assert(!issue.message.includes('must have required property'));
@@ -355,7 +391,7 @@ Deno.test('validateManifest rejects root-relative reviewed asset URLs in the ent
     assertEquals(
       result.issues.some(
         (issue: { field: string; keyword: string }) =>
-          issue.field === '/entrypoint' && issue.keyword === 'invalid_asset_path',
+          issue.field === '/runtime/entrypoint' && issue.keyword === 'invalid_asset_path',
       ),
       true,
     );

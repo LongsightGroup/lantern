@@ -14,8 +14,8 @@ export function renderHomePage(): string {
       </section>
 
       <section class="route-list" aria-label="Primary app routes">
-        <a href="/admin/packages">Admin packages</a>
-        <a href="/admin/deployments">Deployments</a>
+        <a href="/admin/governance">Institution governance</a>
+        <a href="/admin/packages">Reviewed apps</a>
         <a href="/health">Health</a>
       </section>
     </main>`,

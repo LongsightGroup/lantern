@@ -36,6 +36,16 @@ export async function requireRuntimeSession(
     });
   }
 
+  if (session.preview.previewSessionId === '') {
+    failRuntimeOutcome({
+      type: 'integrity_failure',
+      code: 'preview_session_missing',
+      message: `Runtime session ${sessionId} is not bound to a preview session.`,
+      status: 409,
+      detail: { sessionId },
+    });
+  }
+
   return session;
 }
 
@@ -262,10 +272,8 @@ async function recordRuntimeAuditEvent(input: {
     eventType: input.eventType,
     actorType: 'system',
     actorId: null,
-    deploymentRecordId: input.session.deploymentRecordId,
     packageVersionId: input.session.packageVersionId,
     attemptId: input.session.attemptId,
-    lineItemBindingId: null,
     status: input.status,
     summary: input.summary,
     detail: buildRuntimeDetailRecord({

@@ -1,10 +1,4 @@
-import { createLocalJWKSet, jwtVerify } from 'jose';
-import { getPublicJwkSet } from './lti/tool_key.ts';
-import {
-  buildDeploymentBinding,
-  getTestToolPrivateJwkEnvValue,
-  TEST_LTI_STATE_SECRET,
-} from './test_helpers/lti.ts';
+import { getTestToolPrivateJwkEnvValue, TEST_LTI_STATE_SECRET } from './test_helpers/lti.ts';
 
 export const REFERENCE_APP_SNAPSHOT_ROOTS = {
   'chapter-4-asteroids': 'examples/apps/chapter-4-asteroids',
@@ -83,27 +77,6 @@ export function extractHiddenInputValue(html: string, name: string): string {
   }
 
   return match[1];
-}
-
-export async function verifyDeepLinkingResponseJwt(jwt: string) {
-  const keySet = createLocalJWKSet(
-    await getPublicJwkSet({
-      get(name: string) {
-        return name === 'LTI_TOOL_PRIVATE_JWK'
-          ? getTestToolPrivateJwkEnvValue()
-          : name === 'LTI_STATE_SECRET'
-          ? TEST_LTI_STATE_SECRET
-          : undefined;
-      },
-    }),
-  );
-  const binding = buildDeploymentBinding();
-
-  return await jwtVerify(jwt, keySet, {
-    issuer: binding.clientId,
-    audience: binding.issuer,
-    currentDate: new Date('2026-03-24T18:31:00Z'),
-  });
 }
 
 export async function withFetchStub<T>(

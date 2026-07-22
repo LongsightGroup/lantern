@@ -1,5 +1,5 @@
 import type { D1Database } from '../db/d1.ts';
-import { queryD1First, queryD1Objects, runD1 } from '../db/d1.ts';
+import { queryD1First, queryD1Objects, runD1, runD1Batch } from '../db/d1.ts';
 import {
   expectD1JsonRecord,
   expectD1NullableNumber,
@@ -24,9 +24,7 @@ import type {
   ValidationIssue,
 } from './types.ts';
 import { createD1AuthoringRepositoryMethods } from './repository_authoring_d1.ts';
-import { createD1DeepLinkingRepositoryMethods } from './repository_deep_linking_d1.ts';
-import { createD1DeploymentRepositoryMethods } from './repository_deployments_d1.ts';
-import { createD1GradingRepositoryMethods } from './repository_grading_d1.ts';
+import { createD1ActivityRepositoryMethods } from './repository_activity_d1.ts';
 import { createD1LaunchStateRepositoryMethods } from './repository_launch_state_d1.ts';
 import { createD1PreviewRepositoryMethods } from './repository_preview_d1.ts';
 import { createD1AppGenerationRepositoryMethods } from '../app_writer/repository_d1.ts';
@@ -34,10 +32,8 @@ import { createD1AppGenerationRepositoryMethods } from '../app_writer/repository
 export function createD1PackageReviewRepository(db: D1Database): PackageReviewRepository {
   const portedMethods: PackageReviewRepository = {
     ...createD1PackageVersionRepositoryMethods(db),
-    ...createD1DeploymentRepositoryMethods(db),
     ...createD1LaunchStateRepositoryMethods(db),
-    ...createD1GradingRepositoryMethods(db),
-    ...createD1DeepLinkingRepositoryMethods(db),
+    ...createD1ActivityRepositoryMethods(db),
     ...createD1PreviewRepositoryMethods(db),
     ...createD1AuthoringRepositoryMethods(db),
     ...createD1AppGenerationRepositoryMethods(db),
@@ -51,91 +47,28 @@ export function createD1PackageVersionRepositoryMethods(
 ): Pick<
   PackageReviewRepository,
   | 'registerPackageVersion'
+  | 'registerPythonLabTrialPackageVersion'
   | 'listPackageVersions'
   | 'listPackageVersionsByApp'
+  | 'deletePythonLabPackageVersion'
   | 'getPackageVersionById'
   | 'getPackageVersionByAppVersion'
   | 'approvePackageVersion'
   | 'rejectPackageVersion'
 > {
   return {
-    async registerPackageVersion(input: ImportedPackageVersion) {
-      try {
-        await runD1(
-          db,
-          `
-            INSERT INTO package_versions (
-              app_id,
-              version,
-              title,
-              description,
-              owner_type,
-              owner_id,
-              entrypoint,
-              roles,
-              install_scope,
-              capabilities,
-              grading_mode,
-              grading_rubric_file,
-              grading_max_score,
-              approval_status,
-              review_notes,
-              accessibility_review,
-              reviewed_at,
-              validation_issues,
-              manifest_json,
-              artifact_root,
-              artifact_digest,
-              runtime_contract,
-              runtime_contract_signature
-            ) VALUES (
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-              ?, ?, ?, 'pending', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?
-            )
-          `,
-          [
-            input.reviewData.appId,
-            input.reviewData.version,
-            input.reviewData.title,
-            input.reviewData.description,
-            input.reviewData.owner.type,
-            input.reviewData.owner.id,
-            input.reviewData.entrypoint,
-            input.reviewData.roles,
-            input.reviewData.installScope,
-            input.reviewData.capabilities,
-            input.reviewData.grading.mode,
-            input.reviewData.grading.rubricFile,
-            input.reviewData.grading.maxScore,
-            input.reviewData.validationIssues,
-            input.reviewData.manifestJson,
-            input.artifact.snapshotRoot,
-            input.artifact.digest,
-            input.runtimeContract,
-            input.runtimeContractSignature,
-          ],
-        );
-      } catch (error) {
-        if (isD1UniqueViolation(error)) {
-          throw new Error(
-            `Package version ${input.reviewData.appId}@${input.reviewData.version} already exists and cannot be replaced.`,
-          );
-        }
+    registerPackageVersion(input) {
+      return registerD1PackageVersion(db, input, 'catalog');
+    },
 
-        throw error;
-      }
-
-      return await getRequiredPackageVersionByAppVersion(
-        db,
-        input.reviewData.appId,
-        input.reviewData.version,
-      );
+    registerPythonLabTrialPackageVersion(input) {
+      return registerD1PackageVersion(db, input, 'python_lab_trial');
     },
 
     async listPackageVersions() {
       const rows = await queryD1Objects<D1PackageVersionRow>(
         db,
-        `${D1_PACKAGE_VERSION_SELECT} ORDER BY app_id ASC, imported_at DESC`,
+        `${D1_PACKAGE_VERSION_SELECT} WHERE catalog_visibility = 'catalog' ORDER BY app_id ASC, imported_at DESC`,
       );
 
       return sortPackageVersions(rows.map(mapD1PackageVersionRow));
@@ -144,7 +77,7 @@ export function createD1PackageVersionRepositoryMethods(
     async listPackageVersionsByApp(appId) {
       const rows = await queryD1Objects<D1PackageVersionRow>(
         db,
-        `${D1_PACKAGE_VERSION_SELECT} WHERE app_id = ?`,
+        `${D1_PACKAGE_VERSION_SELECT} WHERE app_id = ? AND catalog_visibility = 'catalog'`,
         [appId],
       );
 
@@ -171,6 +104,39 @@ export function createD1PackageVersionRepositoryMethods(
       return mapOptionalPackageVersion(row === null ? undefined : mapD1PackageVersionFields(row));
     },
 
+    async deletePythonLabPackageVersion(id) {
+      const packageVersion = await queryD1First<D1PackageVersionRow>(
+        db,
+        `${D1_PACKAGE_VERSION_SELECT} WHERE id = ?`,
+        [id],
+      );
+
+      if (packageVersion === null) {
+        return;
+      }
+
+      if (packageVersion.catalogVisibility !== 'python_lab_trial') {
+        throw new Error(`Package version ${id} is not a Python Lab trial package.`);
+      }
+
+      const installation = await queryD1First<Record<string, unknown>>(
+        db,
+        `SELECT id FROM app_installations
+         WHERE package_version_id = ? LIMIT 1`,
+        [id],
+      );
+
+      if (installation !== null) {
+        throw new Error(`Python Lab package version ${id} is unexpectedly installed.`);
+      }
+
+      await runD1Batch(db, [{
+        sql: `DELETE FROM package_versions
+            WHERE id = ? AND catalog_visibility = 'python_lab_trial'`,
+        parameters: [id],
+      }]);
+    },
+
     async approvePackageVersion(input) {
       return await reviewD1PackageVersion(
         db,
@@ -193,6 +159,90 @@ export function createD1PackageVersionRepositoryMethods(
   };
 }
 
+async function registerD1PackageVersion(
+  db: D1Database,
+  input: ImportedPackageVersion,
+  catalogVisibility: 'catalog' | 'python_lab_trial',
+) {
+  try {
+    await runD1(
+      db,
+      `
+        INSERT INTO package_versions (
+          app_id,
+          version,
+          title,
+          description,
+          owner_type,
+          owner_id,
+          entrypoint,
+          roles,
+          install_scope,
+          capabilities,
+          grading_mode,
+          grading_rubric_file,
+          grading_max_score,
+          sandbox_grading_enabled,
+          catalog_visibility,
+          approval_status,
+          review_notes,
+          accessibility_review,
+          reviewed_at,
+          validation_issues,
+          manifest_json,
+          artifact_root,
+          artifact_digest,
+          runtime_contract,
+          runtime_contract_signature
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+      `,
+      [
+        input.reviewData.appId,
+        input.reviewData.version,
+        input.reviewData.title,
+        input.reviewData.description,
+        input.reviewData.owner.type,
+        input.reviewData.owner.id,
+        input.reviewData.runtime.entrypoint,
+        input.reviewData.roles,
+        input.reviewData.installScope,
+        input.reviewData.capabilities,
+        storedGradingMode(input.reviewData.grading.mode),
+        input.reviewData.grading.rubricFile,
+        input.reviewData.grading.maxScore,
+        input.reviewData.grading.mode === 'sandbox' ? 1 : 0,
+        catalogVisibility,
+        'pending',
+        null,
+        null,
+        null,
+        input.reviewData.validationIssues,
+        input.reviewData.manifestJson,
+        input.artifact.snapshotRoot,
+        input.artifact.digest,
+        input.runtimeContract,
+        input.runtimeContractSignature,
+      ],
+    );
+  } catch (error) {
+    if (isD1UniqueViolation(error)) {
+      throw new Error(
+        `Package version ${input.reviewData.appId}@${input.reviewData.version} already exists and cannot be replaced.`,
+      );
+    }
+
+    throw error;
+  }
+
+  return await getRequiredPackageVersionByAppVersion(
+    db,
+    input.reviewData.appId,
+    input.reviewData.version,
+  );
+}
+
 export const D1_PACKAGE_VERSION_SELECT = `
   SELECT
     id,
@@ -209,6 +259,8 @@ export const D1_PACKAGE_VERSION_SELECT = `
     grading_mode AS gradingMode,
     grading_rubric_file AS gradingRubricFile,
     grading_max_score AS gradingMaxScore,
+    sandbox_grading_enabled AS sandboxGradingEnabled,
+    catalog_visibility AS catalogVisibility,
     approval_status AS approvalStatus,
     review_notes AS reviewNotes,
     accessibility_review AS accessibilityReview,
@@ -238,6 +290,8 @@ export interface D1PackageVersionRow extends Record<string, unknown> {
   gradingMode: unknown;
   gradingRubricFile: unknown;
   gradingMaxScore: unknown;
+  sandboxGradingEnabled: unknown;
+  catalogVisibility: unknown;
   approvalStatus: unknown;
   reviewNotes: unknown;
   accessibilityReview: unknown;
@@ -326,12 +380,23 @@ function mapD1PackageVersionFields(row: D1PackageVersionRow): PackageVersionRow 
       'package_versions.capabilities',
       parseCapabilityArray,
     ),
-    gradingMode: expectD1StringLiteral(row.gradingMode, 'package_versions.gradingMode', [
-      'declarative',
-      'manual',
-      'completion',
-      'browser',
-    ]),
+    gradingMode: parseEffectiveGradingMode({
+      gradingMode: expectD1StringLiteral(row.gradingMode, 'package_versions.gradingMode', [
+        'declarative',
+        'manual',
+        'completion',
+        'browser',
+        'sandbox',
+      ]),
+      sandboxGradingEnabled: expectD1Number(
+        row.sandboxGradingEnabled,
+        'package_versions.sandboxGradingEnabled',
+      ),
+    }),
+    sandboxGradingEnabled: expectD1Number(
+      row.sandboxGradingEnabled,
+      'package_versions.sandboxGradingEnabled',
+    ),
     gradingRubricFile: expectD1NullableString(
       row.gradingRubricFile,
       'package_versions.gradingRubricFile',
@@ -339,6 +404,11 @@ function mapD1PackageVersionFields(row: D1PackageVersionRow): PackageVersionRow 
     gradingMaxScore: expectD1NullableNumber(
       row.gradingMaxScore,
       'package_versions.gradingMaxScore',
+    ),
+    catalogVisibility: expectD1StringLiteral(
+      row.catalogVisibility,
+      'package_versions.catalogVisibility',
+      ['catalog', 'python_lab_trial'],
     ),
     approvalStatus: expectD1StringLiteral(row.approvalStatus, 'package_versions.approvalStatus', [
       'pending',
@@ -377,6 +447,27 @@ function mapD1PackageVersionFields(row: D1PackageVersionRow): PackageVersionRow 
   };
 }
 
+function storedGradingMode(
+  mode: PackageVersionRow['gradingMode'],
+): Exclude<PackageVersionRow['gradingMode'], 'sandbox'> {
+  return mode === 'sandbox' ? 'browser' : mode;
+}
+
+function parseEffectiveGradingMode(input: {
+  readonly gradingMode: PackageVersionRow['gradingMode'];
+  readonly sandboxGradingEnabled: number;
+}): PackageVersionRow['gradingMode'] {
+  if (input.sandboxGradingEnabled === 0) {
+    return input.gradingMode;
+  }
+
+  if (input.sandboxGradingEnabled === 1 && input.gradingMode === 'browser') {
+    return 'sandbox';
+  }
+
+  throw new TypeError('package_versions.sandboxGradingEnabled was invalid.');
+}
+
 function isD1UniqueViolation(error: unknown): boolean {
   return error instanceof Error && error.message.includes('UNIQUE constraint failed');
 }
@@ -397,6 +488,7 @@ function parseCapabilityArray(value: unknown, fieldName: string): Capability[] {
       'finalize_attempt',
       'read_local_state',
       'write_local_state',
+      'run_code_submission',
     ])
   );
 }
@@ -449,11 +541,28 @@ function parseReviewedRuntimeContract(
   const record = expectD1JsonRecord(value, fieldName);
 
   return {
+    runtimeContractVersion: expectD1StringLiteral(
+      record.runtimeContractVersion,
+      `${fieldName}.runtimeContractVersion`,
+      ['2'],
+    ),
     appId: expectD1String(record.appId, `${fieldName}.appId`),
     packageVersion: expectD1String(record.packageVersion, `${fieldName}.packageVersion`),
     artifactDigest: expectD1String(record.artifactDigest, `${fieldName}.artifactDigest`),
-    entrypoint: expectD1String(record.entrypoint, `${fieldName}.entrypoint`),
+    runtime: parseAppRuntime(record.runtime, `${fieldName}.runtime`),
     capabilities: parseCapabilityArray(record.capabilities, `${fieldName}.capabilities`),
+  };
+}
+
+function parseAppRuntime(
+  value: unknown,
+  fieldName: string,
+): ReviewedRuntimeContract['runtime'] {
+  const record = expectD1JsonRecord(value, fieldName);
+  const kind = expectD1StringLiteral(record.kind, `${fieldName}.kind`, ['browser', 'worker']);
+  return {
+    kind,
+    entrypoint: expectD1String(record.entrypoint, `${fieldName}.entrypoint`),
   };
 }
 

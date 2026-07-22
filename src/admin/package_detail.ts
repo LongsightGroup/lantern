@@ -10,12 +10,10 @@ import {
   summarizeValidation,
 } from '../package_review/summary.ts';
 import type {
-  AuditEventRecord,
   GradingSettings,
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
-  ReviewedPlacementRecord,
 } from '../package_review/types.ts';
 import {
   type AdminIdentity,
@@ -43,8 +41,6 @@ export function renderPackageDetailPage(input: {
   identity: AdminIdentity;
   packageVersion: PackageVersionRecord;
   history: PackageVersionRecord[];
-  generationActivityEvents?: AuditEventRecord[];
-  reviewedPlacements?: ReviewedPlacementRecord[];
   latestPreviewSession?: PreviewSessionRecord | null;
   previewEvidence?: PreviewEvidenceRecord[];
   notice?: AdminNotice | null;
@@ -154,11 +150,7 @@ export function renderPackageDetailPage(input: {
           </section>
           <section class="fact">
             <span class="fact-label">Next step</span>
-            <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(
-        packageVersion.appId,
-      )
-    }/deployment">Open app settings</a>
+            <a class="button-secondary" href="/admin/governance">Install reviewed app</a>
           </section>
         </aside>
       </div>
@@ -249,8 +241,6 @@ export function renderPackageDetailPage(input: {
         previewEvidence,
       })
     }
-    ${renderGenerationActivitySection(input.generationActivityEvents ?? [])}
-    ${renderReviewedPlacementsSection(input.reviewedPlacements ?? [])}
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Other versions</p>
@@ -435,13 +425,22 @@ function renderCapabilityCard(capability: CapabilitySummary): string {
 }
 
 function summarizeGradeReviewItem(grading: GradingSettings): string | null {
-  if (grading.mode !== 'browser' && grading.mode !== 'declarative') {
+  if (
+    grading.mode !== 'browser' && grading.mode !== 'declarative' &&
+    grading.mode !== 'sandbox'
+  ) {
     return null;
   }
 
-  const gradingLabel = grading.mode === 'browser' ? 'Browser grading' : 'Reviewed scoring rules';
+  const gradingLabel = grading.mode === 'browser'
+    ? 'Browser grading'
+    : grading.mode === 'sandbox'
+    ? 'Python sandbox grading'
+    : 'Reviewed scoring rules';
   const gradingDetail = grading.mode === 'browser'
     ? 'Lantern runs reviewed browser-grader checks and owns any grade publication.'
+    : grading.mode === 'sandbox'
+    ? 'Lantern runs learner Python in an isolated Sandbox and owns the resulting grade publication.'
     : 'Lantern scores the attempt with reviewed scoring rules and owns any grade publication.';
   const maxScore = grading.maxScore === null
     ? 'Maximum score not recorded.'
@@ -529,69 +528,6 @@ function renderRuntimeLogItem(record: PreviewEvidenceRecord): string {
     <p class="micro muted">${escapeHtml(formatDateTime(record.occurredAt))}</p>
     <p class="line-copy">${escapeHtml(record.summary)}</p>
   </article>`;
-}
-
-function renderReviewedPlacementsSection(placements: ReviewedPlacementRecord[]): string {
-  if (placements.length === 0) {
-    return '';
-  }
-
-  return `<section class="panel">
-    <div class="panel-body stack">
-      <p class="section-label">LMS placements using this version</p>
-      <div class="line-list">
-        ${
-    placements
-      .map(
-        (placement) =>
-          `<article class="line-item">
-              <p class="line-title">${escapeHtml(placement.deploymentSlug)} · ${
-            escapeHtml(
-              placement.placementId,
-            )
-          }</p>
-              <p class="line-copy">${
-            escapeHtml(
-              placement.contentTitle ?? placement.contentPath,
-            )
-          }</p>
-              <p class="micro muted">Context ${
-            escapeHtml(
-              placement.contextTitle ?? placement.contextId ?? 'Not recorded',
-            )
-          }; resource link ${escapeHtml(placement.resourceLinkId ?? 'not bound yet')}.</p>
-            </article>`,
-      )
-      .join('')
-  }
-      </div>
-    </div>
-  </section>`;
-}
-
-function renderGenerationActivitySection(events: AuditEventRecord[]): string {
-  if (events.length === 0) {
-    return '';
-  }
-
-  return `<section class="panel">
-    <div class="panel-body stack">
-      <p class="section-label">Generated package activity</p>
-      <div class="line-list">
-        ${
-    events
-      .map(
-        (event) =>
-          `<article class="line-item">
-              <p class="line-title">${escapeHtml(event.summary)}</p>
-              <p class="line-copy">${escapeHtml(formatDateTime(event.occurredAt))}</p>
-            </article>`,
-      )
-      .join('')
-  }
-      </div>
-    </div>
-  </section>`;
 }
 
 function formatInstallScope(scope: PackageVersionRecord['installScope']): string {

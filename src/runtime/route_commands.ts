@@ -32,10 +32,8 @@ export async function acceptRuntimeAttemptEvent(input: {
     eventType: 'attempt.submitted',
     actorType: 'system',
     actorId: null,
-    deploymentRecordId: input.session.deploymentRecordId,
     packageVersionId: input.session.packageVersionId,
     attemptId: input.session.attemptId,
-    lineItemBindingId: null,
     status: 'accepted',
     summary: 'Accepted attempt submission through the runtime gateway.',
     detail: {
@@ -116,10 +114,8 @@ export async function finalizeRuntimeSession(input: {
       eventType: 'attempt.finalized',
       actorType: 'system',
       actorId: null,
-      deploymentRecordId: input.session.deploymentRecordId,
       packageVersionId: input.session.packageVersionId,
       attemptId: input.session.attemptId,
-      lineItemBindingId: null,
       status: 'accepted',
       summary: 'Finalized the durable attempt inside the runtime gateway.',
       detail: buildFinalizeAuditDetail(result),
@@ -133,53 +129,12 @@ export async function finalizeRuntimeSession(input: {
       completionState: result.attempt.completionState,
       scoreGiven: result.score.scoreGiven,
       scoreMaximum: result.score.scoreMaximum,
-      gradePublished: result.gradePublication?.status === 'published',
+      gradePublished: false,
       submissionMode: result.submissionMode,
       evidenceArtifactCount: result.evidenceArtifacts.length,
       evidenceArtifacts: result.evidenceArtifacts,
       browserGraderResult: result.browserGraderResult,
       route: 'finalize',
-      occurredAt,
-    });
-  }
-
-  if (result.gradePublishedNow && result.gradePublication !== null) {
-    await input.repository.recordAuditEvent({
-      eventType: 'grade_publish.succeeded',
-      actorType: 'system',
-      actorId: null,
-      deploymentRecordId: input.session.deploymentRecordId,
-      packageVersionId: input.session.packageVersionId,
-      attemptId: input.session.attemptId,
-      lineItemBindingId: result.lineItemBinding?.id ?? null,
-      status: 'succeeded',
-      summary: 'Published the final score to Canvas through AGS.',
-      detail: {
-        lineItemUrl: result.gradePublication.lineItemUrl,
-        scoreGiven: result.gradePublication.scoreGiven,
-        scoreMaximum: result.gradePublication.scoreMaximum,
-      },
-      occurredAt,
-    });
-  }
-
-  if (result.publishError !== null) {
-    await input.repository.recordAuditEvent({
-      eventType: 'grade_publish.failed',
-      actorType: 'system',
-      actorId: null,
-      deploymentRecordId: input.session.deploymentRecordId,
-      packageVersionId: input.session.packageVersionId,
-      attemptId: input.session.attemptId,
-      lineItemBindingId: result.lineItemBinding?.id ?? null,
-      status: 'failed',
-      summary: 'Canvas AGS score publish failed.',
-      detail: {
-        code: result.publishError.code,
-        message: result.publishError.message,
-        request: input.request,
-        ...result.publishError.detail,
-      },
       occurredAt,
     });
   }

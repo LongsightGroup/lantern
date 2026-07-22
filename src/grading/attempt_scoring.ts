@@ -11,6 +11,10 @@ export function scoreAttempt(input: ScoreAttemptInput): AttemptScoreResult {
       throw new Error(
         'Browser grading must be finalized through the reviewed runtime browser grader result.',
       );
+    case 'sandbox':
+      throw new Error(
+        'Sandbox grading must be finalized through Lantern server-side code evaluation.',
+      );
     case 'manual':
       throw new Error('Manual grading cannot be finalized automatically in Phase 3.');
   }

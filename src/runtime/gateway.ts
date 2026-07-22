@@ -1,4 +1,4 @@
-import { type AttemptScoreResult, loadReviewedRubric, scoreAttempt } from '../grading/service.ts';
+import type { AttemptScoreResult } from '../grading/service.ts';
 import type {
   BrowserGraderResult,
   GatewayEvidenceArtifactAcceptedResult,
@@ -30,7 +30,6 @@ import {
   parseScoreProposal,
   requireRuntimeCapability,
 } from './gateway_parsing.ts';
-import { publishRuntimeAttemptScore } from './gateway_publication.ts';
 import { readReviewedBrowserGraderConfig } from './browser_grader.ts';
 import { normalizeAttemptEvent } from './attempt_event_normalization.ts';
 import type {
@@ -141,10 +140,8 @@ export async function submitEvidenceArtifact(input: {
     eventType: 'attempt.evidence_artifact.submitted',
     actorType: 'system',
     actorId: null,
-    deploymentRecordId: input.session.deploymentRecordId,
     packageVersionId: input.session.packageVersionId,
     attemptId: attempt.attemptId,
-    lineItemBindingId: null,
     status: 'accepted',
     summary: 'Stored an anonymous evidence artifact through the runtime gateway.',
     detail: {
@@ -358,76 +355,15 @@ export async function finalizeRuntimeAttempt(input: {
         submissionMode: input.session.launch.submissionMode,
         evidenceArtifacts,
         finalizedNow,
-        lineItemBinding: null,
-        gradePublication: null,
-        gradePublishedNow: false,
-        publishError: null,
       };
     }
-
-    if (packageVersion.grading.mode === 'manual') {
-      denyRuntimeBroker({
-        category: 'policyDenied',
-        code: 'manual_grading_requires_operator',
-        message: 'Manual grading cannot be finalized automatically in Phase 3.',
-        capability: 'finalize_attempt',
-        detail: {},
-      });
-    }
-
-    const finalizedNow = attempt.finalizedAt === null;
-    const finalizedAttempt = finalizedNow
-      ? await input.repository.finalizeAttempt({
-        attemptId: attempt.attemptId,
-        status: completionStateToAttemptStatus(finalizeInput.completionState),
-        completionState: finalizeInput.completionState,
-        finalizedAt: now().toISOString(),
-      })
-      : attempt;
-    const events = await input.repository.listAttemptEvents(finalizedAttempt.attemptId);
-    const rubric = packageVersion.grading.mode === 'declarative'
-      ? await loadReviewedRubric({
-        snapshotRoot: packageVersion.artifact.snapshotRoot,
-        rubricFile: packageVersion.grading.rubricFile,
-        artifactStore: input.artifactStore,
-      })
-      : undefined;
-    const browserGraderResult = packageVersion.grading.mode === 'browser'
-      ? validateBrowserGraderResult({
-        browserGraderResult: finalizeInput.browserGraderResult,
-        packageVersion,
-      })
-      : null;
-    const score = browserGraderResult === null
-      ? scoreAttempt({
-        attempt: finalizedAttempt,
-        events,
-        grading: packageVersion.grading,
-        ...(rubric === undefined ? {} : { rubric }),
-      })
-      : {
-        scoreGiven: browserGraderResult.scoreGiven,
-        scoreMaximum: browserGraderResult.scoreMaximum,
-      };
-    const publishResult = await publishRuntimeAttemptScore({
-      repository: input.repository,
-      session: input.session,
-      attempt: finalizedAttempt,
-      packageVersion,
-      score,
-      getLtiToolContext: requireLtiToolContext(input.getLtiToolContext),
-      now,
+    denyRuntimeBroker({
+      category: 'policyDenied',
+      code: 'live_grading_not_available',
+      message: 'Live LMS grading is outside the governed primitive kernel.',
+      capability: 'finalize_attempt',
+      detail: {},
     });
-
-    return {
-      attempt: finalizedAttempt,
-      score,
-      browserGraderResult,
-      submissionMode: input.session.launch.submissionMode,
-      evidenceArtifacts,
-      finalizedNow,
-      ...publishResult,
-    };
   } catch (error) {
     if (previewSession !== null && !previewBlockEvidenceRecorded) {
       await input.repository.appendPreviewEvidence({
@@ -445,16 +381,6 @@ export async function finalizeRuntimeAttempt(input: {
 
     throw toFinalizeError(error);
   }
-}
-
-function requireLtiToolContext(
-  getLtiToolContext: (() => Promise<LanternLtiToolContext>) | undefined,
-): () => Promise<LanternLtiToolContext> {
-  if (getLtiToolContext === undefined) {
-    throw new Error('LTI tool context is required for live score publication.');
-  }
-
-  return getLtiToolContext;
 }
 
 function validateBrowserGraderResult(input: {

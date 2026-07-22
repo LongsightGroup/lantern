@@ -3,16 +3,12 @@ import type {
   AttemptEvidenceArtifactRecord,
   AttemptRecord,
   AuditEventRecord,
-  GradePublicationRecord,
-  LineItemBindingRecord,
 } from './types.ts';
 import type {
   AttemptEventRow,
   AttemptEvidenceArtifactRow,
   AttemptRow,
   AuditEventRow,
-  GradePublicationRow,
-  LineItemBindingRow,
 } from './repository_row_types.ts';
 import {
   normalizeNumeric,
@@ -36,8 +32,7 @@ export function mapAttemptRow(row: AttemptRow | undefined): AttemptRecord {
   return {
     id: row.id,
     attemptId: row.attemptId,
-    deploymentRecordId: row.deploymentRecordId,
-    deploymentSlug: row.deploymentSlug,
+    previewSessionId: row.previewSessionId,
     appId: row.appId,
     packageVersionId: row.packageVersionId,
     packageVersion: row.packageVersion,
@@ -107,75 +102,6 @@ export function mapAttemptEvidenceArtifactRow(
   };
 }
 
-export function mapOptionalLineItemBinding(
-  row: LineItemBindingRow | undefined,
-): LineItemBindingRecord | null {
-  if (!row) {
-    return null;
-  }
-
-  return mapLineItemBindingRow(row);
-}
-
-export function mapLineItemBindingRow(row: LineItemBindingRow | undefined): LineItemBindingRecord {
-  if (!row) {
-    throw new Error('Expected a line item binding row.');
-  }
-
-  return {
-    id: row.id,
-    deploymentRecordId: row.deploymentRecordId,
-    packageVersionId: row.packageVersionId,
-    contextId: row.contextId,
-    resourceLinkId: row.resourceLinkId,
-    activityId: row.activityId,
-    lineItemsUrl: row.lineItemsUrl,
-    lineItemUrl: row.lineItemUrl,
-    resourceId: row.resourceId,
-    tag: row.tag,
-    label: row.label,
-    scoreMaximum: row.scoreMaximum,
-    createdAt: normalizeTimestamp(row.createdAt),
-    updatedAt: normalizeTimestamp(row.updatedAt),
-  };
-}
-
-export function mapOptionalGradePublication(
-  row: GradePublicationRow | undefined,
-): GradePublicationRecord | null {
-  if (!row) {
-    return null;
-  }
-
-  return mapGradePublicationRow(row);
-}
-
-export function mapGradePublicationRow(
-  row: GradePublicationRow | undefined,
-): GradePublicationRecord {
-  if (!row) {
-    throw new Error('Expected a grade publication row.');
-  }
-
-  return {
-    id: row.id,
-    attemptId: row.attemptId,
-    lineItemBindingId: row.lineItemBindingId,
-    lineItemUrl: row.lineItemUrl,
-    platformUserId: row.platformUserId,
-    scoreGiven: normalizeNumeric(row.scoreGiven),
-    scoreMaximum: normalizeNumeric(row.scoreMaximum),
-    activityProgress: row.activityProgress,
-    gradingProgress: row.gradingProgress,
-    status: row.status,
-    createdAt: normalizeTimestamp(row.createdAt),
-    updatedAt: normalizeTimestamp(row.updatedAt),
-    publishedAt: normalizeOptionalTimestamp(row.publishedAt),
-    errorCode: row.errorCode,
-    errorDetail: row.errorDetail,
-  };
-}
-
 export function mapAuditEventRow(row: AuditEventRow | undefined): AuditEventRecord {
   if (!row) {
     throw new Error('Expected an audit event row.');
@@ -186,10 +112,8 @@ export function mapAuditEventRow(row: AuditEventRow | undefined): AuditEventReco
     eventType: row.eventType,
     actorType: row.actorType,
     actorId: row.actorId,
-    deploymentRecordId: row.deploymentRecordId,
     packageVersionId: row.packageVersionId,
     attemptId: row.attemptId,
-    lineItemBindingId: row.lineItemBindingId,
     status: row.status,
     summary: row.summary,
     detail: row.detail,

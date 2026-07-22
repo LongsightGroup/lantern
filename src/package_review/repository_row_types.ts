@@ -7,21 +7,13 @@ import type {
   AuditEventRecord,
   AuthoringDraftFileRecord,
   AuthoringDraftRecord,
-  GradePublicationRecord,
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
   ReviewedRuntimeContract,
   ValidationIssue,
 } from './types.ts';
-import type { LtiProfileId } from '../lti/profile.ts';
-import type {
-  CanvasEnvironment,
-  DeepLinkingSessionRecord,
-  DynamicRegistrationStateRecord,
-  PersistedDeploymentLmsType,
-  RuntimeSessionRecord,
-} from '../lti/types.ts';
+import type { RuntimeSessionRecord } from '../lti/types.ts';
 
 export interface PackageVersionRow {
   id: number;
@@ -38,6 +30,8 @@ export interface PackageVersionRow {
   gradingMode: PackageVersionRecord['grading']['mode'];
   gradingRubricFile: string | null;
   gradingMaxScore: number | null;
+  sandboxGradingEnabled: number;
+  catalogVisibility: PackageVersionRecord['catalogVisibility'];
   approvalStatus: ApprovalStatus;
   reviewNotes: string | null;
   accessibilityReview: AccessibilityReview | null;
@@ -51,46 +45,11 @@ export interface PackageVersionRow {
   importedAt: Date | string;
 }
 
-export interface DeploymentRow {
-  id: number;
-  slug: string;
-  label: string;
-  appId: string;
-  enabledPackageVersionId: number | null;
-  enabledPackageVersion: string | null;
-  lmsType: PersistedDeploymentLmsType;
-  canvasEnvironment: CanvasEnvironment | null;
-  issuer: string | null;
-  clientId: string | null;
-  deploymentId: string | null;
-  authorizationEndpoint: string | null;
-  accessTokenUrl: string | null;
-  jwksUrl: string | null;
-  ltiProfileOverride: LtiProfileId | null;
-  updatedAt: Date | string;
-}
-
-export interface LanternLtiProfileSettingsRow {
-  defaultLtiProfile: LtiProfileId;
-  updatedAt: Date | string;
-}
-
-export interface DynamicRegistrationStateRow {
-  state: string;
-  appId: string;
-  lmsType: DynamicRegistrationStateRecord['lms'];
-  createdAt: Date | string;
-  expiresAt: Date | string;
-  usedAt: Date | string | null;
-}
-
 export interface RuntimeSessionRow {
   sessionId: string;
   sessionToken: string;
   ltiToolSessionId: string | null;
   attemptId?: string | null;
-  deploymentRecordId: number;
-  deploymentSlug: string;
   appId: string;
   packageVersionId: number;
   packageVersion: string;
@@ -107,55 +66,9 @@ export interface RuntimeSessionRow {
   launchCourseId: string;
   launchAssignmentId: string | null;
   launchActivityId: string;
-  previewSessionId: string | null;
+  previewSessionId: string;
   createdAt: Date | string;
   expiresAt: Date | string;
-}
-
-export interface DeepLinkingSessionRow {
-  sessionId: string;
-  sessionToken: string;
-  ltiToolSessionId: string | null;
-  deploymentRecordId: number;
-  deploymentSlug: string;
-  appId: string;
-  userId: string | null;
-  userRole: DeepLinkingSessionRecord['userRole'];
-  contextId: string | null;
-  contextTitle: string | null;
-  deepLinkReturnUrl: string;
-  data: string | null;
-  placement: DeepLinkingSessionRecord['placement'];
-  acceptTypes: DeepLinkingSessionRecord['acceptTypes'];
-  acceptMultiple: boolean;
-  acceptPresentationDocumentTargets: DeepLinkingSessionRecord['acceptPresentationDocumentTargets'];
-  acceptLineItem: boolean;
-  selectedPackageVersionId: number | null;
-  selectedPackageVersion: string | null;
-  selectedActivityId: string | null;
-  selectedContentPath: string | null;
-  createdAt: Date | string;
-  expiresAt: Date | string;
-  usedAt: Date | string | null;
-}
-
-export interface ReviewedPlacementRow {
-  placementId: string;
-  deploymentRecordId: number;
-  deploymentSlug: string;
-  appId: string;
-  contextId: string | null;
-  contextTitle: string | null;
-  packageVersionId: number;
-  packageVersion: string;
-  packageTitle: string;
-  activityId: string;
-  contentPath: string;
-  contentTitle: string | null;
-  createdByUserId: string | null;
-  resourceLinkId: string | null;
-  createdAt: Date | string;
-  boundAt: Date | string | null;
 }
 
 export interface PreviewSessionRow {
@@ -166,7 +79,6 @@ export interface PreviewSessionRow {
   packageTitle: string;
   origin: PreviewSessionRecord['origin'];
   contentPath: string;
-  deepLinkingSessionId: string | null;
   capabilities: PreviewSessionRecord['capabilities'];
   snapshotRoot: string;
   entrypointPath: string;
@@ -205,16 +117,6 @@ export interface AuthoringDraftFileRow {
   sequence: AuthoringDraftFileRecord['sequence'];
 }
 
-export interface PlacementAuditSnapshotRow extends ReviewedPlacementRow {
-  latestPreviewSessionId: string | null;
-  latestPreviewOccurredAt: Date | string | null;
-  previewEvidenceCount: number | string;
-  deepLinkingRequestCount: number | string;
-  placementEventCount: number | string;
-  reviewerEventCount: number | string;
-  latestAuditOccurredAt: Date | string | null;
-}
-
 export interface PreviewEvidenceRow {
   id: number;
   previewSessionId: string;
@@ -229,8 +131,7 @@ export interface PreviewEvidenceRow {
 export interface AttemptRow {
   id: number;
   attemptId: string;
-  deploymentRecordId: number;
-  deploymentSlug: string;
+  previewSessionId: string;
   appId: string;
   packageVersionId: number;
   packageVersion: string;
@@ -275,50 +176,13 @@ export interface AttemptEvidenceArtifactRow {
   createdAt: Date | string;
 }
 
-export interface LineItemBindingRow {
-  id: number;
-  deploymentRecordId: number;
-  packageVersionId: number;
-  contextId: string;
-  resourceLinkId: string;
-  activityId: string;
-  lineItemsUrl: string;
-  lineItemUrl: string;
-  resourceId: string;
-  tag: string;
-  label: string;
-  scoreMaximum: number;
-  createdAt: Date | string;
-  updatedAt: Date | string;
-}
-
-export interface GradePublicationRow {
-  id: number;
-  attemptId: string;
-  lineItemBindingId: number;
-  lineItemUrl: string;
-  platformUserId: string;
-  scoreGiven: number | string;
-  scoreMaximum: number | string;
-  activityProgress: GradePublicationRecord['activityProgress'];
-  gradingProgress: GradePublicationRecord['gradingProgress'];
-  status: GradePublicationRecord['status'];
-  createdAt: Date | string;
-  updatedAt: Date | string;
-  publishedAt: Date | string | null;
-  errorCode: string | null;
-  errorDetail: Record<string, unknown> | null;
-}
-
 export interface AuditEventRow {
   id: number;
   eventType: string;
   actorType: AuditEventRecord['actorType'];
   actorId: string | null;
-  deploymentRecordId: number | null;
   packageVersionId: number | null;
   attemptId: string | null;
-  lineItemBindingId: number | null;
   status: AuditEventRecord['status'];
   summary: string;
   detail: Record<string, unknown>;

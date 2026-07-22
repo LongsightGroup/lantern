@@ -6,8 +6,6 @@ export type PackagePageSection =
   | 'overview'
   | 'version'
   | 'diff'
-  | 'settings'
-  | 'reports'
   | 'preview'
   | 'authoring';
 
@@ -49,16 +47,6 @@ export function renderPackagePageNav(input: {
         )
       }/diff`,
       current: input.currentSection === 'diff',
-    }),
-    renderNavLink({
-      label: 'Settings',
-      href: `/admin/packages/${encodeURIComponent(input.appId)}/deployment`,
-      current: input.currentSection === 'settings',
-    }),
-    renderNavLink({
-      label: 'Reports',
-      href: `/admin/packages/${encodeURIComponent(input.appId)}/reports`,
-      current: input.currentSection === 'reports',
     }),
     actionVersion === null ? '' : renderNavLink({
       label: 'Test launch',

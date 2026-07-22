@@ -16,10 +16,8 @@ export async function recordGenerationActivity(input: {
     eventType: input.eventType,
     actorType: 'user',
     actorId: input.run.ownerId,
-    deploymentRecordId: null,
     packageVersionId: input.packageVersionId ?? input.run.packageVersionId,
     attemptId: null,
-    lineItemBindingId: null,
     status: input.status,
     summary: input.summary,
     detail: {

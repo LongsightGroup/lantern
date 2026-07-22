@@ -12,6 +12,7 @@ export const REFERENCE_PACKAGE_SOURCE_ROOTS = {
   'quick-study': 'examples/apps/quick-study',
   'web-checkup': 'examples/apps/web-checkup',
   'typescript-ladder-game': 'examples/apps/typescript-ladder-game',
+  'photo-roster': 'examples/apps/photo-roster',
 } as const;
 export const REFERENCE_PACKAGE_BUCKET_ROOT = 'reference-packages';
 
@@ -118,7 +119,11 @@ export async function loadPackageSnapshot(
 
   return await finalizeImportedPackageVersion({
     reviewData,
-    artifact: await buildArtifactRecord(input.snapshotStore, snapshotRoot, reviewData.entrypoint),
+    artifact: await buildArtifactRecord(
+      input.snapshotStore,
+      snapshotRoot,
+      reviewData.runtime.entrypoint,
+    ),
     env: input.env,
   });
 }
@@ -170,7 +175,7 @@ export async function importPackage(input: PackageSnapshotInput): Promise<Import
   const artifact = await buildArtifactRecord(
     input.snapshotStore,
     snapshotRoot,
-    reviewData.entrypoint,
+    reviewData.runtime.entrypoint,
   );
 
   return await finalizeImportedPackageVersion({

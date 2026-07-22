@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { renderHomePage } from './pages/home.ts';
 import { createInMemoryPackageReviewRepository } from './test_helpers/package_review.ts';
 

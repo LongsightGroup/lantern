@@ -1,15 +1,6 @@
-import type { DeploymentBinding, DynamicRegistrationStateRecord } from '../lti/types.ts';
 import { parseReviewedRuntimeContract } from './runtime_contract.ts';
-import {
-  type DeploymentRecord,
-  type PackageVersionRecord,
-  parseAccessibilityReview,
-} from './types.ts';
-import type {
-  DeploymentRow,
-  DynamicRegistrationStateRow,
-  PackageVersionRow,
-} from './repository_row_types.ts';
+import { type PackageVersionRecord, parseAccessibilityReview } from './types.ts';
+import type { PackageVersionRow } from './repository_row_types.ts';
 import { normalizeOptionalTimestamp, normalizeTimestamp } from './repository_value_support.ts';
 
 export function mapOptionalPackageVersion(
@@ -29,7 +20,7 @@ export function mapPackageVersionRow(row: PackageVersionRow | undefined): Packag
 
   if (row.runtimeContract === null || row.runtimeContractSignature === null) {
     throw new Error(
-      `Package version ${row.appId}@${row.version} is missing its reviewed runtime contract and cannot launch. Register a new reviewed version instead of mutating this legacy row.`,
+      `Package version ${row.appId}@${row.version} is missing its reviewed runtime contract and cannot launch.`,
     );
   }
 
@@ -43,7 +34,7 @@ export function mapPackageVersionRow(row: PackageVersionRow | undefined): Packag
       type: row.ownerType,
       id: row.ownerId,
     },
-    entrypoint: row.entrypoint,
+    runtime: parseReviewedRuntimeContract(row.runtimeContract).runtime,
     roles: row.roles,
     installScope: row.installScope,
     capabilities: row.capabilities,
@@ -52,6 +43,7 @@ export function mapPackageVersionRow(row: PackageVersionRow | undefined): Packag
       rubricFile: row.gradingRubricFile,
       maxScore: row.gradingMaxScore,
     },
+    catalogVisibility: row.catalogVisibility,
     approvalStatus: row.approvalStatus,
     reviewNotes: row.reviewNotes,
     accessibilityReview: row.accessibilityReview === null
@@ -69,101 +61,5 @@ export function mapPackageVersionRow(row: PackageVersionRow | undefined): Packag
     runtimeContract: parseReviewedRuntimeContract(row.runtimeContract),
     runtimeContractSignature: row.runtimeContractSignature,
     importedAt: normalizeTimestamp(row.importedAt),
-  };
-}
-
-export function mapOptionalDeployment(row: DeploymentRow | undefined): DeploymentRecord | null {
-  if (!row) {
-    return null;
-  }
-
-  return mapDeploymentRow(row);
-}
-
-export function mapDeploymentRow(row: DeploymentRow | undefined): DeploymentRecord {
-  if (!row) {
-    throw new Error('Expected a deployment row.');
-  }
-
-  return {
-    id: row.id,
-    slug: row.slug,
-    label: row.label,
-    appId: row.appId,
-    enabledPackageVersionId: row.enabledPackageVersionId,
-    enabledPackageVersion: row.enabledPackageVersion,
-    lmsType: row.lmsType,
-    binding: mapDeploymentBinding(row),
-    ltiProfileOverride: row.ltiProfileOverride,
-    updatedAt: normalizeTimestamp(row.updatedAt),
-  };
-}
-
-export function mapDeploymentBinding(row: DeploymentRow): DeploymentBinding | null {
-  if (row.issuer === null || row.clientId === null || row.deploymentId === null) {
-    return null;
-  }
-
-  switch (row.lmsType) {
-    case 'canvas':
-      if (row.canvasEnvironment === null) {
-        return null;
-      }
-
-      return {
-        lms: 'canvas',
-        canvasEnvironment: row.canvasEnvironment,
-        issuer: row.issuer,
-        clientId: row.clientId,
-        deploymentId: row.deploymentId,
-      };
-    case 'moodle':
-    case 'sakai':
-      if (
-        row.authorizationEndpoint === null ||
-        row.accessTokenUrl === null ||
-        row.jwksUrl === null
-      ) {
-        return null;
-      }
-
-      return {
-        lms: row.lmsType,
-        issuer: row.issuer,
-        clientId: row.clientId,
-        deploymentId: row.deploymentId,
-        authorizationEndpoint: row.authorizationEndpoint,
-        accessTokenUrl: row.accessTokenUrl,
-        jwksUrl: row.jwksUrl,
-      };
-    case 'preview':
-      return null;
-  }
-}
-
-export function mapOptionalDynamicRegistrationState(
-  row: DynamicRegistrationStateRow | undefined,
-): DynamicRegistrationStateRecord | null {
-  if (!row) {
-    return null;
-  }
-
-  return mapDynamicRegistrationStateRow(row);
-}
-
-export function mapDynamicRegistrationStateRow(
-  row: DynamicRegistrationStateRow | undefined,
-): DynamicRegistrationStateRecord {
-  if (!row) {
-    throw new Error('Expected a dynamic registration state row.');
-  }
-
-  return {
-    state: row.state,
-    appId: row.appId,
-    lms: row.lmsType,
-    createdAt: normalizeTimestamp(row.createdAt),
-    expiresAt: normalizeTimestamp(row.expiresAt),
-    usedAt: normalizeOptionalTimestamp(row.usedAt),
   };
 }

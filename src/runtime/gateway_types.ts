@@ -1,10 +1,5 @@
 import type { AttemptScoreResult } from '../grading/service.ts';
-import type {
-  AttemptEvidenceArtifactRecord,
-  AttemptRecord,
-  GradePublicationRecord,
-  LineItemBindingRecord,
-} from '../package_review/types.ts';
+import type { AttemptEvidenceArtifactRecord, AttemptRecord } from '../package_review/types.ts';
 import type {
   BrowserGraderResult,
   EvidenceArtifactContentType,
@@ -60,12 +55,4 @@ export interface FinalizeAttemptResult {
   submissionMode: SubmissionMode;
   evidenceArtifacts: Array<Pick<AttemptEvidenceArtifactRecord, 'artifactId' | 'kind' | 'fileName'>>;
   finalizedNow: boolean;
-  lineItemBinding: LineItemBindingRecord | null;
-  gradePublication: GradePublicationRecord | null;
-  gradePublishedNow: boolean;
-  publishError: {
-    code: string;
-    message: string;
-    detail: Record<string, unknown>;
-  } | null;
 }

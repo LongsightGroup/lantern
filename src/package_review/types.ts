@@ -4,18 +4,16 @@ import type {
   NormalizedAttemptEvent,
   UserRole,
 } from '../../sdk/app-sdk.ts';
-import type { LtiProfileId } from '../lti/profile.ts';
-import type { DeploymentBinding, PersistedDeploymentLmsType } from '../lti/types.ts';
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type CatalogVisibility = 'catalog' | 'python_lab_trial';
 export type InstallScope = 'course' | 'assignment';
-export type GradingMode = 'declarative' | 'manual' | 'completion' | 'browser';
+export type GradingMode = 'declarative' | 'manual' | 'completion' | 'browser' | 'sandbox';
 export type ValidationSeverity = 'error';
 export type AttemptStatus = 'in_progress' | 'completed' | 'abandoned';
 export type AttemptCompletionState = 'completed' | 'abandoned';
 export type AttemptLocalState = Record<string, unknown> | null;
 export type AttemptEvidenceArtifactKind = 'screenshot_png' | 'structured_json';
-export type GradePublicationStatus = 'pending' | 'published' | 'failed';
 export type AuditActorType = 'user' | 'system' | 'platform';
 export type AuditEventStatus = 'accepted' | 'succeeded' | 'failed';
 export const ACCESSIBILITY_REVIEW_STATUSES = ['pass', 'fail', 'not_applicable'] as const;
@@ -104,11 +102,22 @@ export interface PackageArtifactRecord {
   digest: string;
 }
 
+export type AppRuntime =
+  | {
+    readonly kind: 'browser';
+    readonly entrypoint: string;
+  }
+  | {
+    readonly kind: 'worker';
+    readonly entrypoint: string;
+  };
+
 export interface ReviewedRuntimeContract {
+  runtimeContractVersion: '2';
   appId: string;
   packageVersion: string;
   artifactDigest: string;
-  entrypoint: string;
+  runtime: AppRuntime;
   capabilities: Capability[];
 }
 
@@ -119,11 +128,12 @@ export interface PackageVersionRecord {
   title: string;
   description: string | null;
   owner: PackageOwner;
-  entrypoint: string;
+  runtime: AppRuntime;
   roles: UserRole[];
   installScope: InstallScope;
   capabilities: Capability[];
   grading: GradingSettings;
+  catalogVisibility: CatalogVisibility;
   approvalStatus: ApprovalStatus;
   reviewNotes: string | null;
   accessibilityReview: AccessibilityReview | null;
@@ -154,29 +164,10 @@ export interface ReviewedResourceSelection {
   contentPath: string;
 }
 
-export interface DeploymentRecord {
-  id: number;
-  slug: string;
-  label: string;
-  appId: string;
-  enabledPackageVersionId: number | null;
-  enabledPackageVersion: string | null;
-  lmsType: PersistedDeploymentLmsType;
-  binding: DeploymentBinding | null;
-  ltiProfileOverride: LtiProfileId | null;
-  updatedAt: string;
-}
-
-export interface LanternLtiProfileSettingsRecord {
-  defaultLtiProfile: LtiProfileId;
-  updatedAt: string;
-}
-
 export interface AttemptRecord {
   id: number;
   attemptId: string;
-  deploymentRecordId: number;
-  deploymentSlug: string;
+  previewSessionId: string;
   appId: string;
   packageVersionId: number;
   packageVersion: string;
@@ -221,103 +212,18 @@ export interface AttemptEvidenceArtifactRecord {
   createdAt: string;
 }
 
-export interface LineItemBindingRecord {
-  id: number;
-  deploymentRecordId: number;
-  packageVersionId: number;
-  contextId: string;
-  resourceLinkId: string;
-  activityId: string;
-  lineItemsUrl: string;
-  lineItemUrl: string;
-  resourceId: string;
-  tag: string;
-  label: string;
-  scoreMaximum: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface GradePublicationRecord {
-  id: number;
-  attemptId: string;
-  lineItemBindingId: number;
-  lineItemUrl: string;
-  platformUserId: string;
-  scoreGiven: number;
-  scoreMaximum: number;
-  activityProgress: 'Completed' | 'InProgress' | 'Initialized';
-  gradingProgress: 'Pending' | 'PendingManual' | 'FullyGraded' | 'Failed';
-  status: GradePublicationStatus;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string | null;
-  errorCode: string | null;
-  errorDetail: Record<string, unknown> | null;
-}
-
 export interface AuditEventRecord {
   id: number;
   eventType: string;
   actorType: AuditActorType;
   actorId: string | null;
-  deploymentRecordId: number | null;
   packageVersionId: number | null;
   attemptId: string | null;
-  lineItemBindingId: number | null;
   status: AuditEventStatus;
   summary: string;
   detail: Record<string, unknown>;
   occurredAt: string;
 }
-
-export interface DeepLinkingResourceOption {
-  packageVersionId: number;
-  appId: string;
-  packageVersion: string;
-  packageTitle: string;
-  ownerId: string;
-  installScope: InstallScope;
-  approvalStatus: 'approved';
-  reviewedAt: string | null;
-  activityId: string;
-  contentPath: string;
-  contentTitle: string | null;
-}
-
-export interface DeepLinkingResourceSelection {
-  packageVersionId: number;
-  packageVersion: string;
-  packageTitle: string;
-  activityId: string;
-  contentPath: string;
-  contentTitle: string | null;
-}
-
-export interface ReviewedPlacementRecord {
-  placementId: string;
-  deploymentRecordId: number;
-  deploymentSlug: string;
-  appId: string;
-  contextId: string | null;
-  contextTitle: string | null;
-  packageVersionId: number;
-  packageVersion: string;
-  packageTitle: string;
-  activityId: string;
-  contentPath: string;
-  contentTitle: string | null;
-  createdByUserId: string | null;
-  resourceLinkId: string | null;
-  createdAt: string;
-  boundAt: string | null;
-}
-
-export type PlacementAuditStatus =
-  | 'awaiting_canvas_binding'
-  | 'bound_no_preview'
-  | 'bound_with_preview'
-  | 'reviewed';
 
 export function parseAccessibilityReview(value: unknown): AccessibilityReview {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -369,22 +275,6 @@ function parseAccessibilityReviewText(
   return value;
 }
 
-export interface PlacementAuditEvidenceSummary {
-  deepLinkingRequestCount: number;
-  placementEventCount: number;
-  reviewerEventCount: number;
-  latestOccurredAt: string | null;
-}
-
-export interface PlacementAuditSnapshot {
-  placement: ReviewedPlacementRecord;
-  status: PlacementAuditStatus;
-  latestPreviewSessionId: string | null;
-  latestPreviewOccurredAt: string | null;
-  previewEvidenceCount: number;
-  evidenceSummary: PlacementAuditEvidenceSummary;
-}
-
 export interface PreviewFixtureData {
   launch: {
     user_role: UserRole;
@@ -425,7 +315,6 @@ export interface AuthoringDraftRecord {
 
 export type PreviewSessionOrigin =
   | 'adminTestLaunch'
-  | 'deepLinkingAuthoring'
   | 'adminAuthoringDraft';
 
 export interface PreviewSessionRecord {
@@ -436,7 +325,6 @@ export interface PreviewSessionRecord {
   packageTitle: string;
   origin: PreviewSessionOrigin;
   contentPath: string;
-  deepLinkingSessionId: string | null;
   capabilities: Capability[];
   snapshotRoot: string;
   entrypointPath: string;

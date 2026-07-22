@@ -31,7 +31,7 @@ export async function materializeDraftPreviewPackageVersion(input: {
       manifestPath: joinSnapshotPath(snapshotRoot, 'manifest.json', DRAFT_SNAPSHOT_OUTSIDE_MESSAGE),
       entrypointPath: joinSnapshotPath(
         snapshotRoot,
-        trimLeadingSlash(input.packageVersion.entrypoint),
+        trimLeadingSlash(input.packageVersion.runtime.entrypoint),
         DRAFT_SNAPSHOT_OUTSIDE_MESSAGE,
       ),
       digest: `sha256:authoring-draft-${input.draft.draftId}-${

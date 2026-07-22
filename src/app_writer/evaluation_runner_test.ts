@@ -150,12 +150,12 @@ function buildValidBrowserAutograderFiles(): AppPackageGenerationResult['files']
     {
       path: 'manifest.json',
       contents: JSON.stringify({
-        schema_version: '1',
+        schema_version: '2',
         app_id: 'web-check',
         version: '0.1.0',
         title: 'Web Check',
         owner: { type: 'user', id: 'evaluation' },
-        entrypoint: '/dist/index.html',
+        runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
         roles: ['learner', 'instructor'],
         capabilities: ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt'],
         grading: { mode: 'browser', max_score: 100 },

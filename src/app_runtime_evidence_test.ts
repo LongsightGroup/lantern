@@ -1,8 +1,9 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { withRuntimeOriginEnv } from './app_test_support.ts';
 import {
   buildAttemptRecord,
+  buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildRuntimeSessionRecord } from './test_helpers/lti.ts';
@@ -13,6 +14,7 @@ Deno.test('POST /runtime/sessions/:id/evidence-artifacts accepts an allowlisted 
     const bytesByStorageKey = new Map<string, Uint8Array>();
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           capabilities: ['read_launch_context', 'submit_evidence_artifact', 'finalize_attempt'],
@@ -80,6 +82,7 @@ Deno.test('POST /runtime/sessions/:id/evidence-artifacts accepts screenshot_png 
     const bytesByStorageKey = new Map<string, Uint8Array>();
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           capabilities: ['read_launch_context', 'submit_evidence_artifact', 'finalize_attempt'],
@@ -143,6 +146,7 @@ Deno.test('POST /runtime/sessions/:id/evidence-artifacts rejects unsupported evi
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           capabilities: ['read_launch_context', 'submit_evidence_artifact', 'finalize_attempt'],

@@ -208,6 +208,10 @@ export function splitSqlStatements(sql: string): string[] {
     }
 
     if (char === ';') {
+      if (isTriggerStatement(current) && currentLine(current).toUpperCase() !== 'END') {
+        current += char;
+        continue;
+      }
       pushStatement();
       continue;
     }
@@ -228,6 +232,14 @@ export function splitSqlStatements(sql: string): string[] {
 
     current = '';
   }
+}
+
+function isTriggerStatement(sql: string): boolean {
+  return /^CREATE\s+TRIGGER\b/i.test(sql.trimStart());
+}
+
+function currentLine(sql: string): string {
+  return sql.slice(sql.lastIndexOf('\n') + 1).trim();
 }
 
 function assertD1Success(result: D1Result<unknown>): void {

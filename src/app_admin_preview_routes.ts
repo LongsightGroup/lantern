@@ -3,7 +3,7 @@ import type { UserRole } from '../sdk/app-sdk.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
 import { renderPreviewPage, type TestLaunchFormValues } from './admin/preview_page.ts';
-import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
+import { loadPreviewCapabilityLog } from './preview/capability_log.ts';
 import { createErrorNotice } from './app_notice_support.ts';
 import { formValueAsString } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
@@ -53,10 +53,8 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
         eventType: 'reviewer.preview_viewed',
         actorType: 'user',
         actorId: null,
-        deploymentRecordId: null,
         packageVersionId: packageVersion.id,
         attemptId: null,
-        lineItemBindingId: null,
         status: 'succeeded',
         summary: 'Reviewer opened the test launch page.',
         detail: {
@@ -143,10 +141,8 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
         eventType: 'preview.launch',
         actorType: 'user',
         actorId: null,
-        deploymentRecordId: null,
         packageVersionId: packageVersion.id,
         attemptId: launched.runtimeSession.attemptId,
-        lineItemBindingId: null,
         status: 'succeeded',
         summary: 'Started a test launch without LMS sign-in.',
         detail: {

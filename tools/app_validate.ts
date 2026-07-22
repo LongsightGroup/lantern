@@ -66,7 +66,7 @@ export function renderValidationSuccess(
     'Lantern app validation passed.',
     `- App ID: ${result.appPackage.reviewData.appId}`,
     `- Version: ${result.appPackage.reviewData.version}`,
-    `- Entrypoint: ${result.appPackage.manifest.entrypoint}`,
+    `- Entrypoint: ${result.appPackage.manifest.runtime.entrypoint}`,
     `- Capabilities: ${result.appPackage.reviewData.capabilities.join(', ')}`,
     `- Preview tests: ${String(result.appPackage.previewTests.length)}`,
   ];
@@ -122,7 +122,7 @@ export function serializeValidationResult(result: LocalAppValidationResult): str
         appId: result.appPackage.reviewData.appId,
         version: result.appPackage.reviewData.version,
         title: result.appPackage.reviewData.title,
-        entrypoint: result.appPackage.manifest.entrypoint,
+        entrypoint: result.appPackage.manifest.runtime.entrypoint,
         capabilities: result.appPackage.reviewData.capabilities,
         previewTestCount: result.appPackage.previewTests.length,
       },

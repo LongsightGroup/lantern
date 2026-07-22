@@ -16,7 +16,7 @@ Deno.test('D1 preview repository creates sessions with JSON capabilities and fix
 
   assertEquals(session.sessionId, 'preview-session-123');
   assertEquals(session.capabilities.includes('finalize_attempt'), true);
-  assertEquals(db.statements[1]?.parameters[8], JSON.stringify(session.capabilities));
+  assertEquals(db.statements[1]?.parameters[7], JSON.stringify(session.capabilities));
   assertEquals(typeof db.statements[1]?.parameters[18], 'string');
 });
 
@@ -207,7 +207,6 @@ function buildPreviewSessionRow(
     packageTitle: record.packageTitle,
     origin: record.origin,
     contentPath: record.contentPath,
-    deepLinkingSessionId: record.deepLinkingSessionId,
     capabilities: JSON.stringify(record.capabilities),
     snapshotRoot: record.snapshotRoot,
     entrypointPath: record.entrypointPath,

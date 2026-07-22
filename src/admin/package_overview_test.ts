@@ -1,13 +1,9 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPackageOverviewPage } from './package_overview.ts';
-import {
-  buildDeploymentRecord,
-  buildPackageVersionRecord,
-} from '../test_helpers/package_review.ts';
-import { buildCanvasDeploymentBinding } from '../test_helpers/lti.ts';
+import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 
-Deno.test('renderPackageOverviewPage keeps latest approved distinct from live rollout', () => {
+Deno.test('renderPackageOverviewPage directs reviewed versions through governance', () => {
   const body = renderPackageOverviewPage({
     identity: ADMIN_TEST_IDENTITY,
     appId: 'typescript-ladder-game',
@@ -30,24 +26,15 @@ Deno.test('renderPackageOverviewPage keeps latest approved distinct from live ro
         importedAt: '2026-04-09T21:27:00Z',
       }),
     ],
-    deployments: [
-      buildDeploymentRecord({
-        appId: 'typescript-ladder-game',
-        enabledPackageVersionId: 2,
-        enabledPackageVersion: '0.2.0',
-        binding: buildCanvasDeploymentBinding(),
-      }),
-    ],
   });
 
   assertStringIncludes(
     body,
-    'Each version shows whether it is the current reviewed baseline and whether it is live in LMS now.',
+    'Each immutable version is reviewed independently before an institution can install it.',
   );
   assertStringIncludes(body, 'Current reviewed baseline');
   assertStringIncludes(body, 'version-row-current');
-  assertStringIncludes(body, 'Live now in 1 LMS setup');
-  assertStringIncludes(body, 'Not live in LMS');
+  assertStringIncludes(body, 'Install through governance');
   assertStringIncludes(body, 'version-row-actions');
-  assertEquals(body.includes('Live rollout'), false);
+  assertEquals(body.includes('/deployment'), false);
 });

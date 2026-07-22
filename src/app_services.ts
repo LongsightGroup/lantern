@@ -35,7 +35,6 @@ import { createFileSystemPackageSource } from './package_review/package_source_f
 import type { PackageSnapshotStore } from './package_review/snapshot_store.ts';
 import { getDefaultPackageSnapshotStore } from './package_review/snapshot_store_fs.ts';
 import { type PackageReviewRepository } from './package_review/repository.ts';
-import type { OpsRepository } from './ops/repository.ts';
 import type { RuntimeArtifactStore } from './runtime/artifact_store.ts';
 import { getDefaultRuntimeArtifactStore } from './runtime/artifact_store_fs.ts';
 import { createDirectRuntimeDelivery, type RuntimeDelivery } from './runtime/delivery.ts';
@@ -46,6 +45,31 @@ import type { AuthoringDraftRecord, PackageVersionRecord } from './package_revie
 import { createMemoryLtiStorage, type LanternLtiToolContext } from './lti/tool_provider.ts';
 import { createCachedLtiToolContextFactory } from './lti/context_factory.ts';
 import type { LTIStorage } from '@longsightgroup/lti-tool';
+import {
+  createUnavailablePythonLabArtifactStore,
+  type PythonLabArtifactStore,
+} from './python_lab/artifact_store.ts';
+import {
+  createUnavailablePythonLabRepository,
+  type PythonLabRepository,
+} from './python_lab/repository.ts';
+import {
+  createUnavailablePythonGraderSandboxFactory,
+  type PythonGraderSandboxFactory,
+} from './python_lab/runner.ts';
+import { type PythonTestVectorGenerator } from './python_lab/service.ts';
+import {
+  createUnavailablePythonLabHumanVerifier,
+  type PythonLabHumanVerifier,
+} from './python_lab/turnstile.ts';
+import {
+  createUnavailablePythonLabGenerationScheduler,
+  type PythonLabGenerationScheduler,
+} from './python_lab/workflow.ts';
+import type { LmsKernelRepository } from './lms_kernel/repository.ts';
+import type { GovernedRosterService } from './lms_kernel/service.ts';
+import type { ProtectedMediaService } from './lms_kernel/media.ts';
+import type { LmsKernelAdminService } from './lms_kernel/admin_service.ts';
 
 export interface AppServices {
   env: EnvReader;
@@ -53,6 +77,16 @@ export interface AppServices {
   runtimeArtifactStore: RuntimeArtifactStore;
   runtimeDelivery: RuntimeDelivery;
   evidenceArtifactStore: EvidenceArtifactStore;
+  pythonLabRepository: PythonLabRepository;
+  pythonLabArtifactStore: PythonLabArtifactStore;
+  pythonGraderSandboxFactory: PythonGraderSandboxFactory;
+  pythonTestVectorGenerator: PythonTestVectorGenerator;
+  pythonLabHumanVerifier: PythonLabHumanVerifier;
+  pythonLabGenerationScheduler: PythonLabGenerationScheduler;
+  getLmsKernelRepository: () => LmsKernelRepository;
+  governedRosterService: GovernedRosterService;
+  protectedMediaService: ProtectedMediaService;
+  lmsKernelAdminService: LmsKernelAdminService;
   appWriterWorkspaceRunner: AppWriterWorkspaceRunner;
   appPackagePreviewer: AppPackagePreviewer;
   appPackageSourceCompiler: AppPackageSourceCompiler;
@@ -69,7 +103,6 @@ export interface AppServices {
     createdAt: string;
   }) => Promise<PackageVersionRecord>;
   getRepository: () => PackageReviewRepository;
-  getOpsRepository: () => OpsRepository;
   getLtiToolStorage: () => LTIStorage;
   getLtiToolContext: (appOrigin?: string) => Promise<LanternLtiToolContext>;
   loadCanvasJwks: (url: string) => Promise<JSONWebKeySet>;
@@ -97,7 +130,8 @@ export interface AppServices {
 const LOCAL_REPOSITORY_MESSAGE =
   'Lantern persistence is Cloudflare D1-only. Run Lantern through the Cloudflare Worker entrypoint with a DB binding.';
 
-export function resolveServices(services: Partial<AppServices>): AppServices {
+/** Builds explicit fakes for route tests. Production composition lives in app_worker_services.ts. */
+export function resolveTestServices(services: Partial<AppServices>): AppServices {
   const env = services.env ?? getDefaultEnvReader();
   const getRepository = services.getRepository ?? getDefaultRepository;
   const snapshotStore = services.packageSnapshotStore ?? getDefaultPackageSnapshotStore();
@@ -142,18 +176,61 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
     runtimeArtifactStore,
     runtimeDelivery: services.runtimeDelivery ?? createDirectRuntimeDelivery(runtimeArtifactStore),
     evidenceArtifactStore: services.evidenceArtifactStore ?? getDefaultEvidenceArtifactStore(),
+    pythonLabRepository: services.pythonLabRepository ??
+      createUnavailablePythonLabRepository(
+        'Python autograder Lab requires a Cloudflare D1 binding and private artifact storage.',
+      ),
+    pythonLabArtifactStore: services.pythonLabArtifactStore ??
+      createUnavailablePythonLabArtifactStore(
+        'Python autograder Lab requires private R2 artifact storage.',
+      ),
+    pythonGraderSandboxFactory: services.pythonGraderSandboxFactory ??
+      createUnavailablePythonGraderSandboxFactory(
+        'Python autograder Lab requires the PythonGraderSandbox binding.',
+      ),
+    pythonTestVectorGenerator: services.pythonTestVectorGenerator ?? {
+      generate() {
+        return Promise.reject(
+          new Error(
+            'Python autograder Lab requires a configured Workers AI test-vector generator.',
+          ),
+        );
+      },
+    },
+    pythonLabHumanVerifier: services.pythonLabHumanVerifier ??
+      createUnavailablePythonLabHumanVerifier(
+        'Python autograder Lab requires a configured Turnstile verifier.',
+      ),
+    pythonLabGenerationScheduler: services.pythonLabGenerationScheduler ??
+      createUnavailablePythonLabGenerationScheduler(
+        'Python autograder Lab requires a configured generation Workflow.',
+      ),
+    getLmsKernelRepository: services.getLmsKernelRepository ?? getDefaultLmsKernelRepository,
+    governedRosterService: services.governedRosterService ?? {
+      listRoster() {
+        return Promise.resolve({
+          ok: false,
+          error: {
+            code: 'upstream_unavailable',
+            traceId: crypto.randomUUID(),
+          },
+        });
+      },
+    },
+    protectedMediaService: services.protectedMediaService ?? {
+      fetch() {
+        return Promise.resolve(
+          new Response('Governed LMS primitives require Cloudflare D1.', { status: 503 }),
+        );
+      },
+    },
+    lmsKernelAdminService: services.lmsKernelAdminService ?? createUnavailableKernelAdminService(),
     loadBrowserAutograderDraftReferenceExamples:
       services.loadBrowserAutograderDraftReferenceExamples ??
         loadBrowserAutograderDraftReferenceExamples,
     materializeDraftPreviewPackageVersion: services.materializeDraftPreviewPackageVersion ??
       materializeDraftPreviewPackageVersion,
     getRepository,
-    getOpsRepository: services.getOpsRepository ??
-      (() => {
-        const repository = getRepository();
-
-        return isOpsRepository(repository) ? repository : getDefaultOpsRepository();
-      }),
     getLtiToolStorage: services.getLtiToolStorage ?? (() => ltiStorage),
     getLtiToolContext: services.getLtiToolContext ?? getLtiToolContext,
     loadCanvasJwks: services.loadCanvasJwks ?? defaultLoadCanvasJwks,
@@ -170,6 +247,30 @@ export function resolveServices(services: Partial<AppServices>): AppServices {
   };
 }
 
+function createUnavailableKernelAdminService(): LmsKernelAdminService {
+  const unavailable = () =>
+    Promise.resolve({
+      ok: false as const,
+      error: {
+        code: 'invalid_request' as const,
+        message: 'Governed LMS administration requires Cloudflare D1.',
+      },
+    });
+  return {
+    createInstitution: unavailable,
+    createInvite: unavailable,
+    acceptInvite: unavailable,
+    createConnection: unavailable,
+    installApp: unavailable,
+    grantCapability: unavailable,
+    activateInstallation: unavailable,
+    revokeGrant: unavailable,
+    createSyntheticLaunch: unavailable,
+    disableInstallation: unavailable,
+    disableConnection: unavailable,
+  };
+}
+
 function resolveReferencePackageSource(appId: string) {
   return createFileSystemPackageSource(getReferencePackageSourceRoot(appId));
 }
@@ -178,7 +279,7 @@ function getDefaultRepository(): PackageReviewRepository {
   throw new Error(LOCAL_REPOSITORY_MESSAGE);
 }
 
-function getDefaultOpsRepository(): OpsRepository {
+function getDefaultLmsKernelRepository(): LmsKernelRepository {
   throw new Error(LOCAL_REPOSITORY_MESSAGE);
 }
 
@@ -190,16 +291,4 @@ async function defaultLoadCanvasJwks(url: string): Promise<JSONWebKeySet> {
   }
 
   return await response.json();
-}
-
-function isOpsRepository(
-  repository: PackageReviewRepository,
-): repository is PackageReviewRepository & OpsRepository {
-  return (
-    typeof (repository as Partial<OpsRepository>).listControlPlaneDeployments === 'function' &&
-    typeof (repository as Partial<OpsRepository>).getLatestBrokerVerificationStatus ===
-      'function' &&
-    typeof (repository as Partial<OpsRepository>).recordBrokerVerificationRun === 'function' &&
-    typeof (repository as Partial<OpsRepository>).getRetryableGradePublicationLookup === 'function'
-  );
 }

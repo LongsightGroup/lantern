@@ -1,3 +1,12 @@
+/**
+ * Preview/legacy runtime delivery plane.
+ *
+ * These routes serve preview and authoring runtime sessions (the
+ * `runtime_sessions` table via PackageReviewRepository). They are separate from
+ * the governed LMS launch plane in `src/app_governed_runtime_routes.ts`, which
+ * serves `governed_runtime_sessions` minted by `lms_kernel`. Keep LMS launches
+ * off this plane.
+ */
 import type { Context, Hono } from '@hono/hono';
 import type { RuntimeSessionRecord } from './lti/types.ts';
 import {
@@ -5,11 +14,7 @@ import {
   readRuntimeFileRequest,
   requireTrimmedString,
 } from './app_request_support.ts';
-import {
-  errorMessage,
-  statusForFinalizePublishError,
-  statusForRuntimeError,
-} from './app_status_support.ts';
+import { errorMessage, statusForRuntimeError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
 import {
   recordRuntimeCapabilityAllowed,
@@ -39,6 +44,7 @@ import type { PackageVersionRecord } from './package_review/types.ts';
 import { readEnv } from './platform/env.ts';
 import { buildRequestAuditEnvelope, type RequestAuditEnvelope } from './request_audit.ts';
 import { requireRuntimeRequestOrigin } from './runtime_origin.ts';
+import { runRuntimeCodeSubmission } from './python_lab/runtime_submission.ts';
 
 export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
   app.get('/runtime/sessions/:sessionId', async (context) => {
@@ -70,7 +76,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       }
       runtime.setReviewedPackage(reviewedPackage);
 
-      requireRuntimePackageVersionCanRun(runtime.session, reviewedPackage);
+      requireRuntimePackageVersionCanRun(reviewedPackage);
       runtime.setDeliveryForReviewedPackage(reviewedPackage);
 
       const response = context.html(
@@ -103,19 +109,17 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         services.runtimeArtifactStore,
       );
 
-      if (runtime.session.preview !== undefined) {
-        await runtime.repository.appendPreviewEvidence({
-          previewSessionId: runtime.session.preview.previewSessionId,
-          eventType: 'preview.content_read',
-          capability: 'read_activity_content',
-          summary: 'Loaded the app content for this test launch.',
-          detail: {
-            attemptId: runtime.session.attemptId,
-            contentPath: runtime.session.contentPath,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-      }
+      await runtime.repository.appendPreviewEvidence({
+        previewSessionId: runtime.session.preview.previewSessionId,
+        eventType: 'preview.content_read',
+        capability: 'read_activity_content',
+        summary: 'Loaded the app content for this test launch.',
+        detail: {
+          attemptId: runtime.session.attemptId,
+          contentPath: runtime.session.contentPath,
+        },
+        occurredAt: new Date().toISOString(),
+      });
 
       return context.json(content);
     });
@@ -268,13 +272,6 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         request: runtime.request,
       });
 
-      if (result.publishError !== null) {
-        return context.text(
-          result.publishError.message,
-          statusForFinalizePublishError(result.publishError.code),
-        );
-      }
-
       return context.json(
         {
           accepted: true,
@@ -283,10 +280,56 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           completionState: result.attempt.completionState,
           scoreGiven: result.score.scoreGiven,
           scoreMaximum: result.score.scoreMaximum,
-          gradePublished: result.gradePublication?.status === 'published',
+          gradePublished: false,
         },
         202,
       );
+    });
+  });
+
+  app.post('/runtime/sessions/:sessionId/code-runs', async (context) => {
+    return await withRuntimeRoute(context, services, 'code-runs', 'mutation', async (runtime) => {
+      authorizeRuntimeBearerToken(context, runtime.session);
+      const reviewedPackage = await runtime.repository.getPackageVersionById(
+        runtime.session.packageVersionId,
+      );
+      if (reviewedPackage === null) {
+        throw new Error(`Package version ${runtime.session.packageVersionId} was not found.`);
+      }
+      runtime.setReviewedPackage(reviewedPackage);
+      runtime.setDeliveryForReviewedPackage(reviewedPackage);
+
+      const payload = await context.req.json();
+      runtime.setRequestBody(payload);
+      const result = await runRuntimeCodeSubmission({
+        repository: runtime.repository,
+        pythonLabRepository: services.pythonLabRepository,
+        pythonLabArtifactStore: services.pythonLabArtifactStore,
+        sandboxFactory: services.pythonGraderSandboxFactory,
+        session: runtime.session,
+        payload,
+        getLtiToolContext: services.getLtiToolContext,
+        createId: () => crypto.randomUUID().replaceAll('-', ''),
+      });
+
+      await recordRuntimeCapabilityAllowed({
+        repository: runtime.repository,
+        session: runtime.session,
+        capability: 'run_code_submission',
+        route: 'code-runs',
+        detail: { phase: result.phase, alreadyFinalized: result.alreadyFinalized },
+      });
+
+      return context.json({
+        accepted: true,
+        phase: result.phase,
+        publicOutcomes: result.publicOutcomes,
+        hiddenSummary: result.hiddenSummary,
+        scoreGiven: result.scoreGiven,
+        scoreMaximum: result.scoreMaximum,
+        alreadyFinalized: result.alreadyFinalized,
+        gradePublished: result.gradePublished,
+      }, 202);
     });
   });
 
@@ -578,20 +621,30 @@ async function requireRunnableRuntimePackageVersion(
     });
   }
 
-  requireRuntimePackageVersionCanRun(session, packageVersion);
+  requireRuntimePackageVersionCanRun(packageVersion);
 
   return packageVersion;
 }
 
-function requireRuntimePackageVersionCanRun(
-  session: RuntimeSessionRecord,
-  packageVersion: PackageVersionRecord,
-): void {
+function requireRuntimePackageVersionCanRun(packageVersion: PackageVersionRecord): void {
+  if (packageVersion.runtime.kind !== 'browser') {
+    failRuntimeOutcome({
+      type: 'integrity_failure',
+      code: 'runtime_kind_mismatch',
+      message: 'Browser preview sessions can run browser packages only.',
+      status: 409,
+      detail: {
+        packageVersionId: packageVersion.id,
+        runtimeKind: packageVersion.runtime.kind,
+      },
+    });
+  }
+
   if (packageVersion.approvalStatus === 'approved') {
     return;
   }
 
-  if (session.preview !== undefined && packageVersion.approvalStatus === 'pending') {
+  if (packageVersion.approvalStatus === 'pending') {
     return;
   }
 

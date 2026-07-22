@@ -10,29 +10,13 @@ import {
   parseD1NullableJsonField,
 } from '../db/d1_row.ts';
 import type { AttemptEvent, Capability, NormalizedAttemptEvent } from '../../sdk/app-sdk.ts';
-import type {
-  AttemptEventRow,
-  AttemptRow,
-  DynamicRegistrationStateRow,
-  RuntimeSessionRow,
-} from './repository_row_types.ts';
-
-export interface D1DynamicRegistrationStateRow extends Record<string, unknown> {
-  state: unknown;
-  appId: unknown;
-  lmsType: unknown;
-  createdAt: unknown;
-  expiresAt: unknown;
-  usedAt: unknown;
-}
+import type { AttemptEventRow, AttemptRow, RuntimeSessionRow } from './repository_row_types.ts';
 
 export interface D1RuntimeSessionRow extends Record<string, unknown> {
   sessionId: unknown;
   sessionToken: unknown;
   ltiToolSessionId: unknown;
   attemptId: unknown;
-  deploymentRecordId: unknown;
-  deploymentSlug: unknown;
   appId: unknown;
   packageVersionId: unknown;
   packageVersion: unknown;
@@ -57,8 +41,7 @@ export interface D1RuntimeSessionRow extends Record<string, unknown> {
 export interface D1AttemptRow extends Record<string, unknown> {
   id: unknown;
   attemptId: unknown;
-  deploymentRecordId: unknown;
-  deploymentSlug: unknown;
+  previewSessionId: unknown;
   appId: unknown;
   packageVersionId: unknown;
   packageVersion: unknown;
@@ -90,27 +73,12 @@ export interface D1AttemptEventRow extends Record<string, unknown> {
   receivedAt: unknown;
 }
 
-export function mapD1DynamicRegistrationStateFields(
-  row: D1DynamicRegistrationStateRow,
-): DynamicRegistrationStateRow {
-  return {
-    state: expectD1String(row.state, 'state'),
-    appId: expectD1String(row.appId, 'appId'),
-    lmsType: expectD1StringLiteral(row.lmsType, 'lmsType', ['canvas', 'moodle', 'sakai']),
-    createdAt: expectD1String(row.createdAt, 'createdAt'),
-    expiresAt: expectD1String(row.expiresAt, 'expiresAt'),
-    usedAt: expectD1NullableString(row.usedAt, 'usedAt'),
-  };
-}
-
 export function mapD1RuntimeSessionFields(row: D1RuntimeSessionRow): RuntimeSessionRow {
   return {
     sessionId: expectD1String(row.sessionId, 'sessionId'),
     sessionToken: expectD1String(row.sessionToken, 'sessionToken'),
     ltiToolSessionId: expectD1NullableString(row.ltiToolSessionId, 'ltiToolSessionId'),
     attemptId: expectD1NullableString(row.attemptId, 'attemptId'),
-    deploymentRecordId: expectD1Number(row.deploymentRecordId, 'deploymentRecordId'),
-    deploymentSlug: expectD1String(row.deploymentSlug, 'deploymentSlug'),
     appId: expectD1String(row.appId, 'appId'),
     packageVersionId: expectD1Number(row.packageVersionId, 'packageVersionId'),
     packageVersion: expectD1String(row.packageVersion, 'packageVersion'),
@@ -141,7 +109,7 @@ export function mapD1RuntimeSessionFields(row: D1RuntimeSessionRow): RuntimeSess
     launchCourseId: expectD1String(row.launchCourseId, 'launchCourseId'),
     launchAssignmentId: expectD1NullableString(row.launchAssignmentId, 'launchAssignmentId'),
     launchActivityId: expectD1String(row.launchActivityId, 'launchActivityId'),
-    previewSessionId: expectD1NullableString(row.previewSessionId, 'previewSessionId'),
+    previewSessionId: expectD1String(row.previewSessionId, 'previewSessionId'),
     createdAt: expectD1String(row.createdAt, 'createdAt'),
     expiresAt: expectD1String(row.expiresAt, 'expiresAt'),
   };
@@ -151,8 +119,7 @@ export function mapD1AttemptFields(row: D1AttemptRow): AttemptRow {
   return {
     id: expectD1Number(row.id, 'id'),
     attemptId: expectD1String(row.attemptId, 'attemptId'),
-    deploymentRecordId: expectD1Number(row.deploymentRecordId, 'deploymentRecordId'),
-    deploymentSlug: expectD1String(row.deploymentSlug, 'deploymentSlug'),
+    previewSessionId: expectD1String(row.previewSessionId, 'previewSessionId'),
     appId: expectD1String(row.appId, 'appId'),
     packageVersionId: expectD1Number(row.packageVersionId, 'packageVersionId'),
     packageVersion: expectD1String(row.packageVersion, 'packageVersion'),

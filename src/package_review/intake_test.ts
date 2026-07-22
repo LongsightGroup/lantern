@@ -61,7 +61,7 @@ Deno.test('importDemoPackage snapshots the demo package into Lantern-managed sto
       assertEquals(result.runtimeContract.appId, result.reviewData.appId);
       assertEquals(result.runtimeContract.packageVersion, result.reviewData.version);
       assertEquals(result.runtimeContract.artifactDigest, result.artifact.digest);
-      assertEquals(result.runtimeContract.entrypoint, result.reviewData.entrypoint);
+      assertEquals(result.runtimeContract.runtime, result.reviewData.runtime);
       assertEquals(result.runtimeContract.capabilities, result.reviewData.capabilities);
 
       await verifyReviewedRuntimeContractSignature({

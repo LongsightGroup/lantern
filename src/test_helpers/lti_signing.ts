@@ -1,6 +1,5 @@
 import { importJWK, SignJWT } from 'jose';
-import type { CanvasDeploymentBinding, DeploymentBinding } from '../lti/types.ts';
-import { LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE as DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE } from '../lti/types.ts';
+import type { CanvasDeploymentBinding } from '../lti/types.ts';
 import {
   type AgsShape,
   buildAgsLaunchClaimValue,
@@ -8,8 +7,6 @@ import {
   buildNrpsLaunchClaimValue,
   TEST_NOW,
 } from './lti_identity_builders.ts';
-import { buildDeepLinkingSettingsClaimValue } from './lti_session_builders.ts';
-import { createMemoryLtiStorage, syncLtiToolDeploymentBinding } from '../lti/tool_provider.ts';
 
 export const TEST_TOOL_PRIVATE_JWK = {
   kty: 'RSA',
@@ -74,12 +71,6 @@ export interface CanvasLaunchTokenInput {
     contextMembershipsUrl?: string;
     serviceVersions?: string[];
   } | null;
-  deepLinkReturnUrl?: string;
-  deepLinkData?: string | null;
-  deepLinkAcceptTypes?: string[];
-  deepLinkAcceptMultiple?: boolean;
-  deepLinkAcceptPresentationDocumentTargets?: string[];
-  deepLinkAcceptLineItem?: boolean;
   custom?: Record<string, string>;
 }
 
@@ -98,19 +89,6 @@ export async function signCanvasIdToken(input: CanvasLaunchTokenInput = {}): Pro
     ? null
     : buildAgsLaunchClaimValue(input.ags ?? {}, input.agsShape);
   const nrpsClaim = input.nrps === null ? null : buildNrpsLaunchClaimValue(input.nrps ?? {});
-  const deepLinkingSettings = input.messageType === DEFAULT_DEEP_LINKING_REQUEST_MESSAGE_TYPE ||
-      input.deepLinkReturnUrl !== undefined ||
-      input.deepLinkAcceptTypes !== undefined ||
-      input.deepLinkAcceptPresentationDocumentTargets !== undefined
-    ? buildDeepLinkingSettingsClaimValue({
-      acceptTypes: input.deepLinkAcceptTypes,
-      acceptMultiple: input.deepLinkAcceptMultiple,
-      acceptPresentationDocumentTargets: input.deepLinkAcceptPresentationDocumentTargets,
-      acceptLineItem: input.deepLinkAcceptLineItem,
-      deepLinkReturnUrl: input.deepLinkReturnUrl,
-      data: input.deepLinkData,
-    })
-    : null;
   const claims = {
     ...(input.nonce === null ? {} : { nonce: input.nonce ?? 'nonce-123' }),
     ...(input.name === undefined ? {} : { name: input.name }),
@@ -150,9 +128,6 @@ export async function signCanvasIdToken(input: CanvasLaunchTokenInput = {}): Pro
     ...(nrpsClaim === null ? {} : {
       'https://purl.imsglobal.org/spec/lti-nrps/claim/namesroleservice': nrpsClaim,
     }),
-    ...(deepLinkingSettings === null ? {} : {
-      'https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings': deepLinkingSettings,
-    }),
   };
   const signingKey = await importJWK(TEST_CANVAS_PRIVATE_JWK, 'ES256');
   let token = new SignJWT(claims)
@@ -190,24 +165,6 @@ export async function signLtiToolState(input: {
   })
     .setProtectedHeader({ alg: 'HS256' })
     .sign(new TextEncoder().encode(TEST_LTI_STATE_SECRET));
-}
-
-export async function createSyncedTestLtiStorage(input: {
-  binding?: DeploymentBinding;
-  appTitle?: string;
-  deploymentSlug?: string;
-} = {}) {
-  const binding = input.binding ?? buildDeploymentBinding();
-  const storage = createMemoryLtiStorage();
-
-  await syncLtiToolDeploymentBinding({
-    storage,
-    appTitle: input.appTitle ?? 'Chapter 4 Asteroids',
-    deploymentSlug: input.deploymentSlug ?? 'chapter-4-asteroids-pilot',
-    binding,
-  });
-
-  return storage;
 }
 
 export function getTestCanvasJwks(): {

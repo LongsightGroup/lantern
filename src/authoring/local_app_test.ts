@@ -221,7 +221,7 @@ function buildPackageFiles(
 
 function buildManifest(): Record<string, unknown> {
   return {
-    schema_version: '1',
+    schema_version: '2',
     app_id: 'uploaded-quiz',
     version: '0.1.0',
     title: 'Uploaded Quiz',
@@ -230,7 +230,7 @@ function buildManifest(): Record<string, unknown> {
       type: 'user',
       id: 'instructor_123',
     },
-    entrypoint: '/dist/index.html',
+    runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
     roles: ['learner', 'instructor'],
     install_scope: 'course',
     capabilities: [

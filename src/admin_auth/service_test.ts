@@ -119,7 +119,7 @@ Deno.test('Better Auth Google social sign-in preserves authorization redirect an
 });
 
 Deno.test('Better Auth migration matches the configured auth schema tables and fields', async () => {
-  const migration = await Deno.readTextFile('src/db/d1_migrations/0010_better_auth_tables.sql');
+  const migration = await Deno.readTextFile('src/db/d1_migrations/0002_auth.sql');
   const tables = getAuthTables(
     createBetterAdminAuthOptions({
       db: createStubD1Database(),

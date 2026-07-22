@@ -125,14 +125,15 @@ export async function preflightLocalAppPackageSource(
 
   const entrypointHtml = await captureDiagnostic(
     () =>
-      loadTextFileFromSource(source, manifest.entrypoint, {
+      loadTextFileFromSource(source, manifest.runtime.entrypoint, {
         code: 'entrypoint_unreadable',
         severity: 'error',
         field: '/entrypoint',
-        file: manifest.entrypoint,
-        message: `Entrypoint HTML ${manifest.entrypoint} could not be read from the package.`,
+        file: manifest.runtime.entrypoint,
+        message:
+          `Runtime entrypoint ${manifest.runtime.entrypoint} could not be read from the package.`,
         fix:
-          `Add ${manifest.entrypoint} to the reviewed package and keep /entrypoint pointed at that HTML file.`,
+          `Add ${manifest.runtime.entrypoint} to the reviewed package and keep /runtime/entrypoint pointed at that file.`,
       }),
     diagnostics,
   );

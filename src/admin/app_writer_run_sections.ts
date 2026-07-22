@@ -210,7 +210,7 @@ export function renderGeneratedFilesSummary(input: {
   ].filter((path): path is string => path !== null);
   const fileRows: Array<{ label: string; path: string }> = [
     { label: 'Manifest', path: input.packageVersion.artifact.manifestPath },
-    { label: 'Entrypoint', path: input.packageVersion.entrypoint },
+    { label: 'Entrypoint', path: input.packageVersion.runtime.entrypoint },
     ...contentFiles.map((path) => ({ label: 'Content', path })),
     ...previewFiles.map((path) => ({ label: 'Preview', path })),
     {

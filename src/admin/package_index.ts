@@ -132,11 +132,7 @@ function renderPackageEntry(entry: PackageLibraryEntry): string {
       </div>
       <div class="button-row">
         <a class="button-primary" href="/admin/packages/${escapeHtml(entry.appId)}">Open app</a>
-        <a class="button-ghost" href="/admin/packages/${
-    escapeHtml(
-      entry.appId,
-    )
-  }/deployment">App settings</a>
+        <a class="button-ghost" href="/admin/governance">Install app</a>
       </div>
     </div>
     <div class="table-row-meta">

@@ -1,79 +1,6 @@
-import type { PlacementAuditStatus } from './types.ts';
-import type {
-  PlacementAuditSnapshot,
-  PreviewEvidenceRecord,
-  PreviewSessionRecord,
-} from './types.ts';
-import type {
-  PlacementAuditSnapshotRow,
-  PreviewEvidenceRow,
-  PreviewSessionRow,
-} from './repository_row_types.ts';
-import { mapReviewedPlacementRow } from './repository_mappers_sessions.ts';
-import {
-  normalizeNumeric,
-  normalizeOptionalTimestamp,
-  normalizeTimestamp,
-} from './repository_value_support.ts';
-
-export function mapOptionalPlacementAuditSnapshot(
-  row: PlacementAuditSnapshotRow | undefined,
-): PlacementAuditSnapshot | null {
-  if (!row) {
-    return null;
-  }
-
-  return mapPlacementAuditSnapshotRow(row);
-}
-
-export function mapPlacementAuditSnapshotRow(
-  row: PlacementAuditSnapshotRow | undefined,
-): PlacementAuditSnapshot {
-  if (!row) {
-    throw new Error('Expected a placement audit snapshot row.');
-  }
-
-  const previewEvidenceCount = normalizeNumeric(row.previewEvidenceCount);
-  const reviewerEventCount = normalizeNumeric(row.reviewerEventCount);
-
-  return {
-    placement: mapReviewedPlacementRow(row),
-    status: derivePlacementAuditStatus({
-      resourceLinkId: row.resourceLinkId,
-      previewEvidenceCount,
-      reviewerEventCount,
-    }),
-    latestPreviewSessionId: row.latestPreviewSessionId,
-    latestPreviewOccurredAt: normalizeOptionalTimestamp(row.latestPreviewOccurredAt),
-    previewEvidenceCount,
-    evidenceSummary: {
-      deepLinkingRequestCount: normalizeNumeric(row.deepLinkingRequestCount),
-      placementEventCount: normalizeNumeric(row.placementEventCount),
-      reviewerEventCount,
-      latestOccurredAt: normalizeOptionalTimestamp(row.latestAuditOccurredAt),
-    },
-  };
-}
-
-export function derivePlacementAuditStatus(input: {
-  resourceLinkId: string | null;
-  previewEvidenceCount: number;
-  reviewerEventCount: number;
-}): PlacementAuditStatus {
-  if (input.reviewerEventCount > 0) {
-    return 'reviewed';
-  }
-
-  if (input.resourceLinkId === null) {
-    return 'awaiting_canvas_binding';
-  }
-
-  if (input.previewEvidenceCount > 0) {
-    return 'bound_with_preview';
-  }
-
-  return 'bound_no_preview';
-}
+import type { PreviewEvidenceRecord, PreviewSessionRecord } from './types.ts';
+import type { PreviewEvidenceRow, PreviewSessionRow } from './repository_row_types.ts';
+import { normalizeNumeric, normalizeTimestamp } from './repository_value_support.ts';
 
 export function mapOptionalPreviewSession(
   row: PreviewSessionRow | undefined,
@@ -98,7 +25,6 @@ export function mapPreviewSessionRow(row: PreviewSessionRow | undefined): Previe
     packageTitle: row.packageTitle,
     origin: row.origin,
     contentPath: row.contentPath,
-    deepLinkingSessionId: row.deepLinkingSessionId,
     capabilities: row.capabilities,
     snapshotRoot: row.snapshotRoot,
     entrypointPath: row.entrypointPath,

@@ -14,7 +14,6 @@ import {
   buildImportedPackageVersion,
   buildPackageVersionRecord,
   buildPreviewEvidenceRecord,
-  buildReviewedPlacementRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
@@ -204,30 +203,13 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   assertStringIncludes(detailBody, 'Preview summary');
   assertStringIncludes(detailBody, 'Generation preview completed: Passed 1/1 preview assertions.');
 
-  await repository.createReviewedPlacement(
-    buildReviewedPlacementRecord({
-      placementId: 'generated-placement-1',
-      deploymentSlug: 'phonics-match-canvas',
-      appId: 'phonics-match',
-      packageVersionId: 1,
-      packageVersion: '0.1.0',
-      packageTitle: 'Phonics Match',
-      contextTitle: 'Reading 101',
-      resourceLinkId: 'resource-link-generated',
-    }),
-  );
-
   const packageResponse = await app.request(
     'https://lantern.example/admin/packages/phonics-match/versions/0.1.0',
   );
   const packageBody = await packageResponse.text();
 
   assertEquals(packageResponse.status, 200);
-  assertStringIncludes(packageBody, 'Generated package activity');
-  assertStringIncludes(packageBody, 'Saved generated package as a pending package version.');
-  assertStringIncludes(packageBody, 'LMS placements using this version');
-  assertStringIncludes(packageBody, 'generated-placement-1');
-  assertStringIncludes(packageBody, 'resource-link-generated');
+  assertStringIncludes(packageBody, 'Install reviewed app');
 });
 
 Deno.test('POST /admin/app-writer redirects even without a Worker execution context', async () => {

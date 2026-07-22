@@ -4,7 +4,7 @@ import {
   approvalStatusLabel,
   summarizeAccessibilityReview,
 } from '../package_review/summary.ts';
-import type { DeploymentRecord, PackageVersionRecord } from '../package_review/types.ts';
+import type { PackageVersionRecord } from '../package_review/types.ts';
 import {
   type AdminIdentity,
   type AdminNotice,
@@ -19,23 +19,17 @@ export function renderPackageOverviewPage(input: {
   appId: string;
   appTitle: string;
   history: PackageVersionRecord[];
-  deployments: DeploymentRecord[];
   notice?: AdminNotice | null;
 }): string {
   const latestVersion = input.history[0] ?? null;
   const latestApprovedVersion =
     input.history.find((version) => version.approvalStatus === 'approved') ?? null;
-  const connectedDeployments = input.deployments.filter(
-    (deployment) => deployment.binding !== null,
-  );
-  const liveDeploymentCounts = buildLiveDeploymentCounts(input.deployments);
-
   return renderAdminLayout({
     identity: input.identity,
     title: `${input.appTitle} App`,
     eyebrow: 'App',
     heading: input.appTitle,
-    intro: 'Versions, governed launch tools, and LMS settings for this app.',
+    intro: 'Reviewed versions for installation through the governed app catalog.',
     activePath: '/admin/packages',
     breadcrumbs: [
       { label: 'Apps', href: '/admin/packages' },
@@ -69,16 +63,7 @@ export function renderPackageOverviewPage(input: {
         )
       }/versions/${escapeHtml(latestVersion.version)}">Open latest version</a>`
     }
-            <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(
-        input.appId,
-      )
-    }/deployment">Open settings</a>
-            <a class="button-ghost" href="/admin/packages/${
-      escapeHtml(
-        input.appId,
-      )
-    }/reports">Reports</a>
+            <a class="button-secondary" href="/admin/governance">Install app</a>
             ${
       latestApprovedVersion === null
         ? ''
@@ -112,10 +97,6 @@ export function renderPackageOverviewPage(input: {
     }</span>
           </div>
           <div class="fact">
-            <span class="fact-label">LMS connections</span>
-            <span class="fact-value">${escapeHtml(String(connectedDeployments.length))}</span>
-          </div>
-          <div class="fact">
             <span class="fact-label">Updated</span>
             <span class="fact-value">${
       escapeHtml(
@@ -132,7 +113,7 @@ export function renderPackageOverviewPage(input: {
           <div class="stack">
             <p class="section-label">Versions</p>
             <h2>Reviewed versions</h2>
-            <p>Each version shows whether it is the current reviewed baseline and whether it is live in LMS now.</p>
+            <p>Each immutable version is reviewed independently before an institution can install it.</p>
           </div>
         </div>
         <div class="table-list">
@@ -143,37 +124,11 @@ export function renderPackageOverviewPage(input: {
             version,
             isLatestVersion: latestVersion?.id === version.id,
             isLatestApproved: latestApprovedVersion?.id === version.id,
-            liveDeploymentCount: liveDeploymentCounts.get(version.id) ?? 0,
           })
         )
         .join('')
     }
         </div>
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-body stack">
-        <div class="panel-header">
-          <div class="stack">
-            <p class="section-label">Connections</p>
-            <h2>LMS setup</h2>
-            <p>Keep live LMS bindings in one place so version review stays separate from rollout decisions.</p>
-          </div>
-          <div class="button-row">
-            <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(
-        input.appId,
-      )
-    }/deployment">Manage settings</a>
-          </div>
-        </div>
-        ${
-      input.deployments.length === 0
-        ? '<p class="muted">No LMS connection has been saved for this app yet.</p>'
-        : `<div class="table-list">
-              ${input.deployments.map((deployment) => renderDeploymentRow(deployment)).join('')}
-            </div>`
-    }
       </div>
     </section>`,
   });
@@ -183,14 +138,12 @@ function renderOverviewVersionRow(input: {
   version: PackageVersionRecord;
   isLatestVersion: boolean;
   isLatestApproved: boolean;
-  liveDeploymentCount: number;
 }): string {
-  const { version, isLatestVersion, isLatestApproved, liveDeploymentCount } = input;
+  const { version, isLatestVersion, isLatestApproved } = input;
   const accessibility = summarizeAccessibilityReview(version);
   const stateChips = renderVersionStateChips({
     isLatestVersion,
     isLatestApproved,
-    liveDeploymentCount,
   });
 
   return `<article class="table-row version-row${isLatestApproved ? ' version-row-current' : ''}">
@@ -259,7 +212,6 @@ function renderOverviewVersionRow(input: {
 function renderVersionStateChips(input: {
   isLatestVersion: boolean;
   isLatestApproved: boolean;
-  liveDeploymentCount: number;
 }): string {
   const chips: string[] = [];
 
@@ -271,75 +223,7 @@ function renderVersionStateChips(input: {
     );
   }
 
-  chips.push(
-    input.liveDeploymentCount > 0
-      ? `<span class="chip chip-status chip-status-healthy">${
-        escapeHtml(
-          formatLiveRolloutChipLabel(input.liveDeploymentCount),
-        )
-      }</span>`
-      : '<span class="chip version-rollout-chip">Not live in LMS</span>',
-  );
+  chips.push('<span class="chip version-rollout-chip">Install through governance</span>');
 
   return `<div class="chip-row version-row-state">${chips.join('')}</div>`;
-}
-
-function buildLiveDeploymentCounts(deployments: DeploymentRecord[]): Map<number, number> {
-  const counts = new Map<number, number>();
-
-  for (const deployment of deployments) {
-    if (deployment.binding === null || deployment.enabledPackageVersionId === null) {
-      continue;
-    }
-
-    counts.set(
-      deployment.enabledPackageVersionId,
-      (counts.get(deployment.enabledPackageVersionId) ?? 0) + 1,
-    );
-  }
-
-  return counts;
-}
-
-function formatLiveRolloutChipLabel(liveDeploymentCount: number): string {
-  return `Live now in ${liveDeploymentCount} LMS setup${liveDeploymentCount === 1 ? '' : 's'}`;
-}
-
-function renderDeploymentRow(deployment: DeploymentRecord): string {
-  return `<article class="table-row">
-    <div class="table-row-top">
-      <div class="stack">
-        <p class="line-title">${escapeHtml(formatLmsLabel(deployment.lmsType))}</p>
-        <p class="line-copy">${
-    escapeHtml(
-      deployment.binding === null
-        ? 'No binding saved yet.'
-        : 'Binding saved and ready for governed launch.',
-    )
-  }</p>
-      </div>
-    </div>
-    <div class="table-row-meta">
-      <span><strong>Live version</strong> ${
-    escapeHtml(
-      deployment.enabledPackageVersion ?? 'Not pinned',
-    )
-  }</span>
-      <span><strong>Updated</strong> ${escapeHtml(formatDateTime(deployment.updatedAt))}</span>
-      <span><strong>Deployment</strong> ${escapeHtml(deployment.label)}</span>
-    </div>
-  </article>`;
-}
-
-function formatLmsLabel(lms: DeploymentRecord['lmsType']): string {
-  switch (lms) {
-    case 'canvas':
-      return 'Canvas';
-    case 'moodle':
-      return 'Moodle';
-    case 'sakai':
-      return 'Sakai';
-    default:
-      return lms;
-  }
 }

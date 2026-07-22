@@ -142,12 +142,9 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview launches pendin
       const runtimeLocation = new URL(response.headers.get('location') ?? '');
       const sessionId = runtimeLocation.pathname.split('/').at(-1) ?? '';
       const session = await repository.getRuntimeSessionById(sessionId);
-      const deployment = await repository.getDeploymentBySlug('chapter-4-asteroids-preview');
 
       assertEquals(session?.preview?.previewSessionId.startsWith('preview-session-'), true);
       assertEquals(session?.packageVersionId, 43);
-      assertEquals(deployment?.enabledPackageVersionId, 43);
-      assertEquals(deployment?.lmsType, 'preview');
 
       const runtimeResponse = await app.request(runtimeLocation.toString());
       assertEquals(runtimeResponse.status, 200);
@@ -209,18 +206,15 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a runti
     const runtimeLocation = new URL(location);
     const sessionId = runtimeLocation.pathname.split('/').at(-1) ?? '';
     const session = await repository.getRuntimeSessionById(sessionId);
-    const deployment = await repository.getDeploymentBySlug('chapter-4-asteroids-preview');
 
     assertEquals(session?.services.ags, null);
     assertEquals(session?.services.nrps, null);
-    assertEquals(session?.deploymentSlug, 'chapter-4-asteroids-preview');
+    assertEquals(session?.preview?.previewSessionId.startsWith('preview-session-'), true);
     assertEquals(session?.launch.userRole, 'instructor');
     assertEquals(session?.launch.courseId, 'physics-101');
     assertEquals(session?.launch.assignmentId ?? null, null);
     assertEquals(session?.launch.activityId, 'asteroids-boss-stage');
     assertEquals(session?.sessionToken, runtimeLocation.searchParams.get('token'));
-    assertEquals(deployment?.enabledPackageVersionId, 44);
-    assertEquals(deployment?.enabledPackageVersion, '0.1.0');
   });
 });
 
@@ -345,7 +339,7 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview launches commit
     const sessionId = runtimeLocation.pathname.split('/').at(-1) ?? '';
     const session = await repository.getRuntimeSessionById(sessionId);
 
-    assertEquals(session?.deploymentSlug, 'quick-study-preview');
+    assertEquals(session?.preview?.previewSessionId.startsWith('preview-session-'), true);
     assertEquals(session?.appId, 'quick-study');
     assertEquals(session?.contentPath, `${snapshotRoot}/content/activity.json`);
     assertEquals(session?.launch.userRole, 'learner');

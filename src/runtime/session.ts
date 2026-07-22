@@ -104,7 +104,7 @@ export async function renderRuntimeSessionPage(
     buildRuntimeBootstrapScript({
       bootstrap,
       runtimeBaseUrl,
-      previewSessionId: session.preview?.previewSessionId ?? null,
+      previewSessionId: session.preview.previewSessionId,
     })
   }</script>`;
 

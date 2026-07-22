@@ -220,7 +220,7 @@ Deno.test('renderPreviewPage shows durable test activity evidence in capability 
   assertStringIncludes(body, 'preview.finalize');
   assertStringIncludes(
     body,
-    '/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001',
+    '/admin/packages/chapter-4-asteroids/evidence/artifact-001',
   );
   assertStringIncludes(body, 'finalize_attempt');
   assertStringIncludes(body, 'Finished the test attempt with simulated scoring and no LMS writes.');
@@ -283,7 +283,7 @@ Deno.test('renderPreviewPage renders screenshot evidence as supplemental on the 
   assertStringIncludes(body, '<img');
   assertStringIncludes(
     body,
-    '/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-002',
+    '/admin/packages/chapter-4-asteroids/evidence/artifact-002',
   );
   assertStringIncludes(body, 'submission.png');
 });

@@ -1,13 +1,20 @@
+/**
+ * Preview/sandbox runtime sessions only.
+ *
+ * The `runtime_sessions` table and the PackageReviewRepository launch-state APIs
+ * in this module back preview and authoring runs (admin test launches, Python
+ * Lab previews). They are NOT the LMS launch plane. Governed LMS launches must
+ * use `governed_runtime_sessions` via `lms_kernel` (see
+ * `src/lms_kernel/launch_service.ts` and `src/app_governed_runtime_routes.ts`).
+ */
 import type { D1Database } from '../db/d1.ts';
 import { queryD1First, queryD1Objects, runD1, runD1Batch } from '../db/d1.ts';
 import {
   type D1AttemptEventRow,
   type D1AttemptRow,
-  type D1DynamicRegistrationStateRow,
   type D1RuntimeSessionRow,
   mapD1AttemptEventFields,
   mapD1AttemptFields,
-  mapD1DynamicRegistrationStateFields,
   mapD1RuntimeSessionFields,
 } from './repository_launch_state_d1_mapping.ts';
 import {
@@ -15,10 +22,6 @@ import {
   mapAttemptRow,
   mapOptionalAttempt,
 } from './repository_mappers_attempts.ts';
-import {
-  mapDynamicRegistrationStateRow,
-  mapOptionalDynamicRegistrationState,
-} from './repository_mappers_package.ts';
 import { mapOptionalRuntimeSession, mapRuntimeSessionRow } from './repository_mappers_sessions.ts';
 import type { PackageReviewRepository } from './repository.ts';
 
@@ -26,12 +29,8 @@ export function createD1LaunchStateRepositoryMethods(
   db: D1Database,
 ): Pick<
   PackageReviewRepository,
-  | 'createDynamicRegistrationState'
-  | 'getDynamicRegistrationStateByState'
-  | 'consumeDynamicRegistrationState'
   | 'createRuntimeSession'
   | 'getRuntimeSessionById'
-  | 'getLatestRuntimeSessionByDeploymentId'
   | 'createAttempt'
   | 'getAttemptById'
   | 'listAttemptsByApp'
@@ -41,79 +40,6 @@ export function createD1LaunchStateRepositoryMethods(
   | 'writeAttemptLocalState'
 > {
   return {
-    async createDynamicRegistrationState(record) {
-      try {
-        await runD1(
-          db,
-          `
-            INSERT INTO dynamic_registration_states (
-              state,
-              app_id,
-              lms_type,
-              created_at,
-              expires_at,
-              used_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
-          `,
-          [
-            record.state,
-            record.appId,
-            record.lms,
-            record.createdAt,
-            record.expiresAt,
-            record.usedAt,
-          ],
-        );
-      } catch (error) {
-        if (isD1UniqueViolation(error)) {
-          throw new Error(
-            `Dynamic registration state ${record.state} already exists and cannot be reused.`,
-          );
-        }
-
-        throw error;
-      }
-
-      return await requireDynamicRegistrationState(db, record.state);
-    },
-
-    async getDynamicRegistrationStateByState(state) {
-      const row = await queryD1First<D1DynamicRegistrationStateRow>(
-        db,
-        `${D1_DYNAMIC_REGISTRATION_STATE_SELECT} WHERE state = ?`,
-        [state],
-      );
-
-      return mapOptionalDynamicRegistrationState(
-        row === null ? undefined : mapD1DynamicRegistrationStateFields(row),
-      );
-    },
-
-    async consumeDynamicRegistrationState(input) {
-      await runD1(
-        db,
-        `
-          UPDATE dynamic_registration_states
-          SET used_at = ?
-          WHERE state = ?
-            AND used_at IS NULL
-        `,
-        [input.usedAt, input.state],
-      );
-
-      const existing = await requireDynamicRegistrationState(db, input.state);
-
-      if (existing.usedAt === input.usedAt) {
-        return existing;
-      }
-
-      if (existing.usedAt !== null) {
-        throw new Error(`Dynamic registration state ${input.state} has already been used.`);
-      }
-
-      throw new Error(`Dynamic registration state ${input.state} could not be consumed.`);
-    },
-
     async createRuntimeSession(record) {
       try {
         await runD1(
@@ -124,8 +50,6 @@ export function createD1LaunchStateRepositoryMethods(
               session_token,
               lti_tool_session_id,
               attempt_id,
-              deployment_record_id,
-              deployment_slug,
               app_id,
               package_version_id,
               package_version,
@@ -145,15 +69,13 @@ export function createD1LaunchStateRepositoryMethods(
               preview_session_id,
               created_at,
               expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             record.sessionId,
             record.sessionToken,
             record.ltiToolSessionId,
             record.attemptId,
-            record.deploymentRecordId,
-            record.deploymentSlug,
             record.appId,
             record.packageVersionId,
             record.packageVersion,
@@ -170,7 +92,7 @@ export function createD1LaunchStateRepositoryMethods(
             record.launch.courseId,
             record.launch.assignmentId ?? null,
             record.launch.activityId,
-            record.preview?.previewSessionId ?? null,
+            record.preview.previewSessionId,
             record.createdAt,
             record.expiresAt,
           ],
@@ -198,21 +120,6 @@ export function createD1LaunchStateRepositoryMethods(
       return mapOptionalRuntimeSession(row === null ? undefined : mapD1RuntimeSessionFields(row));
     },
 
-    async getLatestRuntimeSessionByDeploymentId(deploymentRecordId) {
-      const row = await queryD1First<D1RuntimeSessionRow>(
-        db,
-        `
-          ${D1_RUNTIME_SESSION_SELECT}
-          WHERE deployment_record_id = ?
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-        [deploymentRecordId],
-      );
-
-      return mapOptionalRuntimeSession(row === null ? undefined : mapD1RuntimeSessionFields(row));
-    },
-
     async createAttempt(record) {
       try {
         await runD1(
@@ -220,8 +127,7 @@ export function createD1LaunchStateRepositoryMethods(
           `
             INSERT INTO attempts (
               attempt_id,
-              deployment_record_id,
-              deployment_slug,
+              preview_session_id,
               app_id,
               package_version_id,
               package_version,
@@ -238,12 +144,11 @@ export function createD1LaunchStateRepositoryMethods(
               local_state,
               started_at,
               finalized_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             record.attemptId,
-            record.deploymentRecordId,
-            record.deploymentSlug,
+            record.previewSessionId,
             record.appId,
             record.packageVersionId,
             record.packageVersion,
@@ -288,10 +193,7 @@ export function createD1LaunchStateRepositoryMethods(
         db,
         `
           ${D1_ATTEMPT_SELECT}
-          LEFT JOIN deployments
-            ON deployments.id = attempts.deployment_record_id
           WHERE attempts.app_id = ?
-            AND COALESCE(deployments.lms_type, 'canvas') <> 'preview'
           ORDER BY attempts.started_at DESC, attempts.id DESC
         `,
         [appId],
@@ -423,25 +325,12 @@ export function createD1LaunchStateRepositoryMethods(
   };
 }
 
-const D1_DYNAMIC_REGISTRATION_STATE_SELECT = `
-  SELECT
-    state,
-    app_id AS appId,
-    lms_type AS lmsType,
-    created_at AS createdAt,
-    expires_at AS expiresAt,
-    used_at AS usedAt
-  FROM dynamic_registration_states
-`;
-
 const D1_RUNTIME_SESSION_SELECT = `
   SELECT
     session_id AS sessionId,
     session_token AS sessionToken,
     lti_tool_session_id AS ltiToolSessionId,
     attempt_id AS attemptId,
-    deployment_record_id AS deploymentRecordId,
-    deployment_slug AS deploymentSlug,
     app_id AS appId,
     package_version_id AS packageVersionId,
     package_version AS packageVersion,
@@ -468,8 +357,7 @@ const D1_ATTEMPT_SELECT = `
   SELECT
     attempts.id,
     attempts.attempt_id AS attemptId,
-    attempts.deployment_record_id AS deploymentRecordId,
-    attempts.deployment_slug AS deploymentSlug,
+    attempts.preview_session_id AS previewSessionId,
     attempts.app_id AS appId,
     attempts.package_version_id AS packageVersionId,
     attempts.package_version AS packageVersion,
@@ -503,20 +391,6 @@ const D1_ATTEMPT_EVENT_SELECT = `
     received_at AS receivedAt
   FROM attempt_events
 `;
-
-async function requireDynamicRegistrationState(db: D1Database, state: string) {
-  const row = await queryD1First<D1DynamicRegistrationStateRow>(
-    db,
-    `${D1_DYNAMIC_REGISTRATION_STATE_SELECT} WHERE state = ?`,
-    [state],
-  );
-
-  if (row === null) {
-    throw new Error(`Dynamic registration state ${state} was not found.`);
-  }
-
-  return mapDynamicRegistrationStateRow(mapD1DynamicRegistrationStateFields(row));
-}
 
 async function requireRuntimeSession(db: D1Database, sessionId: string) {
   const row = await queryD1First<D1RuntimeSessionRow>(

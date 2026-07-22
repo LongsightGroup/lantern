@@ -1,6 +1,5 @@
 import {
   createNoopLogger,
-  LtiDynamicRegistration,
   type LtiLogger,
   type LTIStorage,
   LTITool,
@@ -12,14 +11,22 @@ import type { AnyD1Database } from 'drizzle-orm/d1';
 import { type D1Database } from '../db/d1.ts';
 import { type EnvReader, readEnv } from '../platform/env.ts';
 import { requireAppOrigin } from './config.ts';
-import {
-  resolveAuthorizationEndpoint,
-  resolveBindingJwksUrl,
-  resolveServiceTokenEndpoint,
-} from './platform_binding.ts';
 import { loadToolSigningKey } from './tool_key.ts';
-import { buildDynamicRegistrationConfig } from './dynamic_registration_config.ts';
-import type { DeploymentBinding } from './types.ts';
+import type { LmsConnectionRecord } from '../lms_kernel/types.ts';
+
+/**
+ * Data ownership boundary for LTI:
+ *
+ * - `lms_connections` (owned by lms_kernel) is Lantern's product identity for an
+ *   institution's LMS platform. It is the source of truth an admin manages.
+ * - The `lti_*` tables written through {@link LTIStorage} are an ephemeral
+ *   protocol registration cache consumed only by the `@longsightgroup/lti-tool`
+ *   library to run the OIDC/launch handshake. They are derived from
+ *   `lms_connections` and can be rebuilt from it at any time.
+ *
+ * {@link syncLtiToolConnection} projects a product `lms_connections` record into
+ * that protocol cache. Never treat the `lti_*` tables as authoritative.
+ */
 
 const LTI_STATE_SECRET_ENV = 'LTI_STATE_SECRET';
 const MIN_STATE_SECRET_BYTES = 32;
@@ -27,7 +34,6 @@ const MIN_STATE_SECRET_BYTES = 32;
 export interface LanternLtiToolContext {
   readonly storage: LTIStorage;
   readonly tool: LTITool;
-  readonly dynamicRegistration: LtiDynamicRegistration;
   readonly logger: LtiLogger;
 }
 
@@ -55,7 +61,9 @@ export async function createLanternLtiToolContext(
 ): Promise<LanternLtiToolContext> {
   const logger = input.logger ?? createNoopLogger();
   const toolSigningKey = await loadToolSigningKey(input.env);
-  const appOrigin = input.appOrigin ?? requireAppOrigin(input.env);
+  if (input.appOrigin === undefined) {
+    requireAppOrigin(input.env);
+  }
   const config = {
     stateSecret: readLtiStateSecret(input.env),
     keyPair: toolSigningKey.keyPair,
@@ -69,32 +77,33 @@ export async function createLanternLtiToolContext(
         cacheMaxAge: 300_000,
       },
     },
-    dynamicRegistration: buildDynamicRegistrationConfig(appOrigin),
   };
 
   return {
     storage: input.storage,
     tool: new LTITool(config),
-    dynamicRegistration: new LtiDynamicRegistration(config),
     logger,
   };
 }
 
-export async function syncLtiToolDeploymentBinding(input: {
+/**
+ * Projects a product `lms_connections` record into the lti-tool protocol
+ * registration cache. `lms_connections` remains the owner; this only refreshes
+ * the derived `lti_*` registration the library needs to complete launches.
+ */
+export async function syncLtiToolConnection(input: {
   readonly storage: LTIStorage;
-  readonly appTitle: string;
-  readonly deploymentSlug: string;
-  readonly binding: DeploymentBinding;
+  readonly connection: LmsConnectionRecord;
 }): Promise<void> {
   await upsertLaunchRegistration(input.storage, {
-    iss: input.binding.issuer,
-    clientId: input.binding.clientId,
-    deploymentId: input.binding.deploymentId,
-    authUrl: resolveAuthorizationEndpoint(input.binding),
-    tokenUrl: resolveServiceTokenEndpoint(input.binding),
-    jwksUrl: resolveBindingJwksUrl(input.binding),
-    name: `${input.appTitle} via Lantern`,
-    deploymentName: input.deploymentSlug,
+    iss: input.connection.issuer,
+    clientId: input.connection.clientId,
+    deploymentId: input.connection.deploymentId,
+    authUrl: input.connection.authorizationEndpoint,
+    tokenUrl: input.connection.accessTokenUrl,
+    jwksUrl: input.connection.jwksUrl,
+    name: `${input.connection.label} via Lantern`,
+    deploymentName: input.connection.id,
   });
 }
 

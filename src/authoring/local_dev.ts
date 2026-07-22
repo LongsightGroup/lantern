@@ -181,7 +181,7 @@ export function serializeLocalDevStatus(input: {
       appId: input.state.appPackage.reviewData.appId,
       version: input.state.appPackage.reviewData.version,
       title: input.state.appPackage.reviewData.title,
-      entrypoint: input.state.appPackage.manifest.entrypoint,
+      entrypoint: input.state.appPackage.manifest.runtime.entrypoint,
       capabilities: input.state.appPackage.reviewData.capabilities,
       previewTestCount: input.state.appPackage.previewTests.length,
     },
@@ -223,7 +223,7 @@ export function renderLocalDevStateSummary(input: {
     'Lantern authoring dev loop ready.',
     `- Preview URL: ${previewUrl}`,
     `- App ID: ${input.state.appPackage.reviewData.appId}`,
-    `- Entrypoint: ${input.state.appPackage.manifest.entrypoint}`,
+    `- Entrypoint: ${input.state.appPackage.manifest.runtime.entrypoint}`,
     `- Preview checks: ${
       input.state.previewCheck.kind === 'passed'
         ? 'passing'

@@ -10,7 +10,7 @@ import {
   expiredAdminSessionCookieValue,
   readAdminSessionCookie,
 } from '../admin_auth/service.ts';
-import { createApp } from '../app.ts';
+import { createTestApp as createApp } from './app.ts';
 import type { AppServices } from '../app_services.ts';
 import { createObjectEnvReader } from '../platform/env.ts';
 

@@ -1,6 +1,9 @@
-import type { ExecutionContext } from '@hono/hono';
-import { buildApp } from './app_core.ts';
 export { AppWriterAgent } from './app_writer/agent.ts';
+export {
+  createCloudflarePythonGraderSandboxFactory,
+  PythonGraderSandbox,
+} from './python_lab/cloudflare_sandbox.ts';
+import { createCloudflarePythonGraderSandboxFactory } from './python_lab/cloudflare_sandbox.ts';
 import {
   type AppGenerationWorkflowParams,
   runAppGenerationFileWorkflowStep,
@@ -9,17 +12,18 @@ import {
   runAppGenerationPlanningWorkflowStep,
 } from './app_writer/workflow_runner.ts';
 import { resolveWorkerServices, type WorkerBindings } from './app_worker_services.ts';
-import { statusForError } from './app_status_support.ts';
-import { buildCanvasConfigDocument } from './lti/config.ts';
 import { createObjectEnvReader } from './platform/env.ts';
-import { readEnv } from './platform/env.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
+import { runPythonLabGenerationWorkflow } from './python_lab/workflow_runner.ts';
+import type { PythonLabGenerationWorkflowParams } from './python_lab/workflow.ts';
+import type { PrimitiveResult, RosterPage } from '../sdk/worker-app-sdk.ts';
+import { createWorkerHandler } from './worker_handler.ts';
 
 interface WorkflowEntrypointRuntimeClass {
   new (): object;
 }
 
 declare const WorkflowEntrypoint: WorkflowEntrypointRuntimeClass | undefined;
+declare const WorkerEntrypoint: WorkflowEntrypointRuntimeClass | undefined;
 
 interface WorkflowEvent<Params> {
   readonly payload: Readonly<Params>;
@@ -45,77 +49,18 @@ interface WorkflowStepConfig {
   timeout?: string | number;
 }
 
-interface WorkerExecutionContext {
-  waitUntil?(promise: Promise<unknown>): void;
-  passThroughOnException?(): void;
-}
-
 const WorkflowEntrypointBase: WorkflowEntrypointRuntimeClass =
   typeof WorkflowEntrypoint === 'function' ? WorkflowEntrypoint : Object;
+const WorkerEntrypointBase: WorkflowEntrypointRuntimeClass = typeof WorkerEntrypoint === 'function'
+  ? WorkerEntrypoint
+  : Object;
 
-export default {
-  fetch(
-    request: Request,
-    env: WorkerBindings = {},
-    executionContext?: WorkerExecutionContext,
-  ): Response | Promise<Response> {
-    const publicResponse = handlePublicWorkerRequest(request, env);
-
-    if (publicResponse !== null) {
-      return publicResponse;
-    }
-
-    const app = buildApp(resolveWorkerServices(env, createObjectEnvReader(env)));
-
-    return app.fetch(request, env, toHonoExecutionContext(executionContext));
-  },
-};
-
-function handlePublicWorkerRequest(
-  request: Request,
-  env: WorkerBindings,
-): Response | Promise<Response> | null {
-  const url = new URL(request.url);
-
-  if (url.pathname === '/health') {
-    return Response.json({ ok: true, appWriterHarness: 'workspace-runner-v1' });
-  }
-
-  if (url.pathname !== '/lti/canvas/config.json') {
-    return null;
-  }
-
-  return buildWorkerCanvasConfigResponse(request, env);
+interface LanternLmsBindingProps {
+  readonly appId: string;
+  readonly packageVersionId: number;
 }
 
-async function buildWorkerCanvasConfigResponse(
-  request: Request,
-  env: WorkerBindings,
-): Promise<Response> {
-  const envReader = createObjectEnvReader(env);
-
-  try {
-    return Response.json(
-      await buildCanvasConfigDocument(
-        resolveConfiguredPublicOrigin({
-          requestUrl: request.url,
-          forwardedHeader: request.headers.get('forwarded'),
-          xForwardedHost: request.headers.get('x-forwarded-host'),
-          xForwardedProto: request.headers.get('x-forwarded-proto'),
-          configuredOrigin: readEnv('APP_ORIGIN', envReader),
-        }),
-        envReader,
-      ),
-    );
-  } catch (error) {
-    return Response.json(
-      {
-        error: error instanceof Error ? error.message : 'Config unavailable.',
-      },
-      { status: statusForError(error) },
-    );
-  }
-}
+export default createWorkerHandler(createCloudflarePythonGraderSandboxFactory);
 
 export class AppGenerationWorkflow extends WorkflowEntrypointBase {
   declare readonly env: WorkerBindings;
@@ -206,20 +151,64 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
   }
 }
 
-function toHonoExecutionContext(
-  executionContext?: WorkerExecutionContext,
-): ExecutionContext | undefined {
-  if (executionContext === undefined) {
-    return undefined;
-  }
+export class PythonLabGenerationWorkflow extends WorkflowEntrypointBase {
+  declare readonly env: WorkerBindings;
 
-  return {
-    props: {},
-    waitUntil(promise) {
-      executionContext.waitUntil?.(promise);
-    },
-    passThroughOnException() {
-      executionContext.passThroughOnException?.();
-    },
-  };
+  async run(
+    event: WorkflowEvent<PythonLabGenerationWorkflowParams>,
+    step: WorkflowStep,
+  ): Promise<unknown> {
+    return await step.do(
+      'generate Python autograder Lab',
+      { timeout: '10 minutes' },
+      () =>
+        runPythonLabGenerationWorkflow({
+          bindings: this.env,
+          params: event.payload,
+          createPythonSandboxFactory: createCloudflarePythonGraderSandboxFactory,
+        }),
+    );
+  }
+}
+
+export class LanternLmsCapabilityBinding extends WorkerEntrypointBase {
+  declare readonly env: WorkerBindings;
+  declare readonly props: LanternLmsBindingProps;
+
+  async listRoster(value: unknown): Promise<PrimitiveResult<RosterPage>> {
+    const traceId = crypto.randomUUID();
+    if (!isLmsBindingRosterEnvelope(value)) {
+      return {
+        ok: false,
+        error: { code: 'invalid_request', traceId },
+      };
+    }
+    const services = resolveWorkerServices(this.env, createObjectEnvReader(this.env));
+    return await services.governedRosterService.listRoster({
+      runtimeSessionId: value.runtimeSessionId,
+      runtimeSessionToken: value.runtimeSessionToken,
+      ...(value.traceId === undefined ? {} : { traceId: value.traceId }),
+      request: value.request,
+      bindingIdentity: this.props,
+    });
+  }
+}
+
+function isLmsBindingRosterEnvelope(value: unknown): value is {
+  readonly runtimeSessionId: string;
+  readonly runtimeSessionToken: string;
+  readonly traceId?: string;
+  readonly request: unknown;
+} {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return typeof record.runtimeSessionId === 'string' &&
+    record.runtimeSessionId.length > 0 &&
+    typeof record.runtimeSessionToken === 'string' &&
+    record.runtimeSessionToken.length > 0 &&
+    (record.traceId === undefined ||
+      (typeof record.traceId === 'string' && record.traceId.length > 0)) &&
+    'request' in record;
 }

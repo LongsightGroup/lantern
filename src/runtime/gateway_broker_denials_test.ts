@@ -61,7 +61,6 @@ Deno.test('runtime broker accepts score proposals without creating a direct grad
       scoreMaximum: 10,
     },
   });
-  assertEquals(await repository.getGradePublicationByAttemptId('attempt-123'), null);
   assertEquals((await repository.getAttemptById('attempt-123'))?.finalizedAt, null);
 });
 

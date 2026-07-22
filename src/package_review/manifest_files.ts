@@ -48,8 +48,8 @@ export async function collectReferencedFileIssuesFromSource(
 ): Promise<ValidationIssue[]> {
   const references: Array<{ field: string; path: string }> = [
     {
-      field: '/entrypoint',
-      path: manifest.entrypoint,
+      field: '/runtime/entrypoint',
+      path: manifest.runtime.entrypoint,
     },
   ];
 
@@ -78,7 +78,7 @@ export async function collectReferencedFileIssuesFromSource(
     });
   }
 
-  if (manifest.authoring) {
+  if (manifest.authoring?.kind === 'browser_autograder') {
     for (const [index, graderSpecPath] of manifest.authoring.grader_spec_files.entries()) {
       references.push({
         field: `/authoring/grader_spec_files/${index}`,
@@ -109,13 +109,30 @@ export async function collectReferencedFileIssuesFromSource(
     }
   }
 
-  const entrypointPath = trimLeadingSlash(manifest.entrypoint);
-  const entrypointHtml = await source.readText(entrypointPath);
+  if (manifest.runtime.kind === 'worker') {
+    const workerSource = await source.readText(trimLeadingSlash(manifest.runtime.entrypoint));
+    if (
+      workerSource !== null &&
+      (/\bimport\s*(?:\(|[\w*{])/m.test(workerSource) ||
+        /\bexport\s+(?:\*|{[^}]*})\s+from\s/m.test(workerSource))
+    ) {
+      issues.push({
+        field: '/runtime/entrypoint',
+        keyword: 'unbundled_worker',
+        severity: 'error',
+        message:
+          'Reviewed Worker entrypoint must be a precompiled, self-contained ESM bundle with no imports.',
+      });
+    }
+    return issues;
+  }
 
+  const entrypointPath = trimLeadingSlash(manifest.runtime.entrypoint);
+  const entrypointHtml = await source.readText(entrypointPath);
   if (entrypointHtml !== null) {
     for (const assetUrl of listRootRelativeReviewedAssetUrls(entrypointHtml)) {
       issues.push({
-        field: '/entrypoint',
+        field: '/runtime/entrypoint',
         keyword: 'invalid_asset_path',
         severity: 'error',
         message:
@@ -128,7 +145,7 @@ export async function collectReferencedFileIssuesFromSource(
 
   if (!layoutEntrypointExists) {
     issues.push({
-      field: '/entrypoint',
+      field: '/runtime/entrypoint',
       keyword: 'missing_file',
       severity: 'error',
       message: 'Package must include /dist/index.html for the reviewed app shell.',

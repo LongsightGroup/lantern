@@ -24,7 +24,6 @@ Deno.test('materializeDraftPreviewPackageVersion overlays saved draft files into
       version: '0.1.0',
       title: 'Template App',
       approvalStatus: 'approved',
-      entrypoint: '/dist/index.html',
       manifestJson: {
         app_id: 'template-app',
         version: '0.1.0',

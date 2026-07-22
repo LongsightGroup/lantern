@@ -1,9 +1,11 @@
 import { assertEquals, assertNotEquals, assertRejects, assertStringIncludes } from '@std/assert';
+import { Miniflare } from 'miniflare';
 import {
   buildReviewedRuntimeAssetMap,
   buildReviewedRuntimeWorkerCode,
   buildReviewedRuntimeWorkerId,
   createDynamicWorkerRuntimeDelivery,
+  type DynamicWorkerCode,
 } from './dynamic_worker_delivery.ts';
 import {
   buildPackageVersionRecord,
@@ -138,6 +140,123 @@ Deno.test('Dynamic Worker delivery code blocks outbound access and carries no ex
   assertEquals((code.modules['index.js'] ?? '').includes('cloudflare:workers'), false);
   assertEquals((code.modules['index.js'] ?? '').includes('Deno.'), false);
   assertEquals((code.modules['index.js'] ?? '').includes('globalThis.Deno'), false);
+});
+
+Deno.test('reviewed app Workers receive only the LMS binding and hard invocation limits', async () => {
+  let loadedCode: DynamicWorkerCode | null = null;
+  let invocationLimits: { readonly cpuMs: number; readonly subRequests: number } | null = null;
+  const lmsBinding = { listRoster: () => Promise.resolve({ ok: true }) };
+  const delivery = createDynamicWorkerRuntimeDelivery({
+    loader: {
+      get(_id, callback) {
+        return {
+          getEntrypoint(_name, options) {
+            invocationLimits = options?.limits ?? null;
+            return {
+              async fetch() {
+                loadedCode = await callback();
+                return new Response('<!doctype html><title>Roster</title>', {
+                  headers: { 'content-type': 'text/html' },
+                });
+              },
+            };
+          },
+        };
+      },
+    },
+    snapshotStore: createMemorySnapshotStore({
+      'dist/worker.js': 'export default { fetch() { return new Response("ok"); } };',
+    }),
+    createLmsBinding(identity) {
+      assertEquals(identity, { appId: 'photo-roster', packageVersionId: 7 });
+      return lmsBinding;
+    },
+  });
+  const reviewedPackage = buildPackageVersionRecord({
+    id: 7,
+    appId: 'photo-roster',
+    runtime: { kind: 'worker', entrypoint: '/dist/worker.js' },
+    capabilities: ['lms.roster.members.read'],
+    approvalStatus: 'approved',
+  });
+
+  const response = await delivery.invokeReviewedWorker({
+    session: { snapshotRoot: reviewedPackage.artifact.snapshotRoot },
+    reviewedPackage,
+    request: new Request('https://reviewed-app.internal/'),
+  });
+  const code = loadedCode as DynamicWorkerCode | null;
+  if (code === null) {
+    throw new Error('Expected the reviewed Worker code to load.');
+  }
+
+  assertEquals(response.status, 200);
+  assertEquals(invocationLimits, { cpuMs: 50, subRequests: 8 });
+  assertEquals(code.globalOutbound, null);
+  assertEquals(code.env, { LANTERN_LMS: lmsBinding });
+  assertEquals(Object.keys(code.env ?? {}), ['LANTERN_LMS']);
+});
+
+Deno.test('Photo Roster bundle runs in workerd and reaches roster data only through RPC', async () => {
+  const appScript = await Deno.readTextFile('examples/apps/photo-roster/dist/worker.js');
+  const common = { modules: true, compatibilityDate: '2026-07-15' } as const;
+  const miniflare = new Miniflare({
+    workers: [
+      {
+        ...common,
+        name: 'photo-roster',
+        script: appScript,
+        serviceBindings: {
+          LANTERN_LMS: { name: 'lantern-lms', entrypoint: 'LanternLms' },
+        },
+      },
+      {
+        ...common,
+        name: 'lantern-lms',
+        script: `
+          import { WorkerEntrypoint } from 'cloudflare:workers';
+          export class LanternLms extends WorkerEntrypoint {
+            listRoster(input) {
+              if (input.runtimeSessionId !== 'session-1' || input.runtimeSessionToken !== 'token-1') {
+                return { ok: false, error: { code: 'session_expired', traceId: 'trace-denied' } };
+              }
+              return {
+                ok: true,
+                value: {
+                  observedAt: '2026-07-20T15:00:00.000Z',
+                  members: [{
+                    subjectId: 'subject-1',
+                    displayName: 'Ada Lovelace',
+                    roles: ['learner'],
+                    status: 'active',
+                    email: 'ada@example.edu'
+                  }]
+                }
+              };
+            }
+          }
+          export default { fetch() { return new Response('RPC only', { status: 405 }); } };
+        `,
+      },
+    ],
+  });
+  try {
+    const response = await miniflare.dispatchFetch('https://photo-roster.internal/', {
+      headers: {
+        'x-lantern-runtime-session-id': 'session-1',
+        'x-lantern-runtime-session-token': 'token-1',
+        'x-lantern-trace-id': 'trace-1',
+      },
+    });
+    const html = await response.text();
+
+    assertEquals(response.status, 200);
+    assertEquals(response.headers.get('cache-control'), 'private, no-store');
+    assertStringIncludes(html, 'Ada Lovelace');
+    assertStringIncludes(html, 'ada@example.edu');
+  } finally {
+    await miniflare.dispose();
+  }
 });
 
 Deno.test('Dynamic Worker delivery keeps missing reviewed assets distinct from loader delivery failures', async () => {

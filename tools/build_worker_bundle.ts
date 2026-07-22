@@ -25,7 +25,8 @@ if (!result.success) {
 }
 
 const rawBundle = await Deno.readTextFile(rawBundlePath);
-const workflowImport = 'import { WorkflowEntrypoint } from "cloudflare:workers";\n';
+const workflowImport =
+  'import { WorkflowEntrypoint, WorkerEntrypoint } from "cloudflare:workers";\n';
 const workerSafeBundle = neutralizeBundledDenoRuntimeDetection(rawBundle);
 
 await Deno.writeTextFile(bundlePath, `${workflowImport}${workerSafeBundle}`);

@@ -1,7 +1,7 @@
 import { assertEquals, assertExists, assertObjectMatch, assertStringIncludes } from '@std/assert';
 import { compactVerify, createLocalJWKSet } from 'jose';
 import type { BootstrapPayload } from '../sdk/app-sdk.ts';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { EXAMPLE_SNAPSHOT_ROOT } from './app_test_support.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import { getPublicJwkSet } from './lti/tool_key.ts';
@@ -17,6 +17,7 @@ import {
 import {
   buildAttemptRecord,
   buildPackageVersionRecord,
+  buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildRuntimeSessionRecord, getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
@@ -117,6 +118,7 @@ Deno.test('GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
 Deno.test('POST /runtime/sessions/:id/attempt-events enforces session auth, capability checks, and append-only event writes', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
+    previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
     runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2030-03-26T02:45:00Z' })],
   });
   const app = createRuntimeTestApp({ repository });
@@ -152,6 +154,7 @@ Deno.test('POST /runtime/sessions/:id/attempt-events enforces session auth, capa
 Deno.test('GET /runtime/sessions/:id/content serves reviewed activity content through the scoped runtime bridge', async () => {
   const response = await createRuntimeTestApp({
     repository: createInMemoryPackageReviewRepository({
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -426,6 +429,9 @@ function createStubRuntimeDelivery(input: {
         bytes: new TextEncoder().encode(contents),
         contentType: contentTypeForRuntimePath(assetPath),
       });
+    },
+    invokeReviewedWorker() {
+      return Promise.reject(new Error('Stub Worker invocation was not configured.'));
     },
   };
 }

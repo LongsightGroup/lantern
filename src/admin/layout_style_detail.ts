@@ -1,4 +1,3 @@
-import { ADMIN_LAYOUT_STYLE_DETAIL_DEPLOYMENT } from './layout_style_detail_deployment.ts';
 import { ADMIN_LAYOUT_STYLE_DETAIL_TABLES } from './layout_style_detail_tables.ts';
 
 export const ADMIN_LAYOUT_STYLE_DETAIL = `
@@ -273,7 +272,6 @@ export const ADMIN_LAYOUT_STYLE_DETAIL = `
         background: var(--surface);
       }
 
-      ${ADMIN_LAYOUT_STYLE_DETAIL_DEPLOYMENT}
 
       .inline-code {
         display: inline-block;

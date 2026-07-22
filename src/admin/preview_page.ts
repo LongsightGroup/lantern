@@ -351,7 +351,7 @@ function resolvePreviewEvidenceArtifactUrl(
 
   const artifactId = readPreviewEvidenceString(detail, 'artifactId');
 
-  return artifactId === null ? null : `/admin/packages/${appId}/deployment/evidence/${artifactId}`;
+  return artifactId === null ? null : `/admin/packages/${appId}/evidence/${artifactId}`;
 }
 
 function readPreviewEvidenceFileName(detail: Record<string, unknown>): string | null {

@@ -116,7 +116,6 @@ Deno.test('GET /authoring renders the latest draft preview state and evidence li
         packageTitle: 'Template App',
         origin: 'adminAuthoringDraft',
         contentPath: '/content/activity.json',
-        deepLinkingSessionId: null,
         snapshotRoot: `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z`,
         entrypointPath:
           `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z/dist/index.html`,

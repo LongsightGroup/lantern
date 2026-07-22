@@ -14,7 +14,7 @@ import {
   renderAppWriterPlanPreviewPage,
 } from './admin/app_writer_page.ts';
 import { createErrorNotice } from './app_notice_support.ts';
-import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
+import { loadPreviewCapabilityLog } from './preview/capability_log.ts';
 import { formValueAsString, requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';

@@ -9,7 +9,6 @@ import {
 import { createErrorNotice, packageOverviewPath } from './app_notice_support.ts';
 import { requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
-import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
 import type { AppServices } from './app_services.ts';
 import { adminPageInput } from './admin_auth/page_input.ts';
 import {
@@ -29,11 +28,9 @@ import { renderPackageDiffPage } from './admin/package_diff_page.ts';
 import { renderPackageImportPage } from './admin/package_import_page.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
 import { renderPackageOverviewPage } from './admin/package_overview.ts';
-import { renderPackageReportsPage } from './admin/package_reports.ts';
 import { renderReferencePackagePage } from './admin/package_reference_page.ts';
 import { renderAppRevisionPage } from './admin/app_revision_page.ts';
 import { comparePackageVersions } from './package_review/package_diff.ts';
-import { buildInstructorReport } from './reports/instructor_report.ts';
 
 export function registerAdminInventoryRoutes(app: Hono, services: AppServices): void {
   app.get('/admin/packages', async (context) => {
@@ -143,6 +140,29 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
     return context.html(renderReferencePackagePage(adminPageInput(context, {})));
   });
 
+  app.get('/admin/packages/:appId/evidence/:artifactId', async (context) => {
+    const repository = services.getRepository();
+    const artifact = await repository.getAttemptEvidenceArtifactById(
+      context.req.param('artifactId'),
+    );
+    if (artifact === null) {
+      return context.text('Evidence artifact not found.', 404);
+    }
+    const attempt = await repository.getAttemptById(artifact.attemptId);
+    if (attempt === null || attempt.appId !== context.req.param('appId')) {
+      return context.text('Evidence artifact not found.', 404);
+    }
+    const bytes = await services.evidenceArtifactStore.readBytes(artifact.storageKey);
+    return new Response(new Uint8Array(bytes).buffer, {
+      headers: {
+        'content-type': artifact.contentType,
+        'content-disposition': `inline; filename="${safeEvidenceFileName(artifact.fileName)}"`,
+        'cache-control': 'private, no-store',
+        'x-content-type-options': 'nosniff',
+      },
+    });
+  });
+
   app.get('/admin/packages/:appId', async (context) => {
     const appId = context.req.param('appId');
 
@@ -164,14 +184,11 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
         );
       }
 
-      const deployments = await repository.listDeploymentsByApp(appId);
-
       return context.html(
         renderPackageOverviewPage(adminPageInput(context, {
           appId,
           appTitle: history[0]?.title ?? appId,
           history,
-          deployments,
         })),
       );
     } catch (error) {
@@ -194,52 +211,6 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
           statusForError(error),
         );
       }
-    }
-  });
-
-  app.get('/admin/packages/:appId/reports', async (context) => {
-    const appId = context.req.param('appId');
-
-    try {
-      const repository = services.getRepository();
-      const history = await repository.listPackageVersionsByApp(appId);
-
-      if (history.length === 0) {
-        return context.html(
-          renderPackageIndexPage(adminPageInput(context, {
-            versions: await repository.listPackageVersions(),
-            notice: {
-              tone: 'error',
-              title: 'App not found',
-              detail: 'Lantern could not find that app.',
-            },
-          })),
-          404,
-        );
-      }
-
-      const report = await buildInstructorReport({
-        repository,
-        appId,
-        generatedAt: new Date().toISOString(),
-      });
-
-      return context.html(
-        renderPackageReportsPage(adminPageInput(context, {
-          appId,
-          appTitle: history[0]?.title ?? appId,
-          history,
-          report,
-        })),
-      );
-    } catch (error) {
-      return context.html(
-        renderPackageIndexPage(adminPageInput(context, {
-          versions: [],
-          notice: createErrorNotice('Instructor reports unavailable', error),
-        })),
-        statusForError(error),
-      );
     }
   });
 
@@ -266,27 +237,20 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
       }
 
       const history = await repository.listPackageVersionsByApp(packageVersion.appId);
-      const generationActivityEvents = await repository.listAuditEventsByEventType(
-        'app_generation.saved_pending_version',
-      );
-      const reviewedPlacements = await repository.listReviewedPlacementsByPackageVersion(
+      const latestPreviewSession = await repository.getLatestPreviewSessionByPackageVersion(
         packageVersion.id,
+        'adminTestLaunch',
       );
-      const runtimeLog = await loadPreviewCapabilityLog({
-        repository,
-        packageVersionId: packageVersion.id,
-      });
+      const previewEvidence = latestPreviewSession === null
+        ? []
+        : await repository.listPreviewEvidence(latestPreviewSession.sessionId);
 
       return context.html(
         renderPackageDetailPage(adminPageInput(context, {
           packageVersion,
           history,
-          generationActivityEvents: generationActivityEvents.filter(
-            (event) => event.packageVersionId === packageVersion.id,
-          ),
-          reviewedPlacements,
-          latestPreviewSession: runtimeLog.session,
-          previewEvidence: runtimeLog.evidence,
+          latestPreviewSession,
+          previewEvidence,
         })),
       );
     } catch (error) {
@@ -533,4 +497,8 @@ export function registerAdminInventoryRoutes(app: Hono, services: AppServices): 
   app.post('/admin/packages/:id/reject', async (context) => {
     return await handleReviewDecision(context, services, 'reject');
   });
+}
+
+function safeEvidenceFileName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'evidence';
 }

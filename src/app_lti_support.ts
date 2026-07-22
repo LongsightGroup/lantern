@@ -1,158 +1,111 @@
 import type { Context } from '@hono/hono';
-import { resolveLtiProfileForDeployment } from './lti/profile_resolution.ts';
 import { readLoginRequest } from './app_request_support.ts';
 import { errorMessage, statusForError } from './app_status_support.ts';
 import { renderLtiPlatformStorageLaunchPage, renderTopLevelLaunchPage } from './app_lti_views.ts';
 import type { AppServices } from './app_services.ts';
-import { recordInteropPathUsed } from './interop_audit.ts';
-import type { PackageReviewRepository } from './package_review/repository.ts';
-import type { DeploymentRecord } from './package_review/types.ts';
-import { resolveLoginPolicy } from './lti/login_policy.ts';
-import { syncLtiToolDeploymentBinding } from './lti/tool_provider.ts';
+import { syncLtiToolConnection } from './lti/tool_provider.ts';
 import { resolveRequestAppOrigin } from './app_origin.ts';
 
 export async function handleLoginInitiation(context: Context, services: AppServices) {
   try {
     const loginRequest = await readLoginRequest(context);
-    const repository = services.getRepository();
     const appOrigin = resolveRequestAppOrigin(context, services.env);
-    const resolvedDeployment = await resolveLoginDeployment({
-      repository,
-      issuer: loginRequest.request.iss,
-      clientId: loginRequest.request.clientId,
-      deploymentId: loginRequest.request.deploymentId,
-    });
-    const deployment = resolvedDeployment.deployment;
-    const binding = deployment.binding;
-
-    if (binding === null) {
-      throw new Error(
-        `Deployment ${loginRequest.request.deploymentId} does not have a saved LMS binding.`,
-      );
+    if (loginRequest.request.clientId === null) {
+      throw new Error('LTI login initiation requires client_id.');
     }
-
-    const ltiContext = await services.getLtiToolContext(appOrigin);
-    if (resolvedDeployment.completedPendingCanvasBinding) {
-      await syncLtiToolDeploymentBinding({
-        storage: ltiContext.storage,
-        appTitle: deployment.label,
-        deploymentSlug: deployment.slug,
-        binding,
+    const connection = await services.getLmsKernelRepository()
+      .getLmsConnectionByPlatformIdentity({
+        issuer: loginRequest.request.iss,
+        clientId: loginRequest.request.clientId,
+        deploymentId: loginRequest.request.deploymentId,
       });
+    if (connection === null || connection.status === 'disabled') {
+      throw new Error('No active institution LMS connection matches this login request.');
     }
-    const ltiProfile = await resolveLtiProfileForDeployment({ repository, deployment });
-    const loginPolicy = resolveLoginPolicy({
+    const targetLinkUri = requireGovernedTargetLinkUri({
       appOrigin,
-      binding,
-      loginRequest,
-      ltiProfile,
+      targetLinkUri: loginRequest.request.targetLinkUri,
     });
-
+    const installationId = new URL(targetLinkUri).searchParams.get('installation_id');
+    if (installationId === null) {
+      throw new Error('Governed app launch target is missing installation_id.');
+    }
+    const installation = await services.getLmsKernelRepository().getInstallationById(
+      installationId,
+    );
+    if (
+      installation === null ||
+      installation.institutionId !== connection.institutionId ||
+      installation.status !== 'active'
+    ) {
+      throw new Error('The governed app installation is not active for this LMS connection.');
+    }
+    const ltiContext = await services.getLtiToolContext(appOrigin);
+    await syncLtiToolConnection({ storage: ltiContext.storage, connection });
     const location = await ltiContext.tool.handleLogin({
-      iss: binding.issuer,
-      client_id: binding.clientId,
-      lti_deployment_id: binding.deploymentId,
-      login_hint: loginPolicy.loginHint,
-      target_link_uri: loginPolicy.targetLinkUri,
+      iss: connection.issuer,
+      client_id: connection.clientId,
+      lti_deployment_id: connection.deploymentId,
+      login_hint: loginRequest.compatibility.decodedLoginHint ??
+        loginRequest.request.loginHint,
+      target_link_uri: targetLinkUri,
       launchUrl: `${appOrigin}/lti/launch`,
       ...(loginRequest.request.ltiMessageHint === null ? {} : {
-        lti_message_hint: loginPolicy.ltiMessageHint,
+        lti_message_hint: loginRequest.compatibility.decodedLtiMessageHint ??
+          loginRequest.request.ltiMessageHint,
       }),
     });
-    const redirectUrl = new URL(location);
-    const ltiStorageTarget = loginRequest.ltiStorageTarget;
-    const usesLtiPlatformStorage = ltiStorageTarget !== null;
-    const compatibilityPaths = [
-      ...loginPolicy.compatibilityPaths,
-      ...(usesLtiPlatformStorage ? ['lti_platform_storage'] : []),
-      ...(!usesLtiPlatformStorage && context.req.header('sec-fetch-dest') === 'iframe'
-        ? ['iframe_top_level_escape']
-        : []),
-    ];
-
-    await Promise.all(
-      compatibilityPaths.map((path) =>
-        recordInteropPathUsed({
-          repository,
-          scope: 'login',
-          path,
-          actorType: 'platform',
-          deploymentRecordId: deployment.id,
-          packageVersionId: deployment.enabledPackageVersionId,
-          summary: 'Lantern used an LTI login compatibility path.',
-          detail: {
-            deploymentSlug: deployment.slug,
-            issuer: binding.issuer,
-            clientId: binding.clientId,
-            deploymentId: binding.deploymentId,
-          },
-          ltiProfile,
-        })
-      ),
-    );
-
-    if (usesLtiPlatformStorage) {
-      return context.html(
-        renderLtiPlatformStorageLaunchPage({
-          location,
-          platformOrigin: redirectUrl.origin,
-          storageTarget: ltiStorageTarget,
-          state: redirectUrl.searchParams.get('state') ?? '',
-          nonce: redirectUrl.searchParams.get('nonce') ?? '',
-        }),
-      );
-    }
-
-    if (context.req.header('sec-fetch-dest') === 'iframe') {
-      return context.html(
-        renderTopLevelLaunchPage({
-          location,
-        }),
-      );
-    }
-
-    return context.redirect(location, 302);
+    return renderLoginRedirect(context, {
+      location,
+      storageTarget: loginRequest.ltiStorageTarget,
+    });
   } catch (error) {
     return context.text(errorMessage(error), statusForError(error));
   }
 }
 
-async function resolveLoginDeployment(input: {
-  repository: PackageReviewRepository;
-  issuer: string;
-  clientId: string | null;
-  deploymentId: string;
-}): Promise<{
-  deployment: DeploymentRecord;
-  completedPendingCanvasBinding: boolean;
-}> {
-  let deployment = await input.repository.getDeploymentByPlatformIdentity({
-    issuer: input.issuer,
-    clientId: input.clientId,
-    deploymentId: input.deploymentId,
-  });
-
-  let completedPendingCanvasBinding = false;
-
-  if (deployment === null && input.clientId !== null) {
-    deployment = await input.repository.completePendingCanvasBinding({
-      issuer: input.issuer,
-      clientId: input.clientId,
-      deploymentId: input.deploymentId,
-    });
-    completedPendingCanvasBinding = deployment !== null;
+function requireGovernedTargetLinkUri(input: {
+  readonly appOrigin: string;
+  readonly targetLinkUri: string | null;
+}): string {
+  if (input.targetLinkUri === null) {
+    throw new Error('Governed app launches require target_link_uri.');
   }
-
-  if (deployment === null) {
+  const target = new URL(input.targetLinkUri);
+  const expectedOrigin = new URL(input.appOrigin).origin;
+  if (
+    target.origin !== expectedOrigin ||
+    target.pathname !== '/lti/launch' ||
+    (target.searchParams.get('installation_id')?.trim() ?? '') === ''
+  ) {
     throw new Error(
-      `Deployment ${
-        input.clientId ?? '(missing client_id)'
-      } / ${input.deploymentId} was not found for issuer ${input.issuer}.`,
+      'Governed app target_link_uri must be Lantern’s launch URL with an installation_id.',
     );
   }
+  return target.toString();
+}
 
-  return {
-    deployment,
-    completedPendingCanvasBinding,
-  };
+function renderLoginRedirect(
+  context: Context,
+  input: {
+    readonly location: string;
+    readonly storageTarget: string | null;
+  },
+): Response {
+  const redirectUrl = new URL(input.location);
+  if (input.storageTarget !== null) {
+    return context.html(
+      renderLtiPlatformStorageLaunchPage({
+        location: input.location,
+        platformOrigin: redirectUrl.origin,
+        storageTarget: input.storageTarget,
+        state: redirectUrl.searchParams.get('state') ?? '',
+        nonce: redirectUrl.searchParams.get('nonce') ?? '',
+      }),
+    );
+  }
+  if (context.req.header('sec-fetch-dest') === 'iframe') {
+    return context.html(renderTopLevelLaunchPage({ location: input.location }));
+  }
+  return context.redirect(input.location, 302);
 }

@@ -111,7 +111,7 @@ export function renderAdminAuthPage(input: {
   return renderAdminAuthShell({
     title,
     intro:
-      'Use a Lantern admin account to review packages, manage LMS deployments, and inspect runtime activity.',
+      'Use a Lantern admin account to review packages, govern LMS connections, and inspect runtime activity.',
     body: `
         ${renderAuthError(input.error)}
         <div class="auth-stack">

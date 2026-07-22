@@ -2,7 +2,6 @@ import type { Capability, UserRole } from '../../sdk/app-sdk.ts';
 import type {
   AccessibilityReview,
   ApprovalStatus,
-  DeploymentRecord,
   GradingSettings,
   PackageVersionRecord,
   ValidationIssue,
@@ -125,6 +124,60 @@ const CAPABILITY_COPY: Record<Capability, CapabilitySummary> = {
     sensitivityLabel: 'Normal progress state',
     sensitivityDetail: 'Expected learning-app behavior when an activity supports resume.',
   },
+  run_code_submission: {
+    id: 'run_code_submission',
+    label: 'Run Python submission',
+    detail:
+      'Sends one Python function submission to Lantern’s isolated server-side grader without exposing hidden tests or LMS credentials.',
+    flagged: true,
+    flagLabel: 'Graded code',
+    purpose:
+      'Run public practice tests and final hidden-test evaluation for a reviewed Python assignment.',
+    dataScope:
+      'Learner Python source, server-side test outcomes, and a final score scoped to one attempt.',
+    retention: 'Submission source and evaluated result follow the Python Lab retention policy.',
+    sensitivityLabel: 'Sensitive learner work',
+    sensitivityDetail:
+      'Lantern, not the browser, executes the submission and controls final score publication.',
+  },
+  'lms.roster.members.read': {
+    id: 'lms.roster.members.read',
+    label: 'Course roster',
+    detail: 'Reads the names, roles, and enrollment status for the current LMS course.',
+    flagged: true,
+    flagLabel: 'Institutional data',
+    purpose: 'Display the current course roster through Lantern’s governed LMS boundary.',
+    dataScope: 'Opaque subject IDs, display names, canonical roles, and enrollment status.',
+    retention:
+      'Opaque subject mappings are retained; roster payloads are not stored in audit logs.',
+    sensitivityLabel: 'Protected roster data',
+    sensitivityDetail:
+      'Requires explicit institution or course approval for this exact app version.',
+  },
+  'lms.roster.contact.read': {
+    id: 'lms.roster.contact.read',
+    label: 'Roster email addresses',
+    detail: 'Adds LMS-provided email addresses to approved roster results.',
+    flagged: true,
+    flagLabel: 'Contact data',
+    purpose: 'Show course contact information when the institution explicitly permits it.',
+    dataScope: 'Email addresses returned by the LMS for members of the current course.',
+    retention: 'Returned to the app for the active session and excluded from governance logs.',
+    sensitivityLabel: 'Personal contact data',
+    sensitivityDetail: 'Denied as a whole when this separate permission has not been approved.',
+  },
+  'lms.roster.profile_photo.read': {
+    id: 'lms.roster.profile_photo.read',
+    label: 'Roster profile photos',
+    detail: 'Proxies LMS-provided profile photos through short-lived Lantern media links.',
+    flagged: true,
+    flagLabel: 'Profile media',
+    purpose: 'Help instructors visually identify learners in the current course.',
+    dataScope: 'Profile image URLs supplied by NRPS; apps receive only opaque Lantern URLs.',
+    retention: 'Source references expire after five minutes and image bytes are never persisted.',
+    sensitivityLabel: 'Protected profile data',
+    sensitivityDetail: 'Requires a separate explicit grant and never exposes the upstream URL.',
+  },
 };
 
 export function approvalStatusLabel(status: ApprovalStatus): string {
@@ -185,6 +238,14 @@ export function summarizeGrading(grading: GradingSettings): {
     return {
       label: 'Instructor scoring',
       detail: 'Instructors review the work outside the app runtime.',
+    };
+  }
+
+  if (grading.mode === 'sandbox') {
+    return {
+      label: 'Python sandbox grading',
+      detail:
+        'Lantern runs the submitted Python function in an isolated Sandbox and publishes only the server-generated score.',
     };
   }
 
@@ -249,14 +310,6 @@ export function summarizeAccessibilityReview(
     failedChecks,
     exceptionNote: packageVersion.accessibilityReview.exceptionNote,
   };
-}
-
-export function describeDeploymentPin(deployment: DeploymentRecord | null): string {
-  if (!deployment || deployment.enabledPackageVersion === null) {
-    return 'No reviewed version is pinned yet.';
-  }
-
-  return `Pinned to version ${deployment.enabledPackageVersion}.`;
 }
 
 function listAccessibilityFailures(review: AccessibilityReview): string[] {

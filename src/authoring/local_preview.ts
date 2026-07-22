@@ -77,14 +77,14 @@ export function createLocalPreviewHarness(input: {
 
   return {
     bootstrap,
-    entrypointPath: input.appPackage.manifest.entrypoint,
+    entrypointPath: input.appPackage.manifest.runtime.entrypoint,
     previewSessionId,
     async handle(request) {
       const url = new URL(request.url);
 
       if (url.pathname === '/' || url.pathname === '') {
         return Response.redirect(
-          new URL(input.appPackage.manifest.entrypoint, url).toString(),
+          new URL(input.appPackage.manifest.runtime.entrypoint, url).toString(),
           302,
         );
       }
@@ -376,7 +376,7 @@ async function serveStaticFile(input: {
   );
 
   try {
-    if (url.pathname === input.appPackage.manifest.entrypoint) {
+    if (url.pathname === input.appPackage.manifest.runtime.entrypoint) {
       const runtimeBaseUrl = new URL(input.runtimeBasePath, url).toString();
       const injectedHtml = injectPreviewRuntimeBridge({
         html: input.appPackage.entrypointHtml,

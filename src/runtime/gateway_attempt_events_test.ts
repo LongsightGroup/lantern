@@ -1,11 +1,12 @@
 import { assertEquals, assertObjectMatch, assertRejects } from '@std/assert';
-import { createApp } from '../app.ts';
+import { createTestApp as createApp } from '../test_helpers/app.ts';
 import { withRuntimeOriginEnv } from '../app_test_support.ts';
 import { acceptAttemptEvent, parseAttemptEvent, requireRuntimeCapability } from './gateway.ts';
 import { RuntimeBrokerDenialError } from './gateway_errors.ts';
 import { buildRuntimeSessionRecord } from '../test_helpers/lti.ts';
 import {
   buildAttemptRecord,
+  buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from '../test_helpers/package_review.ts';
 
@@ -13,6 +14,7 @@ Deno.test('runtime gateway accepts authenticated attempt-event writes and persis
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           expiresAt: '2099-03-26T02:45:00Z',
@@ -63,6 +65,7 @@ Deno.test('runtime gateway blocks missing capability, bad payloads, and bad toke
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           capabilities: ['read_launch_context'],
@@ -181,6 +184,7 @@ Deno.test('runtime gateway validates attempt event payloads and capabilities', a
 Deno.test('runtime gateway helper appends attempt events directly against the durable ledger', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
+    previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
     runtimeSessions: [
       buildRuntimeSessionRecord({
         expiresAt: '2099-03-26T02:45:00Z',

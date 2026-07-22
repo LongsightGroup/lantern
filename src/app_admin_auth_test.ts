@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import {
   ADMIN_TEST_SESSION_TOKEN,
   cookieHeaderFromResponse,
@@ -167,19 +167,19 @@ Deno.test('login creates an admin session and redirects to requested admin path'
     body: new URLSearchParams({
       email: 'admin@example.test',
       password: 'password-123',
-      returnTo: '/admin/deployments',
+      returnTo: '/admin/packages',
     }),
   });
   const sessionCookie = cookieHeaderFromResponse(login);
-  const deployments = await app.request('http://localhost/admin/deployments', {
+  const packages = await app.request('http://localhost/admin/packages', {
     headers: {
       cookie: sessionCookie ?? '',
     },
   });
 
   assertEquals(login.status, 303);
-  assertEquals(login.headers.get('location'), '/admin/deployments');
-  assertEquals(deployments.status, 200);
+  assertEquals(login.headers.get('location'), '/admin/packages');
+  assertEquals(packages.status, 200);
 });
 
 Deno.test('logout invalidates the admin session', async () => {

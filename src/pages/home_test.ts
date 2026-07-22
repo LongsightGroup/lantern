@@ -7,8 +7,8 @@ Deno.test('renderHomePage includes only the operational app entry points', () =>
   assertStringIncludes(html, 'Lantern runtime');
   assertStringIncludes(html, 'Governed learning app runtime and control plane');
   assertStringIncludes(html, 'Institution-facing product pages live in the marketing site.');
+  assertStringIncludes(html, 'href="/admin/governance"');
   assertStringIncludes(html, 'href="/admin/packages"');
-  assertStringIncludes(html, 'href="/admin/deployments"');
   assertStringIncludes(html, 'href="/health"');
   assertEquals(html.includes('why-it-can-say-yes'), false);
   assertEquals(html.includes('Why IT can say yes'), false);

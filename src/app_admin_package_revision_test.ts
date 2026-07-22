@@ -1,5 +1,5 @@
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { buildRevisionAuthoringPrompt } from './app_writer/revision_authoring_prompt.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import {

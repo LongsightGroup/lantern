@@ -25,7 +25,11 @@ Deno.test('runtime gateway accepts an allowlisted evidence artifact and records 
         ],
       }),
     ],
-    attempts: [buildAttemptRecord()],
+    attempts: [
+      buildAttemptRecord({
+        previewSessionId: 'preview-session-evidence',
+      }),
+    ],
   });
   const session = buildRuntimeSessionRecord({
     capabilities: [
@@ -124,7 +128,11 @@ Deno.test('runtime gateway accepts screenshot evidence through the same governed
         ],
       }),
     ],
-    attempts: [buildAttemptRecord()],
+    attempts: [
+      buildAttemptRecord({
+        previewSessionId: 'preview-session-screenshot',
+      }),
+    ],
   });
   const session = buildRuntimeSessionRecord({
     capabilities: [

@@ -1,5 +1,5 @@
 {
-  "schema_version": "1",
+  "schema_version": "2",
   "app_id": "chapter-4-asteroids",
   "version": "0.1.0",
   "title": "Chapter 4 Asteroids",
@@ -8,7 +8,10 @@
     "type": "user",
     "id": "instructor_123"
   },
-  "entrypoint": "/dist/index.html",
+  "runtime": {
+    "kind": "browser",
+    "entrypoint": "/dist/index.html"
+  },
   "roles": ["learner", "instructor"],
   "install_scope": "course",
   "capabilities": [

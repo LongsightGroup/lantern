@@ -1,28 +1,12 @@
 import type { Context } from '@hono/hono';
-import {
-  renderDeploymentsPage as renderAdminDeploymentsPage,
-  renderVerificationPage as renderAdminVerificationPage,
-} from './admin/control_plane.ts';
-import type { VerificationPageSection } from './admin/verification_navigation.ts';
-import {
-  type DeploymentEditorState,
-  renderDeploymentDetailPage,
-} from './admin/deployment_detail.ts';
 import type { AdminNotice } from './admin/layout.ts';
-import { listCanvasEnvironments } from './lti/config.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
-import {
-  combineNotices,
-  createErrorNotice,
-  getCanvasConfigUrlNoticeSafe,
-  packageDetailPath,
-} from './app_notice_support.ts';
-import { loadDeploymentDetailStateSafe } from './app_deployment_support.ts';
+import { createErrorNotice, packageDetailPath } from './app_notice_support.ts';
 import { normalizeOptionalString } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
 import { adminPageInput } from './admin_auth/page_input.ts';
-import { readEnv } from './platform/env.ts';
+import { getKernelAdminContext } from './lms_kernel/admin_context.ts';
+import { governanceEventBase } from './lms_kernel/governance_events.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
 import {
@@ -55,26 +39,19 @@ export async function handleReviewDecision(
         reviewNotes,
         accessibilityReview,
       });
-    await repository.recordAuditEvent({
+    const actor = getKernelAdminContext(context);
+    await services.getLmsKernelRepository().appendGovernanceEvent(governanceEventBase({
+      traceId: crypto.randomUUID(),
       eventType: decision === 'approve' ? 'package.approved' : 'package.rejected',
       actorType: 'user',
-      actorId: null,
-      deploymentRecordId: null,
+      actorId: actor.membership.userId,
+      institutionId: actor.membership.institutionId,
+      appId: packageVersion.appId,
       packageVersionId: packageVersion.id,
-      attemptId: null,
-      lineItemBindingId: null,
-      status: 'succeeded',
-      summary: decision === 'approve'
-        ? 'Approved the reviewed package version.'
-        : 'Rejected the reviewed package version.',
-      detail: {
-        appId: packageVersion.appId,
-        version: packageVersion.version,
-        reviewNotes,
-        accessibilityReview,
-      },
+      decision: decision === 'approve' ? 'allowed' : 'denied',
+      outcome: 'completed',
       occurredAt: new Date().toISOString(),
-    });
+    }));
 
     return context.redirect(packageDetailPath(packageVersion.appId, packageVersion.version), 303);
   } catch (error) {
@@ -155,56 +132,6 @@ export async function renderPackagesPage(
   );
 }
 
-export async function renderDeploymentsPage(
-  context: Context,
-  services: AppServices,
-  input: {
-    notice?: AdminNotice | null;
-    status?: 200 | 400 | 500;
-  } = {},
-) {
-  const deployments = await services.getOpsRepository().listControlPlaneDeployments();
-
-  return context.html(
-    renderAdminDeploymentsPage(adminPageInput(context, {
-      deployments,
-      notice: input.notice ?? null,
-    })),
-    input.status ?? 200,
-  );
-}
-
-export async function renderVerificationPage(
-  context: Context,
-  services: AppServices,
-  input: {
-    notice?: AdminNotice | null;
-    status?: 200 | 400 | 500;
-    section?: VerificationPageSection;
-  } = {},
-) {
-  const opsRepository = services.getOpsRepository();
-  const deployments = await opsRepository.listControlPlaneDeployments();
-  const latestBrokerVerification = await opsRepository.getLatestBrokerVerificationStatus();
-  const certificationWorkflowStatuses = await opsRepository.listCertificationWorkflowStatuses();
-  const latestOfficialCertificationEvidence = await opsRepository
-    .getLatestOfficialCertificationEvidence();
-  const ltiProfileSettings = await services.getRepository().getLanternLtiProfileSettings();
-
-  return context.html(
-    renderAdminVerificationPage(adminPageInput(context, {
-      deployments,
-      latestBrokerVerification,
-      certificationWorkflowStatuses,
-      latestOfficialCertificationEvidence,
-      ltiProfileSettings,
-      notice: input.notice ?? null,
-      section: input.section ?? 'checklist',
-    })),
-    input.status ?? 200,
-  );
-}
-
 export async function renderPackageDetailError(
   context: Context,
   services: AppServices,
@@ -233,74 +160,6 @@ export async function renderPackageDetailError(
         packageVersion,
         history,
         notice: createErrorNotice(title, error),
-      })),
-      statusForError(error),
-    );
-  } catch {
-    return context.html(
-      renderPackageIndexPage(adminPageInput(context, {
-        versions: [],
-        notice: createErrorNotice(title, error),
-      })),
-      statusForError(error),
-    );
-  }
-}
-
-export async function renderDeploymentError(
-  context: Context,
-  services: AppServices,
-  appId: string,
-  title: string,
-  error: unknown,
-  input: {
-    selectedLms?: 'canvas' | 'moodle' | 'sakai' | null;
-    editorState?: DeploymentEditorState | null;
-  } = {},
-) {
-  try {
-    const repository = services.getRepository();
-    const history = await repository.listPackageVersionsByApp(appId);
-
-    if (history.length === 0) {
-      return context.html(
-        renderPackageIndexPage(adminPageInput(context, {
-          versions: [],
-          notice: createErrorNotice(title, error),
-        })),
-        statusForError(error),
-      );
-    }
-
-    const appTitle = history[0]?.title ?? history[0]?.appId ?? 'Package';
-    const deployments = await repository.listDeploymentsByApp(appId);
-    const appOrigin = resolveConfiguredPublicOrigin({
-      requestUrl: context.req.url,
-      forwardedHeader: context.req.header('forwarded') ?? null,
-      xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-      xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-      configuredOrigin: readEnv('APP_ORIGIN', services.env),
-    });
-    const canvasConfigUrl = getCanvasConfigUrlNoticeSafe(appOrigin);
-    const detailState = await loadDeploymentDetailStateSafe(repository, appId, appOrigin);
-
-    return context.html(
-      renderDeploymentDetailPage(adminPageInput(context, {
-        appId,
-        appTitle,
-        history,
-        deployments,
-        selectedLms: input.selectedLms ?? null,
-        editorState: input.editorState ?? null,
-        lanternLtiProfileSettings: detailState.ltiProfileSettings,
-        canvasConfigUrl: canvasConfigUrl.url,
-        canvasDynamicRegistrationUrl: detailState.canvasDynamicRegistrationUrl,
-        moodleDynamicRegistrationUrl: detailState.moodleDynamicRegistrationUrl,
-        sakaiDynamicRegistrationUrl: detailState.sakaiDynamicRegistrationUrl,
-        supportedCanvasEnvironments: listCanvasEnvironments(),
-        notice: input.editorState === undefined || input.editorState === null
-          ? combineNotices(canvasConfigUrl.notice, createErrorNotice(title, error))
-          : canvasConfigUrl.notice,
       })),
       statusForError(error),
     );

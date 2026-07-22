@@ -48,6 +48,46 @@ Deno.test('D1 package version repository lists parsed package version rows', asy
   assertEquals(db.statements[0]?.parameters, ['chapter-4-asteroids']);
 });
 
+Deno.test('D1 package version repository persists sandbox grading through the explicit sandbox marker', async () => {
+  const imported = buildImportedPackageVersion({
+    appId: 'python-lab-123',
+    version: '1.0.0',
+    capabilities: ['read_activity_content', 'run_code_submission'],
+    grading: { mode: 'sandbox', rubricFile: null, maxScore: 10 },
+  });
+  const db = createRecordingD1Database([
+    toD1PackageVersionRow(buildPackageVersionRecordFromImport(imported)),
+  ]);
+  const repository = createD1PackageVersionRepositoryMethods(db);
+
+  const registered = await repository.registerPackageVersion(imported);
+
+  assertEquals(registered.grading.mode, 'sandbox');
+  assertEquals(db.statements[0]?.parameters.slice(10, 14), ['browser', null, 10, 1]);
+});
+
+Deno.test('D1 package version repository registers a Python Lab package as non-catalog in its insert', async () => {
+  const imported = buildImportedPackageVersion({
+    appId: 'python-lab-123',
+    version: '1.0.0',
+    capabilities: ['read_activity_content', 'run_code_submission'],
+    grading: { mode: 'sandbox', rubricFile: null, maxScore: 10 },
+  });
+  const db = createRecordingD1Database([
+    toD1PackageVersionRow({
+      ...buildPackageVersionRecordFromImport(imported),
+      catalogVisibility: 'python_lab_trial',
+    }),
+  ]);
+  const repository = createD1PackageVersionRepositoryMethods(db);
+
+  const registered = await repository.registerPythonLabTrialPackageVersion(imported);
+
+  assertEquals(registered.catalogVisibility, 'python_lab_trial');
+  assertEquals(db.statements.length, 2);
+  assertEquals(db.statements[0]?.parameters[14], 'python_lab_trial');
+});
+
 Deno.test('D1 package version repository reports duplicate package versions clearly', async () => {
   const db = createRecordingD1Database([], {
     runError: new Error(
@@ -168,11 +208,12 @@ function buildPackageVersionRecordFromImport(
     title: imported.reviewData.title,
     description: imported.reviewData.description,
     owner: imported.reviewData.owner,
-    entrypoint: imported.reviewData.entrypoint,
+    runtime: imported.reviewData.runtime,
     roles: imported.reviewData.roles,
     installScope: imported.reviewData.installScope,
     capabilities: imported.reviewData.capabilities,
     grading: imported.reviewData.grading,
+    catalogVisibility: 'catalog',
     approvalStatus: 'pending',
     reviewNotes: null,
     accessibilityReview: null,
@@ -195,13 +236,15 @@ function toD1PackageVersionRow(record: PackageVersionRecord): D1Row {
     description: record.description,
     ownerType: record.owner.type,
     ownerId: record.owner.id,
-    entrypoint: record.entrypoint,
+    entrypoint: record.runtime.entrypoint,
     roles: JSON.stringify(record.roles),
     installScope: record.installScope,
     capabilities: JSON.stringify(record.capabilities),
-    gradingMode: record.grading.mode,
+    gradingMode: record.grading.mode === 'sandbox' ? 'browser' : record.grading.mode,
     gradingRubricFile: record.grading.rubricFile,
     gradingMaxScore: record.grading.maxScore,
+    sandboxGradingEnabled: record.grading.mode === 'sandbox' ? 1 : 0,
+    catalogVisibility: record.catalogVisibility,
     approvalStatus: record.approvalStatus,
     reviewNotes: record.reviewNotes,
     accessibilityReview: record.accessibilityReview === null
