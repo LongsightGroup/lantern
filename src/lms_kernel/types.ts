@@ -29,6 +29,7 @@ export interface LmsConnectionRecord {
   readonly label: string;
   readonly platformType: LmsPlatformType;
   readonly issuer: string;
+  readonly lmsOrigin: string;
   readonly clientId: string;
   readonly deploymentId: string;
   readonly authorizationEndpoint: string;
@@ -97,6 +98,7 @@ export interface GovernedRuntimeSessionWrite {
 }
 
 export interface GovernedRuntimeSession extends GovernedRuntimeSessionWrite {
+  readonly lmsOrigin: string;
   readonly connectionStatus: LmsConnectionRecord['status'];
   readonly institutionStatus: InstitutionRecord['status'];
   readonly installationStatus: AppInstallationRecord['status'];

@@ -9,6 +9,7 @@ export function createConnection(
     readonly membership: InstitutionMembershipRecord;
     readonly label: string;
     readonly platformType: LmsPlatformType;
+    readonly lmsOrigin?: string;
     readonly issuer?: string;
     readonly clientId?: string;
     readonly deploymentId?: string;

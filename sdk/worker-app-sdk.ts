@@ -58,6 +58,15 @@ export interface LanternLmsCapabilityBinding {
   }): Promise<PrimitiveResult<RosterPage>>;
 }
 
+/** Builds a same-session page URL using the gateway-owned navigation base. */
+export function createLanternRuntimePageUrl(request: Request, cursor: string): string | null {
+  const base = request.headers.get('x-lantern-runtime-page-url');
+  if (base === null) return null;
+  const url = new URL(base, 'https://reviewed-app.internal');
+  url.searchParams.set('cursor', cursor);
+  return `${url.pathname}${url.search}`;
+}
+
 export function createLanternLmsClient(input: {
   readonly request: Request;
   readonly binding: LanternLmsCapabilityBinding;

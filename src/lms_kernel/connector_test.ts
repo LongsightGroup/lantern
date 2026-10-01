@@ -29,6 +29,7 @@ Deno.test('synthetic roster connector follows the same opaque page seam as NRPS'
 
 function buildSyntheticSession(): GovernedRuntimeSession {
   return {
+    lmsOrigin: 'https://synthetic.lantern.invalid',
     runtimeSessionId: 'runtime-1',
     runtimeSessionToken: 'token',
     launchTraceId: 'trace-1',

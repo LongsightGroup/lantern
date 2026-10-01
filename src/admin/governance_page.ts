@@ -139,6 +139,7 @@ function renderConnections(
       <div class="table-row-meta">
         <span><strong>Client</strong> ${escapeHtml(connection.clientId)}</span>
         <span><strong>Deployment</strong> ${escapeHtml(connection.deploymentId)}</span>
+        <span><strong>Approved embedding origin</strong> ${escapeHtml(connection.lmsOrigin)}</span>
         <span><strong>Validated</strong> ${
         escapeHtml(formatDateTime(connection.validatedAt))
       }</span>
@@ -194,6 +195,8 @@ function renderConnectionForm(): string {
         <option value="sakai">Sakai</option>
       </select></label>
       <p>For a real LMS, enter the exact values issued by its LTI 1.3 registration.</p>
+      <label>LMS course-page origin <input name="lmsOrigin" type="url" aria-describedby="lms-origin-help"></label>
+      <p id="lms-origin-help">The HTTPS origin allowed to embed apps, for example https://courses.example.edu. Do not include a path. This can differ from the issuer or authorization host. Synthetic does not need this field.</p>
       <label>Issuer <input name="issuer" type="url"></label>
       <label>Client ID <input name="clientId"></label>
       <label>Deployment ID <input name="deploymentId"></label>

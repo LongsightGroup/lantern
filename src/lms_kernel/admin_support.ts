@@ -2,6 +2,7 @@ import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type { LmsKernelRepository } from './repository.ts';
 import type { InstitutionMembershipRecord, LmsConnectionRecord, LmsPlatformType } from './types.ts';
 import { failure, type KernelAdminResult } from './admin_result.ts';
+import { parseLmsOrigin } from './lms_origin.ts';
 
 export interface KernelAdminDeps {
   readonly repository: LmsKernelRepository;
@@ -37,6 +38,7 @@ export async function sha256(value: string): Promise<string> {
 
 export function parseConnectionFields(input: {
   readonly platformType: LmsPlatformType;
+  readonly lmsOrigin?: string;
   readonly issuer?: string;
   readonly clientId?: string;
   readonly deploymentId?: string;
@@ -44,6 +46,7 @@ export function parseConnectionFields(input: {
   readonly accessTokenUrl?: string;
   readonly jwksUrl?: string;
 }): KernelAdminResult<{
+  readonly lmsOrigin: string;
   readonly issuer: string;
   readonly clientId: string;
   readonly deploymentId: string;
@@ -55,6 +58,7 @@ export function parseConnectionFields(input: {
     return {
       ok: true,
       value: {
+        lmsOrigin: 'https://synthetic.lantern.invalid',
         issuer: 'https://synthetic.lantern.invalid',
         clientId: `synthetic-${crypto.randomUUID()}`,
         deploymentId: `synthetic-${crypto.randomUUID()}`,
@@ -64,7 +68,15 @@ export function parseConnectionFields(input: {
       },
     };
   }
+  const lmsOrigin = parseLmsOrigin(input.lmsOrigin ?? '');
+  if (lmsOrigin === null) {
+    return failure(
+      'invalid_request',
+      'Enter the HTTPS origin of the LMS course pages, without a path, query, or fragment.',
+    );
+  }
   const values = {
+    lmsOrigin,
     issuer: input.issuer?.trim() ?? '',
     clientId: input.clientId?.trim() ?? '',
     deploymentId: input.deploymentId?.trim() ?? '',

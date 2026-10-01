@@ -81,6 +81,7 @@ Deno.test('roster policy fails closed for missing NRPS claims and expired sessio
 
 function buildSession(): GovernedRuntimeSession {
   return {
+    lmsOrigin: 'https://lms.example',
     runtimeSessionId: 'runtime-1',
     runtimeSessionToken: 'runtime-token',
     launchTraceId: 'trace-1',

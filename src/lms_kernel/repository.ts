@@ -89,6 +89,7 @@ export interface LmsConnectionRepository {
       readonly label: string;
       readonly platformType: LmsPlatformType;
       readonly issuer: string;
+      readonly lmsOrigin: string;
       readonly clientId: string;
       readonly deploymentId: string;
       readonly authorizationEndpoint: string;

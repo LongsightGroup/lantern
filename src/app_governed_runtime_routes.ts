@@ -65,6 +65,7 @@ export function registerGovernedRuntimeRoutes(
             traceId,
           ),
         }),
+        session.lmsOrigin,
       );
       response.headers.set('x-lantern-trace-id', traceId);
       await recordLaunchEvent(repository, session, traceId, 'completed', null);

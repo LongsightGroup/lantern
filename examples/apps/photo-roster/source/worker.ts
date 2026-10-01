@@ -1,5 +1,6 @@
 import {
   createLanternLmsClient,
+  createLanternRuntimePageUrl,
   type LanternLmsCapabilityBinding,
   type RosterMember,
 } from '../../../../sdk/worker-app-sdk.ts';
@@ -25,11 +26,23 @@ export default {
       return htmlResponse(renderFailure(result.error.code, result.error.traceId), 403);
     }
 
-    return htmlResponse(renderRoster(result.value.members, result.value.nextCursor), 200);
+    const nextUrl = result.value.nextCursor === undefined
+      ? undefined
+      : createLanternRuntimePageUrl(request, result.value.nextCursor);
+    if (nextUrl === null) {
+      return htmlResponse(
+        renderFailure(
+          'session_expired',
+          request.headers.get('x-lantern-trace-id') ?? crypto.randomUUID(),
+        ),
+        403,
+      );
+    }
+    return htmlResponse(renderRoster(result.value.members, nextUrl), 200);
   },
 };
 
-function renderRoster(members: readonly RosterMember[], nextCursor: string | undefined): string {
+function renderRoster(members: readonly RosterMember[], nextUrl: string | undefined): string {
   const cards = members.map((member) => {
     const photo = member.photo === undefined
       ? `<span class="avatar" aria-hidden="true">${escapeHtml(initials(member.displayName))}</span>`
@@ -48,9 +61,9 @@ function renderRoster(members: readonly RosterMember[], nextCursor: string | und
       </div>
     </li>`;
   }).join('');
-  const next = nextCursor === undefined
+  const next = nextUrl === undefined
     ? ''
-    : `<a class="next" href="?cursor=${encodeURIComponent(nextCursor)}">Next page</a>`;
+    : `<a class="next" href="${escapeAttribute(nextUrl)}">Next page</a>`;
 
   return page(`
     <header>

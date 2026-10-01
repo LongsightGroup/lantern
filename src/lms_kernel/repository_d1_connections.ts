@@ -14,10 +14,10 @@ export function createD1LmsConnectionRepository(db: D1Database): LmsConnectionRe
       await runD1Batch(db, [{
         sql: `
           INSERT INTO lms_connections (
-            id, institution_id, label, platform_type, issuer, client_id,
+            id, institution_id, label, platform_type, issuer, lms_origin, client_id,
             deployment_id, authorization_endpoint, access_token_url, jwks_url,
             status, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
         `,
         parameters: [
           input.id,
@@ -25,6 +25,7 @@ export function createD1LmsConnectionRepository(db: D1Database): LmsConnectionRe
           input.label,
           input.platformType,
           input.issuer,
+          input.lmsOrigin,
           input.clientId,
           input.deploymentId,
           input.authorizationEndpoint,

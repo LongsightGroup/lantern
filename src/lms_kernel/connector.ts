@@ -1,6 +1,7 @@
 import type { PrimitiveErrorCode, RosterRole } from '../../sdk/worker-app-sdk.ts';
 import type { LanternLtiToolContext } from '../lti/tool_provider.ts';
 import { requireVerifiedLtiSessionWithContext } from '../lti/session_boundary.ts';
+import { parseLtiContextRole } from './context_roles.ts';
 import type {
   GovernedRuntimeSession,
   RosterConnectorMember,
@@ -111,16 +112,7 @@ export function createSyntheticRosterConnector(): RosterConnector {
 function normalizeRoles(roles: readonly string[]): RosterRole[] {
   const normalized = new Set<RosterRole>();
   for (const role of roles) {
-    const value = role.toLowerCase();
-    if (value.includes('administrator')) {
-      normalized.add('administrator');
-    } else if (value.includes('instructor') || value.includes('teachingassistant')) {
-      normalized.add('instructor');
-    } else if (value.includes('learner') || value.includes('student')) {
-      normalized.add('learner');
-    } else {
-      normalized.add('other');
-    }
+    normalized.add(parseLtiContextRole(role));
   }
   return normalized.size === 0 ? ['other'] : [...normalized];
 }

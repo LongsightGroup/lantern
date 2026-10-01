@@ -1,6 +1,7 @@
 import type { LmsKernelRepository } from './repository.ts';
 import type { AppInstallationRecord, ConnectorKind, LmsConnectionRecord } from './types.ts';
 import { connectionValidatedEvent, launchAcceptedEvent } from './governance_events.ts';
+import { parseLtiContextRole } from './context_roles.ts';
 
 /**
  * Governed launch service.
@@ -48,15 +49,11 @@ const RUNTIME_SESSION_TTL_MS = 10 * 60 * 1000;
 export function resolveGovernedLaunchActorType(
   roles: readonly string[],
 ): 'instructor' | 'administrator' | null {
-  if (roles.some((role) => role.toLowerCase().includes('administrator'))) {
+  const contextRoles = roles.map(parseLtiContextRole);
+  if (contextRoles.includes('administrator')) {
     return 'administrator';
   }
-  if (
-    roles.some((role) => {
-      const normalized = role.toLowerCase();
-      return normalized.includes('instructor') || normalized.includes('teachingassistant');
-    })
-  ) {
+  if (contextRoles.includes('instructor')) {
     return 'instructor';
   }
   return null;

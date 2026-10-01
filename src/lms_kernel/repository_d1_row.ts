@@ -1,5 +1,6 @@
 import { requireRosterCapability as requireCapability } from './capabilities.ts';
 import { parseJsonObject, parseStringArray } from './parsing.ts';
+import { parseLmsOrigin } from './lms_origin.ts';
 import type { ProtectedMediaReference, RosterContinuation } from './repository.ts';
 import type {
   AppInstallationRecord,
@@ -133,6 +134,7 @@ export function mapConnection(row: D1Row): LmsConnectionRecord {
       'lms_connections.platform_type',
     ),
     issuer: requireString(row, 'issuer'),
+    lmsOrigin: requireLmsOrigin(row),
     clientId: requireString(row, 'client_id'),
     deploymentId: requireString(row, 'deployment_id'),
     authorizationEndpoint: requireString(row, 'authorization_endpoint'),
@@ -208,6 +210,7 @@ export function mapCapabilityGrant(row: D1Row): CapabilityGrantRecord {
 
 export function mapGovernedRuntimeSession(row: D1Row): GovernedRuntimeSession {
   return {
+    lmsOrigin: requireLmsOrigin(row),
     runtimeSessionId: requireString(row, 'runtime_session_id'),
     runtimeSessionToken: requireString(row, 'runtime_session_token'),
     launchTraceId: requireString(row, 'launch_trace_id'),
@@ -256,6 +259,12 @@ export function mapGovernedRuntimeSession(row: D1Row): GovernedRuntimeSession {
       'governed_runtime_sessions.connector_kind',
     ),
   };
+}
+
+function requireLmsOrigin(row: D1Row): string {
+  const origin = parseLmsOrigin(requireString(row, 'lms_origin'));
+  if (origin === null) throw new Error('lms_origin must be an HTTPS origin.');
+  return origin;
 }
 
 export function mapContinuation(row: D1Row): RosterContinuation {

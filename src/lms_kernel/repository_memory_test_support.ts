@@ -204,6 +204,7 @@ export class MemoryLmsKernelRepository implements LmsKernelRepository {
   ): Promise<GovernedRuntimeSession> {
     const session: GovernedRuntimeSession = {
       ...input.session,
+      lmsOrigin: 'https://synthetic.lantern.invalid',
       connectionStatus: 'active',
       institutionStatus: 'active',
       installationStatus: 'active',
@@ -316,6 +317,7 @@ export function buildKernelGrant(
 
 export function buildGovernedSyntheticSession(): GovernedRuntimeSession {
   return {
+    lmsOrigin: 'https://synthetic.lantern.invalid',
     runtimeSessionId: 'runtime-1',
     runtimeSessionToken: 'runtime-token',
     launchTraceId: 'trace-1',

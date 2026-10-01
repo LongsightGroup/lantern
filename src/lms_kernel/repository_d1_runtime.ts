@@ -37,6 +37,7 @@ export function createD1GovernedRuntimeRepository(db: D1Database): GovernedRunti
             institutions.status AS institution_status,
             lms_connections.status AS connection_status,
             lms_connections.platform_type,
+            lms_connections.lms_origin,
             app_installations.status AS installation_status
           FROM governed_runtime_sessions
           JOIN institutions
@@ -45,6 +46,8 @@ export function createD1GovernedRuntimeRepository(db: D1Database): GovernedRunti
             ON lms_connections.id = governed_runtime_sessions.lms_connection_id
           JOIN app_installations
             ON app_installations.id = governed_runtime_sessions.app_installation_id
+            AND app_installations.package_version_id = governed_runtime_sessions.package_version_id
+            AND app_installations.app_id = governed_runtime_sessions.app_id
           WHERE governed_runtime_sessions.runtime_session_id = ?
             AND governed_runtime_sessions.runtime_session_token = ?
         `,
@@ -208,6 +211,8 @@ export function createD1GovernedRuntimeRepository(db: D1Database): GovernedRunti
             ON lms_connections.id = governed_runtime_sessions.lms_connection_id
           JOIN app_installations
             ON app_installations.id = protected_media_refs.app_installation_id
+            AND app_installations.package_version_id = protected_media_refs.package_version_id
+            AND app_installations.package_version_id = governed_runtime_sessions.package_version_id
           WHERE protected_media_refs.id = ?
             AND protected_media_refs.expires_at > ?
             AND governed_runtime_sessions.runtime_expires_at > ?

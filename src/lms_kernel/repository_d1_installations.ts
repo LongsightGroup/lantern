@@ -53,6 +53,50 @@ export function createD1AppInstallationRepository(db: D1Database): AppInstallati
             input.institutionId,
           ],
         },
+        {
+          sql: `
+            UPDATE governed_runtime_sessions SET runtime_expires_at = ?
+            WHERE app_installation_id = ? AND institution_id = ?
+              AND package_version_id <> ? AND runtime_expires_at > ?
+              AND EXISTS (
+                SELECT 1 FROM app_installations
+                WHERE id = ? AND institution_id = ? AND package_version_id = ? AND updated_at = ?
+              )
+          `,
+          parameters: [
+            input.now,
+            input.id,
+            input.institutionId,
+            input.packageVersionId,
+            input.now,
+            input.id,
+            input.institutionId,
+            input.packageVersionId,
+            input.now,
+          ],
+        },
+        {
+          sql: `
+            UPDATE capability_grants SET revoked_by_user_id = ?, revoked_at = ?
+            WHERE app_installation_id = ? AND institution_id = ?
+              AND package_version_id <> ? AND revoked_at IS NULL
+              AND EXISTS (
+                SELECT 1 FROM app_installations
+                WHERE id = ? AND institution_id = ? AND package_version_id = ? AND updated_at = ?
+              )
+          `,
+          parameters: [
+            input.installedByUserId,
+            input.now,
+            input.id,
+            input.institutionId,
+            input.packageVersionId,
+            input.id,
+            input.institutionId,
+            input.packageVersionId,
+            input.now,
+          ],
+        },
         governanceEventStatement(input.event, {
           sql: `EXISTS (
           SELECT 1 FROM app_installations

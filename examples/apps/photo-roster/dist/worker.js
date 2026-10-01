@@ -1,25 +1,25 @@
-function s(e){let t=e.request.headers.get("x-lantern-runtime-session-id"),a=e.request.headers.get("x-lantern-runtime-session-token"),n=e.request.headers.get("x-lantern-trace-id");return{listRoster(r){return!t||!a?Promise.resolve({ok:!1,error:{code:"session_expired",traceId:crypto.randomUUID()}}):e.binding.listRoster({runtimeSessionId:t,runtimeSessionToken:a,...n===null?{}:{traceId:n},request:r})}}}var b={async fetch(e,t){let n=new URL(e.url).searchParams.get("cursor")??void 0,o=await s({request:e,binding:t.LANTERN_LMS}).listRoster({fields:["email","photo"],...n===void 0?{}:{cursor:n}});return o.ok?l(u(o.value.members,o.value.nextCursor),200):l(h(o.error.code,o.error.traceId),403)}};function u(e,t){let a=e.map(r=>{let o=r.photo===void 0?`<span class="avatar" aria-hidden="true">${i(m(r.displayName))}</span>`:`<img class="avatar" src="${d(r.photo.url)}" alt="" width="64" height="64" loading="lazy" decoding="async" fetchpriority="low">`,c=r.email===void 0?'<span class="muted">Email not shared</span>':`<a href="mailto:${d(r.email)}">${i(r.email)}</a>`;return`<li class="card">
-      ${o}
+function p(e,r){let a=e.headers.get("x-lantern-runtime-page-url");if(a===null)return null;let t=new URL(a,"https://reviewed-app.internal");return t.searchParams.set("cursor",r),`${t.pathname}${t.search}`}function c(e){let r=e.request.headers.get("x-lantern-runtime-session-id"),a=e.request.headers.get("x-lantern-runtime-session-token"),t=e.request.headers.get("x-lantern-trace-id");return{listRoster(n){return!r||!a?Promise.resolve({ok:!1,error:{code:"session_expired",traceId:crypto.randomUUID()}}):e.binding.listRoster({runtimeSessionId:r,runtimeSessionToken:a,...t===null?{}:{traceId:t},request:n})}}}var w={async fetch(e,r){let t=new URL(e.url).searchParams.get("cursor")??void 0,i=await c({request:e,binding:r.LANTERN_LMS}).listRoster({fields:["email","photo"],...t===void 0?{}:{cursor:t}});if(!i.ok)return l(u(i.error.code,i.error.traceId),403);let s=i.value.nextCursor===void 0?void 0:p(e,i.value.nextCursor);return s===null?l(u("session_expired",e.headers.get("x-lantern-trace-id")??crypto.randomUUID()),403):l(m(i.value.members,s),200)}};function m(e,r){let a=e.map(n=>{let i=n.photo===void 0?`<span class="avatar" aria-hidden="true">${o(g(n.displayName))}</span>`:`<img class="avatar" src="${d(n.photo.url)}" alt="" width="64" height="64" loading="lazy" decoding="async" fetchpriority="low">`,s=n.email===void 0?'<span class="muted">Email not shared</span>':`<a href="mailto:${d(n.email)}">${o(n.email)}</a>`;return`<li class="card">
+      ${i}
       <div>
-        <h2>${i(r.displayName)}</h2>
-        <p>${i(r.roles.map(g).join(", "))}</p>
-        <p>${c}</p>
+        <h2>${o(n.displayName)}</h2>
+        <p>${o(n.roles.map(x).join(", "))}</p>
+        <p>${s}</p>
       </div>
-    </li>`}).join(""),n=t===void 0?"":`<a class="next" href="?cursor=${encodeURIComponent(t)}">Next page</a>`;return p(`
+    </li>`}).join(""),t=r===void 0?"":`<a class="next" href="${d(r)}">Next page</a>`;return h(`
     <header>
       <p class="eyebrow">Current LMS course</p>
       <h1>Photo Roster</h1>
       <p>${e.length} people on this page</p>
     </header>
     <ul class="roster">${a}</ul>
-    <nav aria-label="Roster pages">${n}</nav>
-  `)}function h(e,t){return p(`
+    <nav aria-label="Roster pages">${t}</nav>
+  `)}function u(e,r){return h(`
     <section class="notice" role="alert">
       <h1>Photo Roster could not open</h1>
       <p>${e==="permission_denied"?"An institution administrator must approve this access, and the LMS launch must provide Names and Roles Provisioning.":e==="session_expired"?"This launch has expired. Open Photo Roster from the LMS again.":e==="rate_limited"?"The LMS is limiting roster requests. Try again shortly.":"The LMS roster is unavailable right now."}</p>
-      <p class="trace">Trace ${i(t)}</p>
+      <p class="trace">Trace ${o(r)}</p>
     </section>
-  `)}function p(e){return`<!doctype html>
+  `)}function h(e){return`<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -48,4 +48,4 @@ function s(e){let t=e.request.headers.get("x-lantern-runtime-session-id"),a=e.re
   </style>
 </head>
 <body><main>${e}</main></body>
-</html>`}function l(e,t){return new Response(e,{status:t,headers:{"content-type":"text/html; charset=UTF-8","cache-control":"private, no-store"}})}function m(e){return e.split(/\s+/).slice(0,2).map(t=>t.slice(0,1).toUpperCase()).join("")}function g(e){switch(e){case"administrator":return"Administrator";case"instructor":return"Instructor";case"learner":return"Learner";case"other":return"Other"}}function i(e){return e.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;")}function d(e){return i(e)}export{b as default};
+</html>`}function l(e,r){return new Response(e,{status:r,headers:{"content-type":"text/html; charset=UTF-8","cache-control":"private, no-store"}})}function g(e){return e.split(/\s+/).slice(0,2).map(r=>r.slice(0,1).toUpperCase()).join("")}function x(e){switch(e){case"administrator":return"Administrator";case"instructor":return"Instructor";case"learner":return"Learner";case"other":return"Other"}}function o(e){return e.replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;")}function d(e){return o(e)}export{w as default};

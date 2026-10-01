@@ -67,6 +67,7 @@ export function registerAdminGovernanceRoutes(app: Hono, services: GovernanceRou
       membership: getKernelAdminContext(context).membership,
       label: formString(form, 'label'),
       platformType,
+      lmsOrigin: formString(form, 'lmsOrigin'),
       issuer: formString(form, 'issuer'),
       clientId: formString(form, 'clientId'),
       deploymentId: formString(form, 'deploymentId'),

@@ -10,6 +10,11 @@ export function buildReviewedWorkerRequest(
   traceId?: string,
 ): Request {
   const sourceUrl = new URL(context.req.url);
+  const pageUrl = new URL(
+    `/governed/sessions/${encodeURIComponent(session.sessionId)}`,
+    sourceUrl.origin,
+  );
+  pageUrl.searchParams.set('token', session.sessionToken);
   const targetUrl = new URL('https://reviewed-app.internal/');
   const cursor = sourceUrl.searchParams.get('cursor');
   if (cursor !== null) {
@@ -19,6 +24,7 @@ export function buildReviewedWorkerRequest(
     accept: 'text/html',
     'x-lantern-runtime-session-id': session.sessionId,
     'x-lantern-runtime-session-token': session.sessionToken,
+    'x-lantern-runtime-page-url': `${pageUrl.pathname}${pageUrl.search}`,
   });
   if (traceId !== undefined) {
     headers.set('x-lantern-trace-id', traceId);
@@ -31,7 +37,7 @@ export function buildReviewedWorkerRequest(
 }
 
 /** Enforces Lantern-owned headers on a reviewed Worker HTML response. */
-export function sanitizeReviewedWorkerResponse(response: Response): Response {
+export function sanitizeReviewedWorkerResponse(response: Response, lmsOrigin: string): Response {
   const contentType = response.headers.get('content-type')?.toLowerCase() ?? '';
   if (!contentType.startsWith('text/html')) {
     throw new Error('Reviewed Worker apps must return an HTML response.');
@@ -50,7 +56,7 @@ export function sanitizeReviewedWorkerResponse(response: Response): Response {
   if (contentLanguage !== null) {
     headers.set('content-language', contentLanguage.slice(0, 64));
   }
-  applyRuntimeDocumentHeaders(headers);
+  applyRuntimeDocumentHeaders(headers, lmsOrigin);
   headers.set('cache-control', 'private, no-store');
   return new Response(response.body, {
     status: response.status,
@@ -58,7 +64,7 @@ export function sanitizeReviewedWorkerResponse(response: Response): Response {
   });
 }
 
-function applyRuntimeDocumentHeaders(headers: Headers): void {
+function applyRuntimeDocumentHeaders(headers: Headers, lmsOrigin: string): void {
   headers.set('cache-control', 'private, no-store');
   headers.set('cross-origin-resource-policy', 'same-origin');
   headers.set('referrer-policy', 'no-referrer');
@@ -71,7 +77,7 @@ function applyRuntimeDocumentHeaders(headers: Headers): void {
       "img-src 'self' data:",
       "base-uri 'none'",
       "form-action 'self'",
-      "frame-ancestors 'self'",
+      `frame-ancestors 'self' ${lmsOrigin}`,
     ].join('; '),
   );
   headers.set(

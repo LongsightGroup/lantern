@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS lms_connections (
     platform_type IN ('canvas', 'moodle', 'brightspace', 'sakai', 'synthetic')
   ),
   issuer TEXT NOT NULL,
+  lms_origin TEXT NOT NULL,
   client_id TEXT NOT NULL,
   deployment_id TEXT NOT NULL,
   authorization_endpoint TEXT NOT NULL,

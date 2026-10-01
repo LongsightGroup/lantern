@@ -1,7 +1,7 @@
 import { assertEquals, assertRejects } from '@std/assert';
-import { Miniflare } from 'miniflare';
 import type { D1Database } from '../db/d1.ts';
-import { runD1, runD1Statements } from '../db/d1.ts';
+import { runD1 } from '../db/d1.ts';
+import { withKernelD1 } from './d1_test_support.ts';
 import { adminGovernanceEvent } from './governance_events.ts';
 import { createD1LmsKernelRepository } from './repository_d1.ts';
 
@@ -107,30 +107,6 @@ Deno.test('D1 invitation acceptance is one-time and appends its audit event atom
     );
   });
 });
-
-async function withKernelD1(run: (db: D1Database) => Promise<void>): Promise<void> {
-  const miniflare = new Miniflare({
-    modules: true,
-    script: 'export default { fetch() { return new Response("ok"); } };',
-    d1Databases: { DB: crypto.randomUUID() },
-  });
-  try {
-    const db: D1Database = await miniflare.getD1Database('DB');
-    for (
-      const migration of [
-        'src/db/d1_migrations/0001_initial_schema.sql',
-        'src/db/d1_migrations/0002_auth.sql',
-        'src/db/d1_migrations/0003_python_autograder_lab.sql',
-        'src/db/d1_migrations/0004_governed_lms_primitive_kernel.sql',
-      ]
-    ) {
-      await runD1Statements(db, await Deno.readTextFile(migration));
-    }
-    await run(db);
-  } finally {
-    await miniflare.dispose();
-  }
-}
 
 function seedAuthUser(db: D1Database, id: string): Promise<void> {
   return runD1(
