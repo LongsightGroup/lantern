@@ -62,9 +62,8 @@ export async function loadAgentSnapshot(input: {
   state: DurableObjectState;
   env: AppWriterAgentEnv;
 }): Promise<AppWriterAgentSessionSnapshot> {
-  const session = await input.state.storage.get<StoredAppWriterAgentSession>(
-    AGENT_SESSION_STORAGE_KEY,
-  );
+  const session =
+    await input.state.storage.get<StoredAppWriterAgentSession>(AGENT_SESSION_STORAGE_KEY);
   const generationId = session?.generationId ?? 'unknown';
   const baseSnapshot = buildUnknownSnapshot(session);
 
@@ -80,9 +79,8 @@ export async function loadAgentSnapshot(input: {
   }
 
   const workspace = await repository.getAppGenerationWorkspaceByGenerationId(generationId);
-  const currentStep = workspace === null
-    ? null
-    : selectCurrentGenerationPlanStep(workspace.generationPlan);
+  const currentStep =
+    workspace === null ? null : selectCurrentGenerationPlanStep(workspace.generationPlan);
   const activitySummary = await summarizeGenerationActivityEvents(repository, generationId);
   const latestModelRequest = [...run.modelRequestMetadata]
     .reverse()
@@ -95,7 +93,8 @@ export async function loadAgentSnapshot(input: {
     currentPlanStepStatus: currentStep?.status ?? null,
     currentPlanStepSummary: currentStep?.summary ?? null,
     lastActivitySummary: activitySummary.lastSummary,
-    currentModelStage: session.currentModelStage ??
+    currentModelStage:
+      session.currentModelStage ??
       (latestModelRequest?.stage === 'author' || latestModelRequest?.stage === 'repair'
         ? latestModelRequest.stage
         : null),

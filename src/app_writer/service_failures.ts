@@ -99,8 +99,7 @@ export function buildStarterMismatchFinding(input: {
   return {
     code: 'starter_mismatch',
     severity: 'error',
-    message:
-      `Generated package selected starter ${input.actualStarterId}, but Lantern selected ${input.expectedStarterId}.`,
+    message: `Generated package selected starter ${input.actualStarterId}, but Lantern selected ${input.expectedStarterId}.`,
     file: null,
     field: '/selected_starter_id',
     fix: 'Regenerate package files against the Lantern-selected starter.',
@@ -201,8 +200,10 @@ function resolveGenerationFailureFix(message: string, harnessCode: string | null
   }
 
   if (isWorkspaceHarnessContractMessage(message)) {
-    return PROVIDER_ERROR_FIXES.workspace_harness_contract ??
-      'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.';
+    return (
+      PROVIDER_ERROR_FIXES.workspace_harness_contract ??
+      'Retry generation. Lantern rejects workspace harness responses unless they match the current stage contract.'
+    );
   }
 
   return 'Check the model configuration or retry generation.';
@@ -216,9 +217,8 @@ function buildGenerationFailureDetail(
   if (harnessCode !== null) {
     return {
       harnessError: harnessCode,
-      modelRequestCount: error instanceof AppWriterWorkspaceHarnessError
-        ? error.modelRequestMetadata.length
-        : 0,
+      modelRequestCount:
+        error instanceof AppWriterWorkspaceHarnessError ? error.modelRequestMetadata.length : 0,
     };
   }
 
@@ -246,8 +246,7 @@ export function buildTypeScriptCompilerMissingFinding(): AppGenerationValidation
     message: 'Generated package returned TypeScript source, but no source compiler is configured.',
     file: null,
     field: null,
-    fix:
-      'Configure the Lantern TypeScript source compiler or regenerate browser-ready package files.',
+    fix: 'Configure the Lantern TypeScript source compiler or regenerate browser-ready package files.',
     detail: {},
   };
 }

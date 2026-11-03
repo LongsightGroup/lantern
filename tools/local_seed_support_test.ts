@@ -1,3 +1,7 @@
+import { join } from 'node:path';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assert, assertEquals } from '@std/assert';
 import { createObjectEnvReader } from '../src/platform/env.ts';
 import {
@@ -11,8 +15,8 @@ import { getTestToolPrivateJwkEnvValue } from '../src/test_helpers/lti.ts';
 import { createInMemoryPackageReviewRepository } from '../src/test_helpers/package_review.ts';
 import { seedReferencePackages } from './local_seed_support.ts';
 
-Deno.test("seedReferencePackages imports and approves Lantern's shipped reference packages", async () => {
-  const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-local-seed-' });
+test("seedReferencePackages imports and approves Lantern's shipped reference packages", async () => {
+  const storageRoot = await mkdtemp(join(tmpdir(), 'lantern-local-seed-'));
   const repository = createInMemoryPackageReviewRepository();
 
   try {
@@ -45,6 +49,6 @@ Deno.test("seedReferencePackages imports and approves Lantern's shipped referenc
       assert(packageVersion?.accessibilityReview !== null);
     }
   } finally {
-    await Deno.remove(storageRoot, { recursive: true });
+    await rm(storageRoot, { recursive: true });
   }
 });

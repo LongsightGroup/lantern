@@ -1,7 +1,7 @@
 import { readArgs, syncReferencePackageSources } from './reference_sync_support.ts';
 
 try {
-  const args = readArgs(Deno.args);
+  const args = readArgs(process.argv.slice(2));
   const summary = await syncReferencePackageSources(args);
 
   console.log(
@@ -25,5 +25,5 @@ try {
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Reference package source sync failed.');
-  Deno.exit(1);
+  process.exit(1);
 }

@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { emptyAppWriterSelectedContext } from './context.ts';
 import {
@@ -11,7 +12,7 @@ import type {
 } from './types.ts';
 import { buildAppGenerationWorkspaceRecord } from '../test_helpers/package_review_in_memory_app_generation.ts';
 
-Deno.test('harness workspace runner gives the harness the initialized workspace for planning and authoring', async () => {
+test('harness workspace runner gives the harness the initialized workspace for planning and authoring', async () => {
   const calls: string[] = [];
   const initializedWorkspace = buildWorkspace();
   const harness: AppWriterWorkspaceHarness = {
@@ -22,7 +23,7 @@ Deno.test('harness workspace runner gives the harness the initialized workspace 
         files: input.workspace.files.map((file) =>
           file.path === 'manifest.json'
             ? { ...file, contents: '{"app_id":"phonics-match"}\n' }
-            : file
+            : file,
         ),
         progressUpdates: [
           {
@@ -53,7 +54,7 @@ Deno.test('harness workspace runner gives the harness the initialized workspace 
   assertEquals(authored.validationFindings, []);
 });
 
-Deno.test('harness workspace runner repairs from the persisted workspace snapshot', async () => {
+test('harness workspace runner repairs from the persisted workspace snapshot', async () => {
   const workspace = buildWorkspace();
   const harness: AppWriterWorkspaceHarness = {
     author(_input) {

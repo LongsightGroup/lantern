@@ -76,12 +76,13 @@ export class AppWriterAgent {
       return jsonError(405, 'method_not_allowed', 'Workspace harness authoring requires POST.');
     }
 
-    return await this.handleWorkspaceHarnessRequest(async () =>
-      await authorWorkspace({
-        state: this.state,
-        env: this.env,
-        request: await readWorkspaceAuthorInput(request),
-      })
+    return await this.handleWorkspaceHarnessRequest(
+      async () =>
+        await authorWorkspace({
+          state: this.state,
+          env: this.env,
+          request: await readWorkspaceAuthorInput(request),
+        }),
     );
   }
 
@@ -90,12 +91,13 @@ export class AppWriterAgent {
       return jsonError(405, 'method_not_allowed', 'Workspace harness repair requires POST.');
     }
 
-    return await this.handleWorkspaceHarnessRequest(async () =>
-      await repairWorkspace({
-        state: this.state,
-        env: this.env,
-        request: await readWorkspaceRepairInput(request),
-      })
+    return await this.handleWorkspaceHarnessRequest(
+      async () =>
+        await repairWorkspace({
+          state: this.state,
+          env: this.env,
+          request: await readWorkspaceRepairInput(request),
+        }),
     );
   }
 

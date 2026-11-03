@@ -1,3 +1,4 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import {
   assertEvidenceArtifactStorageKey,
   type EvidenceArtifactStore,
@@ -8,12 +9,12 @@ const FILE_SYSTEM_EVIDENCE_ARTIFACT_STORE: EvidenceArtifactStore = {
     const safeStorageKey = assertEvidenceArtifactStorageKey(storageKey);
     const directory = safeStorageKey.split('/').slice(0, -1).join('/');
 
-    await Deno.mkdir(directory, { recursive: true });
-    await Deno.writeFile(safeStorageKey, bytes);
+    await mkdir(directory, { recursive: true });
+    await writeFile(safeStorageKey, bytes);
   },
 
   async readBytes(storageKey) {
-    return await Deno.readFile(assertEvidenceArtifactStorageKey(storageKey));
+    return await readFile(assertEvidenceArtifactStorageKey(storageKey));
   },
 };
 

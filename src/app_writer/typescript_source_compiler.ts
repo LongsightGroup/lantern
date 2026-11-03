@@ -1,4 +1,8 @@
-import ts from 'typescript';
+import { spawn } from 'node:child_process';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type {
   AppGenerationPlan,
   AppGenerationValidationFinding,
@@ -10,15 +14,6 @@ const SOURCE_APP_PATH = 'source/app.ts';
 const SOURCE_CONTENT_MODEL_PATH = 'source/content_model.ts';
 const GENERATED_SDK_DECLARATION_PATH = 'source/lantern-sdk.d.ts';
 const DIST_APP_PATH = 'dist/app.js';
-const TYPESCRIPT_LIBRARY_BASE_URL = 'https://esm.sh/typescript@5.9.3/lib/';
-const TYPESCRIPT_ROOT_LIBRARY_FILES = [
-  'lib.es2022.d.ts',
-  'lib.dom.d.ts',
-] as const;
-const TYPESCRIPT_LIBRARY_REFERENCE_PATTERN = /\/\/\/\s*<reference\s+lib="([^"]+)"/g;
-
-let compilerLibraryFilesPromise: Promise<ReadonlyMap<string, string>> | null = null;
-
 export function createTypeScriptAppPackageSourceCompiler(): AppPackageSourceCompiler {
   return {
     supportsTypeScriptAuthoring: true,
@@ -53,8 +48,8 @@ async function compileTypeScriptWorkspace(
     };
   }
 
-  const importFinding = findForbiddenModuleSyntax(sourceApp) ??
-    findForbiddenModuleSyntax(contentModel);
+  const importFinding =
+    findForbiddenModuleSyntax(sourceApp) ?? findForbiddenModuleSyntax(contentModel);
 
   if (importFinding !== null) {
     return {
@@ -69,24 +64,14 @@ async function compileTypeScriptWorkspace(
     [SOURCE_CONTENT_MODEL_PATH, contentModel.contents],
     [GENERATED_SDK_DECLARATION_PATH, buildSdkDeclaration(appPlan)],
   ]);
-  const diagnostics = collectTypeScriptDiagnostics(
-    sourceFiles,
-    await loadCompilerLibraryFiles(),
-  );
-
-  if (diagnostics.length > 0) {
+  const compilation = await compileSourceFiles(sourceFiles);
+  if (compilation.validationFindings.length > 0) {
     return {
       files: [...normalizedFiles.values()],
       notes: [],
-      validationFindings: diagnostics,
+      validationFindings: compilation.validationFindings,
     };
   }
-
-  const output = ts.transpileModule(sourceApp.contents, {
-    compilerOptions: compilerOptions(),
-    fileName: SOURCE_APP_PATH,
-    reportDiagnostics: false,
-  });
   const compiledFiles = [...normalizedFiles.values()].filter(
     (file) => !file.path.startsWith('source/') && file.path !== DIST_APP_PATH,
   );
@@ -96,165 +81,94 @@ async function compileTypeScriptWorkspace(
       ...compiledFiles,
       {
         path: DIST_APP_PATH,
-        contents: `${output.outputText.trim()}\n`,
+        contents: `${compilation.outputText.trim()}\n`,
       },
     ],
-    notes: [
-      'Compiled TypeScript authoring source to reviewed browser JavaScript.',
-    ],
+    notes: ['Compiled TypeScript authoring source to reviewed browser JavaScript.'],
     validationFindings: [],
   };
 }
 
-function collectTypeScriptDiagnostics(
-  sourceFiles: ReadonlyMap<string, string>,
-  libraryFiles: ReadonlyMap<string, string>,
-): AppGenerationValidationFinding[] {
-  const defaultHost = ts.createCompilerHost(compilerOptions(), true);
-  const host: ts.CompilerHost = {
-    ...defaultHost,
-    fileExists(fileName) {
-      return (
-        sourceFiles.has(normalizeWorkspacePath(fileName)) ||
-        libraryFiles.has(normalizeLibraryPath(fileName)) ||
-        defaultHost.fileExists(fileName)
-      );
-    },
-    readFile(fileName) {
-      return (
-        sourceFiles.get(normalizeWorkspacePath(fileName)) ??
-          libraryFiles.get(normalizeLibraryPath(fileName)) ??
-          defaultHost.readFile(fileName)
-      );
-    },
-    getSourceFile(
-      fileName,
-      languageVersion,
-      onError,
-      shouldCreateNewSourceFile,
-    ) {
-      const normalized = normalizeWorkspacePath(fileName);
-      const sourceText = sourceFiles.get(normalized);
-
-      if (sourceText !== undefined) {
-        return ts.createSourceFile(fileName, sourceText, languageVersion, true);
-      }
-
-      const libraryText = libraryFiles.get(normalizeLibraryPath(fileName));
-
-      if (libraryText !== undefined) {
-        return ts.createSourceFile(
-          fileName,
-          libraryText,
-          languageVersion,
-          true,
-        );
-      }
-
-      return defaultHost.getSourceFile(
-        fileName,
-        languageVersion,
-        onError,
-        shouldCreateNewSourceFile,
-      );
-    },
-    getDefaultLibLocation() {
-      return '/';
-    },
-    writeFile() {},
-  };
-  const program = ts.createProgram(
-    [
-      SOURCE_APP_PATH,
-      SOURCE_CONTENT_MODEL_PATH,
-      GENERATED_SDK_DECLARATION_PATH,
-    ],
-    compilerOptions(),
-    host,
-  );
-
-  return ts
-    .getPreEmitDiagnostics(program)
-    .filter((diagnostic) => diagnostic.category === ts.DiagnosticCategory.Error)
-    .map(mapDiagnosticToFinding);
-}
-
-async function loadCompilerLibraryFiles(): Promise<
-  ReadonlyMap<string, string>
-> {
-  if (compilerLibraryFilesPromise === null) {
-    compilerLibraryFilesPromise = fetchCompilerLibraryFiles();
-  }
-
-  return await compilerLibraryFilesPromise;
-}
-
-async function fetchCompilerLibraryFiles(): Promise<
-  ReadonlyMap<string, string>
-> {
-  const files = new Map<string, string>();
-  const pending: string[] = [...TYPESCRIPT_ROOT_LIBRARY_FILES];
-
-  for (let index = 0; index < pending.length; index += 1) {
-    const fileName = pending[index];
-
-    if (fileName === undefined || files.has(fileName)) {
-      continue;
+/** Runs the installed TypeScript 7 compiler with an isolated, explicit source set. */
+async function compileSourceFiles(sourceFiles: ReadonlyMap<string, string>): Promise<{
+  outputText: string;
+  validationFindings: AppGenerationValidationFinding[];
+}> {
+  const root = await mkdtemp(join(tmpdir(), 'lantern-typescript-'));
+  try {
+    await mkdir(join(root, 'source'));
+    for (const [path, contents] of sourceFiles) {
+      await writeFile(join(root, path), contents);
     }
-
-    const contents = await fetchCompilerLibraryFile(fileName);
-    files.set(fileName, contents);
-
-    for (const referencedFile of listReferencedLibraryFiles(contents)) {
-      if (!files.has(referencedFile) && !pending.includes(referencedFile)) {
-        pending.push(referencedFile);
-      }
-    }
-  }
-
-  return files;
-}
-
-async function fetchCompilerLibraryFile(fileName: string): Promise<string> {
-  const response = await fetch(`${TYPESCRIPT_LIBRARY_BASE_URL}${fileName}`);
-
-  if (!response.ok) {
-    throw new Error(
-      `Lantern TypeScript compiler could not load ${fileName}: ${response.status} ${response.statusText}.`,
+    await writeFile(
+      join(root, 'tsconfig.json'),
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          noUncheckedIndexedAccess: true,
+          exactOptionalPropertyTypes: true,
+          target: 'ES2022',
+          module: 'ES2022',
+          lib: ['ES2022', 'DOM'],
+          types: [],
+          noEmitOnError: true,
+          rootDir: 'source',
+          outDir: 'dist',
+        },
+        files: [...sourceFiles.keys()],
+      }),
     );
+    const compilerPath = fileURLToPath(
+      new URL('./bin/tsc', import.meta.resolve('typescript/package.json')),
+    );
+    const result = await new Promise<{ code: number | null; output: string }>((resolve, reject) => {
+      const child = spawn(
+        process.execPath,
+        [compilerPath, '--project', join(root, 'tsconfig.json'), '--pretty', 'false'],
+        {
+          cwd: root,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+      let output = '';
+      child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+        output += chunk;
+      });
+      child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+        output += chunk;
+      });
+      child.once('error', reject);
+      child.once('close', (code) => resolve({ code, output }));
+    });
+    if (result.code !== 0) {
+      const validationFindings = [
+        ...result.output.matchAll(/^(?:(.+)\((\d+),(\d+)\): )?error TS(\d+): (.+)$/gm),
+      ].map((match) => ({
+        code: 'typescript_diagnostic',
+        severity: 'error' as const,
+        message: match[5] ?? '',
+        file:
+          match[1]?.match(/(?:^|\/)source\/[^/]+$/)?.[0]?.replace(/^\//, '') ?? match[1] ?? null,
+        field: null,
+        fix: 'Repair the generated TypeScript source so it passes strict Lantern typecheck.',
+        detail: {
+          code: Number(match[4]),
+          line: match[2] === undefined ? null : Number(match[2]),
+          column: match[3] === undefined ? null : Number(match[3]),
+        },
+      }));
+      if (validationFindings.length === 0) {
+        throw new Error(`Lantern TypeScript compiler failed: ${result.output.trim()}`);
+      }
+      return { outputText: '', validationFindings };
+    }
+    return {
+      outputText: await readFile(join(root, 'dist/app.js'), 'utf8'),
+      validationFindings: [],
+    };
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
-
-  return await response.text();
-}
-
-function listReferencedLibraryFiles(contents: string): string[] {
-  return [...contents.matchAll(TYPESCRIPT_LIBRARY_REFERENCE_PATTERN)].map(
-    (match) => `lib.${match[1]}.d.ts`,
-  );
-}
-
-function mapDiagnosticToFinding(
-  diagnostic: ts.Diagnostic,
-): AppGenerationValidationFinding {
-  const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
-  const file = diagnostic.file?.fileName ?? null;
-  const position = diagnostic.file && diagnostic.start !== undefined
-    ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start)
-    : null;
-
-  return {
-    code: 'typescript_diagnostic',
-    severity: 'error',
-    message,
-    file,
-    field: null,
-    fix: 'Repair the generated TypeScript source so it passes strict Lantern typecheck.',
-    detail: {
-      code: diagnostic.code,
-      line: position === null ? null : position.line + 1,
-      column: position === null ? null : position.character + 1,
-    },
-  };
 }
 
 function buildMissingSourceFinding(
@@ -272,8 +186,7 @@ function buildMissingSourceFinding(
     message: `TypeScript authoring mode requires ${missingFiles.join(' and ')}.`,
     file: null,
     field: null,
-    fix:
-      'Return source/app.ts and source/content_model.ts so Lantern can typecheck and compile the app.',
+    fix: 'Return source/app.ts and source/content_model.ts so Lantern can typecheck and compile the app.',
     detail: {
       missingFiles,
     },
@@ -293,8 +206,7 @@ function findForbiddenModuleSyntax(
     message: `${file.path} must not use module imports or exports in TypeScript authoring mode.`,
     file: file.path,
     field: null,
-    fix:
-      'Use global type declarations in source/content_model.ts and plain script code in source/app.ts.',
+    fix: 'Use global type declarations in source/content_model.ts and plain script code in source/app.ts.',
     detail: {},
   };
 }
@@ -371,27 +283,9 @@ export {};
 `;
 }
 
-function compilerOptions(): ts.CompilerOptions {
-  return {
-    strict: true,
-    noImplicitAny: true,
-    noUncheckedIndexedAccess: true,
-    exactOptionalPropertyTypes: true,
-    target: ts.ScriptTarget.ES2022,
-    module: ts.ModuleKind.None,
-    lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'],
-    skipLibCheck: true,
-    noEmitOnError: true,
-  };
-}
-
 function normalizeWorkspacePath(path: string): string {
   return path
     .trim()
     .replaceAll(/^\/+|\/+$/g, '')
     .replaceAll(/\/+/g, '/');
-}
-
-function normalizeLibraryPath(path: string): string {
-  return normalizeWorkspacePath(path).split('/').at(-1) ?? '';
 }

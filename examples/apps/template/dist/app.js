@@ -3,7 +3,7 @@
 
   if (!gateway) {
     throw new Error(
-      "Lantern preview injects window.GatewayApp. Start this app with `deno task app:preview`.",
+      "Lantern preview injects window.GatewayApp. Start this app with `npm run app:preview`.",
     );
   }
 

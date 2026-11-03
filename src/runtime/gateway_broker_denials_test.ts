@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertExists, assertObjectMatch, assertRejects } from '@std/assert';
 import { requireRuntimeCapability, submitScoreProposal } from './gateway.ts';
 import { RuntimeBrokerDenialError, toRuntimeBrokerResult } from './gateway_errors.ts';
@@ -7,7 +8,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('runtime broker exposes stable typed denial results for missing capabilities', async () => {
+test('runtime broker exposes stable typed denial results for missing capabilities', async () => {
   const error = (await assertRejects(
     () =>
       Promise.resolve().then(() =>
@@ -16,7 +17,7 @@ Deno.test('runtime broker exposes stable typed denial results for missing capabi
             capabilities: ['read_launch_context'],
           }),
           'finalize_attempt',
-        )
+        ),
       ),
     RuntimeBrokerDenialError,
   )) as RuntimeBrokerDenialError;
@@ -37,7 +38,7 @@ Deno.test('runtime broker exposes stable typed denial results for missing capabi
   });
 });
 
-Deno.test('runtime broker accepts score proposals without creating a direct grade publication path', async () => {
+test('runtime broker accepts score proposals without creating a direct grade publication path', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
   });
@@ -61,11 +62,10 @@ Deno.test('runtime broker accepts score proposals without creating a direct grad
       scoreMaximum: 10,
     },
   });
-  assertEquals(await repository.getGradePublicationByAttemptId('attempt-123'), null);
   assertEquals((await repository.getAttemptById('attempt-123'))?.finalizedAt, null);
 });
 
-Deno.test('runtime broker rejects invalid score proposals with typed spec-invalid denials', async () => {
+test('runtime broker rejects invalid score proposals with typed spec-invalid denials', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
   });

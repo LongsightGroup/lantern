@@ -1,5 +1,6 @@
+import { readFile, rm } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import { withRuntimeOriginEnv } from './app_test_support.ts';
 import {
   buildPackageVersionRecord,
@@ -8,6 +9,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import type { AuthoringDraftFileRecord, AuthoringDraftRecord } from './package_review/types.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 const TEMPLATE_SNAPSHOT_ROOT = 'examples/apps/template';
 const DRAFT_ID = 'authoring-draft-101';
@@ -16,14 +18,16 @@ const SAVED_DRAFT_SPEC = `describe("template authoring checks", () => {
 });
 `;
 
-Deno.test('POST /authoring/preview launches a draft snapshot through the governed preview runtime path', async () => {
+test('POST /authoring/preview launches a draft snapshot through the governed preview runtime path', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
       authoringDrafts: [buildTemplateAuthoringDraft()],
       authoringDraftFiles: [buildTemplateAuthoringDraftFile()],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
 
     try {
       const response = await app.request(
@@ -45,12 +49,14 @@ Deno.test('POST /authoring/preview launches a draft snapshot through the governe
       );
       const draft = await repository.getAuthoringDraftById(DRAFT_ID);
       const approvedPackageVersion = await repository.getPackageVersionById(101);
-      const evidence = previewSession === null
-        ? []
-        : await repository.listPreviewEvidence(previewSession.sessionId);
-      const materializedSpec = previewSession === null
-        ? ''
-        : await Deno.readTextFile(`${previewSession.snapshotRoot}/grading/specs/checks.spec.js`);
+      const evidence =
+        previewSession === null
+          ? []
+          : await repository.listPreviewEvidence(previewSession.sessionId);
+      const materializedSpec =
+        previewSession === null
+          ? ''
+          : await readFile(`${previewSession.snapshotRoot}/grading/specs/checks.spec.js`, 'utf8');
 
       assertEquals(previewSession?.origin, 'adminAuthoringDraft');
       assertEquals(
@@ -68,17 +74,19 @@ Deno.test('POST /authoring/preview launches a draft snapshot through the governe
       assertStringIncludes(materializedSpec, 'checks alt text coverage');
       assertEquals(draft?.lastPreviewedAt !== null, true);
     } finally {
-      await Deno.remove('var/authoring-drafts', { recursive: true }).catch(() => {});
+      await rm('var/authoring-drafts', { recursive: true }).catch(() => {});
     }
   });
 });
 
-Deno.test('POST /authoring/preview fails clearly when no saved draft files exist', async () => {
+test('POST /authoring/preview fails clearly when no saved draft files exist', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
     authoringDrafts: [buildTemplateAuthoringDraft()],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'https://lantern.example/admin/packages/template-app/versions/0.1.0/authoring/preview',
@@ -93,7 +101,7 @@ Deno.test('POST /authoring/preview fails clearly when no saved draft files exist
   assertStringIncludes(await response.text(), 'Preview requires at least one saved draft file.');
 });
 
-Deno.test('GET /authoring renders the latest draft preview state and evidence list', async () => {
+test('GET /authoring renders the latest draft preview state and evidence list', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
     authoringDrafts: [
@@ -112,10 +120,8 @@ Deno.test('GET /authoring renders the latest draft preview state and evidence li
         packageTitle: 'Template App',
         origin: 'adminAuthoringDraft',
         contentPath: '/content/activity.json',
-        deepLinkingSessionId: null,
         snapshotRoot: `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z`,
-        entrypointPath:
-          `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z/dist/index.html`,
+        entrypointPath: `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z/dist/index.html`,
       }),
     ],
     previewEvidence: [
@@ -129,7 +135,9 @@ Deno.test('GET /authoring renders the latest draft preview state and evidence li
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'http://localhost/admin/packages/template-app/versions/0.1.0/authoring',

@@ -148,11 +148,11 @@ function buildFileDiff(input: {
     text,
     snippet: text
       ? buildTextSnippet({
-        kind: input.kind,
-        baseText,
-        targetText,
-        maxSnippetLines: input.maxSnippetLines,
-      })
+          kind: input.kind,
+          baseText,
+          targetText,
+          maxSnippetLines: input.maxSnippetLines,
+        })
       : [],
   };
 }

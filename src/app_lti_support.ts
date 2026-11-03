@@ -1,159 +1,112 @@
-import type { Context } from '@hono/hono';
-import { createLoginRedirect } from './lti/login.ts';
-import {
-  buildResolvedLtiProfileDetail,
-  resolveLtiProfileForDeployment,
-} from './lti/profile_resolution.ts';
-import { isLaunchRejectionError } from './lti/launch_rejection.ts';
+import type { Context } from 'hono';
 import { readLoginRequest } from './app_request_support.ts';
 import { errorMessage, statusForError } from './app_status_support.ts';
 import { renderLtiPlatformStorageLaunchPage, renderTopLevelLaunchPage } from './app_lti_views.ts';
 import type { AppServices } from './app_services.ts';
-import { recordInteropPathUsed } from './interop_audit.ts';
-import { readEnv } from './platform/env.ts';
-import type { PackageReviewRepository } from './package_review/repository.ts';
-import { resolveConfiguredPublicOrigin } from './public_origin.ts';
-import type { RequestAuditEnvelope } from './request_audit.ts';
+import { syncLtiToolConnection } from './lti/tool_provider.ts';
+import { resolveRequestAppOrigin } from './app_origin.ts';
 
 export async function handleLoginInitiation(context: Context, services: AppServices) {
   try {
     const loginRequest = await readLoginRequest(context);
-    const repository = services.getRepository();
-    const result = await createLoginRedirect({
-      repository,
-      loginRequest: loginRequest.request,
-      loginCompatibility: loginRequest.compatibility,
-      appOrigin: resolveConfiguredPublicOrigin({
-        requestUrl: context.req.url,
-        forwardedHeader: context.req.header('forwarded') ?? null,
-        xForwardedHost: context.req.header('x-forwarded-host') ?? null,
-        xForwardedProto: context.req.header('x-forwarded-proto') ?? null,
-        configuredOrigin: readEnv('APP_ORIGIN', services.env),
-      }),
+    const appOrigin = resolveRequestAppOrigin(context, services.env);
+    if (loginRequest.request.clientId === null) {
+      throw new Error('LTI login initiation requires client_id.');
+    }
+    const connection = await services.getLmsKernelRepository().getLmsConnectionByPlatformIdentity({
+      issuer: loginRequest.request.iss,
+      clientId: loginRequest.request.clientId,
+      deploymentId: loginRequest.request.deploymentId,
     });
-    const ltiStorageTarget = loginRequest.ltiStorageTarget;
-    const usesLtiPlatformStorage = ltiStorageTarget !== null;
-    const compatibilityPaths = [
-      ...result.compatibilityPathsUsed,
-      ...(usesLtiPlatformStorage ? ['lti_platform_storage'] : []),
-      ...(!usesLtiPlatformStorage && context.req.header('sec-fetch-dest') === 'iframe'
-        ? ['iframe_top_level_escape']
-        : []),
-    ];
-
-    await Promise.all(
-      compatibilityPaths.map((path) =>
-        recordInteropPathUsed({
-          repository,
-          scope: 'login',
-          path,
-          actorType: 'platform',
-          deploymentRecordId: result.deploymentRecordId,
-          packageVersionId: result.packageVersionId,
-          summary: 'Lantern used an LTI login compatibility path.',
-          detail: {
-            deploymentSlug: result.deploymentSlug,
-            issuer: result.loginState.issuer,
-            clientId: result.loginState.clientId,
-            deploymentId: result.loginState.deploymentId,
-          },
-          ltiProfile: result.ltiProfile,
-        })
-      ),
-    );
-
-    if (usesLtiPlatformStorage) {
-      return context.html(
-        renderLtiPlatformStorageLaunchPage({
-          location: result.location,
-          platformOrigin: new URL(result.location).origin,
-          storageTarget: ltiStorageTarget,
-          state: result.loginState.state,
-          nonce: result.loginState.nonce,
-        }),
-      );
+    if (connection === null || connection.status === 'disabled') {
+      throw new Error('No active institution LMS connection matches this login request.');
     }
-
-    if (context.req.header('sec-fetch-dest') === 'iframe') {
-      return context.html(
-        renderTopLevelLaunchPage({
-          location: result.location,
-        }),
-      );
+    const targetLinkUri = requireGovernedTargetLinkUri({
+      appOrigin,
+      targetLinkUri: loginRequest.request.targetLinkUri,
+    });
+    const installationId = new URL(targetLinkUri).searchParams.get('installation_id');
+    if (installationId === null) {
+      throw new Error('Governed app launch target is missing installation_id.');
     }
-
-    return context.redirect(result.location, 302);
+    const installation = await services
+      .getLmsKernelRepository()
+      .getInstallationById(installationId);
+    if (
+      installation === null ||
+      installation.institutionId !== connection.institutionId ||
+      installation.status !== 'active'
+    ) {
+      throw new Error('The governed app installation is not active for this LMS connection.');
+    }
+    const ltiContext = await services.getLtiToolContext(appOrigin);
+    await syncLtiToolConnection({ storage: ltiContext.storage, connection });
+    const location = await ltiContext.tool.handleLogin({
+      iss: connection.issuer,
+      client_id: connection.clientId,
+      lti_deployment_id: connection.deploymentId,
+      login_hint: loginRequest.compatibility.decodedLoginHint ?? loginRequest.request.loginHint,
+      target_link_uri: targetLinkUri,
+      launchUrl: `${appOrigin}/lti/launch`,
+      ...(loginRequest.request.ltiMessageHint === null
+        ? {}
+        : {
+            lti_message_hint:
+              loginRequest.compatibility.decodedLtiMessageHint ??
+              loginRequest.request.ltiMessageHint,
+          }),
+    });
+    return renderLoginRedirect(context, {
+      location,
+      storageTarget: loginRequest.ltiStorageTarget,
+    });
   } catch (error) {
     return context.text(errorMessage(error), statusForError(error));
   }
 }
 
-export async function recordRejectedLaunchAudit(input: {
-  repository: PackageReviewRepository;
-  state: string | null;
-  error: unknown;
-  request: RequestAuditEnvelope;
-}): Promise<void> {
-  const loginState = input.state === null
-    ? null
-    : await input.repository.getLoginStateByState(input.state).catch(() => null);
-  const deployment = loginState === null ? null : await input.repository
-    .getDeploymentByBinding({
-      lms: loginState.lms,
-      issuer: loginState.issuer,
-      clientId: loginState.clientId,
-      deploymentId: loginState.deploymentId,
-    })
-    .catch(() => null);
-  const ltiProfile = deployment === null ? null : await resolveLtiProfileForDeployment({
-    repository: input.repository,
-    deployment,
-  });
-  const rejection = readLaunchRejection(input.error);
-
-  await input.repository.recordAuditEvent({
-    eventType: 'launch.rejected',
-    actorType: 'platform',
-    actorId: null,
-    deploymentRecordId: deployment?.id ?? null,
-    packageVersionId: deployment?.enabledPackageVersionId ?? null,
-    attemptId: null,
-    lineItemBindingId: null,
-    status: 'failed',
-    summary: 'Rejected the governed LTI launch before runtime handoff.',
-    detail: {
-      lms: loginState?.lms ?? null,
-      category: rejection?.category ?? null,
-      code: rejection?.code ?? 'launch_validation_failed',
-      message: rejection?.message ?? errorMessage(input.error),
-      request: input.request,
-      ...rejection?.detail,
-      issuer: loginState?.issuer ?? null,
-      clientId: loginState?.clientId ?? null,
-      deploymentId: loginState?.deploymentId ?? null,
-      targetLinkUri: loginState?.targetLinkUri ?? null,
-      internalDeploymentSlug: deployment?.slug ?? null,
-      appId: deployment?.appId ?? null,
-      ...(ltiProfile === null ? {} : buildResolvedLtiProfileDetail(ltiProfile)),
-    },
-    occurredAt: new Date().toISOString(),
-  });
+function requireGovernedTargetLinkUri(input: {
+  readonly appOrigin: string;
+  readonly targetLinkUri: string | null;
+}): string {
+  if (input.targetLinkUri === null) {
+    throw new Error('Governed app launches require target_link_uri.');
+  }
+  const target = new URL(input.targetLinkUri);
+  const expectedOrigin = new URL(input.appOrigin).origin;
+  if (
+    target.origin !== expectedOrigin ||
+    target.pathname !== '/lti/launch' ||
+    (target.searchParams.get('installation_id')?.trim() ?? '') === ''
+  ) {
+    throw new Error(
+      'Governed app target_link_uri must be Lantern’s launch URL with an installation_id.',
+    );
+  }
+  return target.toString();
 }
 
-function readLaunchRejection(input: unknown): {
-  category: string;
-  code: string;
-  message: string;
-  detail: Record<string, string | null>;
-} | null {
-  if (!isLaunchRejectionError(input)) {
-    return null;
+function renderLoginRedirect(
+  context: Context,
+  input: {
+    readonly location: string;
+    readonly storageTarget: string | null;
+  },
+): Response {
+  const redirectUrl = new URL(input.location);
+  if (input.storageTarget !== null) {
+    return context.html(
+      renderLtiPlatformStorageLaunchPage({
+        location: input.location,
+        platformOrigin: redirectUrl.origin,
+        storageTarget: input.storageTarget,
+        state: redirectUrl.searchParams.get('state') ?? '',
+        nonce: redirectUrl.searchParams.get('nonce') ?? '',
+      }),
+    );
   }
-
-  return {
-    category: input.category,
-    code: input.code,
-    message: input.message,
-    detail: input.detail,
-  };
+  if (context.req.header('sec-fetch-dest') === 'iframe') {
+    return context.html(renderTopLevelLaunchPage({ location: input.location }));
+  }
+  return context.redirect(input.location, 302);
 }

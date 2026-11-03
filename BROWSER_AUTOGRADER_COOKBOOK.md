@@ -19,7 +19,7 @@ model.
 Start from the shipped browser-autograder starter:
 
 ```sh
-deno task app:new /tmp/my-browser-autograder --starter=browser-autograder --app-id=my-autograder --title="My Autograder"
+npm run app:new -- /tmp/my-browser-autograder --starter=browser-autograder --app-id=my-autograder --title="My Autograder"
 ```
 
 If you only need a simpler activity with no reviewed browser grader specs, use
@@ -111,26 +111,26 @@ not a second submission model.
 Validate the package:
 
 ```sh
-deno task app:validate /tmp/my-browser-autograder
+npm run app:validate -- /tmp/my-browser-autograder
 ```
 
 Execute the preview assertions:
 
 ```sh
-deno task app:test-preview /tmp/my-browser-autograder
+npm run app:test-preview -- /tmp/my-browser-autograder
 ```
 
 Open a live preview URL when you want to inspect the rendered package:
 
 ```sh
-deno task app:preview /tmp/my-browser-autograder
+npm run app:preview -- /tmp/my-browser-autograder
 ```
 
 For a richer shipped example, these commands already work against `web-checkup`:
 
 ```sh
-deno task app:validate examples/apps/web-checkup
-deno task app:test-preview examples/apps/web-checkup
+npm run app:validate -- examples/apps/web-checkup
+npm run app:test-preview -- examples/apps/web-checkup
 ```
 
 ## Example: Web Checkup
@@ -150,8 +150,8 @@ checks instead of one starter file.
 
 When the package is ready for governed review:
 
-1. Start Lantern locally with `deno task local:init`,
-   `deno task local:bootstrap`, and `deno task local:start`.
+1. Start Lantern locally with `npm run local:init`,
+   `npm run local:bootstrap`, and `npm run local:start`.
 2. Open `/admin/packages/import` on the localhost URL printed by Wrangler.
 3. Import the exact package directory you validated locally.
 

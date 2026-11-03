@@ -1,10 +1,11 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import { emptyAppWriterSelectedContext } from './context.ts';
 import { createCloudflareAppWriterAgentWorkspaceHarness } from './agent_workspace_harness.ts';
 import { AppWriterWorkspaceHarnessError } from './workspace_runner.ts';
 import type { AppWriterAgentNamespace } from './agent_session.ts';
 
-Deno.test('Agent workspace harness parses model metadata from authoring responses', async () => {
+test('Agent workspace harness parses model metadata from authoring responses', async () => {
   const harness = createCloudflareAppWriterAgentWorkspaceHarness(
     buildNamespace(
       Response.json({
@@ -51,7 +52,7 @@ Deno.test('Agent workspace harness parses model metadata from authoring response
   assertEquals(result.modelRequestMetadata?.[0]?.attempt, 1);
 });
 
-Deno.test('Agent workspace harness maps structured Agent errors to stable harness errors', async () => {
+test('Agent workspace harness maps structured Agent errors to stable harness errors', async () => {
   const harness = createCloudflareAppWriterAgentWorkspaceHarness(
     buildNamespace(
       Response.json(

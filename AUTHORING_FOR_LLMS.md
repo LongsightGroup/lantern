@@ -28,8 +28,8 @@ teacher-authored autograder.
 These are the human-facing commands the generated package should align with:
 
 ```sh
-deno task app:new /tmp/my-app --starter=simple-activity --app-id=my-app --title="My App"
-deno task app:new /tmp/my-app --starter=browser-autograder --app-id=my-app --title="My App"
+npm run app:new -- /tmp/my-app --starter=simple-activity --app-id=my-app --title="My App"
+npm run app:new -- /tmp/my-app --starter=browser-autograder --app-id=my-app --title="My App"
 ```
 
 ## Required Output
@@ -219,7 +219,7 @@ Constraints:
 - Include manifest.json, dist/index.html, dist/app.js, content/activity.json,
   preview/fixtures.json, preview/tests.json, grading/specs/checks.spec.js, and
   evidence/example-output.json
-- Keep the package aligned with `deno task app:new /tmp/my-app --starter=browser-autograder --app-id=my-app --title="My App"`
+- Keep the package aligned with `npm run app:new -- /tmp/my-app --starter=browser-autograder --app-id=my-app --title="My App"`
 ```
 
 For a simpler reviewed activity, use the same constraints but match the
@@ -230,10 +230,10 @@ For a simpler reviewed activity, use the same constraints but match the
 After generating the package, run:
 
 ```sh
-deno task app:dev /path/to/app
-deno task app:validate /path/to/app
-deno task app:test-preview /path/to/app
-deno task app:preview /path/to/app
+npm run app:dev -- /path/to/app
+npm run app:validate -- /path/to/app
+npm run app:test-preview -- /path/to/app
+npm run app:preview -- /path/to/app
 ```
 
 Use `app:dev` for the normal edit loop: it keeps one preview URL open, reruns

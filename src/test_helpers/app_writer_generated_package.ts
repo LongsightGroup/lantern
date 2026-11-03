@@ -8,7 +8,7 @@ export function buildValidSimpleActivityFiles(): AppWriterWorkspaceFile[] {
       path: 'manifest.json',
       contents: JSON.stringify(
         {
-          schema_version: '1',
+          schema_version: '2',
           app_id: 'phonics-match',
           version: '0.1.0',
           title: 'Phonics Match',
@@ -16,7 +16,7 @@ export function buildValidSimpleActivityFiles(): AppWriterWorkspaceFile[] {
             type: 'user',
             id: 'instructor-1',
           },
-          entrypoint: '/dist/index.html',
+          runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
           roles: ['learner', 'instructor'],
           install_scope: 'course',
           capabilities: ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
@@ -98,7 +98,7 @@ export function buildValidBrowserAutograderFiles(): AppWriterWorkspaceFile[] {
       path: 'manifest.json',
       contents: JSON.stringify(
         {
-          schema_version: '1',
+          schema_version: '2',
           app_id: 'web-check',
           version: '0.1.0',
           title: 'Web Check',
@@ -106,7 +106,7 @@ export function buildValidBrowserAutograderFiles(): AppWriterWorkspaceFile[] {
             type: 'user',
             id: 'instructor-1',
           },
-          entrypoint: '/dist/index.html',
+          runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
           roles: ['learner', 'instructor'],
           install_scope: 'assignment',
           capabilities: ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt'],

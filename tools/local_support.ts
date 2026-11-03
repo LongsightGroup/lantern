@@ -71,18 +71,44 @@ export async function createLocalToolPrivateJwkString(): Promise<string> {
   });
 }
 
+export function createLocalLtiStateSecret(): string {
+  return createLocalSecret();
+}
+
+export function createLocalBetterAuthSecret(): string {
+  return createLocalSecret();
+}
+
+function createLocalSecret(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+
+  return encodeBase64Url(bytes);
+}
+
 export function defaultLocalEnvAssignments(): Record<string, string> {
   return {
     PORT: DEFAULT_LOCAL_PORT,
     APP_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
     APP_RUNTIME_ORIGIN: DEFAULT_LOCAL_APP_ORIGIN,
+    ADMIN_AUTH_ALLOW_SIGNUP: '1',
   };
+}
+
+function encodeBase64Url(bytes: Uint8Array): string {
+  let binary = '';
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
 
 function defaultLocalEnvHeader(): string {
   return [
     '# Local Lantern development defaults.',
-    '# Full Lantern persistence runs through Cloudflare D1 via Wrangler.',
+    '# Full Lantern persistence runs through Cloudflare D1 via cf.',
     '# APP_RUNTIME_ORIGIN defaults to the same localhost origin for local development.',
     '',
   ].join('\n');

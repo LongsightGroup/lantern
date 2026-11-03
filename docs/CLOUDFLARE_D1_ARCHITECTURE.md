@@ -20,13 +20,13 @@ The Worker must have these bindings:
   curated reference package sources, and evidence artifacts
 - `LOADER`: Worker Loader binding for reviewed Dynamic Worker runtime delivery
 
-The checked-in [wrangler.jsonc](../wrangler.jsonc) intentionally uses public
+The checked-in [cloudflare.config.ts](../cloudflare.config.ts) intentionally uses public
 placeholder values for resource IDs and bucket names. Real Cloudflare account
 details, route IDs, bucket names, and secrets stay out of the public repo.
 
 ## D1 Schema
 
-Wrangler-managed D1 migrations live in
+Cloudflare CLI-managed D1 migrations live in
 [`src/db/d1_migrations`](../src/db/d1_migrations).
 
 Schema rules:
@@ -71,26 +71,26 @@ credentials, and no generic outbound capability.
 
 ## Local Development
 
-Local full-app development uses Wrangler so the same D1, R2, and Worker Loader
+Local full-app development uses cf and the Cloudflare Vite plugin so the same D1, R2, and Worker Loader
 bindings are exercised as the Cloudflare Worker path.
 
 Useful commands:
 
 ```sh
-deno task local:init
-deno task local:bootstrap
-deno task local:start
+npm run local:init
+npm run local:bootstrap
+npm run local:start
 ```
 
-`local:bootstrap` applies D1 migrations through Wrangler. `local:start` runs the
-Worker through Wrangler.
+`local:bootstrap` applies D1 migrations through cf. `local:start` runs the
+Worker through cf.
 
 ## Verification
 
 Before finishing persistence or Worker changes, run:
 
 ```sh
-deno task validate
+npm run validate
 ```
 
 The validation path checks formatting, linting, TypeScript, the Worker bundle,

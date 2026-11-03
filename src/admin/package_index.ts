@@ -1,6 +1,12 @@
 import { approvalStatusClass, approvalStatusLabel } from '../package_review/summary.ts';
 import type { PackageVersionRecord } from '../package_review/types.ts';
-import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import {
+  type AdminIdentity,
+  type AdminNotice,
+  escapeHtml,
+  formatDateTime,
+  renderAdminLayout,
+} from './layout.ts';
 
 interface PackageLibraryEntry {
   appId: string;
@@ -14,14 +20,15 @@ interface PackageLibraryEntry {
 }
 
 export function renderPackageIndexPage(input: {
+  identity: AdminIdentity;
   versions: PackageVersionRecord[];
   notice?: AdminNotice | null;
 }): string {
-  const body = input.versions.length === 0
-    ? renderEmptyState()
-    : renderPackageLibrary(input.versions);
+  const body =
+    input.versions.length === 0 ? renderEmptyState() : renderPackageLibrary(input.versions);
 
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Lantern Admin Apps',
     eyebrow: 'Apps',
     heading: 'Apps',
@@ -110,25 +117,17 @@ function renderPackageEntry(entry: PackageLibraryEntry): string {
       <div class="stack">
         <p class="line-title">
           <span>${escapeHtml(entry.title)}</span>
-          <span class="${approvalStatusClass(entry.latestApprovalStatus)}">${
-    escapeHtml(
-      approvalStatusLabel(entry.latestApprovalStatus),
-    )
-  }</span>
+          <span class="${approvalStatusClass(entry.latestApprovalStatus)}">${escapeHtml(
+            approvalStatusLabel(entry.latestApprovalStatus),
+          )}</span>
         </p>
-        <p class="line-copy">${
-    escapeHtml(
-      entry.description ?? 'No app description was provided.',
-    )
-  }</p>
+        <p class="line-copy">${escapeHtml(
+          entry.description ?? 'No app description was provided.',
+        )}</p>
       </div>
       <div class="button-row">
         <a class="button-primary" href="/admin/packages/${escapeHtml(entry.appId)}">Open app</a>
-        <a class="button-ghost" href="/admin/packages/${
-    escapeHtml(
-      entry.appId,
-    )
-  }/deployment">App settings</a>
+        <a class="button-ghost" href="/admin/governance">Install app</a>
       </div>
     </div>
     <div class="table-row-meta">

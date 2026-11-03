@@ -37,10 +37,10 @@ export function parseStructuredWorkspaceHarnessResult(
     files,
     progressUpdates: parseProgressUpdates(record.progressUpdates, `${fieldName}.progressUpdates`),
     notes: expectStringArray(record.notes, `${fieldName}.notes`),
-    validationFindings: record.validationFindings === undefined ? [] : parseValidationFindings(
-      record.validationFindings,
-      `${fieldName}.validationFindings`,
-    ),
+    validationFindings:
+      record.validationFindings === undefined
+        ? []
+        : parseValidationFindings(record.validationFindings, `${fieldName}.validationFindings`),
   };
 }
 
@@ -51,10 +51,9 @@ export function parseWorkspaceHarnessResponse(
   const record = expectRecord(value, fieldName);
   const parsed = parseStructuredWorkspaceHarnessResult(record, fieldName);
   const modelRequestMetadata: AppGenerationModelRequestMetadata[] =
-    record.modelRequestMetadata === undefined ? [] : parseModelRequestMetadata(
-      record.modelRequestMetadata,
-      `${fieldName}.modelRequestMetadata`,
-    );
+    record.modelRequestMetadata === undefined
+      ? []
+      : parseModelRequestMetadata(record.modelRequestMetadata, `${fieldName}.modelRequestMetadata`);
 
   return {
     ...parsed,

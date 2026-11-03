@@ -12,8 +12,12 @@ const RUNTIME_CONTRACT_CAPABILITIES = new Set<Capability>([
   'submit_attempt_event',
   'submit_evidence_artifact',
   'finalize_attempt',
+  'run_code_submission',
   'read_local_state',
   'write_local_state',
+  'lms.roster.members.read',
+  'lms.roster.contact.read',
+  'lms.roster.profile_photo.read',
 ]);
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -24,20 +28,21 @@ export interface SignedReviewedRuntimeContract {
 }
 
 export function createReviewedRuntimeContract(input: {
-  reviewData: Pick<ManifestReviewData, 'appId' | 'version' | 'entrypoint' | 'capabilities'>;
+  reviewData: Pick<ManifestReviewData, 'appId' | 'version' | 'runtime' | 'capabilities'>;
   artifactDigest: string;
 }): ReviewedRuntimeContract {
   return {
+    runtimeContractVersion: '2',
     appId: input.reviewData.appId,
     packageVersion: input.reviewData.version,
     artifactDigest: input.artifactDigest,
-    entrypoint: input.reviewData.entrypoint,
+    runtime: input.reviewData.runtime,
     capabilities: [...input.reviewData.capabilities],
   };
 }
 
 export async function buildSignedReviewedRuntimeContract(input: {
-  reviewData: Pick<ManifestReviewData, 'appId' | 'version' | 'entrypoint' | 'capabilities'>;
+  reviewData: Pick<ManifestReviewData, 'appId' | 'version' | 'runtime' | 'capabilities'>;
   artifactDigest: string;
   env: EnvReader;
 }): Promise<SignedReviewedRuntimeContract> {
@@ -61,10 +66,11 @@ export function parseReviewedRuntimeContract(value: unknown): ReviewedRuntimeCon
   }
 
   return {
+    runtimeContractVersion: readRuntimeContractVersion(value.runtimeContractVersion),
     appId: readRequiredString(value, 'appId'),
     packageVersion: readRequiredString(value, 'packageVersion'),
     artifactDigest: readRequiredString(value, 'artifactDigest'),
-    entrypoint: readRequiredString(value, 'entrypoint'),
+    runtime: readRuntime(value.runtime),
     capabilities: readCapabilities(value.capabilities),
   };
 }
@@ -89,7 +95,7 @@ export async function verifyReviewedRuntimeContractSignature(input: {
 
     if (
       serializeReviewedRuntimeContract(signedRuntimeContract) !==
-        serializeReviewedRuntimeContract(input.runtimeContract)
+      serializeReviewedRuntimeContract(input.runtimeContract)
     ) {
       throw new Error('Reviewed runtime contract payload drifted.');
     }
@@ -108,8 +114,8 @@ async function signReviewedRuntimeContract(input: {
     textEncoder.encode(serializeReviewedRuntimeContract(input.runtimeContract)),
   )
     .setProtectedHeader({
-      alg: toolKey.privateJwk.alg,
-      kid: toolKey.publicJwk.kid,
+      alg: toolKey.alg,
+      kid: toolKey.keyId,
       typ: REVIEWED_RUNTIME_CONTRACT_JWS_TYPE,
     })
     .sign(toolKey.privateKey);
@@ -117,12 +123,20 @@ async function signReviewedRuntimeContract(input: {
 
 function serializeReviewedRuntimeContract(runtimeContract: ReviewedRuntimeContract): string {
   return JSON.stringify({
+    runtimeContractVersion: runtimeContract.runtimeContractVersion,
     appId: runtimeContract.appId,
     packageVersion: runtimeContract.packageVersion,
     artifactDigest: runtimeContract.artifactDigest,
-    entrypoint: runtimeContract.entrypoint,
+    runtime: runtimeContract.runtime,
     capabilities: [...runtimeContract.capabilities],
   });
+}
+
+function readRuntimeContractVersion(value: unknown): '2' {
+  if (value !== '2') {
+    throw new Error('Reviewed runtime contract version must be "2".');
+  }
+  return value;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -154,4 +168,16 @@ function readCapabilities(value: unknown): Capability[] {
 
     return capability as Capability;
   });
+}
+
+function readRuntime(value: unknown): ReviewedRuntimeContract['runtime'] {
+  if (!isObject(value)) {
+    throw new Error('Reviewed runtime contract runtime must be an object.');
+  }
+  const kind = readRequiredString(value, 'kind');
+  const entrypoint = readRequiredString(value, 'entrypoint');
+  if (kind !== 'browser' && kind !== 'worker') {
+    throw new Error('Reviewed runtime contract runtime kind is unsupported.');
+  }
+  return { kind, entrypoint };
 }

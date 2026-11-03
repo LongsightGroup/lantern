@@ -341,24 +341,24 @@ declare function readLocalState<T = unknown>(): Promise<T | null>;
 ```ts
 type AttemptEvent =
   | {
-    type: 'answer';
-    questionId: string;
-    answer: string | string[];
-    correct?: boolean;
-    scoreGiven?: number;
-    scoreMaximum?: number;
-    timestamp: string;
-  }
+      type: 'answer';
+      questionId: string;
+      answer: string | string[];
+      correct?: boolean;
+      scoreGiven?: number;
+      scoreMaximum?: number;
+      timestamp: string;
+    }
   | {
-    type: 'progress';
-    checkpoint: string;
-    value: number;
-    timestamp: string;
-  }
+      type: 'progress';
+      checkpoint: string;
+      value: number;
+      timestamp: string;
+    }
   | {
-    type: 'complete';
-    timestamp: string;
-  };
+      type: 'complete';
+      timestamp: string;
+    };
 
 declare function emitAttemptEvent(event: AttemptEvent): Promise<void>;
 declare function finalizeAttempt(input: {

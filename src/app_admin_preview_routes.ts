@@ -1,13 +1,14 @@
-import type { Hono } from '@hono/hono';
+import type { Hono } from 'hono';
 import type { UserRole } from '../sdk/app-sdk.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
 import { renderPreviewPage, type TestLaunchFormValues } from './admin/preview_page.ts';
-import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
+import { loadPreviewCapabilityLog } from './preview/capability_log.ts';
 import { createErrorNotice } from './app_notice_support.ts';
 import { formValueAsString } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { readEnv } from './platform/env.ts';
 import type { PreviewSessionRecord } from './package_review/types.ts';
 import { buildRuntimeSessionUrl, requireConfiguredRuntimeOrigin } from './runtime_origin.ts';
@@ -28,14 +29,16 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
-            versions: [],
-            notice: {
-              tone: 'error',
-              title: 'Version not found',
-              detail: 'Lantern could not find that app version.',
-            },
-          }),
+          renderPackageIndexPage(
+            adminPageInput(context, {
+              versions: [],
+              notice: {
+                tone: 'error',
+                title: 'Version not found',
+                detail: 'Lantern could not find that app version.',
+              },
+            }),
+          ),
           404,
         );
       }
@@ -52,10 +55,8 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
         eventType: 'reviewer.preview_viewed',
         actorType: 'user',
         actorId: null,
-        deploymentRecordId: null,
         packageVersionId: packageVersion.id,
         attemptId: null,
-        lineItemBindingId: null,
         status: 'succeeded',
         summary: 'Reviewer opened the test launch page.',
         detail: {
@@ -68,24 +69,28 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
       });
 
       return context.html(
-        renderPreviewPage({
-          packageVersion,
-          savedDefaults,
-          latestSession: session,
-          formValues: buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
-          previewEvidence: evidence,
-          runtimeDiagnostics: diagnostics,
-        }),
+        renderPreviewPage(
+          adminPageInput(context, {
+            packageVersion,
+            savedDefaults,
+            latestSession: session,
+            formValues: buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
+            previewEvidence: evidence,
+            runtimeDiagnostics: diagnostics,
+          }),
+        ),
       );
     } catch (error) {
       const packageVersion = await repository.getPackageVersionByAppVersion(appId, version);
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
-            versions: [],
-            notice: createErrorNotice('Test launch unavailable', error),
-          }),
+          renderPackageIndexPage(
+            adminPageInput(context, {
+              versions: [],
+              notice: createErrorNotice('Test launch unavailable', error),
+            }),
+          ),
           statusForError(error),
         );
       }
@@ -93,11 +98,13 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
       const history = await repository.listPackageVersionsByApp(appId);
 
       return context.html(
-        renderPackageDetailPage({
-          packageVersion,
-          history,
-          notice: createErrorNotice('Test launch unavailable', error),
-        }),
+        renderPackageDetailPage(
+          adminPageInput(context, {
+            packageVersion,
+            history,
+            notice: createErrorNotice('Test launch unavailable', error),
+          }),
+        ),
         statusForError(error),
       );
     }
@@ -114,14 +121,16 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
-            versions: [],
-            notice: {
-              tone: 'error',
-              title: 'Version not found',
-              detail: 'Lantern could not find that app version.',
-            },
-          }),
+          renderPackageIndexPage(
+            adminPageInput(context, {
+              versions: [],
+              notice: {
+                tone: 'error',
+                title: 'Version not found',
+                detail: 'Lantern could not find that app version.',
+              },
+            }),
+          ),
           404,
         );
       }
@@ -142,10 +151,8 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
         eventType: 'preview.launch',
         actorType: 'user',
         actorId: null,
-        deploymentRecordId: null,
         packageVersionId: packageVersion.id,
         attemptId: launched.runtimeSession.attemptId,
-        lineItemBindingId: null,
         status: 'succeeded',
         summary: 'Started a test launch without LMS sign-in.',
         detail: {
@@ -174,10 +181,12 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
 
       if (!packageVersion) {
         return context.html(
-          renderPackageIndexPage({
-            versions: [],
-            notice: createErrorNotice('Test launch blocked', error),
-          }),
+          renderPackageIndexPage(
+            adminPageInput(context, {
+              versions: [],
+              notice: createErrorNotice('Test launch blocked', error),
+            }),
+          ),
           statusForError(error),
         );
       }
@@ -200,16 +209,18 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
         });
 
         return context.html(
-          renderPreviewPage({
-            packageVersion,
-            savedDefaults,
-            latestSession: session,
-            formValues: formValues ??
-              buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
-            previewEvidence: evidence,
-            runtimeDiagnostics: diagnostics,
-            notice: createErrorNotice('Test launch blocked', error),
-          }),
+          renderPreviewPage(
+            adminPageInput(context, {
+              packageVersion,
+              savedDefaults,
+              latestSession: session,
+              formValues:
+                formValues ?? buildTestLaunchFormValuesFromSession(session ?? savedDefaults),
+              previewEvidence: evidence,
+              runtimeDiagnostics: diagnostics,
+              notice: createErrorNotice('Test launch blocked', error),
+            }),
+          ),
           statusForError(error),
         );
       }
@@ -217,11 +228,13 @@ export function registerAdminPreviewRoutes(app: Hono, services: AppServices): vo
       const history = await repository.listPackageVersionsByApp(appId);
 
       return context.html(
-        renderPackageDetailPage({
-          packageVersion,
-          history,
-          notice: createErrorNotice('Test launch blocked', error),
-        }),
+        renderPackageDetailPage(
+          adminPageInput(context, {
+            packageVersion,
+            history,
+            notice: createErrorNotice('Test launch blocked', error),
+          }),
+        ),
         statusForError(error),
       );
     }

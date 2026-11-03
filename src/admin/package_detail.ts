@@ -10,22 +10,37 @@ import {
   summarizeValidation,
 } from '../package_review/summary.ts';
 import type {
-  AuditEventRecord,
   GradingSettings,
   PackageVersionRecord,
   PreviewEvidenceRecord,
   PreviewSessionRecord,
-  ReviewedPlacementRecord,
 } from '../package_review/types.ts';
-import { type AdminNotice, escapeHtml, formatDateTime, renderAdminLayout } from './layout.ts';
+import {
+  type AdminIdentity,
+  type AdminNotice,
+  escapeHtml,
+  formatDateTime,
+  renderAdminLayout,
+} from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 import { renderDecisionSection, renderHistoryRow } from './package_detail_sections.ts';
+import {
+  formatCapabilityNames,
+  formatChangeSummary,
+  formatPreviewEvidenceLabel,
+  formatPreviewSessionSummary,
+  formatRuntimeLogSummary,
+  renderCapabilityChangeSummary,
+  resolvePreviousApprovedVersion,
+  resolvePreviousVersion,
+  summarizeCapabilityChanges,
+  versionPreviewHref,
+} from './package_detail_support.ts';
 
 export function renderPackageDetailPage(input: {
+  identity: AdminIdentity;
   packageVersion: PackageVersionRecord;
   history: PackageVersionRecord[];
-  generationActivityEvents?: AuditEventRecord[];
-  reviewedPlacements?: ReviewedPlacementRecord[];
   latestPreviewSession?: PreviewSessionRecord | null;
   previewEvidence?: PreviewEvidenceRecord[];
   notice?: AdminNotice | null;
@@ -39,6 +54,7 @@ export function renderPackageDetailPage(input: {
   const previewEvidence = input.previewEvidence ?? [];
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${packageVersion.title} ${packageVersion.version}`,
     eyebrow: 'Version details',
     heading: packageVersion.title,
@@ -62,23 +78,17 @@ export function renderPackageDetailPage(input: {
     body: `<section class="panel">
       <div class="panel-body two-column">
         <div class="stack">
-          <p class="${approvalStatusClass(packageVersion.approvalStatus)}">${
-      escapeHtml(
-        approvalStatusLabel(packageVersion.approvalStatus),
-      )
-    }</p>
+          <p class="${approvalStatusClass(packageVersion.approvalStatus)}">${escapeHtml(
+            approvalStatusLabel(packageVersion.approvalStatus),
+          )}</p>
           <div class="stack">
             <h2>Version ${escapeHtml(packageVersion.version)}</h2>
-            <p>${
-      escapeHtml(
-        packageVersion.description ?? 'No package description was provided.',
-      )
-    }</p>
-            <p class="micro muted">${
-      escapeHtml(
-        approvalStatusDetail(packageVersion.approvalStatus),
-      )
-    }</p>
+            <p>${escapeHtml(
+              packageVersion.description ?? 'No package description was provided.',
+            )}</p>
+            <p class="micro muted">${escapeHtml(
+              approvalStatusDetail(packageVersion.approvalStatus),
+            )}</p>
           </div>
           <div class="facts">
             <div class="fact">
@@ -91,19 +101,15 @@ export function renderPackageDetailPage(input: {
             </div>
             <div class="fact">
               <span class="fact-label">Placement</span>
-              <span class="fact-value">${
-      escapeHtml(
-        formatInstallScope(packageVersion.installScope),
-      )
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                formatInstallScope(packageVersion.installScope),
+              )}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Added</span>
-              <span class="fact-value">${
-      escapeHtml(
-        formatDateTime(packageVersion.importedAt),
-      )
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                formatDateTime(packageVersion.importedAt),
+              )}</span>
             </div>
           </div>
           <section class="stack">
@@ -122,10 +128,10 @@ export function renderPackageDetailPage(input: {
             <strong class="fact-value">${escapeHtml(accessibility.label)}</strong>
             <p class="micro muted">${escapeHtml(accessibility.detail)}</p>
             ${
-      accessibility.exceptionNote === null
-        ? ''
-        : `<p class="micro muted">${escapeHtml(accessibility.exceptionNote)}</p>`
-    }
+              accessibility.exceptionNote === null
+                ? ''
+                : `<p class="micro muted">${escapeHtml(accessibility.exceptionNote)}</p>`
+            }
           </section>
           <section class="fact">
             <span class="fact-label">Checks</span>
@@ -134,11 +140,7 @@ export function renderPackageDetailPage(input: {
           </section>
           <section class="fact">
             <span class="fact-label">Next step</span>
-            <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(
-        packageVersion.appId,
-      )
-    }/deployment">Open app settings</a>
+            <a class="button-secondary" href="/admin/governance">Install reviewed app</a>
           </section>
         </aside>
       </div>
@@ -146,13 +148,13 @@ export function renderPackageDetailPage(input: {
     ${
       packageVersion.approvalStatus === 'pending'
         ? renderPendingReviewOverview({
-          packageVersion,
-          history: input.history,
-          validation,
-          capabilitySummary,
-          latestPreviewSession,
-          previewEvidence,
-        })
+            packageVersion,
+            history: input.history,
+            validation,
+            capabilitySummary,
+            latestPreviewSession,
+            previewEvidence,
+          })
         : ''
     }
     <section class="panel">
@@ -162,75 +164,61 @@ export function renderPackageDetailPage(input: {
           <details>
             <summary>Show access notes, saved files, and manifest JSON</summary>
             <div class="line-list">
-              ${
-      capabilitySummary
-        .map(
-          (capability) =>
-            `<article class="line-item">
+              ${capabilitySummary
+                .map(
+                  (capability) =>
+                    `<article class="line-item">
               <p class="line-title">${escapeHtml(capability.label)}${
-              capability.flagLabel
-                ? ` <span class="micro muted">${escapeHtml(capability.flagLabel)}</span>`
-                : ''
-            }</p>
+                capability.flagLabel
+                  ? ` <span class="micro muted">${escapeHtml(capability.flagLabel)}</span>`
+                  : ''
+              }</p>
               <p class="line-copy">${escapeHtml(capability.detail)}</p>
-              <p class="micro muted">${escapeHtml(capability.purpose)} ${
-              escapeHtml(
+              <p class="micro muted">${escapeHtml(capability.purpose)} ${escapeHtml(
                 capability.dataScope,
-              )
-            }</p>
+              )}</p>
             </article>`,
-        )
-        .join('')
-    }
+                )
+                .join('')}
               <article class="line-item">
                 <p class="line-title">Scoring setup</p>
                 <p class="line-copy">${escapeHtml(grading.detail)}</p>
               </article>
               <article class="line-item">
                 <p class="line-title">Saved files</p>
-                <p class="line-copy">Lantern saved a reviewed copy in ${
-      escapeHtml(
-        packageVersion.artifact.snapshotRoot,
-      )
-    } with checksum ${escapeHtml(packageVersion.artifact.digest)}.</p>
+                <p class="line-copy">Lantern saved a reviewed copy in ${escapeHtml(
+                  packageVersion.artifact.snapshotRoot,
+                )} with checksum ${escapeHtml(packageVersion.artifact.digest)}.</p>
               </article>
             </div>
             <pre>${escapeHtml(JSON.stringify(packageVersion.manifestJson, null, 2))}</pre>
           </details>
         </div>
         ${
-      validation.issues.length > 0
-        ? `<section class="callout">
+          validation.issues.length > 0
+            ? `<section class="callout">
               <h3>Things to fix</h3>
               <ul>
-                ${
-          validation.issues
-            .map(
-              (issue) =>
-                `<li><strong>${escapeHtml(issue.field)}</strong>: ${
-                  escapeHtml(
-                    issue.message,
+                ${validation.issues
+                  .map(
+                    (issue) =>
+                      `<li><strong>${escapeHtml(issue.field)}</strong>: ${escapeHtml(
+                        issue.message,
+                      )}</li>`,
                   )
-                }</li>`,
-            )
-            .join('')
-        }
+                  .join('')}
               </ul>
             </section>`
-        : ''
-    }
+            : ''
+        }
       </div>
     </section>
     ${renderDecisionSection(packageVersion)}
-    ${
-      renderRuntimeLogSection({
-        packageVersion,
-        latestPreviewSession,
-        previewEvidence,
-      })
-    }
-    ${renderGenerationActivitySection(input.generationActivityEvents ?? [])}
-    ${renderReviewedPlacementsSection(input.reviewedPlacements ?? [])}
+    ${renderRuntimeLogSection({
+      packageVersion,
+      latestPreviewSession,
+      previewEvidence,
+    })}
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Other versions</p>
@@ -264,17 +252,17 @@ function renderPendingReviewOverview(input: {
   const standardCapabilityText = `${normalCount} standard runtime ${
     normalCount === 1 ? 'capability' : 'capabilities'
   }`;
-  const sensitiveCapabilityText = sensitiveCount === 0
-    ? ''
-    : `, ${sensitiveCount} sensitive review ${sensitiveCount === 1 ? 'item' : 'items'}`;
+  const sensitiveCapabilityText =
+    sensitiveCount === 0
+      ? ''
+      : `, ${sensitiveCount} sensitive review ${sensitiveCount === 1 ? 'item' : 'items'}`;
   const previewHref = versionPreviewHref(input.packageVersion);
-  const diffHref = previousVersion === null
-    ? null
-    : `/admin/packages/${escapeHtml(input.packageVersion.appId)}/versions/${
-      escapeHtml(
-        input.packageVersion.version,
-      )
-    }/diff`;
+  const diffHref =
+    previousVersion === null
+      ? null
+      : `/admin/packages/${escapeHtml(input.packageVersion.appId)}/versions/${escapeHtml(
+          input.packageVersion.version,
+        )}/diff`;
 
   return `<section class="panel">
     <div class="panel-body stack">
@@ -287,35 +275,37 @@ function renderPendingReviewOverview(input: {
         <div class="button-row">
           <a class="button-primary" href="${previewHref}">Open review test launch</a>
           ${
-    diffHref === null ? '' : `<a class="button-secondary" href="${diffHref}">Compare changes</a>`
-  }
+            diffHref === null
+              ? ''
+              : `<a class="button-secondary" href="${diffHref}">Compare changes</a>`
+          }
         </div>
       </div>
       <div class="line-list">
         <article class="line-item">
           <p class="line-title">What changed</p>
-          <p class="line-copy">${
-    escapeHtml(formatChangeSummary(input.packageVersion, previousVersion))
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            formatChangeSummary(input.packageVersion, previousVersion),
+          )}</p>
           ${
-    diffHref === null
-      ? ''
-      : `<p class="micro muted"><a href="${diffHref}">Open the file-level version diff.</a></p>`
-  }
+            diffHref === null
+              ? ''
+              : `<p class="micro muted"><a href="${diffHref}">Open the file-level version diff.</a></p>`
+          }
           ${renderCapabilityChangeSummary(capabilityChanges)}
         </article>
         <article class="line-item">
           <p class="line-title">What it can do</p>
-          <p class="line-copy">${
-    escapeHtml(`${standardCapabilityText}${sensitiveCapabilityText}.`)
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            `${standardCapabilityText}${sensitiveCapabilityText}.`,
+          )}</p>
           <p class="micro muted">${escapeHtml(formatCapabilityNames(input.capabilitySummary))}</p>
         </article>
         <article class="line-item">
           <p class="line-title">Test launch</p>
-          <p class="line-copy">${
-    escapeHtml(formatPreviewSessionSummary(input.latestPreviewSession))
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            formatPreviewSessionSummary(input.latestPreviewSession),
+          )}</p>
           <p class="micro muted">Review launches stay in Lantern preview mode and do not write to the live LMS.</p>
         </article>
         <article class="line-item">
@@ -354,8 +344,8 @@ function renderCapabilityPrivacySummary(
       </div>
     </section>
     ${
-    sensitiveCapabilities.length > 0 || gradeReviewItem !== null
-      ? `<section class="capability-group capability-group-sensitive">
+      sensitiveCapabilities.length > 0 || gradeReviewItem !== null
+        ? `<section class="capability-group capability-group-sensitive">
         <div class="capability-group-header">
           <div>
             <h3>Sensitive review items</h3>
@@ -368,8 +358,8 @@ function renderCapabilityPrivacySummary(
           ${gradeReviewItem ?? ''}
         </div>
       </section>`
-      : ''
-  }
+        : ''
+    }
     <section class="capability-group capability-group-blocked">
       <div class="capability-group-header">
         <div>
@@ -387,10 +377,10 @@ function renderCapabilityCard(capability: CapabilitySummary): string {
     <div class="capability-card-header">
       <h4>${escapeHtml(capability.label)}</h4>
       <span class="chip capability-classification ${
-    capability.flagged
-      ? 'capability-classification-sensitive'
-      : 'capability-classification-standard'
-  }">${escapeHtml(capability.sensitivityLabel)}</span>
+        capability.flagged
+          ? 'capability-classification-sensitive'
+          : 'capability-classification-standard'
+      }">${escapeHtml(capability.sensitivityLabel)}</span>
     </div>
     <p>${escapeHtml(capability.detail)}</p>
     <dl class="capability-meta">
@@ -415,17 +405,26 @@ function renderCapabilityCard(capability: CapabilitySummary): string {
 }
 
 function summarizeGradeReviewItem(grading: GradingSettings): string | null {
-  if (grading.mode !== 'browser' && grading.mode !== 'declarative') {
+  if (grading.mode !== 'browser' && grading.mode !== 'declarative' && grading.mode !== 'sandbox') {
     return null;
   }
 
-  const gradingLabel = grading.mode === 'browser' ? 'Browser grading' : 'Reviewed scoring rules';
-  const gradingDetail = grading.mode === 'browser'
-    ? 'Lantern runs reviewed browser-grader checks and owns any grade publication.'
-    : 'Lantern scores the attempt with reviewed scoring rules and owns any grade publication.';
-  const maxScore = grading.maxScore === null
-    ? 'Maximum score not recorded.'
-    : `Maximum score ${grading.maxScore}.`;
+  const gradingLabel =
+    grading.mode === 'browser'
+      ? 'Browser grading'
+      : grading.mode === 'sandbox'
+        ? 'Python sandbox grading'
+        : 'Reviewed scoring rules';
+  const gradingDetail =
+    grading.mode === 'browser'
+      ? 'Lantern runs reviewed browser-grader checks and owns any grade publication.'
+      : grading.mode === 'sandbox'
+        ? 'Lantern runs learner Python in an isolated Sandbox and owns the resulting grade publication.'
+        : 'Lantern scores the attempt with reviewed scoring rules and owns any grade publication.';
+  const maxScore =
+    grading.maxScore === null
+      ? 'Maximum score not recorded.'
+      : `Maximum score ${grading.maxScore}.`;
 
   return `<article class="capability-card">
     <div class="capability-card-header">
@@ -467,34 +466,32 @@ function renderRuntimeLogSection(input: {
         <div class="stack">
           <p class="section-label">Runtime log</p>
           <h2>Latest review test activity</h2>
-          <p class="line-copy">${
-    escapeHtml(formatPreviewSessionSummary(input.latestPreviewSession))
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            formatPreviewSessionSummary(input.latestPreviewSession),
+          )}</p>
         </div>
         <div class="button-row">
           <a class="button-secondary" href="${previewHref}">${
-    input.latestPreviewSession === null ? 'Start test launch' : 'Open full test launch log'
-  }</a>
+            input.latestPreviewSession === null ? 'Start test launch' : 'Open full test launch log'
+          }</a>
         </div>
       </div>
       ${
-    input.previewEvidence.length === 0
-      ? '<p class="muted">No runtime gateway events have been recorded for this version yet.</p>'
-      : `<div class="line-list">
+        input.previewEvidence.length === 0
+          ? '<p class="muted">No runtime gateway events have been recorded for this version yet.</p>'
+          : `<div class="line-list">
             ${input.previewEvidence.slice(0, 5).map(renderRuntimeLogItem).join('')}
           </div>
           ${
-        input.previewEvidence.length > 5
-          ? `<p class="micro muted">${
-            escapeHtml(
-              `${
-                input.previewEvidence.length - 5
-              } more events are available on the full test launch log.`,
-            )
-          }</p>`
-          : ''
-      }`
-  }
+            input.previewEvidence.length > 5
+              ? `<p class="micro muted">${escapeHtml(
+                  `${
+                    input.previewEvidence.length - 5
+                  } more events are available on the full test launch log.`,
+                )}</p>`
+              : ''
+          }`
+      }
     </div>
   </section>`;
 }
@@ -502,262 +499,15 @@ function renderRuntimeLogSection(input: {
 function renderRuntimeLogItem(record: PreviewEvidenceRecord): string {
   return `<article class="line-item">
     <p class="line-title">${escapeHtml(formatPreviewEvidenceLabel(record.eventType))}${
-    record.capability === null
-      ? ''
-      : ` <span class="inline-code">${escapeHtml(record.capability)}</span>`
-  }</p>
+      record.capability === null
+        ? ''
+        : ` <span class="inline-code">${escapeHtml(record.capability)}</span>`
+    }</p>
     <p class="micro muted">${escapeHtml(formatDateTime(record.occurredAt))}</p>
     <p class="line-copy">${escapeHtml(record.summary)}</p>
   </article>`;
 }
 
-function renderReviewedPlacementsSection(placements: ReviewedPlacementRecord[]): string {
-  if (placements.length === 0) {
-    return '';
-  }
-
-  return `<section class="panel">
-    <div class="panel-body stack">
-      <p class="section-label">LMS placements using this version</p>
-      <div class="line-list">
-        ${
-    placements
-      .map(
-        (placement) =>
-          `<article class="line-item">
-              <p class="line-title">${escapeHtml(placement.deploymentSlug)} · ${
-            escapeHtml(
-              placement.placementId,
-            )
-          }</p>
-              <p class="line-copy">${
-            escapeHtml(
-              placement.contentTitle ?? placement.contentPath,
-            )
-          }</p>
-              <p class="micro muted">Context ${
-            escapeHtml(
-              placement.contextTitle ?? placement.contextId ?? 'Not recorded',
-            )
-          }; resource link ${escapeHtml(placement.resourceLinkId ?? 'not bound yet')}.</p>
-            </article>`,
-      )
-      .join('')
-  }
-      </div>
-    </div>
-  </section>`;
-}
-
-function renderGenerationActivitySection(events: AuditEventRecord[]): string {
-  if (events.length === 0) {
-    return '';
-  }
-
-  return `<section class="panel">
-    <div class="panel-body stack">
-      <p class="section-label">Generated package activity</p>
-      <div class="line-list">
-        ${
-    events
-      .map(
-        (event) =>
-          `<article class="line-item">
-              <p class="line-title">${escapeHtml(event.summary)}</p>
-              <p class="line-copy">${escapeHtml(formatDateTime(event.occurredAt))}</p>
-            </article>`,
-      )
-      .join('')
-  }
-      </div>
-    </div>
-  </section>`;
-}
-
 function formatInstallScope(scope: PackageVersionRecord['installScope']): string {
   return scope === 'assignment' ? 'Assignment placement' : 'Course placement';
-}
-
-function resolvePreviousVersion(
-  history: readonly PackageVersionRecord[],
-  packageVersion: PackageVersionRecord,
-): PackageVersionRecord | null {
-  const currentIndex = history.findIndex((version) => version.id === packageVersion.id);
-
-  if (currentIndex < 0) {
-    return null;
-  }
-
-  return history[currentIndex + 1] ?? null;
-}
-
-function resolvePreviousApprovedVersion(
-  history: readonly PackageVersionRecord[],
-  packageVersion: PackageVersionRecord,
-): PackageVersionRecord | null {
-  const currentIndex = history.findIndex((version) => version.id === packageVersion.id);
-
-  if (currentIndex === -1) {
-    return null;
-  }
-
-  return history.slice(currentIndex + 1).find((version) => version.approvalStatus === 'approved') ??
-    null;
-}
-
-interface CapabilityChangeSummary {
-  previousApprovedVersion: PackageVersionRecord | null;
-  added: CapabilitySummary[];
-  removed: CapabilitySummary[];
-  unchanged: CapabilitySummary[];
-}
-
-function summarizeCapabilityChanges(input: {
-  current: CapabilitySummary[];
-  previousApprovedVersion: PackageVersionRecord | null;
-}): CapabilityChangeSummary {
-  if (input.previousApprovedVersion === null) {
-    return {
-      previousApprovedVersion: null,
-      added: input.current,
-      removed: [],
-      unchanged: [],
-    };
-  }
-
-  const currentIds = new Set(input.current.map((capability) => capability.id));
-  const previous = summarizeCapabilities(input.previousApprovedVersion.capabilities);
-  const previousIds = new Set(previous.map((capability) => capability.id));
-
-  return {
-    previousApprovedVersion: input.previousApprovedVersion,
-    added: input.current.filter((capability) => !previousIds.has(capability.id)),
-    removed: previous.filter((capability) => !currentIds.has(capability.id)),
-    unchanged: input.current.filter((capability) => previousIds.has(capability.id)),
-  };
-}
-
-function renderCapabilityChangeSummary(summary: CapabilityChangeSummary): string {
-  const addedSensitive = summary.added.filter((capability) => capability.flagged);
-
-  if (summary.previousApprovedVersion === null) {
-    return `<div class="detail-stack">
-      <p class="micro muted">Capability baseline: no previously approved version exists. Review every declared runtime capability before approval.</p>
-      ${renderCapabilityChangeGroup('Declared for first approval', summary.added)}
-    </div>`;
-  }
-
-  if (summary.added.length === 0 && summary.removed.length === 0) {
-    return `<div class="detail-stack">
-      <p class="micro muted">Capability changes since approved version ${
-      escapeHtml(summary.previousApprovedVersion.version)
-    }: no capability changes.</p>
-      ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
-    </div>`;
-  }
-
-  return `<div class="detail-stack">
-    <p class="micro muted">Capability changes since approved version ${
-    escapeHtml(summary.previousApprovedVersion.version)
-  }.</p>
-    ${renderCapabilityChangeGroup('Added', summary.added)}
-    ${renderCapabilityChangeGroup('Removed', summary.removed)}
-    ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
-    ${
-    addedSensitive.length === 0
-      ? ''
-      : `<p class="micro muted">Review impact: this version newly requests ${
-        escapeHtml(formatCapabilityNames(addedSensitive))
-      }. Confirm the assignment purpose, evidence or grading flow, and latest preview evidence before approval.</p>`
-  }
-  </div>`;
-}
-
-function renderCapabilityChangeGroup(label: string, capabilities: CapabilitySummary[]): string {
-  if (capabilities.length === 0) {
-    return `<p class="micro muted">${escapeHtml(label)}: none.</p>`;
-  }
-
-  return `<div>
-    <p class="micro muted">${escapeHtml(label)}</p>
-    <ul>
-      ${
-    capabilities
-      .map((capability) =>
-        `<li><strong>${escapeHtml(capability.label)}</strong>: ${escapeHtml(capability.detail)}${
-          capability.flagged
-            ? ` <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span>`
-            : ''
-        }</li>`
-      )
-      .join('')
-  }
-    </ul>
-  </div>`;
-}
-
-function formatChangeSummary(
-  packageVersion: PackageVersionRecord,
-  previousVersion: PackageVersionRecord | null,
-): string {
-  if (previousVersion === null) {
-    return `Version ${packageVersion.version} is the first saved version of this app.`;
-  }
-
-  return `Version ${packageVersion.version} is pending review against previous version ${previousVersion.version}.`;
-}
-
-function formatCapabilityNames(capabilities: CapabilitySummary[]): string {
-  return capabilities.map((capability) => capability.label).join(', ');
-}
-
-function formatPreviewSessionSummary(session: PreviewSessionRecord | null): string {
-  if (session === null) {
-    return 'No review test launch has been recorded yet.';
-  }
-
-  return `Latest review test launch ${session.sessionId} ran as ${
-    formatPreviewRole(
-      session.launch.userRole,
-    )
-  } in course ${session.launch.courseId}.`;
-}
-
-function formatRuntimeLogSummary(records: PreviewEvidenceRecord[]): string {
-  if (records.length === 0) {
-    return 'No runtime events have been recorded yet. Start a review test launch to see gateway activity here.';
-  }
-
-  return `${records.length} runtime event${
-    records.length === 1 ? '' : 's'
-  } recorded from the latest review test launch.`;
-}
-
-function formatPreviewEvidenceLabel(eventType: string): string {
-  switch (eventType) {
-    case 'preview.launch':
-      return 'Started test launch';
-    case 'preview.content_read':
-      return 'Loaded app content';
-    case 'preview.attempt_event':
-      return 'Received app progress update';
-    case 'preview.evidence_artifact':
-      return 'Stored anonymous evidence';
-    case 'preview.finalize':
-      return 'Finished test attempt';
-    default:
-      return eventType;
-  }
-}
-
-function formatPreviewRole(role: string): string {
-  return role === 'learner' ? 'Student' : role === 'instructor' ? 'Instructor' : role;
-}
-
-function versionPreviewHref(packageVersion: PackageVersionRecord): string {
-  return `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${
-    escapeHtml(
-      packageVersion.version,
-    )
-  }/preview`;
 }

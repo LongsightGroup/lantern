@@ -26,7 +26,7 @@ that preserves Lantern's trust boundary.
   manifest schema for reviewed app packages.
 - [sdk/app-sdk.ts](sdk/app-sdk.ts): browser SDK contract exposed to app
   packages.
-- [main.ts](main.ts): local Deno server adapter.
+- [src/worker.ts](src/worker.ts): canonical Cloudflare Worker entrypoint.
 - [src/worker.ts](src/worker.ts): canonical Cloudflare Workers runtime
   entrypoint.
 
@@ -50,24 +50,24 @@ the package.
 
 ## Development Commands
 
-Lantern uses Deno. Common commands:
+Lantern uses Node.js 26 LTS, TypeScript 7, and npm. Common commands:
 
 ```sh
-deno task app:new --list-starters
-deno task app:validate /path/to/app
-deno task app:test-preview /path/to/app
-deno task app:preview /path/to/app
-deno task local:init
-deno task local:bootstrap
-deno task local:start
+npm run app:new -- --list-starters
+npm run app:validate -- /path/to/app
+npm run app:test-preview -- /path/to/app
+npm run app:preview -- /path/to/app
+npm run local:init
+npm run local:bootstrap
+npm run local:start
 ```
 
 For TypeScript changes, verify with:
 
 ```sh
-deno task fmt
-deno task lint
-deno task check
+npm run fmt
+npm run lint
+npm run check
 ```
 
 Run touched-area tests when they exist.
@@ -79,7 +79,7 @@ Run touched-area tests when they exist.
 - Validate and narrow untrusted data at boundaries.
 - Keep TypeScript strict: no `any`, no unjustified suppression comments, and
   explicit public interfaces.
-- Prefer Deno, Hono, Cloudflare D1, hand-written SQL, server-rendered HTML, and
+- Prefer Node.js, Hono, Cloudflare D1, hand-written SQL, server-rendered HTML, and
   plain CSS tokens.
 - Avoid React, ORMs, Tailwind, queue platforms, and fallback-heavy abstractions
   unless a change explicitly justifies them.

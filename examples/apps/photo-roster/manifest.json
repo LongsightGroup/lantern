@@ -1,0 +1,29 @@
+{
+  "schema_version": "2",
+  "app_id": "photo-roster",
+  "version": "0.1.1",
+  "title": "Photo Roster",
+  "description": "A governed course roster with names, roles, contact details, and protected profile photos.",
+  "owner": {
+    "type": "user",
+    "id": "lantern"
+  },
+  "runtime": {
+    "kind": "worker",
+    "entrypoint": "/dist/worker.js"
+  },
+  "roles": ["instructor"],
+  "install_scope": "course",
+  "capabilities": [
+    "lms.roster.members.read",
+    "lms.roster.contact.read",
+    "lms.roster.profile_photo.read"
+  ],
+  "grading": {
+    "mode": "completion"
+  },
+  "preview": {
+    "fixtures_file": "/preview/fixtures.json",
+    "tests_file": "/preview/tests.json"
+  }
+}

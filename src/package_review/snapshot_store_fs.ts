@@ -1,3 +1,4 @@
+import { mkdir, readFile, readdir, stat as fileStat, writeFile } from 'node:fs/promises';
 import {
   assertPathInsideSnapshot,
   joinSnapshotPath,
@@ -14,7 +15,7 @@ const FILE_SYSTEM_PACKAGE_SNAPSHOT_STORE: PackageSnapshotStore = {
 
     assertPathInsideSnapshot(snapshotRoot, absolutePath, SNAPSHOT_OUTSIDE_MESSAGE);
 
-    return await Deno.readFile(absolutePath);
+    return await readFile(absolutePath);
   },
   async writeBytes(snapshotRoot, relativePath, bytes) {
     const absolutePath = joinSnapshotPath(
@@ -23,18 +24,18 @@ const FILE_SYSTEM_PACKAGE_SNAPSHOT_STORE: PackageSnapshotStore = {
       SNAPSHOT_OUTSIDE_MESSAGE,
     );
 
-    await Deno.mkdir(parentDirectory(absolutePath), { recursive: true });
-    await Deno.writeFile(absolutePath, bytes);
+    await mkdir(parentDirectory(absolutePath), { recursive: true });
+    await writeFile(absolutePath, bytes);
   },
   async fileExists(snapshotRoot, relativePath) {
     try {
-      const stat = await Deno.stat(
+      const stat = await fileStat(
         joinSnapshotPath(snapshotRoot, relativePath, SNAPSHOT_OUTSIDE_MESSAGE),
       );
 
-      return stat.isFile;
+      return stat.isFile();
     } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         return false;
       }
 
@@ -71,15 +72,15 @@ async function walkSnapshotFiles(
 ): Promise<void> {
   const absoluteRoot = relativeRoot === '' ? snapshotRoot : `${snapshotRoot}/${relativeRoot}`;
 
-  for await (const entry of Deno.readDir(absoluteRoot)) {
+  for (const entry of await readdir(absoluteRoot, { withFileTypes: true })) {
     const relativePath = relativeRoot === '' ? entry.name : `${relativeRoot}/${entry.name}`;
 
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       await walkSnapshotFiles(snapshotRoot, relativePath, files);
       continue;
     }
 
-    if (entry.isFile) {
+    if (entry.isFile()) {
       files.push(relativePath);
     }
   }

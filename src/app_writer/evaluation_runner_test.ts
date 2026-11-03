@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { APP_WRITER_EVALUATION_PROMPTS } from './evaluation_corpus.ts';
 import { runAppWriterEvaluationPrompt } from './evaluation_runner.ts';
@@ -9,7 +10,7 @@ import { createInMemoryPackageReviewRepository } from '../test_helpers/package_r
 import { LANTERN_APP_CSS } from '../styles/lantern_app_css.ts';
 import { PICO_CSS } from '../styles/pico_css.ts';
 
-Deno.test('app writer evaluation runner tracks harness outcomes across the prompt corpus', async () => {
+test('app writer evaluation runner tracks harness outcomes across the prompt corpus', async () => {
   const results = [];
 
   for (const prompt of APP_WRITER_EVALUATION_PROMPTS) {
@@ -111,9 +112,10 @@ function buildGenerationResult(starterId: AppWriterStarterId): AppPackageGenerat
       activityType: starterId === 'browser-autograder' ? 'practice' : 'matching',
       learnerFlow: ['Open activity.', 'Complete task.'],
       contentModel: {},
-      capabilities: starterId === 'browser-autograder'
-        ? ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt']
-        : ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
+      capabilities:
+        starterId === 'browser-autograder'
+          ? ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt']
+          : ['read_activity_content', 'submit_attempt_event', 'finalize_attempt'],
       grading: {
         mode: starterId === 'browser-autograder' ? 'browser' : 'completion',
         maxScore: 100,
@@ -131,9 +133,10 @@ function buildGenerationResult(starterId: AppWriterStarterId): AppPackageGenerat
       riskNotes: [],
     },
     selectedStarterId: starterId,
-    files: starterId === 'browser-autograder'
-      ? buildValidBrowserAutograderFiles()
-      : buildValidSimpleActivityFiles(),
+    files:
+      starterId === 'browser-autograder'
+        ? buildValidBrowserAutograderFiles()
+        : buildValidSimpleActivityFiles(),
     progressUpdates: [
       {
         stage: 'planning_app',
@@ -150,12 +153,12 @@ function buildValidBrowserAutograderFiles(): AppPackageGenerationResult['files']
     {
       path: 'manifest.json',
       contents: JSON.stringify({
-        schema_version: '1',
+        schema_version: '2',
         app_id: 'web-check',
         version: '0.1.0',
         title: 'Web Check',
         owner: { type: 'user', id: 'evaluation' },
-        entrypoint: '/dist/index.html',
+        runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
         roles: ['learner', 'instructor'],
         capabilities: ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt'],
         grading: { mode: 'browser', max_score: 100 },

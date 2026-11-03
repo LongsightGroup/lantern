@@ -1,7 +1,8 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertExists, assertObjectMatch, assertStringIncludes } from '@std/assert';
 import { compactVerify, createLocalJWKSet } from 'jose';
 import type { BootstrapPayload } from '../sdk/app-sdk.ts';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { EXAMPLE_SNAPSHOT_ROOT } from './app_test_support.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import { getPublicJwkSet } from './lti/tool_key.ts';
@@ -17,6 +18,7 @@ import {
 import {
   buildAttemptRecord,
   buildPackageVersionRecord,
+  buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildRuntimeSessionRecord, getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
@@ -36,7 +38,7 @@ const EXAMPLE_RUNTIME_ARTIFACT_STORE = createR2RuntimeArtifactStore(
   }),
 );
 
-Deno.test('GET /runtime/sessions/:id serves the reviewed entrypoint with a signed Lantern bootstrap injected through the runtime delivery seam', async () => {
+test('GET /runtime/sessions/:id serves the reviewed entrypoint with a signed Lantern bootstrap injected through the runtime delivery seam', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -91,9 +93,8 @@ Deno.test('GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
   assertEquals(bootstrap.session.expires_at, '2030-03-26T02:45:00Z');
   assertEquals(body.includes('https://canvas.example/api/lti/courses/42/line_items'), false);
   await assertBootstrapSignature(bootstrap);
-  const runtimeSessionEvents = await repository.listAuditEventsByEventType(
-    'runtime.session.started',
-  );
+  const runtimeSessionEvents =
+    await repository.listAuditEventsByEventType('runtime.session.started');
 
   assertEquals(runtimeSessionEvents.length, 1);
   const runtimeSessionEvent = runtimeSessionEvents[0];
@@ -114,9 +115,10 @@ Deno.test('GET /runtime/sessions/:id serves the reviewed entrypoint with a signe
   });
 });
 
-Deno.test('POST /runtime/sessions/:id/attempt-events enforces session auth, capability checks, and append-only event writes', async () => {
+test('POST /runtime/sessions/:id/attempt-events enforces session auth, capability checks, and append-only event writes', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
+    previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
     runtimeSessions: [buildRuntimeSessionRecord({ expiresAt: '2030-03-26T02:45:00Z' })],
   });
   const app = createRuntimeTestApp({ repository });
@@ -149,9 +151,10 @@ Deno.test('POST /runtime/sessions/:id/attempt-events enforces session auth, capa
   assertEquals(auditEvents[0]?.attemptId, 'attempt-123');
 });
 
-Deno.test('GET /runtime/sessions/:id/content serves reviewed activity content through the scoped runtime bridge', async () => {
+test('GET /runtime/sessions/:id/content serves reviewed activity content through the scoped runtime bridge', async () => {
   const response = await createRuntimeTestApp({
     repository: createInMemoryPackageReviewRepository({
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -175,7 +178,7 @@ Deno.test('GET /runtime/sessions/:id/content serves reviewed activity content th
   assertEquals(body.questions[0]?.id, 'q1');
 });
 
-Deno.test('runtime routes record timeout and integrity failures as durable typed runtime outcomes', async () => {
+test('runtime routes record timeout and integrity failures as durable typed runtime outcomes', async () => {
   const timeoutRepository = createInMemoryPackageReviewRepository({
     runtimeSessions: [
       buildRuntimeSessionRecord({
@@ -193,9 +196,8 @@ Deno.test('runtime routes record timeout and integrity failures as durable typed
   });
 
   assertEquals(timeoutResponse.status, 409);
-  const timeoutEvents = await timeoutRepository.listAuditEventsByEventType(
-    'runtime.session.timeout',
-  );
+  const timeoutEvents =
+    await timeoutRepository.listAuditEventsByEventType('runtime.session.timeout');
 
   assertEquals(timeoutEvents.length, 1);
   const timeoutEvent = timeoutEvents[0];
@@ -244,7 +246,7 @@ Deno.test('runtime routes record timeout and integrity failures as durable typed
   });
 });
 
-Deno.test('runtime local-state routes round-trip attempt-bound state and reject bad tokens', async () => {
+test('runtime local-state routes round-trip attempt-bound state and reject bad tokens', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
     runtimeSessions: [
@@ -305,7 +307,7 @@ Deno.test('runtime local-state routes round-trip attempt-bound state and reject 
   );
 });
 
-Deno.test('GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blocks bad tokens', async () => {
+test('GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blocks bad tokens', async () => {
   const app = createRuntimeTestApp({
     repository: createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -346,7 +348,7 @@ Deno.test('GET /runtime/sessions/:id/files/* serves reviewed asset bytes and blo
   );
 });
 
-Deno.test('GET /runtime/sessions/:id fails clearly when served outside the configured runtime origin', async () => {
+test('GET /runtime/sessions/:id fails clearly when served outside the configured runtime origin', async () => {
   const response = await createRuntimeTestApp({
     repository: createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -382,8 +384,8 @@ function createRuntimeTestApp(input: {
   return createApp({
     env: RUNTIME_ENV,
     runtimeArtifactStore: EXAMPLE_RUNTIME_ARTIFACT_STORE,
-    runtimeDelivery: input.runtimeDelivery ??
-      createDirectRuntimeDelivery(EXAMPLE_RUNTIME_ARTIFACT_STORE),
+    runtimeDelivery:
+      input.runtimeDelivery ?? createDirectRuntimeDelivery(EXAMPLE_RUNTIME_ARTIFACT_STORE),
     getRepository: () => input.repository,
   });
 }
@@ -398,9 +400,10 @@ function createStubRuntimeDelivery(input: {
     describeDelivery({ reviewedPackage }) {
       return {
         substrate: input.substrate,
-        workerId: input.substrate === 'dynamic_worker'
-          ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
-          : null,
+        workerId:
+          input.substrate === 'dynamic_worker'
+            ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
+            : null,
       };
     },
     loadReviewedAsset({ relativePath }) {
@@ -426,6 +429,9 @@ function createStubRuntimeDelivery(input: {
         bytes: new TextEncoder().encode(contents),
         contentType: contentTypeForRuntimePath(assetPath),
       });
+    },
+    invokeReviewedWorker() {
+      return Promise.reject(new Error('Stub Worker invocation was not configured.'));
     },
   };
 }

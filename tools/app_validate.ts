@@ -50,7 +50,7 @@ export function readArgs(args: string[]): AppValidateArgs {
   }
 
   if (packageRoot === null) {
-    throw new Error('Usage: deno task app:validate <package-root> [--json]');
+    throw new Error('Usage: npm run app:validate -- <package-root> [--json]');
   }
 
   return {
@@ -66,7 +66,7 @@ export function renderValidationSuccess(
     'Lantern app validation passed.',
     `- App ID: ${result.appPackage.reviewData.appId}`,
     `- Version: ${result.appPackage.reviewData.version}`,
-    `- Entrypoint: ${result.appPackage.manifest.entrypoint}`,
+    `- Entrypoint: ${result.appPackage.manifest.runtime.entrypoint}`,
     `- Capabilities: ${result.appPackage.reviewData.capabilities.join(', ')}`,
     `- Preview tests: ${String(result.appPackage.previewTests.length)}`,
   ];
@@ -95,7 +95,7 @@ export function renderValidationFailure(
           `  - ${diagnostic.message}`,
           `    Fix: ${diagnostic.fix}`,
         ]),
-      ].join('\n')
+      ].join('\n'),
     )
     .join('\n');
 }
@@ -122,7 +122,7 @@ export function serializeValidationResult(result: LocalAppValidationResult): str
         appId: result.appPackage.reviewData.appId,
         version: result.appPackage.reviewData.version,
         title: result.appPackage.reviewData.title,
-        entrypoint: result.appPackage.manifest.entrypoint,
+        entrypoint: result.appPackage.manifest.runtime.entrypoint,
         capabilities: result.appPackage.reviewData.capabilities,
         previewTestCount: result.appPackage.previewTests.length,
       },
@@ -133,5 +133,5 @@ export function serializeValidationResult(result: LocalAppValidationResult): str
 }
 
 if (import.meta.main) {
-  Deno.exit(await runAppValidate(Deno.args));
+  process.exit(await runAppValidate(process.argv.slice(2)));
 }

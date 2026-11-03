@@ -1,7 +1,6 @@
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type {
   AttemptRecord,
-  DeploymentRecord,
   PackageVersionRecord,
   PreviewSessionRecord,
 } from '../package_review/types.ts';
@@ -10,11 +9,7 @@ import type { RuntimeSessionRecord } from '../lti/types.ts';
 export async function resolvePreviewSession(
   repository: PackageReviewRepository,
   session: RuntimeSessionRecord,
-): Promise<PreviewSessionRecord | null> {
-  if (session.preview === undefined) {
-    return null;
-  }
-
+): Promise<PreviewSessionRecord> {
   const previewSession = await repository.getPreviewSessionById(session.preview.previewSessionId);
 
   if (previewSession === null) {
@@ -50,7 +45,7 @@ export async function requireRuntimeAttempt(
   }
 
   if (
-    attempt.deploymentRecordId !== session.deploymentRecordId ||
+    attempt.previewSessionId !== session.preview.previewSessionId ||
     attempt.packageVersionId !== session.packageVersionId ||
     attempt.appId !== session.appId
   ) {
@@ -77,23 +72,6 @@ export async function requireRuntimePackageVersion(
   }
 
   return packageVersion;
-}
-
-export async function requireRuntimeDeployment(
-  repository: PackageReviewRepository,
-  session: RuntimeSessionRecord,
-): Promise<DeploymentRecord> {
-  const deployment = await repository.getDeploymentBySlug(session.deploymentSlug);
-
-  if (!deployment) {
-    throw new Error(`Deployment ${session.deploymentSlug} was not found for finalize.`);
-  }
-
-  if (deployment.id !== session.deploymentRecordId) {
-    throw new Error(`Deployment ${deployment.slug} did not match the runtime session context.`);
-  }
-
-  return deployment;
 }
 
 function matchesPreviewAttemptId(attemptId: string, previewSession: PreviewSessionRecord): boolean {

@@ -36,6 +36,16 @@ export async function requireRuntimeSession(
     });
   }
 
+  if (session.preview.previewSessionId === '') {
+    failRuntimeOutcome({
+      type: 'integrity_failure',
+      code: 'preview_session_missing',
+      message: `Runtime session ${sessionId} is not bound to a preview session.`,
+      status: 409,
+      detail: { sessionId },
+    });
+  }
+
   return session;
 }
 
@@ -191,13 +201,13 @@ export async function recordRuntimeRouteFailure(input: {
     await recordRuntimeAuditEvent({
       repository: input.repository,
       session: input.session,
-      eventType: input.error.capability === null
-        ? 'runtime.session.denied'
-        : 'runtime.capability.denied',
+      eventType:
+        input.error.capability === null ? 'runtime.session.denied' : 'runtime.capability.denied',
       status: 'failed',
-      summary: input.error.capability === null
-        ? 'Denied reviewed runtime session access.'
-        : `Denied reviewed app capability ${input.error.capability}.`,
+      summary:
+        input.error.capability === null
+          ? 'Denied reviewed runtime session access.'
+          : `Denied reviewed app capability ${input.error.capability}.`,
       occurredAt: input.occurredAt,
       detail: {
         route: input.route,
@@ -216,16 +226,18 @@ export async function recordRuntimeRouteFailure(input: {
   }
 
   if (isRuntimeOutcomeError(input.error)) {
-    const eventType = input.error.type === 'timeout'
-      ? 'runtime.session.timeout'
-      : input.error.type === 'integrity_failure'
-      ? 'runtime.session.integrity_failed'
-      : 'runtime.session.denied';
-    const summary = input.error.type === 'timeout'
-      ? 'Runtime session expired before the reviewed app could continue.'
-      : input.error.type === 'integrity_failure'
-      ? 'Reviewed runtime integrity checks blocked this session.'
-      : 'Denied reviewed runtime session access.';
+    const eventType =
+      input.error.type === 'timeout'
+        ? 'runtime.session.timeout'
+        : input.error.type === 'integrity_failure'
+          ? 'runtime.session.integrity_failed'
+          : 'runtime.session.denied';
+    const summary =
+      input.error.type === 'timeout'
+        ? 'Runtime session expired before the reviewed app could continue.'
+        : input.error.type === 'integrity_failure'
+          ? 'Reviewed runtime integrity checks blocked this session.'
+          : 'Denied reviewed runtime session access.';
 
     await recordRuntimeAuditEvent({
       repository: input.repository,
@@ -262,10 +274,8 @@ async function recordRuntimeAuditEvent(input: {
     eventType: input.eventType,
     actorType: 'system',
     actorId: null,
-    deploymentRecordId: input.session.deploymentRecordId,
     packageVersionId: input.session.packageVersionId,
     attemptId: input.session.attemptId,
-    lineItemBindingId: null,
     status: input.status,
     summary: input.summary,
     detail: buildRuntimeDetailRecord({

@@ -16,9 +16,9 @@ export async function withFetchStub<T>(
 
 export function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
-    Deno.env.delete(name);
+    delete process.env[name];
     return;
   }
 
-  Deno.env.set(name, value);
+  process.env[name] = value;
 }

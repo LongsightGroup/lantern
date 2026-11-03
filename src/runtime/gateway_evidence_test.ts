@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertObjectMatch } from '@std/assert';
 import { RuntimeBrokerDenialError } from './gateway_errors.ts';
 import { submitEvidenceArtifact } from './gateway.ts';
@@ -9,7 +10,7 @@ import {
 } from '../test_helpers/package_review.ts';
 import type { EvidenceArtifactStore } from './evidence_artifact_store.ts';
 
-Deno.test('runtime gateway accepts an allowlisted evidence artifact and records preview evidence', async () => {
+test('runtime gateway accepts an allowlisted evidence artifact and records preview evidence', async () => {
   const bytesByStorageKey = new Map<string, Uint8Array>();
   const repository = createInMemoryPackageReviewRepository({
     previewSessions: [
@@ -25,7 +26,11 @@ Deno.test('runtime gateway accepts an allowlisted evidence artifact and records 
         ],
       }),
     ],
-    attempts: [buildAttemptRecord()],
+    attempts: [
+      buildAttemptRecord({
+        previewSessionId: 'preview-session-evidence',
+      }),
+    ],
   });
   const session = buildRuntimeSessionRecord({
     capabilities: [
@@ -107,7 +112,7 @@ Deno.test('runtime gateway accepts an allowlisted evidence artifact and records 
   assertEquals(typeof previewEvidence[0]?.detail.sha256, 'string');
 });
 
-Deno.test('runtime gateway accepts screenshot evidence through the same governed artifact path', async () => {
+test('runtime gateway accepts screenshot evidence through the same governed artifact path', async () => {
   const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const bytesByStorageKey = new Map<string, Uint8Array>();
   const repository = createInMemoryPackageReviewRepository({
@@ -124,7 +129,11 @@ Deno.test('runtime gateway accepts screenshot evidence through the same governed
         ],
       }),
     ],
-    attempts: [buildAttemptRecord()],
+    attempts: [
+      buildAttemptRecord({
+        previewSessionId: 'preview-session-screenshot',
+      }),
+    ],
   });
   const session = buildRuntimeSessionRecord({
     capabilities: [
@@ -195,7 +204,7 @@ Deno.test('runtime gateway accepts screenshot evidence through the same governed
   assertEquals(typeof previewEvidence[0]?.detail.sha256, 'string');
 });
 
-Deno.test('runtime gateway rejects unsupported evidence kind and content-type pairs', async () => {
+test('runtime gateway rejects unsupported evidence kind and content-type pairs', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
   });

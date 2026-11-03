@@ -1,6 +1,17 @@
-import type { ExecutionContext } from '@hono/hono';
-import { buildApp } from './app_core.ts';
+import { workflowCheckpoint } from './platform/workflow_checkpoint.ts';
+import {
+  WorkflowEntrypoint,
+  WorkerEntrypoint,
+  type WorkflowEvent,
+  type WorkflowStep,
+} from 'cloudflare:workers';
 export { AppWriterAgent } from './app_writer/agent.ts';
+export {
+  createCloudflarePythonGraderSandboxFactory,
+  PythonGraderRuntime,
+  PythonGraderSandbox,
+} from './python_lab/cloudflare_sandbox.ts';
+import { createCloudflarePythonGraderSandboxFactory } from './python_lab/cloudflare_sandbox.ts';
 import {
   type AppGenerationWorkflowParams,
   runAppGenerationFileWorkflowStep,
@@ -10,61 +21,25 @@ import {
 } from './app_writer/workflow_runner.ts';
 import { resolveWorkerServices, type WorkerBindings } from './app_worker_services.ts';
 import { createObjectEnvReader } from './platform/env.ts';
+import { runPythonLabGenerationWorkflow } from './python_lab/workflow_runner.ts';
+import type { PythonLabGenerationWorkflowParams } from './python_lab/workflow.ts';
+import type { PrimitiveResult, RosterPage } from '../sdk/worker-app-sdk.ts';
+import { createWorkerHandler } from './worker_handler.ts';
 
-interface WorkflowEntrypointRuntimeClass {
-  new (): object;
+interface LanternLmsBindingProps {
+  readonly appId: string;
+  readonly packageVersionId: number;
 }
 
-declare const WorkflowEntrypoint: WorkflowEntrypointRuntimeClass | undefined;
+export default createWorkerHandler(createCloudflarePythonGraderSandboxFactory);
 
-interface WorkflowEvent<Params> {
-  readonly payload: Readonly<Params>;
-  readonly timestamp: Date;
-  readonly instanceId: string;
-}
-
-interface WorkflowStep {
-  do<Result>(name: string, callback: () => Result | Promise<Result>): Promise<Result>;
-  do<Result>(
-    name: string,
-    config: WorkflowStepConfig,
-    callback: () => Result | Promise<Result>,
-  ): Promise<Result>;
-}
-
-interface WorkflowStepConfig {
-  retries?: {
-    limit: number;
-    delay: string | number;
-    backoff?: 'constant' | 'linear' | 'exponential';
-  };
-  timeout?: string | number;
-}
-
-interface WorkerExecutionContext {
-  waitUntil?(promise: Promise<unknown>): void;
-  passThroughOnException?(): void;
-}
-
-const WorkflowEntrypointBase: WorkflowEntrypointRuntimeClass =
-  typeof WorkflowEntrypoint === 'function' ? WorkflowEntrypoint : Object;
-
-export default {
-  fetch(
-    request: Request,
-    env: WorkerBindings = {},
-    executionContext?: WorkerExecutionContext,
-  ): Response | Promise<Response> {
-    const app = buildApp(resolveWorkerServices(env, createObjectEnvReader(env)));
-
-    return app.fetch(request, env, toHonoExecutionContext(executionContext));
-  },
-};
-
-export class AppGenerationWorkflow extends WorkflowEntrypointBase {
+export class AppGenerationWorkflow extends WorkflowEntrypoint<
+  WorkerBindings,
+  AppGenerationWorkflowParams
+> {
   declare readonly env: WorkerBindings;
 
-  async run(
+  override async run(
     event: WorkflowEvent<AppGenerationWorkflowParams>,
     step: WorkflowStep,
   ): Promise<unknown> {
@@ -78,11 +53,13 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '2 minutes',
       },
-      () =>
-        runAppGenerationInitializationWorkflowStep({
-          bindings: this.env,
-          params: event.payload,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationInitializationWorkflowStep({
+            bindings: this.env,
+            params: event.payload,
+          }),
+        ),
     );
 
     if (!initialized.ok) {
@@ -99,11 +76,13 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '5 minutes',
       },
-      () =>
-        runAppGenerationPlanningWorkflowStep({
-          bindings: this.env,
-          initialized: initialized.value,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationPlanningWorkflowStep({
+            bindings: this.env,
+            initialized: initialized.value,
+          }),
+        ),
     );
 
     if (!planned.ok) {
@@ -120,11 +99,13 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '45 minutes',
       },
-      () =>
-        runAppGenerationFileWorkflowStep({
-          bindings: this.env,
-          planned: planned.value,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationFileWorkflowStep({
+            bindings: this.env,
+            planned: planned.value,
+          }),
+        ),
     );
 
     if (!generated.ok) {
@@ -141,29 +122,82 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '15 minutes',
       },
-      () =>
-        runAppGenerationFinishWorkflowStep({
-          bindings: this.env,
-          generated: generated.value,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationFinishWorkflowStep({
+            bindings: this.env,
+            generated: generated.value,
+          }),
+        ),
     );
   }
 }
 
-function toHonoExecutionContext(
-  executionContext?: WorkerExecutionContext,
-): ExecutionContext | undefined {
-  if (executionContext === undefined) {
-    return undefined;
-  }
+export class PythonLabGenerationWorkflow extends WorkflowEntrypoint<
+  WorkerBindings,
+  PythonLabGenerationWorkflowParams
+> {
+  declare readonly env: WorkerBindings;
 
-  return {
-    props: {},
-    waitUntil(promise) {
-      executionContext.waitUntil?.(promise);
-    },
-    passThroughOnException() {
-      executionContext.passThroughOnException?.();
-    },
-  };
+  override async run(
+    event: WorkflowEvent<PythonLabGenerationWorkflowParams>,
+    step: WorkflowStep,
+  ): Promise<unknown> {
+    return await step.do('generate Python autograder Lab', { timeout: '10 minutes' }, async () =>
+      workflowCheckpoint(
+        await runPythonLabGenerationWorkflow({
+          bindings: this.env,
+          params: event.payload,
+          createPythonSandboxFactory: createCloudflarePythonGraderSandboxFactory,
+        }),
+      ),
+    );
+  }
+}
+
+export class LanternLmsCapabilityBinding extends WorkerEntrypoint<
+  WorkerBindings,
+  LanternLmsBindingProps
+> {
+  declare readonly env: WorkerBindings;
+  declare readonly props: LanternLmsBindingProps;
+
+  async listRoster(value: unknown): Promise<PrimitiveResult<RosterPage>> {
+    const traceId = crypto.randomUUID();
+    if (!isLmsBindingRosterEnvelope(value)) {
+      return {
+        ok: false,
+        error: { code: 'invalid_request', traceId },
+      };
+    }
+    const services = resolveWorkerServices(this.env, createObjectEnvReader(this.env));
+    return await services.governedRosterService.listRoster({
+      runtimeSessionId: value.runtimeSessionId,
+      runtimeSessionToken: value.runtimeSessionToken,
+      ...(value.traceId === undefined ? {} : { traceId: value.traceId }),
+      request: value.request,
+      bindingIdentity: this.props,
+    });
+  }
+}
+
+function isLmsBindingRosterEnvelope(value: unknown): value is {
+  readonly runtimeSessionId: string;
+  readonly runtimeSessionToken: string;
+  readonly traceId?: string;
+  readonly request: unknown;
+} {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.runtimeSessionId === 'string' &&
+    record.runtimeSessionId.length > 0 &&
+    typeof record.runtimeSessionToken === 'string' &&
+    record.runtimeSessionToken.length > 0 &&
+    (record.traceId === undefined ||
+      (typeof record.traceId === 'string' && record.traceId.length > 0)) &&
+    'request' in record
+  );
 }

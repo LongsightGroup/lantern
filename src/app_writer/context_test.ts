@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assert, assertEquals } from '@std/assert';
 import { selectAppWriterContext } from './context.ts';
 import { APP_WRITER_RECIPE_ID, APP_WRITER_RECIPE_VERSION } from './recipe.ts';
 
-Deno.test('app writer context selector chooses browser autograder references for checked web work', () => {
+test('app writer context selector chooses browser autograder references for checked web work', () => {
   const selection = selectAppWriterContext({
     promptText: 'Create an autograder that checks HTML and CSS evidence.',
     requestedAppId: null,
@@ -21,7 +22,7 @@ Deno.test('app writer context selector chooses browser autograder references for
   );
 });
 
-Deno.test('app writer context selector keeps generic activities on the simple starter', () => {
+test('app writer context selector keeps generic activities on the simple starter', () => {
   const selection = selectAppWriterContext({
     promptText: 'Create a phonics matching game for 100 words.',
     requestedAppId: 'phonics-match',
@@ -34,7 +35,7 @@ Deno.test('app writer context selector keeps generic activities on the simple st
   ]);
 });
 
-Deno.test('app writer context selector includes prompt-safe state and reporting guidance', () => {
+test('app writer context selector includes prompt-safe state and reporting guidance', () => {
   const selection = selectAppWriterContext({
     promptText:
       'Create phonics flashcards that track usage by each student and produce an instructor progress report.',
@@ -49,7 +50,7 @@ Deno.test('app writer context selector includes prompt-safe state and reporting 
   assert(excerpts.some((excerpt) => excerpt.content.includes('complete events use only type')));
   assert(
     excerpts.some((excerpt) =>
-      excerpt.content.includes('without exposing SCORM, xAPI, cmi5, LRS credentials')
+      excerpt.content.includes('without exposing SCORM, xAPI, cmi5, LRS credentials'),
     ),
   );
   assert(
@@ -59,7 +60,7 @@ Deno.test('app writer context selector includes prompt-safe state and reporting 
   );
 });
 
-Deno.test('app writer context selector records TypeScript authoring mode', () => {
+test('app writer context selector records TypeScript authoring mode', () => {
   const selection = selectAppWriterContext({
     promptText: 'Create a phonics matching game for 100 words.',
     requestedAppId: 'phonics-match',
@@ -73,7 +74,7 @@ Deno.test('app writer context selector records TypeScript authoring mode', () =>
   assertEquals(selection.selectedContext.recipe.maxRepairAttempts, 4);
   assert(
     selection.selectedContext.promptContextExcerpts.some((excerpt) =>
-      excerpt.content.includes('source/app.ts')
+      excerpt.content.includes('source/app.ts'),
     ),
   );
   assert(
@@ -92,7 +93,7 @@ Deno.test('app writer context selector records TypeScript authoring mode', () =>
   );
 });
 
-Deno.test('app writer context selector records the versioned app writer recipe', () => {
+test('app writer context selector records the versioned app writer recipe', () => {
   const selection = selectAppWriterContext({
     promptText: 'Create a short matching practice app.',
     requestedAppId: 'matching-practice',

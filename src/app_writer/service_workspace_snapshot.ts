@@ -27,10 +27,13 @@ export async function saveGenerationWorkspaceSnapshot(input: {
   return await input.repository.saveAppGenerationWorkspace({
     generationId: input.run.generationId,
     selectedStarterId: input.generation.selectedStarterId,
-    files: existing === null ? input.generation.files : mergeWorkspaceFiles(
-      input.generation.files,
-      selectProtectedWorkspaceContextFiles(existing.files),
-    ),
+    files:
+      existing === null
+        ? input.generation.files
+        : mergeWorkspaceFiles(
+            input.generation.files,
+            selectProtectedWorkspaceContextFiles(existing.files),
+          ),
     generationPlan: input.generationPlan ?? existing?.generationPlan ?? [],
     validationFindings: input.validationFindings,
     repairAttemptCount: input.run.repairAttemptCount,

@@ -1,3 +1,8 @@
+import { expectRecord } from '../app_writer/binding_result.ts';
+import { copyFile, mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assertEquals, assertMatch, assertStringIncludes } from '@std/assert';
 import {
   createLocalDevRequestHandler,
@@ -7,7 +12,7 @@ import {
 
 const TEMPLATE_APP_ROOT = 'examples/apps/template';
 
-Deno.test('loadLocalDevState returns a valid preview state for the template app', async () => {
+test('loadLocalDevState returns a valid preview state for the template app', async () => {
   const state = await loadLocalDevState(TEMPLATE_APP_ROOT);
 
   assertEquals(state.kind, 'valid');
@@ -20,11 +25,11 @@ Deno.test('loadLocalDevState returns a valid preview state for the template app'
   assertEquals(state.previewCheck.kind, 'passed');
 });
 
-Deno.test('renderLocalDevStateSummary reports preview check failures without blocking preview', async () => {
+test('renderLocalDevStateSummary reports preview check failures without blocking preview', async () => {
   const tempRoot = await cloneTemplateApp();
 
   try {
-    await Deno.writeTextFile(
+    await writeFile(
       `${tempRoot}/preview/tests.json`,
       JSON.stringify(
         [
@@ -52,15 +57,15 @@ Deno.test('renderLocalDevStateSummary reports preview check failures without blo
     assertStringIncludes(summary, '- Preview checks: failing');
     assertStringIncludes(summary, '- missing title');
   } finally {
-    await Deno.remove(tempRoot, { recursive: true });
+    await rm(tempRoot, { recursive: true });
   }
 });
 
-Deno.test('createLocalDevRequestHandler serves a validation page while package is invalid', async () => {
+test('createLocalDevRequestHandler serves a validation page while package is invalid', async () => {
   const tempRoot = await cloneTemplateApp();
 
   try {
-    await Deno.remove(`${tempRoot}/preview/tests.json`);
+    await rm(`${tempRoot}/preview/tests.json`);
     const state = await loadLocalDevState(tempRoot);
 
     assertEquals(state.kind, 'invalid');
@@ -79,11 +84,11 @@ Deno.test('createLocalDevRequestHandler serves a validation page while package i
     assertStringIncludes(body, '/__lantern/dev/status');
     assertStringIncludes(body, '/preview/tests.json');
   } finally {
-    await Deno.remove(tempRoot, { recursive: true });
+    await rm(tempRoot, { recursive: true });
   }
 });
 
-Deno.test('createLocalDevRequestHandler delegates to the current preview harness when valid', async () => {
+test('createLocalDevRequestHandler delegates to the current preview harness when valid', async () => {
   const state = await loadLocalDevState(TEMPLATE_APP_ROOT);
 
   assertEquals(state.kind, 'valid');
@@ -99,11 +104,11 @@ Deno.test('createLocalDevRequestHandler delegates to the current preview harness
   assertMatch(response.headers.get('location') ?? '', /\/dist\/index\.html$/);
 });
 
-Deno.test('createLocalDevRequestHandler reports invalid status as JSON', async () => {
+test('createLocalDevRequestHandler reports invalid status as JSON', async () => {
   const tempRoot = await cloneTemplateApp();
 
   try {
-    await Deno.remove(`${tempRoot}/preview/tests.json`);
+    await rm(`${tempRoot}/preview/tests.json`);
     const state = await loadLocalDevState(tempRoot);
 
     assertEquals(state.kind, 'invalid');
@@ -120,22 +125,24 @@ Deno.test('createLocalDevRequestHandler reports invalid status as JSON', async (
       },
     });
     const response = await handler(new Request('http://localhost/__lantern/dev/status'));
-    const status = await response.json();
+    const status = expectRecord(await response.json(), 'preview status');
 
     assertEquals(response.status, 200);
     assertEquals(status.ok, false);
     assertEquals(status.kind, 'invalid');
-    assertEquals(status.previewCheck.kind, 'not_available');
+    assertEquals(expectRecord(status.previewCheck, 'preview check').kind, 'not_available');
     assertEquals(
-      status.diagnostics.some((item: { file?: string }) => item.file === '/preview/tests.json'),
+      (Array.isArray(status.diagnostics) ? status.diagnostics : []).some(
+        (item: { file?: string }) => item.file === '/preview/tests.json',
+      ),
       true,
     );
   } finally {
-    await Deno.remove(tempRoot, { recursive: true });
+    await rm(tempRoot, { recursive: true });
   }
 });
 
-Deno.test('createLocalDevRequestHandler reports valid preview status as JSON', async () => {
+test('createLocalDevRequestHandler reports valid preview status as JSON', async () => {
   const state = await loadLocalDevState(TEMPLATE_APP_ROOT);
 
   assertEquals(state.kind, 'valid');
@@ -152,21 +159,19 @@ Deno.test('createLocalDevRequestHandler reports valid preview status as JSON', a
     },
   });
   const response = await handler(new Request('http://localhost/__lantern/dev/status'));
-  const status = await response.json();
+  const status = expectRecord(await response.json(), 'preview status');
 
   assertEquals(response.status, 200);
   assertEquals(status.ok, true);
   assertEquals(status.kind, 'valid');
   assertEquals(status.previewUrl, 'http://127.0.0.1:8420/');
-  assertEquals(status.app.appId, 'template-app');
-  assertEquals(status.previewCheck.kind, 'passed');
-  assertEquals(status.previewCheck.assertionCount, 4);
+  assertEquals(expectRecord(status.app, 'preview app').appId, 'template-app');
+  assertEquals(expectRecord(status.previewCheck, 'preview check').kind, 'passed');
+  assertEquals(expectRecord(status.previewCheck, 'preview check').assertionCount, 4);
 });
 
 async function cloneTemplateApp(): Promise<string> {
-  const tempRoot = await Deno.makeTempDir({
-    prefix: 'lantern-local-dev-',
-  });
+  const tempRoot = await mkdtemp(join(tmpdir(), 'lantern-local-dev-'));
   const outputRoot = `${tempRoot}/template-app`;
 
   await copyDirectory(TEMPLATE_APP_ROOT, outputRoot);
@@ -175,19 +180,19 @@ async function cloneTemplateApp(): Promise<string> {
 }
 
 async function copyDirectory(sourceRoot: string, destinationRoot: string): Promise<void> {
-  await Deno.mkdir(destinationRoot, { recursive: true });
+  await mkdir(destinationRoot, { recursive: true });
 
-  for await (const entry of Deno.readDir(sourceRoot)) {
+  for (const entry of await readdir(sourceRoot, { withFileTypes: true })) {
     const sourcePath = `${sourceRoot}/${entry.name}`;
     const destinationPath = `${destinationRoot}/${entry.name}`;
 
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       await copyDirectory(sourcePath, destinationPath);
       continue;
     }
 
-    if (entry.isFile) {
-      await Deno.copyFile(sourcePath, destinationPath);
+    if (entry.isFile()) {
+      await copyFile(sourcePath, destinationPath);
     }
   }
 }

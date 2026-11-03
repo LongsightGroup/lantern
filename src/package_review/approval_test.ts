@@ -1,10 +1,13 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPackageDetailPage } from '../admin/package_detail.ts';
 import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 
-Deno.test('renderPackageDetailPage includes approve, reject, and structured accessibility controls for pending versions', () => {
+test('renderPackageDetailPage includes approve, reject, and structured accessibility controls for pending versions', () => {
   const pendingVersion = buildPackageVersionRecord();
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: pendingVersion,
     history: [pendingVersion],
   });
@@ -29,13 +32,14 @@ Deno.test('renderPackageDetailPage includes approve, reject, and structured acce
   assertStringIncludes(body, 'name="accessibilityEquivalentAlternatives"');
 });
 
-Deno.test('renderPackageDetailPage shows immutable decision history after review', () => {
+test('renderPackageDetailPage shows immutable decision history after review', () => {
   const rejectedVersion = buildPackageVersionRecord({
     approvalStatus: 'rejected',
     reviewNotes: 'Needs a corrected scoring contract.',
     reviewedAt: '2026-03-23T18:05:00Z',
   });
   const body = renderPackageDetailPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion: rejectedVersion,
     history: [rejectedVersion],
   });

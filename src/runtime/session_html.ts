@@ -15,15 +15,18 @@ export function buildRuntimeBootstrapScript(input: {
   );
   const scoreProposalUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/score-proposal`);
   const finalizeUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/finalize`);
+  const codeRunsUrl = serializeForInlineScript(`${input.runtimeBaseUrl}/code-runs`);
   const browserGraderUrls = buildBrowserGraderAssetUrls({
     runtimeBaseUrl: input.runtimeBaseUrl,
   });
   const browserGraderJasmineUrl = serializeForInlineScript(browserGraderUrls.jasmineUrl);
   const browserGraderRunnerUrl = serializeForInlineScript(browserGraderUrls.runnerUrl);
   const previewJson = serializeForInlineScript(
-    input.previewSessionId === null ? null : {
-      previewSessionId: input.previewSessionId,
-    },
+    input.previewSessionId === null
+      ? null
+      : {
+          previewSessionId: input.previewSessionId,
+        },
   );
 
   return `window.GatewayBootstrap = ${bootstrapJson};
@@ -183,6 +186,18 @@ window.GatewayApp = {
   async runBrowserGrader() {
     const runner = await ensureBrowserGraderLoaded();
     return await runner.run();
+  },
+  async runCodeSubmission(input) {
+    const response = await fetch(${codeRunsUrl}, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + window.GatewayBootstrap.session.token,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(input ?? {}),
+    });
+
+    return await readGatewayMutationResponse(response, 'Python code submission');
   },
   async finalizeAttempt(input) {
     const response = await fetch(${finalizeUrl}, {

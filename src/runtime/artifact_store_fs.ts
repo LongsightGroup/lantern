@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { assertPathInsideSnapshot, joinSnapshotPath } from '../package_review/snapshot_path.ts';
 import type { RuntimeArtifactStore } from './artifact_store.ts';
 
@@ -13,7 +14,7 @@ const FILE_SYSTEM_RUNTIME_ARTIFACT_STORE: RuntimeArtifactStore = {
 
     assertPathInsideSnapshot(snapshotRoot, absolutePath, RUNTIME_SNAPSHOT_OUTSIDE_MESSAGE);
 
-    return await Deno.readFile(absolutePath);
+    return await readFile(absolutePath);
   },
 };
 

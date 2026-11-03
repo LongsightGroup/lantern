@@ -1,3 +1,4 @@
+import { readFile, readdir, stat as fileStat } from 'node:fs/promises';
 import type { PackageSource } from './package_source.ts';
 import { trimLeadingSlash } from './snapshot_path.ts';
 
@@ -5,9 +6,9 @@ export function createFileSystemPackageSource(rootPath: string): PackageSource {
   return {
     async readBytes(relativePath) {
       try {
-        return await Deno.readFile(joinSourcePath(rootPath, relativePath));
+        return await readFile(joinSourcePath(rootPath, relativePath));
       } catch (error) {
-        if (error instanceof Deno.errors.NotFound) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
           return null;
         }
 
@@ -21,11 +22,11 @@ export function createFileSystemPackageSource(rootPath: string): PackageSource {
     },
     async fileExists(relativePath) {
       try {
-        const stat = await Deno.stat(joinSourcePath(rootPath, relativePath));
+        const stat = await fileStat(joinSourcePath(rootPath, relativePath));
 
-        return stat.isFile;
+        return stat.isFile();
       } catch (error) {
-        if (error instanceof Deno.errors.NotFound) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
           return false;
         }
 
@@ -50,15 +51,15 @@ function joinSourcePath(rootPath: string, relativePath: string): string {
 async function walkFiles(rootPath: string, relativeRoot: string, files: string[]): Promise<void> {
   const absoluteRoot = relativeRoot === '' ? rootPath : joinSourcePath(rootPath, relativeRoot);
 
-  for await (const entry of Deno.readDir(absoluteRoot)) {
+  for (const entry of await readdir(absoluteRoot, { withFileTypes: true })) {
     const relativePath = relativeRoot === '' ? entry.name : `${relativeRoot}/${entry.name}`;
 
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       await walkFiles(rootPath, relativePath, files);
       continue;
     }
 
-    if (entry.isFile) {
+    if (entry.isFile()) {
       files.push(relativePath);
     }
   }

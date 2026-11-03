@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { mapRuntimeSessionRow } from './repository_mappers_sessions.ts';
 import type { RuntimeSessionRow } from './repository_row_types.ts';
 
-Deno.test('runtime session mapper preserves preview session markers for review launches', () => {
+test('runtime session mapper preserves preview session markers for review launches', () => {
   const session = mapRuntimeSessionRow(
     buildRuntimeSessionRow({
       previewSessionId: 'preview-session-123',
@@ -16,9 +17,8 @@ function buildRuntimeSessionRow(overrides: Partial<RuntimeSessionRow> = {}): Run
   return {
     sessionId: 'runtime-session-123',
     sessionToken: 'runtime-token-123',
+    ltiToolSessionId: null,
     attemptId: 'attempt-123',
-    deploymentRecordId: 1,
-    deploymentSlug: 'flashcard-practice-preview',
     appId: 'flashcard-practice',
     packageVersionId: 2,
     packageVersion: '0.2.0',
@@ -35,7 +35,7 @@ function buildRuntimeSessionRow(overrides: Partial<RuntimeSessionRow> = {}): Run
     launchCourseId: 'course_demo',
     launchAssignmentId: 'assignment_demo',
     launchActivityId: 'flashcard-practice',
-    previewSessionId: null,
+    previewSessionId: 'preview-session-123',
     createdAt: '2026-05-16T14:00:00.000Z',
     expiresAt: '2026-05-16T14:10:00.000Z',
     ...overrides,

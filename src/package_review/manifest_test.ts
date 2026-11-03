@@ -1,3 +1,7 @@
+import { join } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import {
   assert,
   assertEquals,
@@ -24,7 +28,10 @@ type ManifestFixture = {
     type: 'user';
     id: string;
   };
-  entrypoint: string;
+  runtime: {
+    kind: 'browser' | 'worker';
+    entrypoint: string;
+  };
   roles: string[];
   install_scope?: string;
   capabilities: string[];
@@ -59,7 +66,7 @@ const TEST_RUNTIME_CONTRACT_ENV = {
 };
 
 async function writeJson(path: string, value: unknown): Promise<void> {
-  await Deno.writeTextFile(path, JSON.stringify(value, null, 2));
+  await writeFile(path, JSON.stringify(value, null, 2));
 }
 
 async function createPackageFixture(
@@ -74,7 +81,7 @@ async function createPackageFixture(
     includeAuthoringEvidence?: boolean;
   } = {},
 ): Promise<string> {
-  const root = await Deno.makeTempDir({ prefix: 'lantern-manifest-' });
+  const root = await mkdtemp(join(tmpdir(), 'lantern-manifest-'));
   const includeEntrypoint = options.includeEntrypoint ?? true;
   const entrypointHtml = options.entrypointHtml ?? '<!doctype html>';
   const includeRubric = options.includeRubric ?? true;
@@ -83,33 +90,33 @@ async function createPackageFixture(
   const includeAuthoringGraderSpecs = options.includeAuthoringGraderSpecs ?? true;
   const includeAuthoringEvidence = options.includeAuthoringEvidence ?? true;
 
-  await Deno.mkdir(`${root}/dist`, { recursive: true });
+  await mkdir(`${root}/dist`, { recursive: true });
 
   if (includeEntrypoint) {
-    await Deno.writeTextFile(`${root}/dist/index.html`, entrypointHtml);
+    await writeFile(`${root}/dist/index.html`, entrypointHtml);
   }
 
   if (includeRubric) {
-    await Deno.mkdir(`${root}/scoring`, { recursive: true });
+    await mkdir(`${root}/scoring`, { recursive: true });
     await writeJson(`${root}/scoring/rubric.json`, { max_score: 100 });
   }
 
   if (includeContent) {
-    await Deno.mkdir(`${root}/content`, { recursive: true });
+    await mkdir(`${root}/content`, { recursive: true });
     await writeJson(`${root}/content/activity.json`, { lesson: 4 });
   }
 
   if (includePreview) {
-    await Deno.mkdir(`${root}/preview`, { recursive: true });
+    await mkdir(`${root}/preview`, { recursive: true });
     await writeJson(`${root}/preview/fixtures.json`, { fixture: true });
     await writeJson(`${root}/preview/tests.json`, { test: true });
   }
 
   if (manifest.authoring && includeAuthoringGraderSpecs) {
-    await Deno.mkdir(`${root}/grading/specs`, { recursive: true });
+    await mkdir(`${root}/grading/specs`, { recursive: true });
 
     for (const graderSpecPath of manifest.authoring.grader_spec_files) {
-      await Deno.writeTextFile(
+      await writeFile(
         `${root}/${graderSpecPath.replace(/^\/+/, '')}`,
         'describe("checks", () => {});\n',
       );
@@ -117,7 +124,7 @@ async function createPackageFixture(
   }
 
   if (manifest.authoring && includeAuthoringEvidence) {
-    await Deno.mkdir(`${root}/evidence`, { recursive: true });
+    await mkdir(`${root}/evidence`, { recursive: true });
     await writeJson(`${root}/${manifest.authoring.evidence_example_file.replace(/^\/+/, '')}`, {
       screenshot: 'example.png',
       checks: [],
@@ -131,7 +138,7 @@ async function createPackageFixture(
 
 function buildValidManifest(): ManifestFixture {
   return {
-    schema_version: '1',
+    schema_version: '2',
     app_id: 'chapter-4-asteroids',
     version: '0.1.0',
     title: 'Chapter 4 Asteroids',
@@ -140,7 +147,7 @@ function buildValidManifest(): ManifestFixture {
       type: 'user',
       id: 'instructor_123',
     },
-    entrypoint: '/dist/index.html',
+    runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
     roles: ['learner', 'instructor'],
     install_scope: 'course',
     capabilities: [
@@ -180,7 +187,7 @@ function buildBrowserAutograderManifest(): ManifestFixture {
   };
 }
 
-Deno.test('validateManifest accepts the demo manifest and returns typed review data', async () => {
+test('validateManifest accepts the demo manifest and returns typed review data', async () => {
   const result = await validateManifest(createFileSystemPackageSource(DEMO_SOURCE_ROOT));
 
   assertEquals(result.ok, true);
@@ -194,13 +201,36 @@ Deno.test('validateManifest accepts the demo manifest and returns typed review d
   assertEquals(result.reviewData.version, '0.1.0');
   assertEquals(result.reviewData.title, 'Chapter 4 Asteroids');
   assertEquals(result.reviewData.owner.id, 'instructor_123');
-  assertEquals(result.reviewData.entrypoint, '/dist/index.html');
+  assertEquals(result.reviewData.runtime.entrypoint, '/dist/index.html');
   assertEquals(result.reviewData.grading.mode, 'declarative');
   assertEquals(result.reviewData.grading.rubricFile, '/scoring/rubric.json');
   assertEquals(result.reviewData.validationIssues, []);
 });
 
-Deno.test('reviewed runtime contracts fail closed when the approved artifact, capability manifest, or signature drifts', async () => {
+test('validateManifest rejects manifest v1 instead of using a compatibility parser', async () => {
+  const root = await createPackageFixture({
+    ...buildValidManifest(),
+    schema_version: '1',
+  });
+  try {
+    const result = await validateManifest(createFileSystemPackageSource(root));
+    assertEquals(result.ok, false);
+    if (result.ok) {
+      throw new Error('Expected manifest v1 to be rejected.');
+    }
+    assertEquals(
+      result.issues.some(
+        (issue) =>
+          issue.field === '/schema_version' && issue.message === 'Schema version must be "2".',
+      ),
+      true,
+    );
+  } finally {
+    await rm(root, { recursive: true });
+  }
+});
+
+test('reviewed runtime contracts fail closed when the approved artifact, capability manifest, or signature drifts', async () => {
   const result = await validateManifest(createFileSystemPackageSource(DEMO_SOURCE_ROOT));
 
   assertEquals(result.ok, true);
@@ -257,7 +287,7 @@ Deno.test('reviewed runtime contracts fail closed when the approved artifact, ca
   );
 });
 
-Deno.test('validateManifest accepts each curated reference app manifest and keeps the governed contract narrow', async () => {
+test('validateManifest accepts each curated reference app manifest and keeps the governed contract narrow', async () => {
   for (const appId of listReferencePackageIds()) {
     const result = await validateManifest(
       createFileSystemPackageSource(getReferencePackageSourceRoot(appId)),
@@ -272,15 +302,19 @@ Deno.test('validateManifest accepts each curated reference app manifest and keep
     }
 
     assertEquals(result.reviewData.appId, appId);
-    assertEquals(result.reviewData.capabilities.includes('finalize_attempt'), true);
-    assertEquals(result.reviewData.capabilities.includes('read_activity_content'), true);
+    if (result.reviewData.runtime.kind === 'browser') {
+      assertEquals(result.reviewData.capabilities.includes('finalize_attempt'), true);
+      assertEquals(result.reviewData.capabilities.includes('read_activity_content'), true);
+    } else {
+      assertEquals(result.reviewData.capabilities.includes('lms.roster.members.read'), true);
+    }
   }
 });
 
-Deno.test('validateManifest maps schema failures into a plain-language fix list', async () => {
+test('validateManifest maps schema failures into a plain-language fix list', async () => {
   const root = await createPackageFixture({
     ...buildValidManifest(),
-    entrypoint: '/index.html',
+    runtime: { kind: 'browser', entrypoint: '/index.html' },
     grading: {
       mode: 'declarative',
     },
@@ -297,21 +331,27 @@ Deno.test('validateManifest maps schema failures into a plain-language fix list'
 
     assertEquals(
       result.issues.map((issue: { field: string }) => issue.field),
-      ['/entrypoint', '/grading/rubric_file', '/grading/max_score'],
+      [
+        '/runtime/entrypoint',
+        '/runtime/kind',
+        '/runtime',
+        '/grading/rubric_file',
+        '/grading/max_score',
+      ],
     );
-    assertStringIncludes(result.issues[0]?.message ?? '', 'Entrypoint');
-    assertStringIncludes(result.issues[1]?.message ?? '', 'rubric file');
-    assertStringIncludes(result.issues[2]?.message ?? '', 'max score');
+    assertStringIncludes(result.issues[0]?.message ?? '', 'entrypoint');
+    assertStringIncludes(result.issues[3]?.message ?? '', 'rubric file');
+    assertStringIncludes(result.issues[4]?.message ?? '', 'max score');
     for (const issue of result.issues) {
       assert(!issue.message.includes('must match pattern'));
       assert(!issue.message.includes('must have required property'));
     }
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest reports missing referenced files as field-oriented fixes', async () => {
+test('validateManifest reports missing referenced files as field-oriented fixes', async () => {
   const root = await createPackageFixture(buildValidManifest(), {
     includeRubric: false,
     includePreview: false,
@@ -334,11 +374,11 @@ Deno.test('validateManifest reports missing referenced files as field-oriented f
     assertStringIncludes(result.issues[1]?.message ?? '', '/preview/fixtures.json');
     assertStringIncludes(result.issues[2]?.message ?? '', '/preview/tests.json');
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest rejects root-relative reviewed asset URLs in the entrypoint HTML', async () => {
+test('validateManifest rejects root-relative reviewed asset URLs in the entrypoint HTML', async () => {
   const root = await createPackageFixture(buildValidManifest(), {
     entrypointHtml: '<!doctype html><html><body><script src="/dist/app.js"></script></body></html>',
   });
@@ -355,18 +395,18 @@ Deno.test('validateManifest rejects root-relative reviewed asset URLs in the ent
     assertEquals(
       result.issues.some(
         (issue: { field: string; keyword: string }) =>
-          issue.field === '/entrypoint' && issue.keyword === 'invalid_asset_path',
+          issue.field === '/runtime/entrypoint' && issue.keyword === 'invalid_asset_path',
       ),
       true,
     );
     assertStringIncludes(result.issues[0]?.message ?? '', '/dist/app.js');
     assertStringIncludes(result.issues[0]?.message ?? '', 'relative asset');
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest accepts browser autograder authoring artifact references', async () => {
+test('validateManifest accepts browser autograder authoring artifact references', async () => {
   const root = await createPackageFixture(buildBrowserAutograderManifest());
 
   try {
@@ -384,11 +424,11 @@ Deno.test('validateManifest accepts browser autograder authoring artifact refere
     assertEquals(result.reviewData.grading.maxScore, 100);
     assertEquals(result.reviewData.capabilities.includes('submit_evidence_artifact'), true);
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest requires finalize_attempt when anonymous evidence submission is enabled', async () => {
+test('validateManifest requires finalize_attempt when anonymous evidence submission is enabled', async () => {
   const manifest = buildBrowserAutograderManifest();
   manifest.capabilities = manifest.capabilities.filter(
     (capability) => capability !== 'finalize_attempt',
@@ -413,11 +453,11 @@ Deno.test('validateManifest requires finalize_attempt when anonymous evidence su
       'Capability "submit_evidence_artifact" requires "finalize_attempt".',
     );
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest rejects browser grading when max score is missing', async () => {
+test('validateManifest rejects browser grading when max score is missing', async () => {
   const manifest = buildBrowserAutograderManifest();
   delete manifest.grading.max_score;
   const root = await createPackageFixture(manifest);
@@ -436,11 +476,11 @@ Deno.test('validateManifest rejects browser grading when max score is missing', 
       true,
     );
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest rejects browser grading when authoring kind is absent', async () => {
+test('validateManifest rejects browser grading when authoring kind is absent', async () => {
   const manifest = buildBrowserAutograderManifest();
 
   if (!manifest.authoring) {
@@ -470,11 +510,11 @@ Deno.test('validateManifest rejects browser grading when authoring kind is absen
       true,
     );
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest reports missing browser autograder authoring files as field-oriented fixes', async () => {
+test('validateManifest reports missing browser autograder authoring files as field-oriented fixes', async () => {
   const root = await createPackageFixture(buildBrowserAutograderManifest(), {
     includeAuthoringGraderSpecs: false,
     includeAuthoringEvidence: false,
@@ -496,11 +536,11 @@ Deno.test('validateManifest reports missing browser autograder authoring files a
     assertStringIncludes(result.issues[0]?.message ?? '', '/grading/specs/checks.spec.js');
     assertStringIncludes(result.issues[1]?.message ?? '', '/evidence/example-output.json');
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });
 
-Deno.test('validateManifest rejects unsupported browser autograder authoring fields', async () => {
+test('validateManifest rejects unsupported browser autograder authoring fields', async () => {
   const root = await createPackageFixture({
     ...buildBrowserAutograderManifest(),
     authoring: {
@@ -524,6 +564,6 @@ Deno.test('validateManifest rejects unsupported browser autograder authoring fie
     );
     assertStringIncludes(result.issues[0]?.message ?? '', 'unsupported_field');
   } finally {
-    await Deno.remove(root, { recursive: true });
+    await rm(root, { recursive: true });
   }
 });

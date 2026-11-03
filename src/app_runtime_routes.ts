@@ -1,33 +1,38 @@
-import type { Context, Hono } from '@hono/hono';
+/**
+ * Preview/legacy runtime delivery plane.
+ *
+ * These routes serve preview and authoring runtime sessions (the
+ * `runtime_sessions` table via PackageReviewRepository). They are separate from
+ * the governed LMS launch plane in `src/app_governed_runtime_routes.ts`, which
+ * serves `governed_runtime_sessions` minted by `lms_kernel`. Keep LMS launches
+ * off this plane.
+ */
+import type { Context, Hono } from 'hono';
 import type { RuntimeSessionRecord } from './lti/types.ts';
 import {
   readBearerToken,
   readRuntimeFileRequest,
   requireTrimmedString,
 } from './app_request_support.ts';
-import {
-  errorMessage,
-  statusForFinalizePublishError,
-  statusForRuntimeError,
-} from './app_status_support.ts';
+import { errorMessage, statusForRuntimeError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
 import {
   recordRuntimeCapabilityAllowed,
   recordRuntimeRouteFailure,
-  recordRuntimeScoreProposalAccepted,
-  recordRuntimeSessionExited,
   recordRuntimeSessionStarted,
   requireRuntimeSession,
   resolveRuntimeSessionForAudit,
 } from './app_runtime_support.ts';
 import {
-  acceptAttemptEvent,
-  finalizeRuntimeAttempt,
   readAttemptLocalState,
   submitEvidenceArtifact,
-  submitScoreProposal,
   writeAttemptLocalState,
 } from './runtime/gateway.ts';
+import {
+  acceptRuntimeAttemptEvent,
+  acceptRuntimeScoreProposal,
+  finalizeRuntimeSession,
+} from './runtime/route_commands.ts';
 import { failRuntimeOutcome, toRuntimeBrokerResult } from './runtime/gateway_errors.ts';
 import type { RuntimeDeliveryDescriptor } from './runtime/delivery.ts';
 import {
@@ -39,6 +44,7 @@ import type { PackageVersionRecord } from './package_review/types.ts';
 import { readEnv } from './platform/env.ts';
 import { buildRequestAuditEnvelope, type RequestAuditEnvelope } from './request_audit.ts';
 import { requireRuntimeRequestOrigin } from './runtime_origin.ts';
+import { runRuntimeCodeSubmission } from './python_lab/runtime_submission.ts';
 
 export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
   app.get('/runtime/sessions/:sessionId', async (context) => {
@@ -60,8 +66,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         failRuntimeOutcome({
           type: 'integrity_failure',
           code: 'package_version_missing',
-          message:
-            `Runtime session package version id ${runtime.session.packageVersionId} was not found.`,
+          message: `Runtime session package version id ${runtime.session.packageVersionId} was not found.`,
           status: 409,
           detail: {
             packageVersionId: runtime.session.packageVersionId,
@@ -70,7 +75,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       }
       runtime.setReviewedPackage(reviewedPackage);
 
-      requireRuntimePackageVersionCanRun(runtime.session, reviewedPackage);
+      requireRuntimePackageVersionCanRun(reviewedPackage);
       runtime.setDeliveryForReviewedPackage(reviewedPackage);
 
       const response = context.html(
@@ -103,19 +108,17 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         services.runtimeArtifactStore,
       );
 
-      if (runtime.session.preview !== undefined) {
-        await runtime.repository.appendPreviewEvidence({
-          previewSessionId: runtime.session.preview.previewSessionId,
-          eventType: 'preview.content_read',
-          capability: 'read_activity_content',
-          summary: 'Loaded the app content for this test launch.',
-          detail: {
-            attemptId: runtime.session.attemptId,
-            contentPath: runtime.session.contentPath,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-      }
+      await runtime.repository.appendPreviewEvidence({
+        previewSessionId: runtime.session.preview.previewSessionId,
+        eventType: 'preview.content_read',
+        capability: 'read_activity_content',
+        summary: 'Loaded the app content for this test launch.',
+        detail: {
+          attemptId: runtime.session.attemptId,
+          contentPath: runtime.session.contentPath,
+        },
+        occurredAt: new Date().toISOString(),
+      });
 
       return context.json(content);
     });
@@ -173,36 +176,10 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
         const payload = await context.req.json();
         runtime.setRequestBody(payload);
-        const attemptEvent = await acceptAttemptEvent({
+        await acceptRuntimeAttemptEvent({
           repository: runtime.repository,
           session: runtime.session,
           payload,
-        });
-        await runtime.repository.recordAuditEvent({
-          eventType: 'attempt.submitted',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: null,
-          status: 'accepted',
-          summary: 'Accepted attempt submission through the runtime gateway.',
-          detail: {
-            sequence: attemptEvent.sequence,
-            eventType: attemptEvent.eventType,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-        await recordRuntimeCapabilityAllowed({
-          repository: runtime.repository,
-          session: runtime.session,
-          capability: 'submit_attempt_event',
-          route: 'attempt-events',
-          detail: {
-            eventType: attemptEvent.eventType,
-            sequence: attemptEvent.sequence,
-          },
         });
 
         return context.json({ accepted: true }, 202);
@@ -254,7 +231,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
         const payload = await context.req.json();
         runtime.setRequestBody(payload);
-        const result = await submitScoreProposal({
+        const result = await acceptRuntimeScoreProposal({
           repository: runtime.repository,
           session: runtime.session,
           payload,
@@ -263,13 +240,6 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         if (!result.accepted) {
           return context.json(result, result.denial.category === 'policyDenied' ? 409 : 400);
         }
-
-        await recordRuntimeScoreProposalAccepted({
-          repository: runtime.repository,
-          session: runtime.session,
-          scoreProposal: result.scoreProposal,
-          route: 'score-proposal',
-        });
 
         return context.json(result, 202);
       },
@@ -289,90 +259,17 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
 
       const payload = await context.req.json();
       runtime.setRequestBody(payload);
-      const result = await finalizeRuntimeAttempt({
+      const result = await finalizeRuntimeSession({
+        env: services.env,
+        getLtiToolContext: services.getLtiToolContext,
+        artifactStore: services.runtimeArtifactStore,
         repository: runtime.repository,
         session: runtime.session,
         payload,
-        env: services.env,
-        artifactStore: services.runtimeArtifactStore,
+        reviewedPackage,
+        delivery: runtime.delivery,
+        request: runtime.request,
       });
-
-      if (result.finalizedNow) {
-        await runtime.repository.recordAuditEvent({
-          eventType: 'attempt.finalized',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: null,
-          status: 'accepted',
-          summary: 'Finalized the durable attempt inside the runtime gateway.',
-          detail: buildFinalizeAuditDetail(result),
-          occurredAt: new Date().toISOString(),
-        });
-        await recordRuntimeSessionExited({
-          repository: runtime.repository,
-          session: runtime.session,
-          reviewedPackage,
-          delivery: runtime.delivery,
-          completionState: result.attempt.completionState,
-          scoreGiven: result.score.scoreGiven,
-          scoreMaximum: result.score.scoreMaximum,
-          gradePublished: result.gradePublication?.status === 'published',
-          submissionMode: result.submissionMode,
-          evidenceArtifactCount: result.evidenceArtifacts.length,
-          evidenceArtifacts: result.evidenceArtifacts,
-          browserGraderResult: result.browserGraderResult,
-          route: 'finalize',
-        });
-      }
-
-      if (result.gradePublishedNow && result.gradePublication !== null) {
-        await runtime.repository.recordAuditEvent({
-          eventType: 'grade_publish.succeeded',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: result.lineItemBinding?.id ?? null,
-          status: 'succeeded',
-          summary: 'Published the final score to Canvas through AGS.',
-          detail: {
-            lineItemUrl: result.gradePublication.lineItemUrl,
-            scoreGiven: result.gradePublication.scoreGiven,
-            scoreMaximum: result.gradePublication.scoreMaximum,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-      }
-
-      if (result.publishError !== null) {
-        await runtime.repository.recordAuditEvent({
-          eventType: 'grade_publish.failed',
-          actorType: 'system',
-          actorId: null,
-          deploymentRecordId: runtime.session.deploymentRecordId,
-          packageVersionId: runtime.session.packageVersionId,
-          attemptId: runtime.session.attemptId,
-          lineItemBindingId: result.lineItemBinding?.id ?? null,
-          status: 'failed',
-          summary: 'Canvas AGS score publish failed.',
-          detail: {
-            code: result.publishError.code,
-            message: result.publishError.message,
-            request: runtime.request,
-            ...result.publishError.detail,
-          },
-          occurredAt: new Date().toISOString(),
-        });
-
-        return context.text(
-          result.publishError.message,
-          statusForFinalizePublishError(result.publishError.code),
-        );
-      }
 
       return context.json(
         {
@@ -382,7 +279,56 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
           completionState: result.attempt.completionState,
           scoreGiven: result.score.scoreGiven,
           scoreMaximum: result.score.scoreMaximum,
-          gradePublished: result.gradePublication?.status === 'published',
+          gradePublished: false,
+        },
+        202,
+      );
+    });
+  });
+
+  app.post('/runtime/sessions/:sessionId/code-runs', async (context) => {
+    return await withRuntimeRoute(context, services, 'code-runs', 'mutation', async (runtime) => {
+      authorizeRuntimeBearerToken(context, runtime.session);
+      const reviewedPackage = await runtime.repository.getPackageVersionById(
+        runtime.session.packageVersionId,
+      );
+      if (reviewedPackage === null) {
+        throw new Error(`Package version ${runtime.session.packageVersionId} was not found.`);
+      }
+      runtime.setReviewedPackage(reviewedPackage);
+      runtime.setDeliveryForReviewedPackage(reviewedPackage);
+
+      const payload = await context.req.json();
+      runtime.setRequestBody(payload);
+      const result = await runRuntimeCodeSubmission({
+        repository: runtime.repository,
+        pythonLabRepository: services.pythonLabRepository,
+        pythonLabArtifactStore: services.pythonLabArtifactStore,
+        sandboxFactory: services.pythonGraderSandboxFactory,
+        session: runtime.session,
+        payload,
+        getLtiToolContext: services.getLtiToolContext,
+        createId: () => crypto.randomUUID().replaceAll('-', ''),
+      });
+
+      await recordRuntimeCapabilityAllowed({
+        repository: runtime.repository,
+        session: runtime.session,
+        capability: 'run_code_submission',
+        route: 'code-runs',
+        detail: { phase: result.phase, alreadyFinalized: result.alreadyFinalized },
+      });
+
+      return context.json(
+        {
+          accepted: true,
+          phase: result.phase,
+          publicOutcomes: result.publicOutcomes,
+          hiddenSummary: result.hiddenSummary,
+          scoreGiven: result.scoreGiven,
+          scoreMaximum: result.scoreMaximum,
+          alreadyFinalized: result.alreadyFinalized,
+          gradePublished: result.gradePublished,
         },
         202,
       );
@@ -447,8 +393,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const url = new URL(context.req.url);
-      const token = readBearerToken(context.req.header('authorization')) ??
-        url.searchParams.get('token');
+      const token =
+        readBearerToken(context.req.header('authorization')) ?? url.searchParams.get('token');
 
       authorizeRuntimeSession({
         token: requireTrimmedString(token, 'Runtime session token is required.'),
@@ -577,22 +523,6 @@ function authorizeRuntimeBearerToken(context: Context, session: RuntimeSessionRe
   });
 }
 
-function buildFinalizeAuditDetail(
-  result: Awaited<ReturnType<typeof finalizeRuntimeAttempt>>,
-): Record<string, unknown> {
-  return {
-    completionState: result.attempt.completionState,
-    scoreGiven: result.score.scoreGiven,
-    scoreMaximum: result.score.scoreMaximum,
-    submissionMode: result.submissionMode,
-    evidenceArtifactCount: result.evidenceArtifacts.length,
-    evidenceArtifacts: result.evidenceArtifacts,
-    ...(result.browserGraderResult === null
-      ? {}
-      : { browserGraderResult: result.browserGraderResult }),
-  };
-}
-
 function requireRuntimeOriginBoundary(context: Context, services: AppServices): string {
   try {
     return requireRuntimeRequestOrigin({
@@ -693,28 +623,37 @@ async function requireRunnableRuntimePackageVersion(
     });
   }
 
-  requireRuntimePackageVersionCanRun(session, packageVersion);
+  requireRuntimePackageVersionCanRun(packageVersion);
 
   return packageVersion;
 }
 
-function requireRuntimePackageVersionCanRun(
-  session: RuntimeSessionRecord,
-  packageVersion: PackageVersionRecord,
-): void {
+function requireRuntimePackageVersionCanRun(packageVersion: PackageVersionRecord): void {
+  if (packageVersion.runtime.kind !== 'browser') {
+    failRuntimeOutcome({
+      type: 'integrity_failure',
+      code: 'runtime_kind_mismatch',
+      message: 'Browser preview sessions can run browser packages only.',
+      status: 409,
+      detail: {
+        packageVersionId: packageVersion.id,
+        runtimeKind: packageVersion.runtime.kind,
+      },
+    });
+  }
+
   if (packageVersion.approvalStatus === 'approved') {
     return;
   }
 
-  if (session.preview !== undefined && packageVersion.approvalStatus === 'pending') {
+  if (packageVersion.approvalStatus === 'pending') {
     return;
   }
 
   failRuntimeOutcome({
     type: 'integrity_failure',
     code: 'package_version_not_approved',
-    message:
-      `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+    message: `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
     status: 409,
     detail: {
       packageVersionId: packageVersion.id,

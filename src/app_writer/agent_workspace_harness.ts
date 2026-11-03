@@ -85,12 +85,13 @@ function parseWorkspaceHarnessError(input: {
     const parsed = JSON.parse(input.responseBody) as unknown;
     const record = expectRecord(parsed, `${input.responseName}.errorResponse`);
     const errorRecord = expectRecord(record.error, `${input.responseName}.errorResponse.error`);
-    const metadata = errorRecord.modelRequestMetadata === undefined
-      ? []
-      : parseModelRequestMetadata(
-        errorRecord.modelRequestMetadata,
-        `${input.responseName}.errorResponse.error.modelRequestMetadata`,
-      );
+    const metadata =
+      errorRecord.modelRequestMetadata === undefined
+        ? []
+        : parseModelRequestMetadata(
+            errorRecord.modelRequestMetadata,
+            `${input.responseName}.errorResponse.error.modelRequestMetadata`,
+          );
 
     return new WorkspaceHarnessError({
       code: expectString(errorRecord.code, `${input.responseName}.errorResponse.error.code`),
@@ -99,9 +100,10 @@ function parseWorkspaceHarnessError(input: {
         `${input.responseName}.errorResponse.error.message`,
       ),
       modelRequestMetadata: metadata,
-      notes: errorRecord.notes === undefined
-        ? []
-        : expectStringArray(errorRecord.notes, `${input.responseName}.errorResponse.error.notes`),
+      notes:
+        errorRecord.notes === undefined
+          ? []
+          : expectStringArray(errorRecord.notes, `${input.responseName}.errorResponse.error.notes`),
     });
   } catch {
     return new WorkspaceHarnessError({

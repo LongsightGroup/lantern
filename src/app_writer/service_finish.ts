@@ -29,7 +29,7 @@ import { targetVersionForContext, validateRevisionPackageIdentity } from './serv
 import type {
   RunAppPackageGenerationInput,
   RunAppPackageGenerationResult,
-} from './service_core.ts';
+} from './service_run_types.ts';
 
 interface FinishState {
   run: AppGenerationRunRecord;
@@ -137,9 +137,8 @@ async function checkStarterMismatch(input: {
     await recordGenerationProgressUpdates({
       repository: input.input.repository,
       run: input.state.run,
-      eventType: input.state.repairAttempt === 0
-        ? 'app_generation.generating'
-        : 'app_generation.repairing',
+      eventType:
+        input.state.repairAttempt === 0 ? 'app_generation.generating' : 'app_generation.repairing',
       updates: input.state.generation.progressUpdates,
     });
     return input.state;
@@ -155,17 +154,13 @@ async function checkStarterMismatch(input: {
       appPlan: input.state.generation.appPlan,
       selectedStarterId: input.state.generation.selectedStarterId,
       notes: [...input.state.generation.notes],
-      validationFindings: [
-        starterFinding,
-        ...input.state.generation.validationFindings,
-      ],
+      validationFindings: [starterFinding, ...input.state.generation.validationFindings],
     },
     generation: input.state.generation,
     repairAttemptCount: input.state.repairAttempt,
     now: input.now,
     activitySummary: 'Generated package selected the wrong Lantern starter.',
-    errorMessage:
-      `Generated package starter ${input.state.generation.selectedStarterId} did not match selected starter ${input.contextSelection.starterId}.`,
+    errorMessage: `Generated package starter ${input.state.generation.selectedStarterId} did not match selected starter ${input.contextSelection.starterId}.`,
   });
 }
 

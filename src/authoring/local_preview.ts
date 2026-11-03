@@ -1,4 +1,4 @@
-import {
+import type {
   BootstrapPayload,
   Capability,
   GatewayEvidenceArtifactAcceptedResult,
@@ -77,14 +77,14 @@ export function createLocalPreviewHarness(input: {
 
   return {
     bootstrap,
-    entrypointPath: input.appPackage.manifest.entrypoint,
+    entrypointPath: input.appPackage.manifest.runtime.entrypoint,
     previewSessionId,
     async handle(request) {
       const url = new URL(request.url);
 
       if (url.pathname === '/' || url.pathname === '') {
         return Response.redirect(
-          new URL(input.appPackage.manifest.entrypoint, url).toString(),
+          new URL(input.appPackage.manifest.runtime.entrypoint, url).toString(),
           302,
         );
       }
@@ -235,7 +235,8 @@ export function createLocalPreviewHarness(input: {
           authorizeRequest(request, sessionToken);
           requireCapability(input.appPackage, 'finalize_attempt');
           const finalizeInput = parseFinalizeAttemptInput(await request.json());
-          const scoreMaximum = latestScoreProposal?.scoreMaximum ??
+          const scoreMaximum =
+            latestScoreProposal?.scoreMaximum ??
             input.appPackage.reviewData.grading.maxScore ??
             100;
           const scoreGiven = latestScoreProposal?.scoreGiven ?? 0;
@@ -376,7 +377,7 @@ async function serveStaticFile(input: {
   );
 
   try {
-    if (url.pathname === input.appPackage.manifest.entrypoint) {
+    if (url.pathname === input.appPackage.manifest.runtime.entrypoint) {
       const runtimeBaseUrl = new URL(input.runtimeBasePath, url).toString();
       const injectedHtml = injectPreviewRuntimeBridge({
         html: input.appPackage.entrypointHtml,
@@ -399,9 +400,10 @@ async function serveStaticFile(input: {
       return new Response('Preview file not found.', { status: 404 });
     }
 
-    const body = bytes.buffer instanceof ArrayBuffer
-      ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
-      : new Uint8Array(bytes).buffer;
+    const body =
+      bytes.buffer instanceof ArrayBuffer
+        ? bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
+        : new Uint8Array(bytes).buffer;
 
     return new Response(body, {
       status: 200,

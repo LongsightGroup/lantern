@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects, assertStringIncludes } from '@std/assert';
 import { compactVerify, createLocalJWKSet } from 'jose';
 import type { BootstrapPayload } from '../../sdk/app-sdk.ts';
@@ -27,12 +28,12 @@ const TEST_SIGNING_ENV = {
     return name === 'LTI_TOOL_PRIVATE_JWK'
       ? getTestToolPrivateJwkEnvValue()
       : name === 'APP_RUNTIME_ORIGIN'
-      ? 'https://runtime.lantern.example'
-      : undefined;
+        ? 'https://runtime.lantern.example'
+        : undefined;
   },
 };
 
-Deno.test('runtime session route serves the pinned reviewed entrypoint with an injected signed bootstrap payload', async () => {
+test('runtime session route serves the pinned reviewed entrypoint with an injected signed bootstrap payload', async () => {
   const html = await renderRuntimeSessionPage(
     buildRuntimeSessionRecord({
       snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -109,7 +110,7 @@ Deno.test('runtime session route serves the pinned reviewed entrypoint with an i
   await assertBootstrapSignature(bootstrap);
 });
 
-Deno.test('runtime content route serves reviewed activity content through the Lantern bridge', async () => {
+test('runtime content route serves reviewed activity content through the Lantern bridge', async () => {
   const content = (await loadRuntimeActivityContent(
     buildRuntimeSessionRecord({
       snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -123,7 +124,7 @@ Deno.test('runtime content route serves reviewed activity content through the La
   assertEquals(content.questions[0]?.id, 'q1');
 });
 
-Deno.test('runtime session helpers can load reviewed artifacts from an R2-backed store', async () => {
+test('runtime session helpers can load reviewed artifacts from an R2-backed store', async () => {
   const artifactStore = createR2RuntimeArtifactStore(
     createTestRuntimeArtifactBucket({
       [`${WORKER_SNAPSHOT_ROOT}/dist/index.html`]:
@@ -157,7 +158,7 @@ Deno.test('runtime session helpers can load reviewed artifacts from an R2-backed
   assertEquals(content.questions[0]?.id, 'worker-q1');
 });
 
-Deno.test('missing or expired runtime session tokens are blocked before artifact bytes are served', async () => {
+test('missing or expired runtime session tokens are blocked before artifact bytes are served', async () => {
   await assertRejects(
     () =>
       Promise.resolve().then(() =>
@@ -167,7 +168,7 @@ Deno.test('missing or expired runtime session tokens are blocked before artifact
             expiresAt: '2026-03-23T22:40:00Z',
           }),
           now: () => new Date('2026-03-23T22:45:00Z'),
-        })
+        }),
       ),
     Error,
     'Runtime session token did not match the requested session.',
@@ -181,7 +182,7 @@ Deno.test('missing or expired runtime session tokens are blocked before artifact
             expiresAt: '2026-03-23T22:40:00Z',
           }),
           now: () => new Date('2026-03-23T22:45:00Z'),
-        })
+        }),
       ),
     Error,
     'Runtime session has expired.',

@@ -1,9 +1,10 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { renderHomePage } from './pages/home.ts';
 import { createInMemoryPackageReviewRepository } from './test_helpers/package_review.ts';
 
-Deno.test('GET / serves the operational entry page from renderHomePage', async () => {
+test('GET / serves the operational entry page from renderHomePage', async () => {
   const response = await createApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request('http://localhost/');
@@ -16,7 +17,7 @@ Deno.test('GET / serves the operational entry page from renderHomePage', async (
   assertStringIncludes(body, 'Lantern runtime');
 });
 
-Deno.test('GET /why-it-can-say-yes is not owned by the app Worker', async () => {
+test('GET /why-it-can-say-yes is not owned by the app Worker', async () => {
   const response = await createApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request('http://localhost/why-it-can-say-yes');
@@ -24,7 +25,7 @@ Deno.test('GET /why-it-can-say-yes is not owned by the app Worker', async () => 
   assertEquals(response.status, 404);
 });
 
-Deno.test('GET /health responds with ok', async () => {
+test('GET /health responds with ok', async () => {
   const response = await createApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request('http://localhost/health');

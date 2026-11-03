@@ -1,6 +1,4 @@
-import { createLocalJWKSet, jwtVerify } from 'jose';
-import { getPublicJwkSet } from './lti/tool_key.ts';
-import { buildDeploymentBinding, getTestToolPrivateJwkEnvValue } from './test_helpers/lti.ts';
+import { getTestToolPrivateJwkEnvValue, TEST_LTI_STATE_SECRET } from './test_helpers/lti.ts';
 
 export const REFERENCE_APP_SNAPSHOT_ROOTS = {
   'chapter-4-asteroids': 'examples/apps/chapter-4-asteroids',
@@ -18,25 +16,28 @@ export function getReferenceAppSnapshotRoot(appId: ReferenceAppId): string {
 
 export function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
-    Deno.env.delete(name);
+    delete process.env[name];
     return;
   }
 
-  Deno.env.set(name, value);
+  process.env[name] = value;
 }
 
 export async function withCanvasReturnEnv(run: () => Promise<void>): Promise<void> {
-  const previousAppOrigin = Deno.env.get('APP_ORIGIN');
-  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
+  const previousAppOrigin = process.env['APP_ORIGIN'];
+  const previousToolKey = process.env['LTI_TOOL_PRIVATE_JWK'];
+  const previousStateSecret = process.env['LTI_STATE_SECRET'];
 
-  Deno.env.set('APP_ORIGIN', 'https://lantern.example');
-  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  process.env['APP_ORIGIN'] = 'https://lantern.example';
+  process.env['LTI_TOOL_PRIVATE_JWK'] = getTestToolPrivateJwkEnvValue();
+  process.env['LTI_STATE_SECRET'] = TEST_LTI_STATE_SECRET;
 
   try {
     await run();
   } finally {
     restoreEnv('APP_ORIGIN', previousAppOrigin);
     restoreEnv('LTI_TOOL_PRIVATE_JWK', previousToolKey);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 }
 
@@ -47,17 +48,23 @@ export async function withRuntimeOriginEnv<T>(
     runtimeOrigin?: string;
   } = {},
 ): Promise<T> {
-  const previousAppOrigin = Deno.env.get('APP_ORIGIN');
-  const previousRuntimeOrigin = Deno.env.get('APP_RUNTIME_ORIGIN');
+  const previousAppOrigin = process.env['APP_ORIGIN'];
+  const previousRuntimeOrigin = process.env['APP_RUNTIME_ORIGIN'];
+  const previousToolKey = process.env['LTI_TOOL_PRIVATE_JWK'];
+  const previousStateSecret = process.env['LTI_STATE_SECRET'];
 
-  Deno.env.set('APP_ORIGIN', options.appOrigin ?? 'https://lantern.example');
-  Deno.env.set('APP_RUNTIME_ORIGIN', options.runtimeOrigin ?? 'https://runtime.lantern.example');
+  process.env['APP_ORIGIN'] = options.appOrigin ?? 'https://lantern.example';
+  process.env['APP_RUNTIME_ORIGIN'] = options.runtimeOrigin ?? 'https://runtime.lantern.example';
+  process.env['LTI_TOOL_PRIVATE_JWK'] = getTestToolPrivateJwkEnvValue();
+  process.env['LTI_STATE_SECRET'] = TEST_LTI_STATE_SECRET;
 
   try {
     return await run();
   } finally {
     restoreEnv('APP_ORIGIN', previousAppOrigin);
     restoreEnv('APP_RUNTIME_ORIGIN', previousRuntimeOrigin);
+    restoreEnv('LTI_TOOL_PRIVATE_JWK', previousToolKey);
+    restoreEnv('LTI_STATE_SECRET', previousStateSecret);
   }
 }
 
@@ -70,23 +77,6 @@ export function extractHiddenInputValue(html: string, name: string): string {
   }
 
   return match[1];
-}
-
-export async function verifyDeepLinkingResponseJwt(jwt: string) {
-  const keySet = createLocalJWKSet(
-    await getPublicJwkSet({
-      get(name: string) {
-        return name === 'LTI_TOOL_PRIVATE_JWK' ? getTestToolPrivateJwkEnvValue() : undefined;
-      },
-    }),
-  );
-  const binding = buildDeploymentBinding();
-
-  return await jwtVerify(jwt, keySet, {
-    issuer: binding.clientId,
-    audience: binding.issuer,
-    currentDate: new Date('2026-03-24T18:31:00Z'),
-  });
 }
 
 export async function withFetchStub<T>(

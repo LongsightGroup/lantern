@@ -99,8 +99,7 @@ export async function planInitialPackage(input: {
       },
       now: input.now,
       activitySummary: 'Generated package plan selected the wrong Lantern starter.',
-      errorMessage:
-        `Generated package starter ${planning.selectedStarterId} did not match selected starter ${input.contextSelection.starterId}.`,
+      errorMessage: `Generated package starter ${planning.selectedStarterId} did not match selected starter ${input.contextSelection.starterId}.`,
       planStep: {
         id: 'create_app_plan',
         result: {
@@ -175,8 +174,8 @@ export async function generateInitialPackageFiles(input: {
     existingWorkspace !== null &&
     existingAuthorStep?.status === 'succeeded'
   ) {
-    const existingRun = (await input.repository.getAppGenerationRunById(input.run.generationId)) ??
-      input.run;
+    const existingRun =
+      (await input.repository.getAppGenerationRunById(input.run.generationId)) ?? input.run;
 
     return {
       run: existingRun,
@@ -279,8 +278,8 @@ export function reconstructGeneration(input: {
   planning?: AppGenerationPlanningResult;
   baseGeneration?: AppPackageGenerationResult;
 }): AppPackageGenerationResult {
-  const normalizedRequest = input.run.normalizedRequest ?? input.planning?.normalizedRequest ??
-    null;
+  const normalizedRequest =
+    input.run.normalizedRequest ?? input.planning?.normalizedRequest ?? null;
   const appPlan = input.run.appPlan ?? input.planning?.appPlan ?? null;
   const selectedStarterId = input.run.selectedStarterId ?? input.workspace.selectedStarterId;
 
@@ -293,12 +292,14 @@ export function reconstructGeneration(input: {
   }
 
   const planningNotes = input.planning?.notes ?? [];
-  const noteSources = input.baseGeneration === undefined
-    ? [...planningNotes, ...input.run.generationNotes]
-    : [...input.run.generationNotes, ...input.baseGeneration.notes, ...planningNotes];
-  const validationFindings = input.workspace.validationFindings.length > 0
-    ? input.workspace.validationFindings
-    : input.run.validationFindings;
+  const noteSources =
+    input.baseGeneration === undefined
+      ? [...planningNotes, ...input.run.generationNotes]
+      : [...input.run.generationNotes, ...input.baseGeneration.notes, ...planningNotes];
+  const validationFindings =
+    input.workspace.validationFindings.length > 0
+      ? input.workspace.validationFindings
+      : input.run.validationFindings;
 
   return {
     normalizedRequest,

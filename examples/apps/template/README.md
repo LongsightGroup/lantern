@@ -2,7 +2,7 @@
 
 This is the reference package behind the `browser-autograder` starter.
 
-Use `deno task app:new ... --starter=browser-autograder` instead of copying this
+Use `npm run app:new ... --starter=browser-autograder` instead of copying this
 directory directly.
 
 It shows one blessed browser-autograder path:
@@ -33,10 +33,10 @@ Its reviewed browser grading contract is explicit:
 Scaffold a fresh package:
 
 ```sh
-deno task app:new /tmp/my-browser-autograder --starter=browser-autograder --app-id=my-autograder --title="My Autograder"
-deno task app:validate /tmp/my-browser-autograder
-deno task app:test-preview /tmp/my-browser-autograder
-deno task app:preview /tmp/my-browser-autograder
+npm run app:new -- /tmp/my-browser-autograder --starter=browser-autograder --app-id=my-autograder --title="My Autograder"
+npm run app:validate -- /tmp/my-browser-autograder
+npm run app:test-preview -- /tmp/my-browser-autograder
+npm run app:preview -- /tmp/my-browser-autograder
 ```
 
 Then use this directory as the reference for what to edit:

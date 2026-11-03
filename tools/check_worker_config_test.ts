@@ -1,155 +1,56 @@
-import { assertEquals } from '@std/assert';
+import { test } from 'vite-plus/test';
+import { assert, assertEquals } from '@std/assert';
+import { bindings } from 'cf/config';
+import config from '../cloudflare.config.ts';
+import { appWriterPlatform } from '../cloudflare.platform.ts';
 import {
-  validateAppWriterPlatformConfigBindings,
   validateWorkerConfigBindings,
+  validateAppWriterPlatformConfigBindings,
 } from './check_worker_config.ts';
 
-Deno.test('validateWorkerConfigBindings accepts wrangler config with DB, LOADER, PACKAGE_ARTIFACTS, APP_GENERATION_WORKFLOW, APP_WRITER_AGENT, and app-writer services', () => {
-  const config = `{
-    "routes": [
-      {
-        "pattern": "lantern.appboundary.com",
-        "custom_domain": true
-      }
-    ],
-    "workflows": [
-      {
-        "binding": "APP_GENERATION_WORKFLOW",
-        "class_name": "AppGenerationWorkflow"
-      }
-    ],
-    "durable_objects": {
-      "bindings": [
-        {
-          "name": "APP_WRITER_AGENT",
-          "class_name": "AppWriterAgent"
-        }
-      ]
-    },
-    "migrations": [
-      {
-        "new_sqlite_classes": ["AppWriterAgent"]
-      }
-    ],
-    "services": [
-      {
-        "binding": "APP_WRITER_SOURCE_COMPILER"
-      },
-      {
-        "binding": "APP_WRITER_PREVIEWER"
-      }
-    ],
-    "worker_loaders": [
-      {
-        "binding": "LOADER"
-      }
-    ],
-    "r2_buckets": [
-      {
-        "binding": "PACKAGE_ARTIFACTS"
-      }
-    ],
-    "d1_databases": [
-      {
-        "binding": "DB"
-      }
-    ]
-  }`;
-
-  assertEquals(validateWorkerConfigBindings(config), []);
+test('Cloudflare configuration preserves all required platform boundaries', () => {
+  assertEquals(validateWorkerConfigBindings(config.worker), []);
+  assertEquals(validateAppWriterPlatformConfigBindings(appWriterPlatform), []);
 });
 
-Deno.test('validateWorkerConfigBindings reports missing required Worker bindings', () => {
-  const config = `{
-    "worker_loaders": [],
-    "r2_buckets": []
-  }`;
-
-  assertEquals(validateWorkerConfigBindings(config), [
-    'custom domain route lantern.appboundary.com',
-    'worker_loaders binding LOADER',
-    'r2_buckets binding PACKAGE_ARTIFACTS',
-    'd1_databases binding DB',
-    'workflows binding APP_GENERATION_WORKFLOW',
-    'workflows class AppGenerationWorkflow',
-    'durable_objects binding APP_WRITER_AGENT',
-    'durable_objects class AppWriterAgent',
-    'durable_objects migration AppWriterAgent',
-    'services binding APP_WRITER_SOURCE_COMPILER',
-    'services binding APP_WRITER_PREVIEWER',
-  ]);
-});
-
-Deno.test('validateWorkerConfigBindings rejects legacy Hyperdrive production binding', () => {
-  const config = `{
-    "routes": [
-      {
-        "pattern": "lantern.appboundary.com",
-        "custom_domain": true
-      }
-    ],
-    "workflows": [
-      {
-        "binding": "APP_GENERATION_WORKFLOW",
-        "class_name": "AppGenerationWorkflow"
-      }
-    ],
-    "durable_objects": {
-      "bindings": [
-        {
-          "name": "APP_WRITER_AGENT",
-          "class_name": "AppWriterAgent"
-        }
-      ]
-    },
-    "migrations": [
-      {
-        "new_sqlite_classes": ["AppWriterAgent"]
-      }
-    ],
-    "services": [
-      {
-        "binding": "APP_WRITER_SOURCE_COMPILER"
-      },
-      {
-        "binding": "APP_WRITER_PREVIEWER"
-      }
-    ],
-    "worker_loaders": [
-      {
-        "binding": "LOADER"
-      }
-    ],
-    "r2_buckets": [
-      {
-        "binding": "PACKAGE_ARTIFACTS"
-      }
-    ],
-    "d1_databases": [
-      {
-        "binding": "DB"
-      }
-    ],
-    "hyperdrive": [
-      {
-        "binding": "HYPERDRIVE"
-      }
-    ]
-  }`;
-
-  assertEquals(validateWorkerConfigBindings(config), ['legacy hyperdrive binding HYPERDRIVE']);
-});
-
-Deno.test('validateAppWriterPlatformConfigBindings requires Cloudflare Browser Rendering', () => {
+test('Cloudflare configuration check detects a missing gateway binding', () => {
   assertEquals(
-    validateAppWriterPlatformConfigBindings(`{
-      "browser": {
-        "binding": "BROWSER"
-      }
-    }`),
-    [],
+    validateWorkerConfigBindings({
+      ...config.worker,
+      env: { ...config.worker.env, LOADER: bindings.text('wrong') },
+    }),
+    ['LOADER binding (worker-loader)'],
   );
-  assertEquals(validateAppWriterPlatformConfigBindings(`{}`), [
-    'browser rendering binding BROWSER',
-  ]);
+});
+
+test('Cloudflare configuration check rejects legacy Hyperdrive access', () => {
+  assertEquals(
+    validateWorkerConfigBindings({
+      ...config.worker,
+      env: { ...config.worker.env, HYPERDRIVE: bindings.hyperdrive({ id: 'unused' }) },
+    }),
+    ['prohibited legacy HYPERDRIVE binding'],
+  );
+});
+
+test('Python container cutover uses a fresh namespace and preserves the previous namespace', () => {
+  assertEquals(config.worker.env.PYTHON_GRADER_SANDBOX.exportName, 'PythonGraderRuntime');
+  const replacement = config.worker.exports.PythonGraderRuntime;
+  assert(replacement.storage === 'sqlite');
+  assertEquals(replacement.container, config.containers[0]);
+  assertEquals(config.containers[0]?.schedulingPolicy, 'durable-object');
+  assertEquals('container' in config.worker.exports.PythonGraderSandbox, false);
+  assertEquals(
+    validateWorkerConfigBindings({
+      ...config.worker,
+      env: {
+        ...config.worker.env,
+        PYTHON_GRADER_SANDBOX: bindings.durableObject({
+          worker: 'lantern',
+          exportName: 'PythonGraderSandbox',
+        }),
+      },
+    }),
+    ['PYTHON_GRADER_SANDBOX replacement namespace'],
+  );
 });

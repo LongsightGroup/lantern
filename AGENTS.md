@@ -64,7 +64,7 @@ Rules:
 
 Default stack:
 
-- Deno
+- Node.js 26 LTS and TypeScript 7
 - Hono
 - Cloudflare D1 for persistence
 - Cloudflare R2 for reviewed artifacts and evidence
@@ -174,9 +174,9 @@ Prefer:
 
 Before finishing TypeScript work, run:
 
-- `deno fmt`
-- `deno lint`
-- `deno check`
+- `npm run fmt`
+- `npm run lint`
+- `npm run check`
 
 If tests exist for the touched area, run them.
 

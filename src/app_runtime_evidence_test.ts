@@ -1,18 +1,21 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { withRuntimeOriginEnv } from './app_test_support.ts';
 import {
   buildAttemptRecord,
+  buildPreviewSessionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
 import { buildRuntimeSessionRecord } from './test_helpers/lti.ts';
 import type { EvidenceArtifactStore } from './runtime/evidence_artifact_store.ts';
 
-Deno.test('POST /runtime/sessions/:id/evidence-artifacts accepts an allowlisted upload and persists it through Lantern-owned storage', async () => {
+test('POST /runtime/sessions/:id/evidence-artifacts accepts an allowlisted upload and persists it through Lantern-owned storage', async () => {
   await withRuntimeOriginEnv(async () => {
     const bytesByStorageKey = new Map<string, Uint8Array>();
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           capabilities: ['read_launch_context', 'submit_evidence_artifact', 'finalize_attempt'],
@@ -74,12 +77,13 @@ Deno.test('POST /runtime/sessions/:id/evidence-artifacts accepts an allowlisted 
   });
 });
 
-Deno.test('POST /runtime/sessions/:id/evidence-artifacts accepts screenshot_png through the same Lantern-owned storage path', async () => {
+test('POST /runtime/sessions/:id/evidence-artifacts accepts screenshot_png through the same Lantern-owned storage path', async () => {
   await withRuntimeOriginEnv(async () => {
     const pngBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const bytesByStorageKey = new Map<string, Uint8Array>();
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           capabilities: ['read_launch_context', 'submit_evidence_artifact', 'finalize_attempt'],
@@ -139,10 +143,11 @@ Deno.test('POST /runtime/sessions/:id/evidence-artifacts accepts screenshot_png 
   });
 });
 
-Deno.test('POST /runtime/sessions/:id/evidence-artifacts rejects unsupported evidence pairs without widening the runtime surface', async () => {
+test('POST /runtime/sessions/:id/evidence-artifacts rejects unsupported evidence pairs without widening the runtime surface', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
+      previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],
       runtimeSessions: [
         buildRuntimeSessionRecord({
           capabilities: ['read_launch_context', 'submit_evidence_artifact', 'finalize_attempt'],

@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { createStaticAppWriterWorkspaceRunner } from '../test_helpers/app_writer_workspace_runner.ts';
 import {
@@ -15,7 +16,7 @@ import {
   createStagedAppWriterWorkspaceRunner,
 } from './service_test_support.ts';
 
-Deno.test('app writer service creates a durable run and records generated artifacts', async () => {
+test('app writer service creates a durable run and records generated artifacts', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const result = await runAppPackageGeneration({
     repository,
@@ -83,7 +84,7 @@ Deno.test('app writer service creates a durable run and records generated artifa
   assertEquals(validationEvents[0]?.summary, 'Generated package passed Lantern validation.');
 });
 
-Deno.test('app writer service records staged planning before scaffold file generation', async () => {
+test('app writer service records staged planning before scaffold file generation', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const result = await runAppPackageGeneration({
     repository,
@@ -130,7 +131,7 @@ Deno.test('app writer service records staged planning before scaffold file gener
   );
 });
 
-Deno.test('app writer service supports explicit Workflow generation stages', async () => {
+test('app writer service supports explicit Workflow generation stages', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const workspaceRunner = createStagedAppWriterWorkspaceRunner();
 
@@ -156,18 +157,16 @@ Deno.test('app writer service supports explicit Workflow generation stages', asy
     planned,
     now: createClock(['2026-05-14T12:00:03.000Z']),
   });
-  const workspaceAfterFiles = await repository.getAppGenerationWorkspaceByGenerationId(
-    'generation-1',
-  );
+  const workspaceAfterFiles =
+    await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
   const result = await finishGeneratedAppPackageRun({
     repository,
     workspaceRunner,
     generated,
     now: createClock(['2026-05-14T12:00:04.000Z']),
   });
-  const workspaceAfterFinish = await repository.getAppGenerationWorkspaceByGenerationId(
-    'generation-1',
-  );
+  const workspaceAfterFinish =
+    await repository.getAppGenerationWorkspaceByGenerationId('generation-1');
 
   assertEquals(planned.run.status, 'planning');
   assertEquals(generated.run.status, 'generating_package');

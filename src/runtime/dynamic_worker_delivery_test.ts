@@ -1,16 +1,18 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertNotEquals, assertRejects, assertStringIncludes } from '@std/assert';
 import {
   buildReviewedRuntimeAssetMap,
   buildReviewedRuntimeWorkerCode,
   buildReviewedRuntimeWorkerId,
   createDynamicWorkerRuntimeDelivery,
+  type DynamicWorkerCode,
 } from './dynamic_worker_delivery.ts';
 import {
   buildPackageVersionRecord,
   buildRuntimeSessionRecord,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('Dynamic Worker delivery worker ids stay deterministic and reviewed-identity keyed', () => {
+test('Dynamic Worker delivery worker ids stay deterministic and reviewed-identity keyed', () => {
   const firstId = buildReviewedRuntimeWorkerId({
     runtimeContractSignature: 'sig-a',
   });
@@ -30,7 +32,7 @@ Deno.test('Dynamic Worker delivery worker ids stay deterministic and reviewed-id
   assertNotEquals(firstId, differentEnvelopeId);
 });
 
-Deno.test('Dynamic Worker delivery describes the reviewed envelope using the deterministic worker id', () => {
+test('Dynamic Worker delivery describes the reviewed envelope using the deterministic worker id', () => {
   const delivery = createDynamicWorkerRuntimeDelivery({
     loader: {
       get() {
@@ -57,7 +59,7 @@ Deno.test('Dynamic Worker delivery describes the reviewed envelope using the det
   );
 });
 
-Deno.test('Dynamic Worker delivery embeds immutable reviewed assets plus browser grader files', async () => {
+test('Dynamic Worker delivery embeds immutable reviewed assets plus browser grader files', async () => {
   const session = buildRuntimeSessionRecord({
     snapshotRoot: 'var/packages/template-app/0.1.0',
     entrypointPath: 'var/packages/template-app/0.1.0/dist/index.html',
@@ -116,7 +118,7 @@ Deno.test('Dynamic Worker delivery embeds immutable reviewed assets plus browser
   );
 });
 
-Deno.test('Dynamic Worker delivery code blocks outbound access and carries no extra bindings', async () => {
+test('Dynamic Worker delivery code blocks outbound access and carries no extra bindings', async () => {
   const session = buildRuntimeSessionRecord({
     snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
     entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
@@ -140,7 +142,62 @@ Deno.test('Dynamic Worker delivery code blocks outbound access and carries no ex
   assertEquals((code.modules['index.js'] ?? '').includes('globalThis.Deno'), false);
 });
 
-Deno.test('Dynamic Worker delivery keeps missing reviewed assets distinct from loader delivery failures', async () => {
+test('reviewed app Workers receive only the LMS binding and hard invocation limits', async () => {
+  let loadedCode: DynamicWorkerCode | null = null;
+  let invocationLimits: { readonly cpuMs: number; readonly subRequests: number } | null = null;
+  const lmsBinding = { listRoster: () => Promise.resolve({ ok: true }) };
+  const delivery = createDynamicWorkerRuntimeDelivery({
+    loader: {
+      get(_id, callback) {
+        return {
+          getEntrypoint(_name, options) {
+            invocationLimits = options?.limits ?? null;
+            return {
+              async fetch() {
+                loadedCode = await callback();
+                return new Response('<!doctype html><title>Roster</title>', {
+                  headers: { 'content-type': 'text/html' },
+                });
+              },
+            };
+          },
+        };
+      },
+    },
+    snapshotStore: createMemorySnapshotStore({
+      'dist/worker.js': 'export default { fetch() { return new Response("ok"); } };',
+    }),
+    createLmsBinding(identity) {
+      assertEquals(identity, { appId: 'photo-roster', packageVersionId: 7 });
+      return lmsBinding;
+    },
+  });
+  const reviewedPackage = buildPackageVersionRecord({
+    id: 7,
+    appId: 'photo-roster',
+    runtime: { kind: 'worker', entrypoint: '/dist/worker.js' },
+    capabilities: ['lms.roster.members.read'],
+    approvalStatus: 'approved',
+  });
+
+  const response = await delivery.invokeReviewedWorker({
+    session: { snapshotRoot: reviewedPackage.artifact.snapshotRoot },
+    reviewedPackage,
+    request: new Request('https://reviewed-app.internal/'),
+  });
+  const code = loadedCode as DynamicWorkerCode | null;
+  if (code === null) {
+    throw new Error('Expected the reviewed Worker code to load.');
+  }
+
+  assertEquals(response.status, 200);
+  assertEquals(invocationLimits, { cpuMs: 50, subRequests: 8 });
+  assertEquals(code.globalOutbound, null);
+  assertEquals(code.env, { LANTERN_LMS: lmsBinding });
+  assertEquals(Object.keys(code.env ?? {}), ['LANTERN_LMS']);
+});
+
+test('Dynamic Worker delivery keeps missing reviewed assets distinct from loader delivery failures', async () => {
   const session = buildRuntimeSessionRecord({
     snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
     entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
@@ -223,8 +280,8 @@ function createLoaderStub() {
       callback: () =>
         | Promise<{ modules: Record<string, string> }>
         | {
-          modules: Record<string, string>;
-        },
+            modules: Record<string, string>;
+          },
     ) {
       return {
         getEntrypoint() {

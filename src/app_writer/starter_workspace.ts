@@ -89,9 +89,10 @@ export function validateBaselineFileEdits(
   authoringMode: AppWriterAuthoringMode = 'javascript',
 ): string[] {
   const editedPaths = new Set(fileEdits.map((file) => file.path));
-  const requiredPaths = authoringMode === 'typescript'
-    ? APP_WRITER_TYPESCRIPT_AUTHORING_FILES
-    : APP_WRITER_BASELINE_PACKAGE_FILES;
+  const requiredPaths =
+    authoringMode === 'typescript'
+      ? APP_WRITER_TYPESCRIPT_AUTHORING_FILES
+      : APP_WRITER_BASELINE_PACKAGE_FILES;
 
   return requiredPaths.filter((path) => !editedPaths.has(path));
 }
@@ -336,7 +337,7 @@ function buildSimpleActivityStarterFiles(): AppWriterWorkspaceFile[] {
     {
       path: 'manifest.json',
       contents: formatJson({
-        schema_version: '1',
+        schema_version: '2',
         app_id: 'starter-simple-activity',
         version: '0.1.0',
         title: 'Starter Simple Activity',
@@ -344,7 +345,7 @@ function buildSimpleActivityStarterFiles(): AppWriterWorkspaceFile[] {
           type: 'user',
           id: 'instructor',
         },
-        entrypoint: '/dist/index.html',
+        runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
         roles: ['learner', 'instructor'],
         install_scope: 'course',
         capabilities: ['read_activity_content'],
@@ -422,7 +423,7 @@ function buildBrowserAutograderStarterFiles(): AppWriterWorkspaceFile[] {
     {
       path: 'manifest.json',
       contents: formatJson({
-        schema_version: '1',
+        schema_version: '2',
         app_id: 'starter-browser-autograder',
         version: '0.1.0',
         title: 'Starter Browser Autograder',
@@ -430,7 +431,7 @@ function buildBrowserAutograderStarterFiles(): AppWriterWorkspaceFile[] {
           type: 'user',
           id: 'instructor',
         },
-        entrypoint: '/dist/index.html',
+        runtime: { kind: 'browser', entrypoint: '/dist/index.html' },
         roles: ['learner', 'instructor'],
         install_scope: 'assignment',
         capabilities: ['read_activity_content', 'submit_evidence_artifact', 'finalize_attempt'],

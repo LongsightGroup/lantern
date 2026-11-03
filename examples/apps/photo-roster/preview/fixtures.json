@@ -1,0 +1,10 @@
+{
+  "launch": {
+    "user_role": "instructor",
+    "course_id": "synthetic-course",
+    "assignment_id": null,
+    "activity_id": "photo-roster"
+  },
+  "attempt_id": "photo-roster-preview",
+  "local_state": null
+}

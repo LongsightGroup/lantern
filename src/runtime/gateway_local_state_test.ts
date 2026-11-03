@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import { readAttemptLocalState, writeAttemptLocalState } from './gateway.ts';
 import { buildRuntimeSessionRecord } from '../test_helpers/lti.ts';
@@ -6,7 +7,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('runtime gateway reads null local state by default and round-trips JSON objects on the durable attempt', async () => {
+test('runtime gateway reads null local state by default and round-trips JSON objects on the durable attempt', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
   });
@@ -44,7 +45,7 @@ Deno.test('runtime gateway reads null local state by default and round-trips JSO
   );
 });
 
-Deno.test('runtime gateway keeps attempt-local state isolated to the matching attempt context', async () => {
+test('runtime gateway keeps attempt-local state isolated to the matching attempt context', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [
       buildAttemptRecord(),

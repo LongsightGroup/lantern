@@ -18,33 +18,33 @@ import { renderPreviewAssertionResult } from './local_preview_assertion_report.t
 
 export type LocalDevPreviewCheck =
   | {
-    kind: 'passed';
-    result: Omit<SuccessfulLocalPreviewAssertionRun, 'packageRoot'>;
-  }
+      kind: 'passed';
+      result: Omit<SuccessfulLocalPreviewAssertionRun, 'packageRoot'>;
+    }
   | {
-    kind: 'failed';
-    result: Omit<SuccessfulLocalPreviewAssertionRun, 'packageRoot'>;
-  }
+      kind: 'failed';
+      result: Omit<SuccessfulLocalPreviewAssertionRun, 'packageRoot'>;
+    }
   | {
-    kind: 'runtime_failed';
-    result: Omit<FailedLocalPreviewAssertionRuntimeRun, 'packageRoot'>;
-  };
+      kind: 'runtime_failed';
+      result: Omit<FailedLocalPreviewAssertionRuntimeRun, 'packageRoot'>;
+    };
 
 export type LocalDevState =
   | {
-    kind: 'valid';
-    warnings: string[];
-    appPackage: LocalAppPackage;
-    harness: LocalPreviewHarness;
-    previewCheck: LocalDevPreviewCheck;
-  }
+      kind: 'valid';
+      warnings: string[];
+      appPackage: LocalAppPackage;
+      harness: LocalPreviewHarness;
+      previewCheck: LocalDevPreviewCheck;
+    }
   | {
-    kind: 'invalid';
-    packageRoot: string;
-    diagnostics: LocalAppValidationDiagnostic[];
-    issues: string[];
-    warnings: string[];
-  };
+      kind: 'invalid';
+      packageRoot: string;
+      diagnostics: LocalAppValidationDiagnostic[];
+      issues: string[];
+      warnings: string[];
+    };
 
 export interface LocalDevStatus {
   ok: boolean;
@@ -92,17 +92,17 @@ export async function loadLocalDevState(
   const previewCheck = previewAssertionRun.ok
     ? previewAssertionRun.failedCount === 0
       ? {
-        kind: 'passed' as const,
-        result: previewAssertionRun,
-      }
+          kind: 'passed' as const,
+          result: previewAssertionRun,
+        }
       : {
-        kind: 'failed' as const,
-        result: previewAssertionRun,
-      }
+          kind: 'failed' as const,
+          result: previewAssertionRun,
+        }
     : {
-      kind: 'runtime_failed' as const,
-      result: previewAssertionRun,
-    };
+        kind: 'runtime_failed' as const,
+        result: previewAssertionRun,
+      };
 
   return {
     kind: 'valid',
@@ -181,7 +181,7 @@ export function serializeLocalDevStatus(input: {
       appId: input.state.appPackage.reviewData.appId,
       version: input.state.appPackage.reviewData.version,
       title: input.state.appPackage.reviewData.title,
-      entrypoint: input.state.appPackage.manifest.entrypoint,
+      entrypoint: input.state.appPackage.manifest.runtime.entrypoint,
       capabilities: input.state.appPackage.reviewData.capabilities,
       previewTestCount: input.state.appPackage.previewTests.length,
     },
@@ -223,13 +223,13 @@ export function renderLocalDevStateSummary(input: {
     'Lantern authoring dev loop ready.',
     `- Preview URL: ${previewUrl}`,
     `- App ID: ${input.state.appPackage.reviewData.appId}`,
-    `- Entrypoint: ${input.state.appPackage.manifest.entrypoint}`,
+    `- Entrypoint: ${input.state.appPackage.manifest.runtime.entrypoint}`,
     `- Preview checks: ${
       input.state.previewCheck.kind === 'passed'
         ? 'passing'
         : input.state.previewCheck.kind === 'failed'
-        ? 'failing'
-        : 'runtime error'
+          ? 'failing'
+          : 'runtime error'
     }`,
     renderedPreviewChecks.output,
   ];
@@ -389,37 +389,35 @@ function renderInvalidLocalDevPage(state: Extract<LocalDevState, { kind: 'invali
       <p class="label">Lantern authoring</p>
       <h1>Preview is blocked until the reviewed package validates.</h1>
       <p>Fix the issues below and save again. Lantern will reload this preview automatically after the next valid change.</p>
-      ${
-    groupLocalAppDiagnostics(state.diagnostics)
-      .map(
-        (group) =>
-          `<section class="group">
+      ${groupLocalAppDiagnostics(state.diagnostics)
+        .map(
+          (group) =>
+            `<section class="group">
         <p class="label">${escapeHtml(group.label)}</p>
         <ul>
-          ${
-            group.diagnostics
-              .map(
-                (diagnostic) =>
-                  `<li>
+          ${group.diagnostics
+            .map(
+              (diagnostic) =>
+                `<li>
             <strong>${escapeHtml(diagnostic.message)}</strong><br />
             Fix: ${escapeHtml(diagnostic.fix)}
           </li>`,
-              )
-              .join('')
-          }
+            )
+            .join('')}
         </ul>
       </section>`,
-      )
-      .join('')
-  }
+        )
+        .join('')}
       ${
-    state.warnings.length === 0 ? '' : `<section class="group">
+        state.warnings.length === 0
+          ? ''
+          : `<section class="group">
         <p class="label">Warnings</p>
         <ul>
           ${state.warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join('')}
         </ul>
       </section>`
-  }
+      }
       <section class="group">
         <p class="label">Package root</p>
         <p><code>${escapeHtml(state.packageRoot)}</code></p>
@@ -447,9 +445,10 @@ function summarizePreviewCheck(check: LocalDevPreviewCheck): LocalDevStatus['pre
     assertionCount,
     passedAssertionCount: check.result.passedCount,
     failedAssertionCount: check.result.failedCount,
-    summary: check.kind === 'passed'
-      ? `Lantern preview assertions passed. ${check.result.passedCount}/${assertionCount} checks passed.`
-      : `Lantern preview assertions failed. ${check.result.passedCount} passed, ${check.result.failedCount} failed.`,
+    summary:
+      check.kind === 'passed'
+        ? `Lantern preview assertions passed. ${check.result.passedCount}/${assertionCount} checks passed.`
+        : `Lantern preview assertions failed. ${check.result.passedCount} passed, ${check.result.failedCount} failed.`,
   };
 }
 

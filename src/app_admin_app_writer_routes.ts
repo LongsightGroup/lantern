@@ -1,29 +1,31 @@
-import type { Hono } from '@hono/hono';
+import type { Hono } from 'hono';
 import { listGenerationActivityEvents } from './app_writer/service_activity.ts';
 import {
   AppPackageGenerationFailedError,
   startAppPackageGenerationRun,
 } from './app_writer/service.ts';
-import type { RunAppPackageGenerationResult } from './app_writer/service.ts';
+import {
+  recordAppWriterWorkflowQueuedEvent,
+  scheduleAppWriterContinuation,
+} from './app_writer/background_execution.ts';
 import {
   renderAppGenerationRunPage,
   renderAppWriterPage,
   renderAppWriterPlanPreviewPage,
 } from './admin/app_writer_page.ts';
 import { createErrorNotice } from './app_notice_support.ts';
-import { loadPreviewCapabilityLog } from './app_deployment_support.ts';
+import { loadPreviewCapabilityLog } from './preview/capability_log.ts';
 import { formValueAsString, requireTrimmedFormValue } from './app_request_support.ts';
 import { statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
+import { adminPageInput } from './admin_auth/page_input.ts';
 import { type AppWriterSelectedContext, selectAppWriterContext } from './app_writer/context.ts';
 import { buildLanternOwnedAppGenerationPlanningResult } from './app_writer/planning.ts';
-import type { AppGenerationRunRecord } from './app_writer/types.ts';
 import type { AppGenerationPlanningResult, AppWriterAuthoringMode } from './app_writer/types.ts';
-import type { PackageReviewRepository } from './package_review/repository.ts';
 
 export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): void {
   app.get('/admin/app-writer', (context) => {
-    return context.html(renderAppWriterPage());
+    return context.html(renderAppWriterPage(adminPageInput(context, {})));
   });
 
   app.post('/admin/app-writer', async (context) => {
@@ -59,15 +61,17 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
 
       if (action === 'preview') {
         return context.html(
-          renderAppWriterPlanPreviewPage({
-            promptText,
-            audience,
-            contentSummary,
-            gradingMode,
-            requestedAppId,
-            planning: planPreview.planning,
-            selectedContext: planPreview.selectedContext,
-          }),
+          renderAppWriterPlanPreviewPage(
+            adminPageInput(context, {
+              promptText,
+              audience,
+              contentSummary,
+              gradingMode,
+              requestedAppId,
+              planning: planPreview.planning,
+              selectedContext: planPreview.selectedContext,
+            }),
+          ),
         );
       }
 
@@ -91,25 +95,26 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       });
 
       if (scheduleResult.mode === 'workflow') {
-        await recordWorkflowQueuedEvent({
+        await recordAppWriterWorkflowQueuedEvent({
           repository,
           run: started.run,
           workflowInstanceId: scheduleResult.workflowInstanceId,
+          summary: 'Queued app writer generation in Cloudflare Workflow.',
         });
       } else {
-        scheduleGenerationContinuation(
+        scheduleAppWriterContinuation(
           context,
           started.continueGeneration(),
           started.run.generationId,
+          'generation',
         );
       }
 
       await services.appWriterAgentSessions.observe({
         generationId: started.run.generationId,
         ownerId: started.run.ownerId,
-        workflowInstanceId: scheduleResult.mode === 'workflow'
-          ? scheduleResult.workflowInstanceId
-          : null,
+        workflowInstanceId:
+          scheduleResult.mode === 'workflow' ? scheduleResult.workflowInstanceId : null,
         observedAt: started.run.updatedAt,
       });
 
@@ -120,14 +125,16 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       }
 
       return context.html(
-        renderAppWriterPage({
-          promptText,
-          audience,
-          contentSummary,
-          gradingMode,
-          requestedAppId,
-          notice: createErrorNotice('App generation blocked', error),
-        }),
+        renderAppWriterPage(
+          adminPageInput(context, {
+            promptText,
+            audience,
+            contentSummary,
+            gradingMode,
+            requestedAppId,
+            notice: createErrorNotice('App generation blocked', error),
+          }),
+        ),
         statusForError(error),
       );
     }
@@ -142,44 +149,52 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
 
       if (run === null) {
         return context.html(
-          renderAppWriterPage({
-            notice: {
-              tone: 'error',
-              title: 'Generation run not found',
-              detail: 'Lantern could not find that app writer run.',
-            },
-          }),
+          renderAppWriterPage(
+            adminPageInput(context, {
+              notice: {
+                tone: 'error',
+                title: 'Generation run not found',
+                detail: 'Lantern could not find that app writer run.',
+              },
+            }),
+          ),
           404,
         );
       }
 
-      const packageVersion = run.packageVersionId === null
-        ? null
-        : await repository.getPackageVersionById(run.packageVersionId);
+      const packageVersion =
+        run.packageVersionId === null
+          ? null
+          : await repository.getPackageVersionById(run.packageVersionId);
       const workspace = await repository.getAppGenerationWorkspaceByGenerationId(generationId);
       const activityEvents = await listGenerationActivityEvents(repository, generationId);
-      const runtimeLog = packageVersion === null
-        ? { session: null, evidence: [] }
-        : await loadPreviewCapabilityLog({
-          repository,
-          packageVersionId: packageVersion.id,
-        });
+      const runtimeLog =
+        packageVersion === null
+          ? { session: null, evidence: [] }
+          : await loadPreviewCapabilityLog({
+              repository,
+              packageVersionId: packageVersion.id,
+            });
 
       return context.html(
-        renderAppGenerationRunPage({
-          run,
-          workspace,
-          packageVersion,
-          latestPreviewSession: runtimeLog.session,
-          previewEvidence: runtimeLog.evidence,
-          activityEvents,
-        }),
+        renderAppGenerationRunPage(
+          adminPageInput(context, {
+            run,
+            workspace,
+            packageVersion,
+            latestPreviewSession: runtimeLog.session,
+            previewEvidence: runtimeLog.evidence,
+            activityEvents,
+          }),
+        ),
       );
     } catch (error) {
       return context.html(
-        renderAppWriterPage({
-          notice: createErrorNotice('Generation run unavailable', error),
-        }),
+        renderAppWriterPage(
+          adminPageInput(context, {
+            notice: createErrorNotice('Generation run unavailable', error),
+          }),
+        ),
         statusForError(error),
       );
     }
@@ -191,76 +206,6 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       context.req.raw,
     );
   });
-}
-
-async function recordWorkflowQueuedEvent(input: {
-  repository: Pick<PackageReviewRepository, 'recordAuditEvent'>;
-  run: AppGenerationRunRecord;
-  workflowInstanceId: string | null;
-}): Promise<void> {
-  await input.repository.recordAuditEvent({
-    eventType: 'app_generation.generating',
-    actorType: 'user',
-    actorId: input.run.ownerId,
-    deploymentRecordId: null,
-    packageVersionId: input.run.packageVersionId,
-    attemptId: null,
-    lineItemBindingId: null,
-    status: 'accepted',
-    summary: 'Queued app writer generation in Cloudflare Workflow.',
-    detail: {
-      generationId: input.run.generationId,
-      generationStatus: input.run.status,
-      requestedAppId: input.run.requestedAppId,
-      generatedAppId: input.run.generatedAppId,
-      selectedStarterId: input.run.selectedStarterId,
-      repairAttemptCount: input.run.repairAttemptCount,
-      findingCount: input.run.validationFindings.length,
-      workflowInstanceId: input.workflowInstanceId,
-      backgroundRunner: 'workflow',
-    },
-    occurredAt: input.run.updatedAt,
-  });
-}
-
-function scheduleGenerationContinuation(
-  context: unknown,
-  continuation: Promise<RunAppPackageGenerationResult>,
-  generationId: string,
-): void {
-  const handled = continuation
-    .then(() => {})
-    .catch((error) => {
-      console.error(`App writer generation ${generationId} failed in background.`, error);
-    });
-  const executionContext = readExecutionContext(context);
-
-  if (executionContext !== null) {
-    executionContext.waitUntil(handled);
-    return;
-  }
-
-  void handled;
-}
-
-function readExecutionContext(
-  context: unknown,
-): { waitUntil(promise: Promise<void>): void } | null {
-  try {
-    const candidate = (context as { executionCtx?: unknown }).executionCtx;
-
-    if (
-      candidate !== null &&
-      typeof candidate === 'object' &&
-      typeof (candidate as { waitUntil?: unknown }).waitUntil === 'function'
-    ) {
-      return candidate as { waitUntil(promise: Promise<void>): void };
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
 }
 
 function normalizeAppWriterAction(value: FormDataEntryValue | null): 'preview' | 'generate' {

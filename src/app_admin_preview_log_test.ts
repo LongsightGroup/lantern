@@ -1,6 +1,8 @@
+import { test } from 'vite-plus/test';
+import { expectString } from './app_writer/binding_result.ts';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import type { Capability } from '../sdk/app-sdk.ts';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { EXAMPLE_SNAPSHOT_ROOT, withRuntimeOriginEnv } from './app_test_support.ts';
 import {
   buildAdminPreviewSessionRecord,
@@ -8,8 +10,9 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
-Deno.test('test-launch activity log shows durable launch, content-read, attempt, and finalize evidence after reload', async () => {
+test('test-launch activity log shows durable launch, content-read, attempt, and finalize evidence after reload', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -37,7 +40,9 @@ Deno.test('test-launch activity log shows durable launch, content-read, attempt,
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const formData = new FormData();
     formData.set('userRole', 'learner');
     formData.set('courseId', 'course_demo');
@@ -97,9 +102,12 @@ Deno.test('test-launch activity log shows durable launch, content-read, attempt,
     );
     const previewBody = await previewPageResponse.text();
     const auditEvents = await repository.listAuditEventsByEventType('preview.launch');
-    const previewSessionId = String(
-      auditEvents.find((event) => String(event.detail.runtimeSessionId ?? '') === runtimeSessionId)
-        ?.detail.previewSessionId ?? '',
+    const previewSessionId = expectString(
+      auditEvents.find(
+        (event) =>
+          expectString(event.detail.runtimeSessionId ?? '', 'audit metadata') === runtimeSessionId,
+      )?.detail.previewSessionId ?? '',
+      'audit metadata',
     );
     const previewEvidence = await repository.listPreviewEvidence(previewSessionId);
 
@@ -119,7 +127,7 @@ Deno.test('test-launch activity log shows durable launch, content-read, attempt,
   });
 });
 
-Deno.test('GET /admin/packages/:appId/versions/:version/preview records a reviewer action with bounded detail', async () => {
+test('GET /admin/packages/:appId/versions/:version/preview records a reviewer action with bounded detail', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -178,7 +186,9 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview records a review
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.3.0/preview',
@@ -189,13 +199,13 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview records a review
   assertEquals(auditEvents.length, 1);
   assertEquals(auditEvents[0]?.packageVersionId, 47);
   assertEquals(
-    String(auditEvents[0]?.detail.previewSessionId ?? ''),
+    expectString(auditEvents[0]?.detail.previewSessionId ?? '', 'audit metadata'),
     'preview-session-reviewer-action',
   );
   assertEquals('runtimeSessionId' in (auditEvents[0]?.detail ?? {}), false);
 });
 
-Deno.test('GET /admin/packages/:appId/versions/:version/preview records reviewer detail against the latest admin test launch only', async () => {
+test('GET /admin/packages/:appId/versions/:version/preview records reviewer detail against the latest admin test launch only', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -244,7 +254,9 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview records reviewer
       }),
     ],
   });
-  const app = createApp({ getRepository: () => repository });
+  const app = createAuthenticatedTestApp({
+    getRepository: () => repository,
+  });
 
   const response = await app.request(
     'http://localhost/admin/packages/chapter-4-asteroids/versions/0.5.0/preview',
@@ -254,12 +266,12 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview records reviewer
   assertEquals(response.status, 200);
   assertEquals(auditEvents.length, 1);
   assertEquals(
-    String(auditEvents[0]?.detail.previewSessionId ?? ''),
+    expectString(auditEvents[0]?.detail.previewSessionId ?? '', 'audit metadata'),
     'preview-session-reviewer-admin',
   );
 });
 
-Deno.test('test-launch runtime diagnostics show denied capabilities after reload', async () => {
+test('test-launch runtime diagnostics show denied capabilities after reload', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -272,7 +284,9 @@ Deno.test('test-launch runtime diagnostics show denied capabilities after reload
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const { launchResponse, runtimeSessionId, runtimeToken } = await launchAdminPreview({
       app,
       version: '0.6.0',
@@ -298,14 +312,11 @@ Deno.test('test-launch runtime diagnostics show denied capabilities after reload
     assertStringIncludes(previewBody, 'capability_not_granted');
     assertStringIncludes(previewBody, 'read_local_state');
     assertStringIncludes(previewBody, 'local-state.read');
-    assertStringIncludes(
-      previewBody,
-      `GET /runtime/sessions/${runtimeSessionId}/local-state`,
-    );
+    assertStringIncludes(previewBody, `GET /runtime/sessions/${runtimeSessionId}/local-state`);
   });
 });
 
-Deno.test('test-launch runtime diagnostics show integrity failures without leaking sensitive request detail', async () => {
+test('test-launch runtime diagnostics show integrity failures without leaking sensitive request detail', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -317,7 +328,9 @@ Deno.test('test-launch runtime diagnostics show integrity failures without leaki
         }),
       ],
     });
-    const app = createApp({ getRepository: () => repository });
+    const app = createAuthenticatedTestApp({
+      getRepository: () => repository,
+    });
     const { launchResponse, runtimeSessionId, runtimeToken } = await launchAdminPreview({
       app,
       version: '0.7.0',
@@ -355,7 +368,7 @@ Deno.test('test-launch runtime diagnostics show integrity failures without leaki
   });
 });
 
-Deno.test('test-launch runtime diagnostics exclude authoring preview session failures', async () => {
+test('test-launch runtime diagnostics exclude authoring preview session failures', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPreviewPackageVersion({
@@ -394,10 +407,8 @@ Deno.test('test-launch runtime diagnostics exclude authoring preview session fai
     eventType: 'runtime.capability.denied',
     actorType: 'system',
     actorId: null,
-    deploymentRecordId: null,
     packageVersionId: 52,
     attemptId: 'preview-attempt-authoring-diagnostics',
-    lineItemBindingId: null,
     status: 'failed',
     summary: 'Denied authoring preview capability.',
     detail: {
@@ -410,17 +421,14 @@ Deno.test('test-launch runtime diagnostics exclude authoring preview session fai
     occurredAt: '2026-04-01T10:23:00Z',
   });
 
-  const response = await createApp({ getRepository: () => repository }).request(
-    'http://localhost/admin/packages/chapter-4-asteroids/versions/0.8.0/preview',
-  );
+  const response = await createAuthenticatedTestApp({
+    getRepository: () => repository,
+  }).request('http://localhost/admin/packages/chapter-4-asteroids/versions/0.8.0/preview');
   const body = await response.text();
 
   assertEquals(response.status, 200);
   assertStringIncludes(body, 'Runtime diagnostics');
-  assertStringIncludes(
-    body,
-    'No blocked runtime behavior has been recorded for this test launch.',
-  );
+  assertStringIncludes(body, 'No blocked runtime behavior has been recorded for this test launch.');
   assertEquals(body.includes('authoring_preview_denial_should_not_render'), false);
   assertEquals(body.includes('runtime-session-authoring-diagnostics'), false);
 });

@@ -1,5 +1,5 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
 import type {
   BrowserAutograderDraftFileInput,
   BrowserAutograderDraftReferenceExample,
@@ -8,6 +8,7 @@ import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
 const TEMPLATE_SNAPSHOT_ROOT = 'examples/apps/template';
 const AUTHORING_PROMPT = 'Write a browser_autograder check for missing alt text.';
@@ -17,11 +18,11 @@ const GENERATED_SPEC = `describe("template authoring checks", () => {
 });
 `;
 
-Deno.test('GET authoring routes expose an explicit entry point and prompt-first draft page', async () => {
+test('GET authoring routes expose an explicit entry point and prompt-first draft page', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
   });
 
@@ -46,7 +47,7 @@ Deno.test('GET authoring routes expose an explicit entry point and prompt-first 
   assertStringIncludes(authoringBody, 'Back to version details');
 });
 
-Deno.test('POST /authoring/generate returns notes and diffs without saving the draft yet', async () => {
+test('POST /authoring/generate returns notes and diffs without saving the draft yet', async () => {
   const capturedInputs: Array<{
     appId: string;
     packageVersion: string;
@@ -57,7 +58,7 @@ Deno.test('POST /authoring/generate returns notes and diffs without saving the d
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
     browserAutograderDraftGenerator: {
       generate(input) {
@@ -120,11 +121,11 @@ Deno.test('POST /authoring/generate returns notes and diffs without saving the d
   assertStringIncludes(capturedInput.currentFiles[0]?.contents ?? '', 'template authoring checks');
 });
 
-Deno.test('POST /authoring/save persists generated files and AI provenance into the draft record', async () => {
+test('POST /authoring/save persists generated files and AI provenance into the draft record', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
-  const app = createApp({
+  const app = createAuthenticatedTestApp({
     getRepository: () => repository,
   });
   const formData = new FormData();

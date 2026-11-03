@@ -108,8 +108,8 @@ export async function failGenerationRunAtStep(input: {
     run: failedRun,
     eventType: 'app_generation.failed',
     status: 'failed',
-    summary: input.activitySummary ??
-      'App package generation failed before a package could be saved.',
+    summary:
+      input.activitySummary ?? 'App package generation failed before a package could be saved.',
   });
 
   return failedRun;
@@ -172,15 +172,13 @@ export async function failRunForStarterMismatch(input: {
     selectedStarterId: input.packageSnapshot.selectedStarterId,
     generatedAppId: input.packageSnapshot.appPlan.appId,
     generatedVersion: targetVersionForContext(input.contextSelection),
-    modelRequestMetadata: input.packageSnapshot.modelRequestMetadata ??
+    modelRequestMetadata:
+      input.packageSnapshot.modelRequestMetadata ??
       (input.generation === undefined
         ? [...input.run.modelRequestMetadata]
         : appendModelRequestMetadata(input.run, input.generation)),
     generationNotes: [...input.packageSnapshot.notes],
-    validationFindings: [
-      input.starterFinding,
-      ...(input.packageSnapshot.validationFindings ?? []),
-    ],
+    validationFindings: [input.starterFinding, ...(input.packageSnapshot.validationFindings ?? [])],
     ...(input.repairAttemptCount === undefined
       ? {}
       : { repairAttemptCount: input.repairAttemptCount }),
@@ -211,10 +209,7 @@ export async function failRunForStarterMismatch(input: {
       repository: input.repository,
       run: failedRun,
       generation: input.generation,
-      validationFindings: [
-        input.starterFinding,
-        ...input.generation.validationFindings,
-      ],
+      validationFindings: [input.starterFinding, ...input.generation.validationFindings],
     });
   }
 

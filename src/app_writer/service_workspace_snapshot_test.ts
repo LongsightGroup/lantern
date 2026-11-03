@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { createInMemoryPackageReviewRepository } from '../test_helpers/package_review.ts';
 import {
@@ -7,7 +8,7 @@ import {
 import { buildGenerationResult } from './service_test_support.ts';
 import { saveGenerationWorkspaceSnapshot } from './service_workspace_snapshot.ts';
 
-Deno.test('generation workspace snapshots keep only protected context outside the authoritative result', async () => {
+test('generation workspace snapshots keep only protected context outside the authoritative result', async () => {
   const repository = createInMemoryPackageReviewRepository({
     appGenerationWorkspaces: [
       buildAppGenerationWorkspaceRecord({
@@ -47,8 +48,8 @@ Deno.test('generation workspace snapshots keep only protected context outside th
     true,
   );
   assertEquals(
-    saved.files.some((file) =>
-      file.path === '.lantern/contracts/generated-app.md' && file.role === 'contract'
+    saved.files.some(
+      (file) => file.path === '.lantern/contracts/generated-app.md' && file.role === 'contract',
     ),
     true,
   );

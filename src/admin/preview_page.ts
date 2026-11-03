@@ -9,7 +9,7 @@ import {
   summarizeCapabilities,
 } from '../package_review/summary.ts';
 import type { PreviewRuntimeDiagnostic } from '../preview/runtime_diagnostics.ts';
-import { type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, escapeHtml, renderAdminLayout } from './layout.ts';
 import { renderPackagePageNav } from './package_navigation.ts';
 
 export interface TestLaunchFormValues {
@@ -20,6 +20,7 @@ export interface TestLaunchFormValues {
 }
 
 export function renderPreviewPage(input: {
+  identity: AdminIdentity;
   packageVersion: PackageVersionRecord;
   savedDefaults: PreviewSessionRecord;
   latestSession: PreviewSessionRecord | null;
@@ -35,6 +36,7 @@ export function renderPreviewPage(input: {
   const pageLabel = isPendingReview ? 'Review Test Launch' : 'Test Launch';
 
   return renderAdminLayout({
+    identity: input.identity,
     title: `${packageVersion.title} ${packageVersion.version} ${pageLabel}`,
     eyebrow: pageLabel,
     heading: packageVersion.title,
@@ -50,11 +52,9 @@ export function renderPreviewPage(input: {
       },
       {
         label: packageVersion.version,
-        href: `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${
-          escapeHtml(
-            packageVersion.version,
-          )
-        }`,
+        href: `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${escapeHtml(
+          packageVersion.version,
+        )}`,
       },
       { label: 'Test Launch' },
     ],
@@ -69,35 +69,27 @@ export function renderPreviewPage(input: {
       <div class="panel-body stack">
         <div class="preview-launch-stack">
           <p class="section-label">Test launch</p>
-          <h2>Version ${escapeHtml(packageVersion.version)} <span class="${
-      approvalStatusClass(
-        packageVersion.approvalStatus,
-      )
-    }">${escapeHtml(approvalStatusLabel(packageVersion.approvalStatus))}</span></h2>
-          <p class="micro muted">Defaults ${
-      renderLaunchSummary(
-        savedDefaults.launch,
-      )
-    }. No LMS sign-in or live LMS writes.</p>
-          <form method="post" class="stack" action="/admin/packages/${
-      escapeHtml(
-        packageVersion.appId,
-      )
-    }/versions/${escapeHtml(packageVersion.version)}/preview">
+          <h2>Version ${escapeHtml(packageVersion.version)} <span class="${approvalStatusClass(
+            packageVersion.approvalStatus,
+          )}">${escapeHtml(approvalStatusLabel(packageVersion.approvalStatus))}</span></h2>
+          <p class="micro muted">Defaults ${renderLaunchSummary(
+            savedDefaults.launch,
+          )}. No LMS sign-in or live LMS writes.</p>
+          <form method="post" class="stack" action="/admin/packages/${escapeHtml(
+            packageVersion.appId,
+          )}/versions/${escapeHtml(packageVersion.version)}/preview">
           <div class="form-stack preview-launch-form">
             <div class="field">
               <label for="test-launch-role">Role</label>
               <select id="test-launch-role" name="userRole">
-                ${
-      packageVersion.roles
-        .map(
-          (role) =>
-            `<option value="${escapeHtml(role)}"${
-              input.formValues.userRole === role ? ' selected' : ''
-            }>${escapeHtml(formatRoleLabel(role))}</option>`,
-        )
-        .join('')
-    }
+                ${packageVersion.roles
+                  .map(
+                    (role) =>
+                      `<option value="${escapeHtml(role)}"${
+                        input.formValues.userRole === role ? ' selected' : ''
+                      }>${escapeHtml(formatRoleLabel(role))}</option>`,
+                  )
+                  .join('')}
               </select>
             </div>
             <div class="field">
@@ -131,13 +123,11 @@ export function renderPreviewPage(input: {
             </div>
             <div class="button-row form-actions">
               <button type="submit" class="button-primary">${
-      isPendingReview ? 'Start review test launch' : 'Start test launch'
-    }</button>
-              <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(
-        packageVersion.appId,
-      )
-    }/versions/${escapeHtml(packageVersion.version)}">Back to version details</a>
+                isPendingReview ? 'Start review test launch' : 'Start test launch'
+              }</button>
+              <a class="button-secondary" href="/admin/packages/${escapeHtml(
+                packageVersion.appId,
+              )}/versions/${escapeHtml(packageVersion.version)}">Back to version details</a>
             </div>
           </form>
           <details>
@@ -145,26 +135,20 @@ export function renderPreviewPage(input: {
             <div class="detail-stack">
               <p class="micro muted">This test session can only use the runtime capabilities saved with this package version.</p>
               <div class="line-list">
-                ${
-      capabilitySummary
-        .map(
-          (capability) =>
-            `<article class="line-item">
-              <p class="line-title">${
-              escapeHtml(
+                ${capabilitySummary
+                  .map(
+                    (capability) =>
+                      `<article class="line-item">
+              <p class="line-title">${escapeHtml(
                 capability.label,
-              )
-            } <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span></p>
+              )} <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span></p>
               <p class="line-copy">${escapeHtml(capability.detail)}</p>
-              <p class="micro muted">${escapeHtml(capability.purpose)} ${
-              escapeHtml(
+              <p class="micro muted">${escapeHtml(capability.purpose)} ${escapeHtml(
                 capability.dataScope,
-              )
-            }</p>
+              )}</p>
             </article>`,
-        )
-        .join('')
-    }
+                  )
+                  .join('')}
               </div>
             </div>
           </details>
@@ -175,53 +159,49 @@ export function renderPreviewPage(input: {
       <div class="panel-body stack">
         <p class="section-label">Recent test activity</p>
         ${
-      latestSession === null ? '' : `<p>Latest session <strong>${
-        escapeHtml(
-          latestSession.sessionId,
-        )
-      }</strong> ran ${renderLaunchSummary(latestSession.launch)}.</p>`
-    }
+          latestSession === null
+            ? ''
+            : `<p>Latest session <strong>${escapeHtml(
+                latestSession.sessionId,
+              )}</strong> ran ${renderLaunchSummary(latestSession.launch)}.</p>`
+        }
         ${
-      previewEvidence.length === 0
-        ? `<p class="muted">No test activity has been recorded yet. Start a test launch to open the app.</p>`
-        : `<div class="line-list">
-          ${
-          previewEvidence
+          previewEvidence.length === 0
+            ? `<p class="muted">No test activity has been recorded yet. Start a test launch to open the app.</p>`
+            : `<div class="line-list">
+          ${previewEvidence
             .map(
               (record) =>
                 `<article class="line-item">
               <p class="line-title">${escapeHtml(formatPreviewEvidenceLabel(record.eventType))}${
-                  record.capability === null
-                    ? ''
-                    : ` <span class="inline-code">${escapeHtml(record.capability)}</span>`
-                }
+                record.capability === null
+                  ? ''
+                  : ` <span class="inline-code">${escapeHtml(record.capability)}</span>`
+              }
               </p>
               <p class="micro muted">${escapeHtml(record.occurredAt)}</p>
-              <p class="micro muted"><span class="inline-code">${
-                  escapeHtml(
-                    record.eventType,
-                  )
-                }</span></p>
+              <p class="micro muted"><span class="inline-code">${escapeHtml(
+                record.eventType,
+              )}</span></p>
               <p class="line-copy">${escapeHtml(record.summary)}</p>
               ${renderPreviewEvidenceDetail(packageVersion.appId, record)}
             </article>`,
             )
-            .join('')
-        }
+            .join('')}
         </div>`
-    }
+        }
       </div>
     </section>
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Runtime diagnostics</p>
         ${
-      runtimeDiagnostics.length === 0
-        ? `<p class="muted">No blocked runtime behavior has been recorded for this test launch.</p>`
-        : `<div class="line-list">
+          runtimeDiagnostics.length === 0
+            ? `<p class="muted">No blocked runtime behavior has been recorded for this test launch.</p>`
+            : `<div class="line-list">
           ${runtimeDiagnostics.map(renderRuntimeDiagnostic).join('')}
         </div>`
-    }
+        }
       </div>
     </section>`,
   });
@@ -253,13 +233,12 @@ function renderRuntimeDiagnosticFacts(record: PreviewRuntimeDiagnostic): string 
     return '';
   }
 
-  return `<p class="micro muted">${
-    facts
-      .map(([label, value]) =>
-        `${escapeHtml(label)} <span class="inline-code">${escapeHtml(value)}</span>`
-      )
-      .join(' · ')
-  }</p>`;
+  return `<p class="micro muted">${facts
+    .map(
+      ([label, value]) =>
+        `${escapeHtml(label)} <span class="inline-code">${escapeHtml(value)}</span>`,
+    )
+    .join(' · ')}</p>`;
 }
 
 function renderRuntimeDiagnosticRequest(record: PreviewRuntimeDiagnostic): string {
@@ -304,10 +283,12 @@ function formatKeyList(label: string, keys: string[]): string | null {
 function renderPreviewEvidenceDetail(appId: string, record: PreviewEvidenceRecord): string {
   const artifactUrl = resolvePreviewEvidenceArtifactUrl(appId, record.detail);
   const source = JSON.stringify(
-    artifactUrl === null ? record.detail : {
-      ...record.detail,
-      artifactUrl,
-    },
+    artifactUrl === null
+      ? record.detail
+      : {
+          ...record.detail,
+          artifactUrl,
+        },
   );
   const detailText = source.length <= 180 ? source : `${source.slice(0, 177)}...`;
 
@@ -323,11 +304,9 @@ function renderPreviewEvidenceDetail(appId: string, record: PreviewEvidenceRecor
     <div class="micro muted">
       <a href="${escapeHtml(artifactUrl)}">${escapeHtml(fileName)}</a>
     </div>
-    <img src="${escapeHtml(artifactUrl)}" alt="${
-      escapeHtml(
-        `Supplemental screenshot evidence ${fileName}`,
-      )
-    }" loading="lazy" style="max-width: 100%; height: auto;">
+    <img src="${escapeHtml(artifactUrl)}" alt="${escapeHtml(
+      `Supplemental screenshot evidence ${fileName}`,
+    )}" loading="lazy" style="max-width: 100%; height: auto;">
     <div class="micro muted">${escapeHtml(detailText)}</div>`;
   }
 
@@ -349,7 +328,7 @@ function resolvePreviewEvidenceArtifactUrl(
 
   const artifactId = readPreviewEvidenceString(detail, 'artifactId');
 
-  return artifactId === null ? null : `/admin/packages/${appId}/deployment/evidence/${artifactId}`;
+  return artifactId === null ? null : `/admin/packages/${appId}/evidence/${artifactId}`;
 }
 
 function readPreviewEvidenceFileName(detail: Record<string, unknown>): string | null {
@@ -381,23 +360,18 @@ function formatRoleLabel(role: string): string {
 }
 
 function renderLaunchSummary(launch: PreviewSessionRecord['launch']): string {
-  const assignment = launch.assignmentId === null
-    ? 'a course-level launch'
-    : `assignment <span class="inline-code">${escapeHtml(launch.assignmentId)}</span>`;
+  const assignment =
+    launch.assignmentId === null
+      ? 'a course-level launch'
+      : `assignment <span class="inline-code">${escapeHtml(launch.assignmentId)}</span>`;
 
-  return `as ${
-    escapeHtml(
-      formatRoleLabel(launch.userRole),
-    )
-  } in course <span class="inline-code">${
-    escapeHtml(
-      launch.courseId,
-    )
-  }</span>, ${assignment}, with activity <span class="inline-code">${
-    escapeHtml(
-      launch.activityId,
-    )
-  }</span>`;
+  return `as ${escapeHtml(
+    formatRoleLabel(launch.userRole),
+  )} in course <span class="inline-code">${escapeHtml(
+    launch.courseId,
+  )}</span>, ${assignment}, with activity <span class="inline-code">${escapeHtml(
+    launch.activityId,
+  )}</span>`;
 }
 
 function formatPreviewEvidenceLabel(eventType: string): string {

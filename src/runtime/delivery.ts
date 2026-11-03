@@ -32,10 +32,17 @@ export interface RuntimeDeliveryDescriptor {
 }
 
 export interface ReviewedRuntimeDeliveryContext {
-  session: RuntimeSessionRecord;
+  session: Pick<RuntimeSessionRecord, 'snapshotRoot'>;
   reviewedPackage: Pick<
     PackageVersionRecord,
-    'id' | 'version' | 'artifact' | 'runtimeContractSignature' | 'grading' | 'manifestJson'
+    | 'id'
+    | 'appId'
+    | 'version'
+    | 'runtime'
+    | 'artifact'
+    | 'runtimeContractSignature'
+    | 'grading'
+    | 'manifestJson'
   >;
 }
 
@@ -52,6 +59,11 @@ export interface RuntimeDelivery {
       assetPath: string;
     },
   ): Promise<RuntimeBinaryAsset | null>;
+  invokeReviewedWorker(
+    input: ReviewedRuntimeDeliveryContext & {
+      request: Request;
+    },
+  ): Promise<Response>;
 }
 
 export function createDirectRuntimeDelivery(artifactStore: RuntimeArtifactStore): RuntimeDelivery {
@@ -128,6 +140,11 @@ export function createDirectRuntimeDelivery(artifactStore: RuntimeArtifactStore)
         contentType: contentTypeForRuntimePath(relativePath),
       };
     },
+    invokeReviewedWorker(): Promise<Response> {
+      return Promise.reject(
+        new Error('Reviewed Worker apps require Cloudflare Dynamic Worker delivery.'),
+      );
+    },
   };
 }
 
@@ -144,6 +161,9 @@ export function createUnsupportedRuntimeDelivery(message: string): RuntimeDelive
       return Promise.reject(new Error(message));
     },
     loadBrowserGraderAsset(): Promise<RuntimeBinaryAsset | null> {
+      return Promise.reject(new Error(message));
+    },
+    invokeReviewedWorker(): Promise<Response> {
       return Promise.reject(new Error(message));
     },
   };
@@ -209,7 +229,7 @@ export function classifyRuntimeArtifactFailureCode(error: unknown): RuntimeArtif
 type RuntimeBytesReader = (relativePath: string) => Promise<Uint8Array>;
 
 async function readRuntimeBytes(input: {
-  session: RuntimeSessionRecord;
+  session: Pick<RuntimeSessionRecord, 'snapshotRoot'>;
   relativePath: string;
   readBytes: RuntimeBytesReader;
 }): Promise<Uint8Array> {

@@ -5,13 +5,13 @@ import {
 } from '../src/authoring/scaffold.ts';
 
 try {
-  const args = readArgs(Deno.args);
+  const args = readArgs(process.argv.slice(2));
 
   if (args.listStarters) {
     printStarterList();
 
     if (args.outputRoot === null) {
-      Deno.exit(0);
+      process.exit(0);
     }
   }
 
@@ -35,12 +35,12 @@ try {
 
   console.log(`Created ${result.starter.id} package at ${result.outputRoot}`);
   console.log(`- Starter: ${result.starter.label}`);
-  console.log(`- Next: deno task app:validate ${args.outputRoot}`);
-  console.log(`- Next: deno task app:test-preview ${args.outputRoot}`);
-  console.log(`- Next: deno task app:preview ${args.outputRoot}`);
+  console.log(`- Next: npm run app:validate -- ${args.outputRoot}`);
+  console.log(`- Next: npm run app:test-preview -- ${args.outputRoot}`);
+  console.log(`- Next: npm run app:preview -- ${args.outputRoot}`);
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Lantern app scaffolding failed.');
-  Deno.exit(1);
+  process.exit(1);
 }
 
 interface AppNewArgs {
@@ -118,7 +118,7 @@ function buildUsageMessage(): string {
   const starterSection = starterLines.length > 0 ? ['Available starters:', ...starterLines] : [];
 
   return [
-    'Usage: deno task app:new <output-root> --starter=<id> --app-id=<app-id> --title=<title> [--owner-id=<owner-id>]',
+    'Usage: npm run app:new -- <output-root> --starter=<id> --app-id=<app-id> --title=<title> [--owner-id=<owner-id>]',
     '',
     ...starterSection,
     '',

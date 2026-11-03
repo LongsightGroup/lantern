@@ -1,9 +1,13 @@
+import { join } from 'node:path';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { validateLocalAppPackage } from './local_app.ts';
 import { createLocalPreviewHarness } from './local_preview.ts';
 import { listScaffoldStarters, scaffoldLocalAppPackage } from './scaffold.ts';
 
-Deno.test('listScaffoldStarters exposes the curated starter set', () => {
+test('listScaffoldStarters exposes the curated starter set', () => {
   assertEquals(listScaffoldStarters(), [
     {
       id: 'simple-activity',
@@ -18,10 +22,8 @@ Deno.test('listScaffoldStarters exposes the curated starter set', () => {
   ]);
 });
 
-Deno.test('scaffoldLocalAppPackage writes a simple activity package that validates and previews', async () => {
-  const tempRoot = await Deno.makeTempDir({
-    prefix: 'lantern-scaffold-',
-  });
+test('scaffoldLocalAppPackage writes a simple activity package that validates and previews', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'lantern-scaffold-'));
   const outputRoot = `${tempRoot}/cell-review`;
 
   try {
@@ -43,9 +45,9 @@ Deno.test('scaffoldLocalAppPackage writes a simple activity package that validat
       );
     }
 
-    const appSource = await Deno.readTextFile(`${outputRoot}/dist/app.js`);
-    const contentSource = await Deno.readTextFile(`${outputRoot}/content/activity.json`);
-    const fixturesSource = await Deno.readTextFile(`${outputRoot}/preview/fixtures.json`);
+    const appSource = await readFile(`${outputRoot}/dist/app.js`, 'utf8');
+    const contentSource = await readFile(`${outputRoot}/content/activity.json`, 'utf8');
+    const fixturesSource = await readFile(`${outputRoot}/preview/fixtures.json`, 'utf8');
 
     assertEquals(validation.appPackage.reviewData.appId, 'cell-review');
     assertEquals(validation.appPackage.manifest.title, 'Cell Review');
@@ -71,14 +73,12 @@ Deno.test('scaffoldLocalAppPackage writes a simple activity package that validat
     assertStringIncludes(entrypointBody, 'data-test="progress-button"');
     assertStringIncludes(entrypointBody, 'data-test="complete-button"');
   } finally {
-    await Deno.remove(tempRoot, { recursive: true });
+    await rm(tempRoot, { recursive: true });
   }
 });
 
-Deno.test('scaffoldLocalAppPackage writes a browser autograder package with coherent metadata artifacts', async () => {
-  const tempRoot = await Deno.makeTempDir({
-    prefix: 'lantern-scaffold-',
-  });
+test('scaffoldLocalAppPackage writes a browser autograder package with coherent metadata artifacts', async () => {
+  const tempRoot = await mkdtemp(join(tmpdir(), 'lantern-scaffold-'));
   const outputRoot = `${tempRoot}/dom-check`;
 
   try {
@@ -100,10 +100,10 @@ Deno.test('scaffoldLocalAppPackage writes a browser autograder package with cohe
       );
     }
 
-    const previewTestsSource = await Deno.readTextFile(`${outputRoot}/preview/tests.json`);
-    const graderSpecSource = await Deno.readTextFile(`${outputRoot}/grading/specs/checks.spec.js`);
-    const entrypointSource = await Deno.readTextFile(`${outputRoot}/dist/index.html`);
-    const appSource = await Deno.readTextFile(`${outputRoot}/dist/app.js`);
+    const previewTestsSource = await readFile(`${outputRoot}/preview/tests.json`, 'utf8');
+    const graderSpecSource = await readFile(`${outputRoot}/grading/specs/checks.spec.js`, 'utf8');
+    const entrypointSource = await readFile(`${outputRoot}/dist/index.html`, 'utf8');
+    const appSource = await readFile(`${outputRoot}/dist/app.js`, 'utf8');
 
     assertEquals(validation.appPackage.reviewData.appId, 'dom-check');
     assertEquals(validation.appPackage.manifest.title, 'DOM Check');
@@ -140,6 +140,6 @@ Deno.test('scaffoldLocalAppPackage writes a browser autograder package with cohe
     assertStringIncludes(await entrypointResponse.text(), 'runBrowserGrader');
     assertStringIncludes(await runnerResponse.text(), "./reviewed/' + index + '.js");
   } finally {
-    await Deno.remove(tempRoot, { recursive: true });
+    await rm(tempRoot, { recursive: true });
   }
 });

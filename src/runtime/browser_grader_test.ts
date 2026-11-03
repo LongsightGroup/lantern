@@ -1,7 +1,8 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { buildBrowserGraderAssetUrls, buildBrowserGraderRunnerSource } from './browser_grader.ts';
 
-Deno.test('browser grader assets stay on the runtime session origin', () => {
+test('browser grader assets stay on the runtime session origin', () => {
   const urls = buildBrowserGraderAssetUrls({
     runtimeBaseUrl: 'https://runtime.lantern.example/runtime/sessions/runtime-session-123',
   });
@@ -16,7 +17,7 @@ Deno.test('browser grader assets stay on the runtime session origin', () => {
   );
 });
 
-Deno.test('browser grader runner source only points at reviewed same-origin specs', () => {
+test('browser grader runner source only points at reviewed same-origin specs', () => {
   const source = buildBrowserGraderRunnerSource({
     reviewedSpecFiles: ['/grading/specs/structure.spec.js', '/grading/specs/behavior.spec.js'],
     scoreMaximum: 100,

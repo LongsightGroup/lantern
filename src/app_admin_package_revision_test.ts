@@ -1,13 +1,16 @@
+import { test } from 'vite-plus/test';
+import { expectString } from './app_writer/binding_result.ts';
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { buildRevisionAuthoringPrompt } from './app_writer/revision_authoring_prompt.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import {
   buildPackageVersionRecord,
   createInMemoryPackageReviewRepository,
 } from './test_helpers/package_review.ts';
+import { createAdminTestApp } from './test_helpers/admin_auth.ts';
 
-Deno.test('revision authoring prompt uses the exact package plan and reviewed runtime contract', () => {
+test('revision authoring prompt uses the exact package plan and reviewed runtime contract', () => {
   const packageVersion = buildPackageVersionRecord({
     appId: 'phonics-match',
     version: '0.1.0',
@@ -43,7 +46,7 @@ Deno.test('revision authoring prompt uses the exact package plan and reviewed ru
   assertStringIncludes(prompt, 'Requested change:');
 });
 
-Deno.test('GET /admin/packages/:appId/versions/:version/revise renders App Writer revision form', async () => {
+test('GET /admin/packages/:appId/versions/:version/revise renders App Writer revision form', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -98,7 +101,7 @@ Deno.test('GET /admin/packages/:appId/versions/:version/revise renders App Write
   assertStringIncludes(body, 'Revise app');
 });
 
-Deno.test('POST /admin/packages/:appId/versions/:version/revise creates a revision run and redirects to App Writer progress', async () => {
+test('POST /admin/packages/:appId/versions/:version/revise creates a revision run and redirects to App Writer progress', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -140,7 +143,7 @@ Deno.test('POST /admin/packages/:appId/versions/:version/revise creates a revisi
   assertStringIncludes(response.headers.get('location') ?? '', '/admin/app-writer/runs/');
 
   const queuedEvents = await repository.listAuditEventsByEventType('app_generation.generating');
-  const runId = String(queuedEvents[0]?.detail.generationId ?? '');
+  const runId = expectString(queuedEvents[0]?.detail.generationId ?? '', 'audit metadata');
   const run = await repository.getAppGenerationRunById(runId);
 
   assertEquals(run?.requestedAppId, 'phonics-match');
@@ -159,10 +162,9 @@ Deno.test('POST /admin/packages/:appId/versions/:version/revise creates a revisi
 });
 
 function createAdminApp(services: Parameters<typeof createApp>[0] = {}) {
-  return createApp({
+  return createAdminTestApp({
     env: createObjectEnvReader({
       APP_ORIGIN: 'http://localhost',
-      LANTERN_OPERATOR_NAME: 'Signed in',
     }),
     ...services,
   });

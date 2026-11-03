@@ -1,14 +1,19 @@
 export type UserRole = 'learner' | 'instructor';
 export type SubmissionMode = 'standard' | 'anonymous_submission';
 
-export type Capability =
+import type { RosterCapability } from './worker-app-sdk.ts';
+
+export type BrowserCapability =
   | 'read_launch_context'
   | 'read_activity_content'
   | 'submit_attempt_event'
   | 'submit_evidence_artifact'
   | 'finalize_attempt'
+  | 'run_code_submission'
   | 'read_local_state'
   | 'write_local_state';
+
+export type Capability = BrowserCapability | RosterCapability;
 
 export interface LaunchContext {
   userRole: UserRole;
@@ -53,41 +58,41 @@ export interface BootstrapPayload {
 
 export type AttemptEvent =
   | {
-    type: 'answer';
-    questionId: string;
-    answer: string | string[];
-    correct?: boolean;
-    scoreGiven?: number;
-    scoreMaximum?: number;
-    timestamp: string;
-  }
+      type: 'answer';
+      questionId: string;
+      answer: string | string[];
+      correct?: boolean;
+      scoreGiven?: number;
+      scoreMaximum?: number;
+      timestamp: string;
+    }
   | {
-    type: 'progress';
-    checkpoint: string;
-    value: number;
-    timestamp: string;
-  }
+      type: 'progress';
+      checkpoint: string;
+      value: number;
+      timestamp: string;
+    }
   | {
-    type: 'complete';
-    timestamp: string;
-  };
+      type: 'complete';
+      timestamp: string;
+    };
 
 export type AttemptEventLearningVerb = 'answered' | 'progressed' | 'completed';
 export type AttemptEventObjectType = 'question' | 'checkpoint' | 'activity';
 
 export type AttemptEventResult =
   | {
-    response: string | string[];
-    success: boolean | null;
-    scoreGiven: number | null;
-    scoreMaximum: number | null;
-  }
+      response: string | string[];
+      success: boolean | null;
+      scoreGiven: number | null;
+      scoreMaximum: number | null;
+    }
   | {
-    value: number;
-  }
+      value: number;
+    }
   | {
-    completionState: 'completed';
-  };
+      completionState: 'completed';
+    };
 
 export interface NormalizedAttemptEvent {
   eventType: AttemptEvent['type'];
@@ -172,6 +177,28 @@ export interface GatewayEvidenceArtifactAcceptedResult extends GatewayMutationAc
   artifactId: string;
 }
 
+export type CodeSubmissionPhase = 'practice' | 'final';
+
+export interface CodeSubmissionPublicOutcome {
+  label: string;
+  status: 'passed' | 'failed';
+  message: string | null;
+}
+
+export interface GatewayCodeSubmissionAcceptedResult extends GatewayMutationAcceptedResult {
+  phase: CodeSubmissionPhase;
+  publicOutcomes: CodeSubmissionPublicOutcome[];
+  hiddenSummary: { passed: number; total: number } | null;
+  scoreGiven: number | null;
+  scoreMaximum: number | null;
+  alreadyFinalized: boolean;
+  gradePublished: boolean;
+}
+
+export type GatewayCodeSubmissionResult =
+  | GatewayCodeSubmissionAcceptedResult
+  | GatewayMutationDeniedResult;
+
 export type GatewayEvidenceArtifactResult =
   | GatewayEvidenceArtifactAcceptedResult
   | GatewayMutationDeniedResult;
@@ -185,6 +212,10 @@ export interface GatewayAppClient {
   submitEvidenceArtifact(input: EvidenceArtifactUpload): Promise<GatewayEvidenceArtifactResult>;
   submitScoreProposal(input: ScoreProposal): Promise<GatewayScoreProposalResult>;
   runBrowserGrader(): Promise<BrowserGraderResult>;
+  runCodeSubmission(input: {
+    source: string;
+    phase: CodeSubmissionPhase;
+  }): Promise<GatewayCodeSubmissionResult>;
   finalizeAttempt(input: {
     completionState: 'completed' | 'abandoned';
     browserGraderResult?: BrowserGraderResult;

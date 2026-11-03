@@ -1,7 +1,8 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { buildDraftDiff } from './draft_diff.ts';
 
-Deno.test('buildDraftDiff renders explicit additions and removals for authoring files', () => {
+test('buildDraftDiff renders explicit additions and removals for authoring files', () => {
   const [diff] = buildDraftDiff({
     currentFiles: [
       {

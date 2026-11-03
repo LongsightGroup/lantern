@@ -21,6 +21,7 @@ export interface RuntimeArtifactBucketListResult {
 export interface RuntimeArtifactBucket {
   get(key: string): Promise<RuntimeArtifactObject | null>;
   put?(key: string, value: string | ArrayBuffer | ArrayBufferView): Promise<unknown>;
+  delete?(key: string): Promise<void>;
   list?(options: { prefix: string; cursor?: string }): Promise<RuntimeArtifactBucketListResult>;
 }
 

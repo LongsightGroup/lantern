@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import type { D1Database, D1Parameter, D1PreparedStatement, D1Result } from '../db/d1.ts';
 import { createD1AuthoringRepositoryMethods } from './repository_authoring_d1.ts';
 
-Deno.test('D1 authoring repository creates drafts from approved browser autograder packages', async () => {
+test('D1 authoring repository creates drafts from approved browser autograder packages', async () => {
   const db = createPlannedD1Database({
     firstResults: [buildPackageVersionRow(), null, buildAuthoringDraftRow()],
     allResults: [[]],
@@ -19,7 +20,7 @@ Deno.test('D1 authoring repository creates drafts from approved browser autograd
   assertEquals(db.statements[2]?.parameters[6], '["/grader/spec.json","/examples/evidence.json"]');
 });
 
-Deno.test('D1 authoring repository rejects unapproved package versions', async () => {
+test('D1 authoring repository rejects unapproved package versions', async () => {
   const db = createPlannedD1Database({
     firstResults: [buildPackageVersionRow({ approvalStatus: 'pending' })],
   });
@@ -37,7 +38,7 @@ Deno.test('D1 authoring repository rejects unapproved package versions', async (
   );
 });
 
-Deno.test('D1 authoring repository saves only approved draft paths', async () => {
+test('D1 authoring repository saves only approved draft paths', async () => {
   const db = createPlannedD1Database({
     firstResults: [
       buildAuthoringDraftRow(),
@@ -66,7 +67,7 @@ Deno.test('D1 authoring repository saves only approved draft paths', async () =>
   assertEquals(db.statements[1]?.parameters, ['draft-1', '/grader/spec.json', '{}', 1]);
 });
 
-Deno.test('D1 authoring repository rejects files outside the authoring contract', async () => {
+test('D1 authoring repository rejects files outside the authoring contract', async () => {
   const db = createPlannedD1Database({
     firstResults: [buildAuthoringDraftRow()],
   });
@@ -87,7 +88,7 @@ Deno.test('D1 authoring repository rejects files outside the authoring contract'
   );
 });
 
-Deno.test('D1 authoring repository marks drafts previewed', async () => {
+test('D1 authoring repository marks drafts previewed', async () => {
   const db = createPlannedD1Database({
     firstResults: [
       buildAuthoringDraftRow({

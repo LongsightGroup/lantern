@@ -82,31 +82,27 @@ export async function renderRuntimeSessionPage(
       })
     ).bytes,
   );
-  const runtimeOrigin = input.runtimeOrigin ??
-    requireConfiguredRuntimeOrigin(input.env.get('APP_RUNTIME_ORIGIN'));
+  const runtimeOrigin =
+    input.runtimeOrigin ?? requireConfiguredRuntimeOrigin(input.env.get('APP_RUNTIME_ORIGIN'));
   const runtimeBaseUrl = buildRuntimeSessionBaseUrl({
     runtimeOrigin,
     sessionId: session.sessionId,
   });
   const entrypointDirectory = entrypointDirectoryPath(session);
-  const assetBaseUrl = `${runtimeBaseUrl}/files/__token__/${
-    encodeURIComponent(
-      session.sessionToken,
-    )
-  }/${entrypointDirectory}`;
+  const assetBaseUrl = `${runtimeBaseUrl}/files/__token__/${encodeURIComponent(
+    session.sessionToken,
+  )}/${entrypointDirectory}`;
   const bootstrap = await buildRuntimeBootstrap({
     session,
     runtimeContractSignature: input.reviewedPackage.runtimeContractSignature,
     env: input.env,
   });
   const headInjection = `<base href="${escapeHtmlAttribute(assetBaseUrl)}">`;
-  const bodyInjection = `<script>${
-    buildRuntimeBootstrapScript({
-      bootstrap,
-      runtimeBaseUrl,
-      previewSessionId: session.preview?.previewSessionId ?? null,
-    })
-  }</script>`;
+  const bodyInjection = `<script>${buildRuntimeBootstrapScript({
+    bootstrap,
+    runtimeBaseUrl,
+    previewSessionId: session.preview.previewSessionId,
+  })}</script>`;
 
   return injectBeforeFirstScriptOrClosingBody(
     injectAfterOpeningTag(entrypointHtml, 'head', headInjection),
@@ -223,8 +219,8 @@ async function signRuntimeBootstrapPayload(input: {
 
   return await new CompactSign(textEncoder.encode(JSON.stringify(input.bootstrap)))
     .setProtectedHeader({
-      alg: toolKey.privateJwk.alg,
-      kid: toolKey.publicJwk.kid,
+      alg: toolKey.alg,
+      kid: toolKey.keyId,
       typ: RUNTIME_BOOTSTRAP_JWS_TYPE,
     })
     .sign(toolKey.privateKey);

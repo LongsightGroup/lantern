@@ -1,12 +1,5 @@
 import type { AttemptScoreResult } from '../grading/service.ts';
-import type { PublishFinalScoreInput, PublishFinalScoreResult } from '../lti/services.ts';
-import type { PackageReviewRepository } from '../package_review/repository.ts';
-import type {
-  AttemptEvidenceArtifactRecord,
-  AttemptRecord,
-  GradePublicationRecord,
-  LineItemBindingRecord,
-} from '../package_review/types.ts';
+import type { AttemptEvidenceArtifactRecord, AttemptRecord } from '../package_review/types.ts';
 import type {
   BrowserGraderResult,
   EvidenceArtifactContentType,
@@ -62,31 +55,4 @@ export interface FinalizeAttemptResult {
   submissionMode: SubmissionMode;
   evidenceArtifacts: Array<Pick<AttemptEvidenceArtifactRecord, 'artifactId' | 'kind' | 'fileName'>>;
   finalizedNow: boolean;
-  lineItemBinding: LineItemBindingRecord | null;
-  gradePublication: GradePublicationRecord | null;
-  gradePublishedNow: boolean;
-  publishError: {
-    code: string;
-    message: string;
-    detail: Record<string, unknown>;
-  } | null;
-}
-
-export interface GovernedGradePublicationInput {
-  repository: Pick<PackageReviewRepository, 'updateGradePublication'>;
-  attemptId: string;
-  publication: Pick<
-    GradePublicationRecord,
-    'lineItemUrl' | 'platformUserId' | 'scoreGiven' | 'scoreMaximum' | 'activityProgress'
-  >;
-  accessToken: string;
-  retryUnauthorized?: () => Promise<string>;
-  now: () => Date;
-  publishScore?: (input: PublishFinalScoreInput) => Promise<PublishFinalScoreResult>;
-}
-
-export interface GovernedGradePublicationResult {
-  gradePublication: GradePublicationRecord;
-  gradePublishedNow: boolean;
-  publishError: FinalizeAttemptResult['publishError'];
 }

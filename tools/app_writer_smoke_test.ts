@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertThrows } from '@std/assert';
 import {
   assertSmokeRunHtml,
@@ -5,7 +6,7 @@ import {
   selectSmokePrompts,
 } from './app_writer_smoke.ts';
 
-Deno.test('app writer smoke runner selects the production prompt set', () => {
+test('app writer smoke runner selects the production prompt set', () => {
   const options = parseAppWriterSmokeArgs([
     '--origin=https://lantern.example',
     '--production-set=1',
@@ -23,7 +24,7 @@ Deno.test('app writer smoke runner selects the production prompt set', () => {
   assertEquals(options.pollMs, 100);
 });
 
-Deno.test('app writer smoke runner rejects unknown prompt ids', () => {
+test('app writer smoke runner rejects unknown prompt ids', () => {
   assertThrows(
     () => selectSmokePrompts(['unknown-prompt']),
     Error,
@@ -31,7 +32,7 @@ Deno.test('app writer smoke runner rejects unknown prompt ids', () => {
   );
 });
 
-Deno.test('app writer smoke runner asserts the full proof loop page evidence', () => {
+test('app writer smoke runner asserts the full proof loop page evidence', () => {
   assertSmokeRunHtml(`
     <h2>saved pending version</h2>
     <article>initialize workspace <span>succeeded</span></article>

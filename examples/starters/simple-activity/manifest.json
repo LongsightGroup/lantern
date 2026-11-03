@@ -1,5 +1,5 @@
 {
-  "schema_version": "1",
+  "schema_version": "2",
   "app_id": "simple-activity-starter",
   "version": "0.1.0",
   "title": "Simple Activity Starter",
@@ -8,7 +8,10 @@
     "type": "user",
     "id": "author_123"
   },
-  "entrypoint": "/dist/index.html",
+  "runtime": {
+    "kind": "browser",
+    "entrypoint": "/dist/index.html"
+  },
   "roles": ["learner", "instructor"],
   "install_scope": "course",
   "capabilities": [

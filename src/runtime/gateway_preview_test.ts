@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assert, assertEquals, assertRejects } from '@std/assert';
 import { acceptAttemptEvent, finalizeRuntimeAttempt } from './gateway.ts';
 import { RuntimeBrokerDenialError } from './gateway_errors.ts';
@@ -19,7 +20,7 @@ import {
 
 const WEB_CHECKUP_SNAPSHOT_ROOT = 'examples/apps/web-checkup';
 
-Deno.test('preview gateway finalize returns fake scoring and never calls Canvas side-effect services', async () => {
+test('preview gateway finalize returns fake scoring and never calls Canvas side-effect services', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -40,7 +41,7 @@ Deno.test('preview gateway finalize returns fake scoring and never calls Canvas 
     attempts: [
       buildAttemptRecord({
         attemptId: 'preview-attempt-123',
-        deploymentRecordId: 0,
+        previewSessionId: 'preview-session-finalize-fake',
       }),
     ],
     attemptEvents: [
@@ -55,8 +56,6 @@ Deno.test('preview gateway finalize returns fake scoring and never calls Canvas 
   });
   const session = buildRuntimeSessionRecord({
     attemptId: 'preview-attempt-123',
-    deploymentRecordId: 0,
-    deploymentSlug: 'chapter-4-asteroids-preview',
     services: {
       ags: null,
       nrps: null,
@@ -87,15 +86,11 @@ Deno.test('preview gateway finalize returns fake scoring and never calls Canvas 
         scoreGiven: 0,
         scoreMaximum: 42,
       });
-      assertEquals(result.lineItemBinding, null);
-      assertEquals(result.gradePublication, null);
-      assertEquals(result.gradePublishedNow, false);
-      assertEquals(result.publishError, null);
     },
   );
 });
 
-Deno.test('preview gateway enforces declared capabilities and records bounded blocked-capability evidence', async () => {
+test('preview gateway enforces declared capabilities and records bounded blocked-capability evidence', async () => {
   const repository = createInMemoryPackageReviewRepository({
     previewSessions: [
       buildPreviewSessionRecord({
@@ -106,14 +101,12 @@ Deno.test('preview gateway enforces declared capabilities and records bounded bl
     attempts: [
       buildAttemptRecord({
         attemptId: 'preview-attempt-123',
-        deploymentRecordId: 0,
+        previewSessionId: 'preview-session-capability-block',
       }),
     ],
   });
   const session = buildRuntimeSessionRecord({
     attemptId: 'preview-attempt-123',
-    deploymentRecordId: 0,
-    deploymentSlug: 'chapter-4-asteroids-preview',
     capabilities: ['read_launch_context'],
     services: {
       ags: null,
@@ -150,7 +143,7 @@ Deno.test('preview gateway enforces declared capabilities and records bounded bl
   assertEquals(evidence[0]?.capability, 'submit_attempt_event');
 });
 
-Deno.test('preview gateway records allowed quick-study attempt events through the governed runtime seam', async () => {
+test('preview gateway records allowed quick-study attempt events through the governed runtime seam', async () => {
   const snapshotRoot = getReferenceAppSnapshotRoot('quick-study');
   const repository = createInMemoryPackageReviewRepository({
     previewSessions: [
@@ -191,8 +184,7 @@ Deno.test('preview gateway records allowed quick-study attempt events through th
     attempts: [
       buildAttemptRecord({
         attemptId: 'preview-attempt-123',
-        deploymentRecordId: 0,
-        deploymentSlug: 'quick-study-preview',
+        previewSessionId: 'preview-session-quick-study-allowed',
         appId: 'quick-study',
         activityId: 'quick-study',
       }),
@@ -200,8 +192,6 @@ Deno.test('preview gateway records allowed quick-study attempt events through th
   });
   const session = buildRuntimeSessionRecord({
     attemptId: 'preview-attempt-123',
-    deploymentRecordId: 0,
-    deploymentSlug: 'quick-study-preview',
     appId: 'quick-study',
     snapshotRoot,
     entrypointPath: `${snapshotRoot}/dist/index.html`,
@@ -250,7 +240,7 @@ Deno.test('preview gateway records allowed quick-study attempt events through th
   assertEquals(evidence[0]?.capability, 'submit_attempt_event');
 });
 
-Deno.test('preview gateway blocks live-service finalize paths clearly and records failure evidence', async () => {
+test('preview gateway blocks live-service finalize paths clearly and records failure evidence', async () => {
   const repository = createInMemoryPackageReviewRepository({
     previewSessions: [
       buildPreviewSessionRecord({
@@ -262,14 +252,12 @@ Deno.test('preview gateway blocks live-service finalize paths clearly and record
     attempts: [
       buildAttemptRecord({
         attemptId: 'preview-attempt-123',
-        deploymentRecordId: 0,
+        previewSessionId: 'preview-session-live-service-block',
       }),
     ],
   });
   const session = buildRuntimeSessionRecord({
     attemptId: 'preview-attempt-123',
-    deploymentRecordId: 0,
-    deploymentSlug: 'chapter-4-asteroids-preview',
     preview: {
       previewSessionId: 'preview-session-live-service-block',
     },
@@ -299,7 +287,7 @@ Deno.test('preview gateway blocks live-service finalize paths clearly and record
   assertEquals(evidence[0]?.capability, 'finalize_attempt');
 });
 
-Deno.test('preview gateway records browser grader evidence instead of fake scoring for browser-graded packages', async () => {
+test('preview gateway records browser grader evidence instead of fake scoring for browser-graded packages', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -353,8 +341,7 @@ Deno.test('preview gateway records browser grader evidence instead of fake scori
     attempts: [
       buildAttemptRecord({
         attemptId: 'preview-attempt-123',
-        deploymentRecordId: 0,
-        deploymentSlug: 'web-checkup-preview',
+        previewSessionId: 'preview-session-browser-grading',
         appId: 'web-checkup',
       }),
     ],
@@ -369,8 +356,6 @@ Deno.test('preview gateway records browser grader evidence instead of fake scori
   });
   const session = buildRuntimeSessionRecord({
     attemptId: 'preview-attempt-123',
-    deploymentRecordId: 0,
-    deploymentSlug: 'web-checkup-preview',
     appId: 'web-checkup',
     snapshotRoot: WEB_CHECKUP_SNAPSHOT_ROOT,
     entrypointPath: `${WEB_CHECKUP_SNAPSHOT_ROOT}/dist/index.html`,

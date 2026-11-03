@@ -4,9 +4,8 @@ import type {
   CanvasPlatformConfig,
   DeploymentBinding,
   LmsType,
-  LoginStateRecord,
 } from '../lti/types.ts';
-import type { LoginRequest } from '../lti/login.ts';
+import type { LoginRequest } from '../lti/login_request.ts';
 export type { AgsShape } from './lti_service_claim_builders.ts';
 export type {
   TestAgsLaunchServiceOverrides,
@@ -70,8 +69,8 @@ export function buildMoodleDeploymentBinding(
     issuer: overrides.issuer ?? 'https://moodle.example',
     clientId: overrides.clientId ?? 'moodle-client-123',
     deploymentId: overrides.deploymentId ?? 'moodle-deployment-123',
-    authorizationEndpoint: overrides.authorizationEndpoint ??
-      'https://moodle.example/mod/lti/auth.php',
+    authorizationEndpoint:
+      overrides.authorizationEndpoint ?? 'https://moodle.example/mod/lti/auth.php',
     accessTokenUrl: overrides.accessTokenUrl ?? 'https://moodle.example/mod/lti/token.php',
     jwksUrl: overrides.jwksUrl ?? 'https://moodle.example/mod/lti/certs.php',
   };
@@ -85,8 +84,8 @@ export function buildSakaiDeploymentBinding(
     issuer: overrides.issuer ?? 'https://sakai.example',
     clientId: overrides.clientId ?? 'sakai-client-123',
     deploymentId: overrides.deploymentId ?? 'sakai-deployment-123',
-    authorizationEndpoint: overrides.authorizationEndpoint ??
-      'https://sakai.example/imsoidc/lti13/oidc_auth',
+    authorizationEndpoint:
+      overrides.authorizationEndpoint ?? 'https://sakai.example/imsoidc/lti13/oidc_auth',
     accessTokenUrl: overrides.accessTokenUrl ?? 'https://sakai.example/imsblis/lti13/token/3',
     jwksUrl: overrides.jwksUrl ?? 'https://sakai.example/imsblis/lti13/keyset',
   };
@@ -106,7 +105,13 @@ export function buildPlatformIdentity(
     clientId: string;
     deploymentId: string;
   }> = {},
-): Pick<LoginStateRecord, 'lms' | 'canvasEnvironment' | 'issuer' | 'clientId' | 'deploymentId'> {
+): {
+  lms: LmsType;
+  canvasEnvironment: CanvasEnvironment | null;
+  issuer: string;
+  clientId: string;
+  deploymentId: string;
+} {
   const lms = overrides.lms ?? 'canvas';
 
   switch (lms) {
@@ -174,9 +179,10 @@ export function buildCanvasLoginRequest(overrides: Partial<LoginRequest> = {}): 
   return {
     iss: identity.issuer,
     loginHint: overrides.loginHint ?? 'opaque-login-hint',
-    targetLinkUri: overrides.targetLinkUri === undefined
-      ? 'http://localhost:8417/lti/launch'
-      : overrides.targetLinkUri,
+    targetLinkUri:
+      overrides.targetLinkUri === undefined
+        ? 'http://localhost:8417/lti/launch'
+        : overrides.targetLinkUri,
     clientId: overrides.clientId === undefined ? identity.clientId : overrides.clientId,
     deploymentId: identity.deploymentId,
     ltiMessageHint: overrides.ltiMessageHint ?? 'message-hint-123',
@@ -196,35 +202,12 @@ export function buildSakaiLoginRequest(overrides: Partial<LoginRequest> = {}): L
   return {
     iss: identity.issuer,
     loginHint: overrides.loginHint ?? 'opaque-login-hint',
-    targetLinkUri: overrides.targetLinkUri === undefined
-      ? 'http://localhost:8417/lti/launch'
-      : overrides.targetLinkUri,
+    targetLinkUri:
+      overrides.targetLinkUri === undefined
+        ? 'http://localhost:8417/lti/launch'
+        : overrides.targetLinkUri,
     clientId: overrides.clientId === undefined ? identity.clientId : overrides.clientId,
     deploymentId: identity.deploymentId,
     ltiMessageHint: overrides.ltiMessageHint ?? 'message-hint-123',
-  };
-}
-
-export function buildLoginStateRecord(overrides: Partial<LoginStateRecord> = {}): LoginStateRecord {
-  const identity = buildPlatformIdentity({
-    ...(overrides.lms === undefined ? {} : { lms: overrides.lms }),
-    ...(overrides.canvasEnvironment === undefined
-      ? {}
-      : { canvasEnvironment: overrides.canvasEnvironment }),
-    ...(overrides.issuer === undefined ? {} : { issuer: overrides.issuer }),
-    ...(overrides.clientId === undefined ? {} : { clientId: overrides.clientId }),
-    ...(overrides.deploymentId === undefined ? {} : { deploymentId: overrides.deploymentId }),
-  });
-
-  return {
-    state: overrides.state ?? 'state-123',
-    nonce: overrides.nonce ?? 'nonce-123',
-    loginHint: overrides.loginHint ?? 'opaque-login-hint',
-    targetLinkUri: overrides.targetLinkUri ?? 'http://localhost:8417/lti/launch',
-    ltiMessageHint: overrides.ltiMessageHint ?? 'message-hint-123',
-    createdAt: overrides.createdAt ?? TEST_NOW,
-    expiresAt: overrides.expiresAt ?? '2026-03-23T22:50:00Z',
-    usedAt: overrides.usedAt ?? null,
-    ...identity,
   };
 }

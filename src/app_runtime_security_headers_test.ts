@@ -1,5 +1,6 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
-import { createApp } from './app.ts';
+import { createTestApp as createApp } from './test_helpers/app.ts';
 import { createObjectEnvReader } from './platform/env.ts';
 import {
   createR2RuntimeArtifactStore,
@@ -41,7 +42,7 @@ const RUNTIME_ARTIFACT_STORE = createR2RuntimeArtifactStore(
   }),
 );
 
-Deno.test('runtime document and reviewed assets send deny-by-default containment headers on the configured runtime origin', async () => {
+test('runtime document and reviewed assets send deny-by-default containment headers on the configured runtime origin', async () => {
   const app = createApp({
     env: RUNTIME_ENV,
     runtimeArtifactStore: RUNTIME_ARTIFACT_STORE,
@@ -151,7 +152,7 @@ Deno.test('runtime document and reviewed assets send deny-by-default containment
   assertEquals(browserGraderResponse.headers.get('cross-origin-resource-policy'), 'same-origin');
 });
 
-Deno.test('runtime document fails clearly when APP_RUNTIME_ORIGIN is missing', async () => {
+test('runtime document fails clearly when APP_RUNTIME_ORIGIN is missing', async () => {
   const response = await createApp({
     env: MISSING_RUNTIME_ORIGIN_ENV,
     runtimeArtifactStore: RUNTIME_ARTIFACT_STORE,
@@ -194,9 +195,10 @@ function createStubRuntimeDelivery(input: {
     describeDelivery({ reviewedPackage }) {
       return {
         substrate: input.substrate,
-        workerId: input.substrate === 'dynamic_worker'
-          ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
-          : null,
+        workerId:
+          input.substrate === 'dynamic_worker'
+            ? `reviewed-runtime:v1:${reviewedPackage.runtimeContractSignature}`
+            : null,
       };
     },
     loadReviewedAsset({ relativePath }) {
@@ -222,6 +224,9 @@ function createStubRuntimeDelivery(input: {
         bytes: new TextEncoder().encode(contents),
         contentType: contentTypeForRuntimePath(assetPath),
       });
+    },
+    invokeReviewedWorker() {
+      return Promise.reject(new Error('Stub Worker invocation was not configured.'));
     },
   };
 }

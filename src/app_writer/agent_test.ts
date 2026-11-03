@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
 import { assert, assertEquals, assertStringIncludes } from '@std/assert';
 import { AppWriterAgent, normalizeCloudflareAiResponseText } from './agent.ts';
 import { AGENT_SESSION_STORAGE_KEY } from './agent_events.ts';
@@ -13,7 +15,7 @@ import {
 } from './agent_test_support.ts';
 import type { WorkspaceHarnessResponse } from './workspace_harness_result.ts';
 
-Deno.test('app writer Agent stores observed Workflow session state', async () => {
+test('app writer Agent stores observed Workflow session state', async () => {
   const agent = new AppWriterAgent(createMemoryDurableObjectState(), {});
   const observeResponse = await agent.fetch(
     new Request('https://app-writer-agent.internal/observe', {
@@ -42,7 +44,7 @@ Deno.test('app writer Agent stores observed Workflow session state', async () =>
   assertEquals(snapshot.updatedAt, '2026-05-15T12:00:00.000Z');
 });
 
-Deno.test('app writer Agent exposes an SSE snapshot stream', async () => {
+test('app writer Agent exposes an SSE snapshot stream', async () => {
   const agent = new AppWriterAgent(createMemoryDurableObjectState(), {});
   await agent.fetch(
     new Request('https://app-writer-agent.internal/observe', {
@@ -64,7 +66,7 @@ Deno.test('app writer Agent exposes an SSE snapshot stream', async () => {
   assertStringIncludes(body, '"generationId":"generation-1"');
 });
 
-Deno.test('app writer Agent normalizes string SSE model responses before structured parsing', () => {
+test('app writer Agent normalizes string SSE model responses before structured parsing', () => {
   const body = [
     'event: message',
     'data: {"response":"{\\"files\\":["}',
@@ -83,34 +85,37 @@ Deno.test('app writer Agent normalizes string SSE model responses before structu
   );
 });
 
-Deno.test('app writer Agent leaves plain JSON model responses unchanged', () => {
+test('app writer Agent leaves plain JSON model responses unchanged', () => {
   const body = '{"files":[],"progressUpdates":[],"notes":[],"validationFindings":[]}';
 
   assertEquals(normalizeCloudflareAiResponseText(body), body);
 });
 
-Deno.test('app writer Agent structured author response returns files and model metadata', async () => {
+test('app writer Agent structured author response returns files and model metadata', async () => {
   const calls: RecordedAiCall[] = [];
   const agent = new AppWriterAgent(createMemoryDurableObjectState(), {
-    AI: createFakeAiBinding([
-      JSON.stringify({
-        files: [
-          {
-            path: 'manifest.json',
-            contents: '{"appId":"structured-demo"}\n',
-            role: 'package',
-          },
-        ],
-        progressUpdates: [
-          {
-            stage: 'building_package',
-            message: 'Authored package files.',
-          },
-        ],
-        notes: ['Model returned a structured snapshot.'],
-        validationFindings: [],
-      }),
-    ], calls),
+    AI: createFakeAiBinding(
+      [
+        JSON.stringify({
+          files: [
+            {
+              path: 'manifest.json',
+              contents: '{"appId":"structured-demo"}\n',
+              role: 'package',
+            },
+          ],
+          progressUpdates: [
+            {
+              stage: 'building_package',
+              message: 'Authored package files.',
+            },
+          ],
+          notes: ['Model returned a structured snapshot.'],
+          validationFindings: [],
+        }),
+      ],
+      calls,
+    ),
     APP_WRITER_MODEL: '@cf/test/model',
   });
 
@@ -142,7 +147,7 @@ Deno.test('app writer Agent structured author response returns files and model m
   assertEquals(promptText.includes('state.writeFile'), false);
 });
 
-Deno.test('app writer Agent structured repair response can remove disallowed files', async () => {
+test('app writer Agent structured repair response can remove disallowed files', async () => {
   const agent = new AppWriterAgent(createMemoryDurableObjectState(), {
     AI: createFakeAiBinding([
       JSON.stringify({
@@ -187,7 +192,7 @@ Deno.test('app writer Agent structured repair response can remove disallowed fil
   );
 });
 
-Deno.test('app writer Agent rejects malformed structured model JSON clearly', async () => {
+test('app writer Agent rejects malformed structured model JSON clearly', async () => {
   const response = await new AppWriterAgent(createMemoryDurableObjectState(), {
     AI: createFakeAiBinding([
       '```json\n{"files":[]}\n```',
@@ -212,7 +217,7 @@ Deno.test('app writer Agent rejects malformed structured model JSON clearly', as
   assertEquals(body.error?.modelRequestMetadata?.[0]?.errorCode, 'structured_response_invalid');
 });
 
-Deno.test('app writer Agent rejects structurally invalid structured model JSON clearly', async () => {
+test('app writer Agent rejects structurally invalid structured model JSON clearly', async () => {
   const response = await new AppWriterAgent(createMemoryDurableObjectState(), {
     AI: createFakeAiBinding([
       '{"files":"not-an-array","progressUpdates":[],"notes":[],"validationFindings":[]}',
@@ -236,7 +241,7 @@ Deno.test('app writer Agent rejects structurally invalid structured model JSON c
   assertEquals(body.error?.modelRequestMetadata?.[0]?.errorCode, 'structured_response_invalid');
 });
 
-Deno.test('app writer Agent records model progress across structured retry attempts', async () => {
+test('app writer Agent records model progress across structured retry attempts', async () => {
   const state = createMemoryDurableObjectState();
   await state.storage.put<StoredAppWriterAgentSession>(AGENT_SESSION_STORAGE_KEY, {
     generationId: 'generation-1',
@@ -271,10 +276,11 @@ Deno.test('app writer Agent records model progress across structured retry attem
   assertEquals(stored?.currentModelAttempt, 2);
 });
 
-Deno.test('app writer Agent path does not expose executable workspace normalization helpers', async () => {
-  const agentFacadeSource = await Deno.readTextFile(new URL('./agent.ts', import.meta.url));
-  const structuredSource = await Deno.readTextFile(
+test('app writer Agent path does not expose executable workspace normalization helpers', async () => {
+  const agentFacadeSource = await readFile(new URL('./agent.ts', import.meta.url), 'utf8');
+  const structuredSource = await readFile(
     new URL('./agent_workspace_structured.ts', import.meta.url),
+    'utf8',
   );
 
   assertEquals(agentFacadeSource.includes('normalizeWorkspaceCodeForExecution'), false);
@@ -282,7 +288,7 @@ Deno.test('app writer Agent path does not expose executable workspace normalizat
   assertEquals(structuredSource.includes('DynamicWorkerExecutor'), false);
 });
 
-Deno.test('app writer Agent rejects malformed workspace harness input before trusting nested records', async () => {
+test('app writer Agent rejects malformed workspace harness input before trusting nested records', async () => {
   const agent = new AppWriterAgent(createMemoryDurableObjectState(), {});
   const response = await agent.fetch(
     new Request('https://app-writer-agent.internal/workspace-harness/author', {

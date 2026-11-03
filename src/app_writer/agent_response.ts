@@ -104,8 +104,8 @@ function parseAiStreamEvent(event: string): string {
         return typeof parsed.response === 'string'
           ? parsed.response
           : typeof parsed.choices?.[0]?.delta?.content === 'string'
-          ? parsed.choices[0].delta.content
-          : '';
+            ? parsed.choices[0].delta.content
+            : '';
       } catch {
         return line;
       }

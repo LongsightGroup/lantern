@@ -14,11 +14,6 @@ type AttemptRepository = Pick<
   | 'listAttemptEvents'
   | 'finalizeAttempt'
   | 'writeAttemptLocalState'
-  | 'getLineItemBinding'
-  | 'saveLineItemBinding'
-  | 'getGradePublicationByAttemptId'
-  | 'createGradePublication'
-  | 'updateGradePublication'
   | 'recordAuditEvent'
   | 'listAuditEventsByAttemptId'
   | 'listAuditEventsByEventType'
@@ -47,13 +42,6 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
       return Promise.resolve(
         state.attempts
           .filter((candidate) => candidate.appId === appId)
-          .filter((candidate) => {
-            const deployment = state.deployments.find(
-              (deploymentRecord) => deploymentRecord.id === candidate.deploymentRecordId,
-            );
-
-            return deployment?.lmsType !== 'preview';
-          })
           .sort(
             (left, right) => right.startedAt.localeCompare(left.startedAt) || right.id - left.id,
           )
@@ -78,9 +66,10 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         );
       }
 
-      const sequence = state.attemptEvidenceArtifacts
-        .filter((candidate) => candidate.attemptId === input.attemptId)
-        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence =
+        state.attemptEvidenceArtifacts
+          .filter((candidate) => candidate.attemptId === input.attemptId)
+          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = cloneRecord({
         ...input,
         sequence,
@@ -135,9 +124,10 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         throw new Error(`Attempt ${input.attemptId} was not found.`);
       }
 
-      const sequence = state.attemptEvents
-        .filter((candidate) => candidate.attemptId === input.attemptId)
-        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence =
+        state.attemptEvents
+          .filter((candidate) => candidate.attemptId === input.attemptId)
+          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = cloneRecord({
         id: nextId(state.attemptEvents),
         attemptId: input.attemptId,
@@ -192,119 +182,12 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
       return Promise.resolve(cloneRecord(nextRecord));
     },
 
-    getLineItemBinding(input) {
-      const record = state.lineItemBindings.find(
-        (candidate) =>
-          candidate.deploymentRecordId === input.deploymentRecordId &&
-          candidate.packageVersionId === input.packageVersionId &&
-          candidate.contextId === input.contextId &&
-          candidate.resourceLinkId === input.resourceLinkId &&
-          candidate.activityId === input.activityId,
-      );
-
-      return Promise.resolve(record ? cloneRecord(record) : null);
-    },
-
-    saveLineItemBinding(record) {
-      const existing = state.lineItemBindings.find(
-        (candidate) =>
-          candidate.deploymentRecordId === record.deploymentRecordId &&
-          candidate.packageVersionId === record.packageVersionId &&
-          candidate.contextId === record.contextId &&
-          candidate.resourceLinkId === record.resourceLinkId &&
-          candidate.activityId === record.activityId,
-      );
-
-      if (existing) {
-        return Promise.resolve(cloneRecord(existing));
-      }
-
-      const nextRecord = cloneRecord({
-        ...record,
-        id: nextId(state.lineItemBindings),
-      });
-      state.lineItemBindings.push(nextRecord);
-      return Promise.resolve(cloneRecord(nextRecord));
-    },
-
-    getGradePublicationByAttemptId(attemptId) {
-      const record = state.gradePublications.find((candidate) => candidate.attemptId === attemptId);
-      return Promise.resolve(record ? cloneRecord(record) : null);
-    },
-
-    createGradePublication(record) {
-      const existing = state.gradePublications.find(
-        (candidate) => candidate.attemptId === record.attemptId,
-      );
-
-      if (existing) {
-        return Promise.resolve(cloneRecord(existing));
-      }
-
-      const nextRecord = cloneRecord({
-        ...record,
-        id: nextId(state.gradePublications),
-      });
-      state.gradePublications.push(nextRecord);
-      return Promise.resolve(cloneRecord(nextRecord));
-    },
-
-    updateGradePublication(input) {
-      const index = state.gradePublications.findIndex(
-        (candidate) => candidate.attemptId === input.attemptId,
-      );
-
-      if (index < 0) {
-        throw new Error(`Grade publication for attempt ${input.attemptId} was not found.`);
-      }
-
-      const existing = state.gradePublications[index];
-
-      if (!existing) {
-        throw new Error(`Grade publication for attempt ${input.attemptId} was not found.`);
-      }
-
-      const nextRecord = cloneRecord({
-        ...existing,
-        status: input.status,
-        updatedAt: input.updatedAt,
-        publishedAt: input.publishedAt,
-        errorCode: input.errorCode,
-        errorDetail: input.errorDetail,
-      });
-      state.gradePublications.splice(index, 1, nextRecord);
-      return Promise.resolve(cloneRecord(nextRecord));
-    },
-
     recordAuditEvent(record) {
       const nextRecord = cloneRecord({
         ...record,
         id: nextId(state.auditEvents),
       });
       state.auditEvents.push(nextRecord);
-
-      if (
-        nextRecord.eventType === 'deployment.ags_smoke_verified' &&
-        nextRecord.deploymentRecordId !== null
-      ) {
-        state.controlPlaneDeploymentDetails = state.controlPlaneDeploymentDetails.map((detail) =>
-          detail.inventory.deploymentId === nextRecord.deploymentRecordId
-            ? {
-              ...detail,
-              latestAgsSmoke: {
-                status: nextRecord.status === 'succeeded' ? 'succeeded' : 'failed',
-                occurredAt: nextRecord.occurredAt,
-                summary: nextRecord.summary,
-                attemptId: nextRecord.attemptId,
-                contextId: typeof nextRecord.detail.contextId === 'string'
-                  ? nextRecord.detail.contextId
-                  : null,
-                detail: cloneRecord(nextRecord.detail),
-              },
-            }
-            : detail
-        );
-      }
 
       return Promise.resolve(cloneRecord(nextRecord));
     },

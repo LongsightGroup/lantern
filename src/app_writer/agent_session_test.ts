@@ -1,7 +1,8 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { createCloudflareAppWriterAgentSessionCoordinator } from './agent_session.ts';
 
-Deno.test('app writer Agent session coordinator routes observe and events to generation-named agent instances', async () => {
+test('app writer Agent session coordinator routes observe and events to generation-named agent instances', async () => {
   const stub = createStubAgent();
   const coordinator = createCloudflareAppWriterAgentSessionCoordinator({
     idFromName(name) {

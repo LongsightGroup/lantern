@@ -1,6 +1,6 @@
 import type { AppPackageGenerationResult, AppWriterWorkspaceFile } from './types.ts';
 import { buildTypeScriptCompilerMissingFinding } from './service_failures.ts';
-import type { RunAppPackageGenerationInput } from './service_core.ts';
+import type { RunAppPackageGenerationInput } from './service_run_types.ts';
 import {
   mergeWorkspaceFiles,
   selectNonPackageWorkspaceFiles,
@@ -70,12 +70,10 @@ function projectTypeScriptAuthoringWorkspaceFiles(input: {
   const nonPackageFiles = selectNonPackageWorkspaceFiles(input.baseFiles);
   const authoringSourceFiles = [...input.baseFiles, ...input.compiledFiles]
     .filter((file) => isTypeScriptAuthoringSourcePath(file.path))
-    .map(
-      (file): AppWriterWorkspaceFile => ({
-        ...file,
-        role: 'evidence',
-      }),
-    );
+    .map((file): AppWriterWorkspaceFile => ({
+      ...file,
+      role: 'evidence',
+    }));
   const packageFiles = input.compiledFiles.filter(
     (file) => !isTypeScriptAuthoringSourcePath(file.path),
   );

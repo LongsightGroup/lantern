@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import type { D1Database, D1Parameter, D1PreparedStatement, D1Result } from '../db/d1.ts';
 import {
@@ -8,7 +9,7 @@ import { emptyAppWriterSelectedContext } from './context.ts';
 import { createD1AppGenerationRepositoryMethods } from './repository_d1.ts';
 import type { AppGenerationRunRecord, AppGenerationWorkspaceRecord } from './types.ts';
 
-Deno.test('D1 app generation repository creates and refetches generation runs', async () => {
+test('D1 app generation repository creates and refetches generation runs', async () => {
   const record = buildAppGenerationRunRecord({
     normalizedRequest: buildNormalizedRequest(),
     appPlan: buildAppPlan(),
@@ -44,7 +45,31 @@ Deno.test('D1 app generation repository creates and refetches generation runs', 
   assertEquals(db.statements[0]?.parameters[10], 'simple-activity');
 });
 
-Deno.test('D1 app generation repository updates generation runs', async () => {
+test('D1 app generation repository rejects malformed persisted run JSON', async () => {
+  const record = buildAppGenerationRunRecord({
+    normalizedRequest: buildNormalizedRequest(),
+  });
+  const db = createPlannedD1Database({
+    firstResults: [
+      {
+        ...toD1AppGenerationRunRow(record),
+        normalizedRequestJson: JSON.stringify({
+          ...record.normalizedRequest,
+          safeToGenerate: 'yes',
+        }),
+      },
+    ],
+  });
+  const repository = createD1AppGenerationRepositoryMethods(db);
+
+  await assertRejects(
+    () => repository.getAppGenerationRunById(record.generationId),
+    TypeError,
+    'app_generation_runs.normalizedRequestJson.safeToGenerate must be boolean.',
+  );
+});
+
+test('D1 app generation repository updates generation runs', async () => {
   const record = buildAppGenerationRunRecord({
     status: 'planning',
     updatedAt: '2026-05-14T12:05:00.000Z',
@@ -60,7 +85,7 @@ Deno.test('D1 app generation repository updates generation runs', async () => {
   assertEquals(db.statements[0]?.parameters.at(-1), 'generation-1');
 });
 
-Deno.test('D1 app generation repository saves and refetches generation workspaces', async () => {
+test('D1 app generation repository saves and refetches generation workspaces', async () => {
   const record = buildAppGenerationWorkspaceRecord({
     files: [
       {
@@ -128,7 +153,26 @@ Deno.test('D1 app generation repository saves and refetches generation workspace
   assertEquals(typeof db.statements[0]?.parameters[3], 'string');
 });
 
-Deno.test('D1 app generation repository reports duplicate generation ids clearly', async () => {
+test('D1 app generation repository rejects malformed persisted workspace JSON', async () => {
+  const record = buildAppGenerationWorkspaceRecord();
+  const db = createPlannedD1Database({
+    firstResults: [
+      {
+        ...toD1AppGenerationWorkspaceRow(record),
+        filesJson: JSON.stringify([{ path: 'manifest.json', contents: 42 }]),
+      },
+    ],
+  });
+  const repository = createD1AppGenerationRepositoryMethods(db);
+
+  await assertRejects(
+    () => repository.getAppGenerationWorkspaceByGenerationId(record.generationId),
+    TypeError,
+    'filesJson[0].contents must be text.',
+  );
+});
+
+test('D1 app generation repository reports duplicate generation ids clearly', async () => {
   const db = createPlannedD1Database({
     runError: new Error('UNIQUE constraint failed: app_generation_runs.generation_id'),
   });
@@ -220,9 +264,8 @@ function toD1AppGenerationRunRow(record: AppGenerationRunRecord): Record<string,
     generatedVersion: record.generatedVersion,
     packageVersionId: record.packageVersionId,
     promptText: record.promptText,
-    normalizedRequestJson: record.normalizedRequest === null
-      ? null
-      : JSON.stringify(record.normalizedRequest),
+    normalizedRequestJson:
+      record.normalizedRequest === null ? null : JSON.stringify(record.normalizedRequest),
     appPlanJson: record.appPlan === null ? null : JSON.stringify(record.appPlan),
     selectedStarterId: record.selectedStarterId,
     selectedContextJson: JSON.stringify(record.selectedContext),

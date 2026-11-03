@@ -1,4 +1,6 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
+import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPreviewPage } from './preview_page.ts';
 import {
   buildPackageVersionRecord,
@@ -6,7 +8,7 @@ import {
   buildPreviewSessionRecord,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and empty test activity', () => {
+test('renderPreviewPage shows saved defaults, editable launch fields, and empty test activity', () => {
   const packageVersion = buildPackageVersionRecord({
     id: 11,
     appId: 'chapter-4-asteroids',
@@ -30,6 +32,7 @@ Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and e
   });
 
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: null,
@@ -77,13 +80,10 @@ Deno.test('renderPreviewPage shows saved defaults, editable launch fields, and e
     body,
     'No test activity has been recorded yet. Start a test launch to open the app.',
   );
-  assertStringIncludes(
-    body,
-    'No blocked runtime behavior has been recorded for this test launch.',
-  );
+  assertStringIncludes(body, 'No blocked runtime behavior has been recorded for this test launch.');
 });
 
-Deno.test('renderPreviewPage labels pending versions as review test launches', () => {
+test('renderPreviewPage labels pending versions as review test launches', () => {
   const packageVersion = buildPackageVersionRecord({
     id: 12,
     appId: 'flashcard-practice',
@@ -99,6 +99,7 @@ Deno.test('renderPreviewPage labels pending versions as review test launches', (
   });
 
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: null,
@@ -119,7 +120,7 @@ Deno.test('renderPreviewPage labels pending versions as review test launches', (
   assertStringIncludes(body, 'never writes to the LMS');
 });
 
-Deno.test('renderPreviewPage shows durable test activity evidence in capability log timeline', () => {
+test('renderPreviewPage shows durable test activity evidence in capability log timeline', () => {
   const packageVersion = buildPackageVersionRecord({
     id: 11,
     appId: 'chapter-4-asteroids',
@@ -172,6 +173,7 @@ Deno.test('renderPreviewPage shows durable test activity evidence in capability 
   ];
 
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: previewSession,
@@ -214,10 +216,7 @@ Deno.test('renderPreviewPage shows durable test activity evidence in capability 
   assertStringIncludes(body, 'preview.launch');
   assertStringIncludes(body, 'preview.evidence_artifact');
   assertStringIncludes(body, 'preview.finalize');
-  assertStringIncludes(
-    body,
-    '/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-001',
-  );
+  assertStringIncludes(body, '/admin/packages/chapter-4-asteroids/evidence/artifact-001');
   assertStringIncludes(body, 'finalize_attempt');
   assertStringIncludes(body, 'Finished the test attempt with simulated scoring and no LMS writes.');
   assertStringIncludes(body, 'Runtime diagnostics');
@@ -228,7 +227,7 @@ Deno.test('renderPreviewPage shows durable test activity evidence in capability 
   assertStringIncludes(body, 'GET /runtime/sessions/runtime-session-123/local-state');
 });
 
-Deno.test('renderPreviewPage renders screenshot evidence as supplemental on the existing activity timeline', () => {
+test('renderPreviewPage renders screenshot evidence as supplemental on the existing activity timeline', () => {
   const packageVersion = buildPackageVersionRecord({
     id: 11,
     appId: 'chapter-4-asteroids',
@@ -245,6 +244,7 @@ Deno.test('renderPreviewPage renders screenshot evidence as supplemental on the 
     packageTitle: packageVersion.title,
   });
   const body = renderPreviewPage({
+    identity: ADMIN_TEST_IDENTITY,
     packageVersion,
     savedDefaults: previewSession,
     latestSession: previewSession,
@@ -276,9 +276,6 @@ Deno.test('renderPreviewPage renders screenshot evidence as supplemental on the 
   assertStringIncludes(body, 'Supplemental screenshot evidence');
   assertStringIncludes(body, 'not exhaustive proof of learner behavior');
   assertStringIncludes(body, '<img');
-  assertStringIncludes(
-    body,
-    '/admin/packages/chapter-4-asteroids/deployment/evidence/artifact-002',
-  );
+  assertStringIncludes(body, '/admin/packages/chapter-4-asteroids/evidence/artifact-002');
   assertStringIncludes(body, 'submission.png');
 });

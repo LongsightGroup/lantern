@@ -1,4 +1,4 @@
-import { type AttemptScoreResult, loadReviewedRubric, scoreAttempt } from '../grading/service.ts';
+import type { AttemptScoreResult } from '../grading/service.ts';
 import type {
   BrowserGraderResult,
   GatewayEvidenceArtifactAcceptedResult,
@@ -6,6 +6,7 @@ import type {
 import type { RuntimeSessionRecord } from '../lti/types.ts';
 import { createOpaqueToken } from '../lti/token_support.ts';
 import type { EnvReader } from '../platform/env.ts';
+import type { LanternLtiToolContext } from '../lti/tool_provider.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type {
   AttemptEvidenceArtifactRecord,
@@ -29,7 +30,6 @@ import {
   parseScoreProposal,
   requireRuntimeCapability,
 } from './gateway_parsing.ts';
-import { publishRuntimeAttemptScore } from './gateway_publication.ts';
 import { readReviewedBrowserGraderConfig } from './browser_grader.ts';
 import { normalizeAttemptEvent } from './attempt_event_normalization.ts';
 import type {
@@ -40,8 +40,6 @@ import type {
 export type {
   FinalizeAttemptInput,
   FinalizeAttemptResult,
-  GovernedGradePublicationInput,
-  GovernedGradePublicationResult,
   RuntimeBoundary,
   RuntimeBrokerDenial,
   RuntimeBrokerDenialCategory,
@@ -61,7 +59,6 @@ export {
   parseScoreProposal,
   requireRuntimeCapability,
 } from './gateway_parsing.ts';
-export { publishGovernedGradePublication } from './gateway_publication.ts';
 
 export async function readAttemptLocalState(input: {
   repository: PackageReviewRepository;
@@ -143,10 +140,8 @@ export async function submitEvidenceArtifact(input: {
     eventType: 'attempt.evidence_artifact.submitted',
     actorType: 'system',
     actorId: null,
-    deploymentRecordId: input.session.deploymentRecordId,
     packageVersionId: input.session.packageVersionId,
     attemptId: attempt.attemptId,
-    lineItemBindingId: null,
     status: 'accepted',
     summary: 'Stored an anonymous evidence artifact through the runtime gateway.',
     detail: {
@@ -249,6 +244,7 @@ export async function finalizeRuntimeAttempt(input: {
   session: RuntimeSessionRecord;
   payload: unknown;
   env: EnvReader;
+  getLtiToolContext?: () => Promise<LanternLtiToolContext>;
   artifactStore: RuntimeArtifactStore;
   now?: () => Date;
 }): Promise<FinalizeAttemptResult> {
@@ -298,57 +294,61 @@ export async function finalizeRuntimeAttempt(input: {
       const finalizedNow = attempt.finalizedAt === null;
       const finalizedAttempt = finalizedNow
         ? await input.repository.finalizeAttempt({
-          attemptId: attempt.attemptId,
-          status: completionStateToAttemptStatus(finalizeInput.completionState),
-          completionState: finalizeInput.completionState,
-          finalizedAt: occurredAt,
-        })
+            attemptId: attempt.attemptId,
+            status: completionStateToAttemptStatus(finalizeInput.completionState),
+            completionState: finalizeInput.completionState,
+            finalizedAt: occurredAt,
+          })
         : attempt;
-      const browserGraderResult = packageVersion.grading.mode === 'browser'
-        ? validateBrowserGraderResult({
-          browserGraderResult: finalizeInput.browserGraderResult,
-          packageVersion,
-        })
-        : null;
-      const score: AttemptScoreResult = browserGraderResult === null
-        ? {
-          scoreGiven: 0,
-          scoreMaximum: previewSession.fakeScoreMaximum,
-        }
-        : {
-          scoreGiven: browserGraderResult.scoreGiven,
-          scoreMaximum: browserGraderResult.scoreMaximum,
-        };
+      const browserGraderResult =
+        packageVersion.grading.mode === 'browser'
+          ? validateBrowserGraderResult({
+              browserGraderResult: finalizeInput.browserGraderResult,
+              packageVersion,
+            })
+          : null;
+      const score: AttemptScoreResult =
+        browserGraderResult === null
+          ? {
+              scoreGiven: 0,
+              scoreMaximum: previewSession.fakeScoreMaximum,
+            }
+          : {
+              scoreGiven: browserGraderResult.scoreGiven,
+              scoreMaximum: browserGraderResult.scoreMaximum,
+            };
 
       await input.repository.appendPreviewEvidence({
         previewSessionId: previewSession.sessionId,
         eventType: 'preview.finalize',
         capability: 'finalize_attempt',
-        summary: browserGraderResult === null
-          ? 'Finished the test attempt with simulated scoring and no LMS writes.'
-          : 'Finished the test attempt with browser grader output and no LMS writes.',
-        detail: browserGraderResult === null
-          ? {
-            attemptId: finalizedAttempt.attemptId,
-            completionState: finalizedAttempt.completionState,
-            scoreGiven: score.scoreGiven,
-            scoreMaximum: score.scoreMaximum,
-            submissionMode: input.session.launch.submissionMode,
-            evidenceArtifactCount: evidenceArtifacts.length,
-            evidenceArtifacts,
-            alreadyFinalized: !finalizedNow,
-          }
-          : {
-            attemptId: finalizedAttempt.attemptId,
-            completionState: finalizedAttempt.completionState,
-            scoreGiven: score.scoreGiven,
-            scoreMaximum: score.scoreMaximum,
-            submissionMode: input.session.launch.submissionMode,
-            evidenceArtifactCount: evidenceArtifacts.length,
-            evidenceArtifacts,
-            alreadyFinalized: !finalizedNow,
-            browserGraderResult,
-          },
+        summary:
+          browserGraderResult === null
+            ? 'Finished the test attempt with simulated scoring and no LMS writes.'
+            : 'Finished the test attempt with browser grader output and no LMS writes.',
+        detail:
+          browserGraderResult === null
+            ? {
+                attemptId: finalizedAttempt.attemptId,
+                completionState: finalizedAttempt.completionState,
+                scoreGiven: score.scoreGiven,
+                scoreMaximum: score.scoreMaximum,
+                submissionMode: input.session.launch.submissionMode,
+                evidenceArtifactCount: evidenceArtifacts.length,
+                evidenceArtifacts,
+                alreadyFinalized: !finalizedNow,
+              }
+            : {
+                attemptId: finalizedAttempt.attemptId,
+                completionState: finalizedAttempt.completionState,
+                scoreGiven: score.scoreGiven,
+                scoreMaximum: score.scoreMaximum,
+                submissionMode: input.session.launch.submissionMode,
+                evidenceArtifactCount: evidenceArtifacts.length,
+                evidenceArtifacts,
+                alreadyFinalized: !finalizedNow,
+                browserGraderResult,
+              },
         occurredAt,
       });
 
@@ -359,76 +359,15 @@ export async function finalizeRuntimeAttempt(input: {
         submissionMode: input.session.launch.submissionMode,
         evidenceArtifacts,
         finalizedNow,
-        lineItemBinding: null,
-        gradePublication: null,
-        gradePublishedNow: false,
-        publishError: null,
       };
     }
-
-    if (packageVersion.grading.mode === 'manual') {
-      denyRuntimeBroker({
-        category: 'policyDenied',
-        code: 'manual_grading_requires_operator',
-        message: 'Manual grading cannot be finalized automatically in Phase 3.',
-        capability: 'finalize_attempt',
-        detail: {},
-      });
-    }
-
-    const finalizedNow = attempt.finalizedAt === null;
-    const finalizedAttempt = finalizedNow
-      ? await input.repository.finalizeAttempt({
-        attemptId: attempt.attemptId,
-        status: completionStateToAttemptStatus(finalizeInput.completionState),
-        completionState: finalizeInput.completionState,
-        finalizedAt: now().toISOString(),
-      })
-      : attempt;
-    const events = await input.repository.listAttemptEvents(finalizedAttempt.attemptId);
-    const rubric = packageVersion.grading.mode === 'declarative'
-      ? await loadReviewedRubric({
-        snapshotRoot: packageVersion.artifact.snapshotRoot,
-        rubricFile: packageVersion.grading.rubricFile,
-        artifactStore: input.artifactStore,
-      })
-      : undefined;
-    const browserGraderResult = packageVersion.grading.mode === 'browser'
-      ? validateBrowserGraderResult({
-        browserGraderResult: finalizeInput.browserGraderResult,
-        packageVersion,
-      })
-      : null;
-    const score = browserGraderResult === null
-      ? scoreAttempt({
-        attempt: finalizedAttempt,
-        events,
-        grading: packageVersion.grading,
-        ...(rubric === undefined ? {} : { rubric }),
-      })
-      : {
-        scoreGiven: browserGraderResult.scoreGiven,
-        scoreMaximum: browserGraderResult.scoreMaximum,
-      };
-    const publishResult = await publishRuntimeAttemptScore({
-      repository: input.repository,
-      session: input.session,
-      attempt: finalizedAttempt,
-      packageVersion,
-      score,
-      env: input.env,
-      now,
+    denyRuntimeBroker({
+      category: 'policyDenied',
+      code: 'live_grading_not_available',
+      message: 'Live LMS grading is outside the governed primitive kernel.',
+      capability: 'finalize_attempt',
+      detail: {},
     });
-
-    return {
-      attempt: finalizedAttempt,
-      score,
-      browserGraderResult,
-      submissionMode: input.session.launch.submissionMode,
-      evidenceArtifacts,
-      finalizedNow,
-      ...publishResult,
-    };
   } catch (error) {
     if (previewSession !== null && !previewBlockEvidenceRecorded) {
       await input.repository.appendPreviewEvidence({
@@ -569,11 +508,9 @@ function buildEvidenceArtifactStorageKey(input: {
   artifactId: string;
   fileName: string;
 }): string {
-  return `var/attempt-evidence/${input.attemptId}/${input.artifactId}-${
-    sanitizeEvidenceArtifactFileName(
-      input.fileName,
-    )
-  }`;
+  return `var/attempt-evidence/${input.attemptId}/${input.artifactId}-${sanitizeEvidenceArtifactFileName(
+    input.fileName,
+  )}`;
 }
 
 function sanitizeEvidenceArtifactFileName(fileName: string): string {

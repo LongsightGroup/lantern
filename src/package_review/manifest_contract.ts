@@ -1,18 +1,31 @@
-import { type ErrorObject } from '@ajv2020';
-import type { Capability, UserRole } from '../../sdk/app-sdk.ts';
-import type { GradingSettings, InstallScope, PackageOwner, ValidationIssue } from './types.ts';
+import { type ErrorObject } from 'ajv/dist/2020.js';
+import type { BrowserCapability, Capability, UserRole } from '../../sdk/app-sdk.ts';
+import type { RosterCapability } from '../../sdk/worker-app-sdk.ts';
+import type {
+  AppRuntime,
+  GradingSettings,
+  InstallScope,
+  PackageOwner,
+  ValidationIssue,
+} from './types.ts';
 
-export interface AppManifest {
-  schema_version: '1';
+interface ManifestBase {
+  schema_version: '2';
   app_id: string;
   version: string;
   title: string;
   description?: string;
   owner: PackageOwner;
-  entrypoint: string;
+  icon?: string;
+}
+
+export type AppManifest = BrowserAppManifest | WorkerAppManifest;
+
+export interface BrowserAppManifest extends ManifestBase {
+  runtime: Extract<AppRuntime, { readonly kind: 'browser' }>;
   roles: UserRole[];
   install_scope?: InstallScope;
-  capabilities: Capability[];
+  capabilities: BrowserCapability[];
   grading: {
     mode: GradingSettings['mode'];
     rubric_file?: string;
@@ -27,12 +40,36 @@ export interface AppManifest {
     fixtures_file: string;
     tests_file: string;
   };
-  authoring?: {
-    kind: 'browser_autograder';
-    grader_spec_files: string[];
-    evidence_example_file: string;
+  authoring?:
+    | {
+        kind: 'browser_autograder';
+        grader_spec_files: string[];
+        evidence_example_file: string;
+      }
+    | {
+        kind: 'python_function';
+        grader_spec_files?: never;
+        evidence_example_file?: never;
+      };
+}
+
+export interface WorkerAppManifest extends ManifestBase {
+  runtime: Extract<AppRuntime, { readonly kind: 'worker' }>;
+  roles: 'instructor'[];
+  install_scope?: 'course';
+  capabilities: RosterCapability[];
+  grading: {
+    mode: 'completion';
+    rubric_file?: never;
+    max_score?: never;
   };
-  icon?: string;
+  browser?: never;
+  content_files?: never;
+  authoring?: never;
+  preview?: {
+    fixtures_file: string;
+    tests_file: string;
+  };
 }
 
 export interface ManifestReviewData {
@@ -41,7 +78,7 @@ export interface ManifestReviewData {
   title: string;
   description: string | null;
   owner: PackageOwner;
-  entrypoint: string;
+  runtime: AppRuntime;
   roles: UserRole[];
   installScope: InstallScope;
   capabilities: Capability[];
@@ -52,14 +89,14 @@ export interface ManifestReviewData {
 
 export type ManifestValidationResult =
   | {
-    ok: true;
-    issues: [];
-    reviewData: ManifestReviewData;
-  }
+      ok: true;
+      issues: [];
+      reviewData: ManifestReviewData;
+    }
   | {
-    ok: false;
-    issues: ValidationIssue[];
-  };
+      ok: false;
+      issues: ValidationIssue[];
+    };
 
 type RequiredKeywordParams = {
   missingProperty: string;
@@ -101,7 +138,7 @@ export function buildManifestReviewData(manifest: AppManifest): ManifestReviewDa
     title: manifest.title,
     description: manifest.description ?? null,
     owner: manifest.owner,
-    entrypoint: manifest.entrypoint,
+    runtime: manifest.runtime,
     roles: manifest.roles,
     installScope: manifest.install_scope ?? 'course',
     capabilities: manifest.capabilities,
@@ -128,19 +165,17 @@ function mapManifestIssue(error: ErrorObject): ValidationIssue {
     };
   }
 
-  if (error.keyword === 'pattern' && error.instancePath === '/entrypoint') {
+  if (error.keyword === 'pattern' && error.instancePath === '/runtime/entrypoint') {
     return {
-      field: '/entrypoint',
+      field: '/runtime/entrypoint',
       keyword: error.keyword,
       severity: 'error',
-      message: 'Entrypoint must stay inside /dist and end in .html.',
+      message: 'Runtime entrypoint must stay inside /dist and match its runtime kind.',
     };
   }
 
   if (error.keyword === 'additionalProperties') {
-    const additionalProperty = String(
-      (error.params as Record<string, unknown>).additionalProperty ?? '',
-    );
+    const additionalProperty = String(error.params.additionalProperty ?? '');
 
     return {
       field: error.instancePath || '/',
@@ -155,7 +190,7 @@ function mapManifestIssue(error: ErrorObject): ValidationIssue {
       field: '/schema_version',
       keyword: error.keyword,
       severity: 'error',
-      message: 'Schema version must stay at "1" for this pilot.',
+      message: 'Schema version must be "2".',
     };
   }
 
@@ -165,6 +200,15 @@ function mapManifestIssue(error: ErrorObject): ValidationIssue {
       keyword: error.keyword,
       severity: 'error',
       message: 'Browser grading requires authoring.kind = "browser_autograder".',
+    };
+  }
+
+  if (error.keyword === 'const' && error.instancePath === '/grading/max_score') {
+    return {
+      field: '/grading/max_score',
+      keyword: error.keyword,
+      severity: 'error',
+      message: 'Python sandbox grading uses a fixed maximum score of 10.',
     };
   }
 

@@ -6,7 +6,7 @@ import type {
   AppPackagePreviewResult,
 } from './types.ts';
 import { recordGenerationActivity } from './service_audit.ts';
-import type { RunAppPackageGenerationInput } from './service_core.ts';
+import type { RunAppPackageGenerationInput } from './service_run_types.ts';
 import { updateGenerationPlanStepInWorkspace } from './service_workspace_snapshot.ts';
 import { selectPackageWorkspaceFiles } from './workspace_files.ts';
 

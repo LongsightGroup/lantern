@@ -1,12 +1,12 @@
-import { type AdminNotice, renderAdminLayout } from './layout.ts';
+import { type AdminIdentity, type AdminNotice, renderAdminLayout } from './layout.ts';
 import { renderReferencePackageCatalog } from './package_reference_support.ts';
 
-export function renderReferencePackagePage(
-  input: {
-    notice?: AdminNotice | null;
-  } = {},
-): string {
+export function renderReferencePackagePage(input: {
+  identity: AdminIdentity;
+  notice?: AdminNotice | null;
+}): string {
   return renderAdminLayout({
+    identity: input.identity,
     title: 'Lantern Reference Apps',
     eyebrow: 'Reference apps',
     heading: 'Reference apps',

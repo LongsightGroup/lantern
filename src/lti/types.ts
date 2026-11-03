@@ -6,11 +6,6 @@ export const LTI_AGS_LINEITEM_SCOPE = 'https://purl.imsglobal.org/spec/lti-ags/s
 export const LTI_NRPS_CONTEXT_MEMBERSHIP_SCOPE =
   'https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly';
 export const LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE = 'LtiResourceLinkRequest';
-export const LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE = 'LtiDeepLinkingRequest';
-export const LTI_DEEP_LINKING_RESPONSE_MESSAGE_TYPE = 'LtiDeepLinkingResponse';
-export const LTI_ASSIGNMENT_SELECTION_PLACEMENT = 'assignment_selection';
-export const LTI_RESOURCE_SELECTION_PLACEMENT = 'resource_selection';
-export const LANTERN_PLACEMENT_CUSTOM_KEY = 'lantern_placement_id';
 export const CANVAS_LTI_SCOPES = [
   LTI_AGS_SCORE_SCOPE,
   LTI_AGS_LINEITEM_SCOPE,
@@ -18,7 +13,6 @@ export const CANVAS_LTI_SCOPES = [
 ] as const;
 
 export type LmsType = 'canvas' | 'moodle' | 'sakai';
-export type PersistedDeploymentLmsType = LmsType | 'preview';
 export type NonCanvasLmsType = Exclude<LmsType, 'canvas'>;
 
 export function buildLtiActivityResourceId(input: {
@@ -59,31 +53,6 @@ export interface CanvasPlatformConfig {
   jwksUrl: string;
 }
 
-export interface LoginStateRecord {
-  lms: LmsType;
-  canvasEnvironment: CanvasEnvironment | null;
-  issuer: string;
-  clientId: string;
-  deploymentId: string;
-  state: string;
-  nonce: string;
-  loginHint: string;
-  targetLinkUri: string;
-  ltiMessageHint: string | null;
-  createdAt: string;
-  expiresAt: string;
-  usedAt: string | null;
-}
-
-export interface DynamicRegistrationStateRecord {
-  state: string;
-  appId: string;
-  lms: LmsType;
-  createdAt: string;
-  expiresAt: string;
-  usedAt: string | null;
-}
-
 export interface LaunchAssignmentAndGradeServices {
   scope: string[];
   lineitemsUrl: string | null;
@@ -100,41 +69,11 @@ export interface LaunchServiceClaims {
   nrps: LaunchNamesAndRolesService | null;
 }
 
-export interface ValidatedLaunch {
-  lms: LmsType;
-  canvasEnvironment: CanvasEnvironment | null;
-  issuer: string;
-  clientId: string;
-  deploymentId: string;
-  internalDeploymentId: number;
-  internalDeploymentSlug: string;
-  appId: string;
-  packageVersionId: number;
-  packageVersion: string;
-  contentPath: string;
-  attemptId: string;
-  userId: string;
-  userDisplayName: string | null;
-  userEmail: string | null;
-  userLogin: string | null;
-  userRole: UserRole;
-  resourceLinkId: string;
-  resourceLinkTitle: string | null;
-  contextId: string | null;
-  contextTitle: string | null;
-  targetLinkUri: string;
-  returnUrl: string | null;
-  activityId: string;
-  services: LaunchServiceClaims;
-  issuedAt: string;
-}
-
 export interface RuntimeSessionRecord {
   sessionId: string;
   sessionToken: string;
+  ltiToolSessionId: string | null;
   attemptId: string;
-  deploymentRecordId: number;
-  deploymentSlug: string;
   appId: string;
   packageVersionId: number;
   packageVersion: string;
@@ -150,105 +89,9 @@ export interface RuntimeSessionRecord {
     activityId: string;
     submissionMode: SubmissionMode;
   };
-  preview?: {
+  preview: {
     previewSessionId: string;
   };
   createdAt: string;
   expiresAt: string;
-}
-
-export type DeepLinkingAcceptType = 'ltiResourceLink';
-export type DeepLinkingPresentationDocumentTarget = 'iframe' | 'window' | 'embed';
-
-export interface DeepLinkingSettings {
-  acceptTypes: DeepLinkingAcceptType[];
-  acceptMultiple: boolean;
-  acceptPresentationDocumentTargets: DeepLinkingPresentationDocumentTarget[];
-  acceptLineItem: boolean;
-}
-
-export type LtiMessageType =
-  | typeof LTI_RESOURCE_LINK_REQUEST_MESSAGE_TYPE
-  | typeof LTI_DEEP_LINKING_REQUEST_MESSAGE_TYPE;
-
-export type LtiPlacement =
-  | typeof LTI_ASSIGNMENT_SELECTION_PLACEMENT
-  | typeof LTI_RESOURCE_SELECTION_PLACEMENT;
-
-export interface ValidatedDeepLinkingRequest {
-  lms: LmsType;
-  canvasEnvironment: CanvasEnvironment | null;
-  issuer: string;
-  clientId: string;
-  deploymentId: string;
-  internalDeploymentId: number;
-  internalDeploymentSlug: string;
-  appId: string;
-  userId: string | null;
-  userRole: UserRole;
-  contextId: string | null;
-  contextTitle: string | null;
-  targetLinkUri: string;
-  deepLinkReturnUrl: string;
-  data: string | null;
-  placement: LtiPlacement;
-  settings: DeepLinkingSettings;
-  issuedAt: string;
-}
-
-export interface DeepLinkingSessionSelection {
-  packageVersionId: number;
-  packageVersion: string;
-  activityId: string;
-  contentPath: string;
-}
-
-export interface DeepLinkingSessionRecord {
-  sessionId: string;
-  sessionToken: string;
-  deploymentRecordId: number;
-  deploymentSlug: string;
-  appId: string;
-  userId: string | null;
-  userRole: UserRole;
-  contextId: string | null;
-  contextTitle: string | null;
-  deepLinkReturnUrl: string;
-  data: string | null;
-  placement: LtiPlacement;
-  acceptTypes: DeepLinkingAcceptType[];
-  acceptMultiple: boolean;
-  acceptPresentationDocumentTargets: DeepLinkingPresentationDocumentTarget[];
-  acceptLineItem: boolean;
-  selection: DeepLinkingSessionSelection | null;
-  createdAt: string;
-  expiresAt: string;
-  usedAt: string | null;
-}
-
-export interface DeepLinkingResponseLineItem {
-  scoreMaximum: number;
-  label: string;
-  resourceId: string;
-  tag: string;
-}
-
-export interface DeepLinkingResponseContentItem {
-  type: 'ltiResourceLink';
-  title: string;
-  text: string;
-  url: string;
-  custom: Record<string, string>;
-  lineItem?: DeepLinkingResponseLineItem;
-  presentation?: {
-    documentTarget: DeepLinkingPresentationDocumentTarget;
-  };
-}
-
-export interface DeepLinkingResponseSubmission {
-  returnUrl: string;
-  jwt: string;
-  formFields: {
-    JWT: string;
-  };
 }

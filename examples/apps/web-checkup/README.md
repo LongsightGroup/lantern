@@ -14,9 +14,9 @@ that already includes:
 Check it through the shipped local loop:
 
 ```sh
-deno task app:validate examples/apps/web-checkup
-deno task app:test-preview examples/apps/web-checkup
-deno task app:preview examples/apps/web-checkup
+npm run app:validate -- examples/apps/web-checkup
+npm run app:test-preview -- examples/apps/web-checkup
+npm run app:preview -- examples/apps/web-checkup
 ```
 
 For the full browser-autograder process, read:

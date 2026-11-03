@@ -10,14 +10,14 @@
     "version",
     "title",
     "owner",
-    "entrypoint",
+    "runtime",
     "capabilities",
     "roles",
     "grading"
   ],
   "properties": {
     "schema_version": {
-      "const": "1"
+      "const": "2"
     },
     "app_id": {
       "type": "string",
@@ -53,9 +53,37 @@
         }
       }
     },
-    "entrypoint": {
-      "type": "string",
-      "pattern": "^/dist/.+\\.html$"
+    "runtime": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entrypoint"],
+          "properties": {
+            "kind": {
+              "const": "browser"
+            },
+            "entrypoint": {
+              "type": "string",
+              "pattern": "^/dist/.+\\.html$"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "entrypoint"],
+          "properties": {
+            "kind": {
+              "const": "worker"
+            },
+            "entrypoint": {
+              "type": "string",
+              "pattern": "^/dist/.+\\.js$"
+            }
+          }
+        }
+      ]
     },
     "roles": {
       "type": "array",
@@ -80,8 +108,12 @@
           "submit_attempt_event",
           "submit_evidence_artifact",
           "finalize_attempt",
+          "run_code_submission",
           "read_local_state",
-          "write_local_state"
+          "write_local_state",
+          "lms.roster.members.read",
+          "lms.roster.contact.read",
+          "lms.roster.profile_photo.read"
         ]
       }
     },
@@ -91,7 +123,7 @@
       "required": ["mode"],
       "properties": {
         "mode": {
-          "enum": ["declarative", "manual", "completion", "browser"]
+          "enum": ["declarative", "manual", "completion", "browser", "sandbox"]
         },
         "rubric_file": {
           "type": "string",
@@ -126,6 +158,24 @@
             "required": ["mode"]
           },
           "then": {
+            "required": ["max_score"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "sandbox"
+              }
+            },
+            "required": ["mode"]
+          },
+          "then": {
+            "properties": {
+              "max_score": {
+                "const": 10
+              }
+            },
             "required": ["max_score"]
           }
         }
@@ -169,10 +219,10 @@
     "authoring": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "grader_spec_files", "evidence_example_file"],
+      "required": ["kind"],
       "properties": {
         "kind": {
-          "const": "browser_autograder"
+          "enum": ["browser_autograder", "python_function"]
         },
         "grader_spec_files": {
           "type": "array",
@@ -198,6 +248,70 @@
     {
       "if": {
         "properties": {
+          "runtime": {
+            "type": "object",
+            "properties": { "kind": { "const": "worker" } },
+            "required": ["kind"]
+          }
+        },
+        "required": ["runtime"]
+      },
+      "then": {
+        "properties": {
+          "roles": {
+            "type": "array",
+            "items": { "const": "instructor" }
+          },
+          "install_scope": { "const": "course" },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "lms.roster.members.read",
+                "lms.roster.contact.read",
+                "lms.roster.profile_photo.read"
+              ]
+            }
+          },
+          "grading": {
+            "type": "object",
+            "properties": { "mode": { "const": "completion" } },
+            "not": {
+              "anyOf": [{ "required": ["rubric_file"] }, { "required": ["max_score"] }]
+            }
+          }
+        },
+        "not": {
+          "anyOf": [
+            { "required": ["browser"] },
+            { "required": ["content_files"] },
+            { "required": ["authoring"] }
+          ]
+        }
+      },
+      "else": {
+        "properties": {
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "read_launch_context",
+                "read_activity_content",
+                "submit_attempt_event",
+                "submit_evidence_artifact",
+                "finalize_attempt",
+                "run_code_submission",
+                "read_local_state",
+                "write_local_state"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "capabilities": {
             "type": "array",
             "contains": {
@@ -213,6 +327,42 @@
             "type": "array",
             "contains": {
               "const": "finalize_attempt"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "grading": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "const": "sandbox"
+              }
+            },
+            "required": ["mode"]
+          }
+        },
+        "required": ["grading"]
+      },
+      "then": {
+        "required": ["authoring"],
+        "properties": {
+          "authoring": {
+            "type": "object",
+            "required": ["kind"],
+            "properties": {
+              "kind": {
+                "const": "python_function"
+              }
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "contains": {
+              "const": "run_code_submission"
             }
           }
         }

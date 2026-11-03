@@ -53,7 +53,7 @@ export function prepareD1(
   return statement.bind(...normalizedParameters);
 }
 
-export async function queryD1Objects<T extends Record<string, unknown>>(
+export async function queryD1Objects<T extends object>(
   db: D1Database,
   sql: string,
   parameters: readonly unknown[] = [],
@@ -64,7 +64,7 @@ export async function queryD1Objects<T extends Record<string, unknown>>(
   return result.results ?? [];
 }
 
-export async function queryD1First<T extends Record<string, unknown>>(
+export async function queryD1First<T extends object>(
   db: D1Database,
   sql: string,
   parameters: readonly unknown[] = [],
@@ -78,6 +78,21 @@ export async function runD1(
   parameters: readonly unknown[] = [],
 ): Promise<void> {
   assertD1Success(await prepareD1(db, sql, parameters).run());
+}
+
+export async function runD1Batch<T extends Record<string, unknown> = Record<string, unknown>>(
+  db: D1Database,
+  statements: readonly { sql: string; parameters?: readonly unknown[] }[],
+): Promise<D1Result<T>[]> {
+  const results = await db.batch<T>(
+    statements.map((statement) => prepareD1(db, statement.sql, statement.parameters ?? [])),
+  );
+
+  for (const result of results) {
+    assertD1Success(result);
+  }
+
+  return results;
 }
 
 export async function runD1Statements(db: D1Database, sql: string): Promise<void> {
@@ -193,6 +208,10 @@ export function splitSqlStatements(sql: string): string[] {
     }
 
     if (char === ';') {
+      if (isTriggerStatement(current) && currentLine(current).toUpperCase() !== 'END') {
+        current += char;
+        continue;
+      }
       pushStatement();
       continue;
     }
@@ -213,6 +232,14 @@ export function splitSqlStatements(sql: string): string[] {
 
     current = '';
   }
+}
+
+function isTriggerStatement(sql: string): boolean {
+  return /^CREATE\s+TRIGGER\b/i.test(sql.trimStart());
+}
+
+function currentLine(sql: string): string {
+  return sql.slice(sql.lastIndexOf('\n') + 1).trim();
 }
 
 function assertD1Success(result: D1Result<unknown>): void {
