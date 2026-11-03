@@ -24,7 +24,14 @@ export function validateWorkerConfigBindings(worker: WorkerConfig): string[] {
     const binding = env[name];
     if (!binding || binding.type !== type) failures.push(`${name} binding (${type})`);
   }
-  for (const name of ['AppWriterAgent', 'PythonGraderSandbox']) {
+  const pythonBinding = env.PYTHON_GRADER_SANDBOX;
+  if (
+    pythonBinding &&
+    pythonBinding.type === 'durable-object' &&
+    pythonBinding.exportName !== 'PythonGraderRuntime'
+  )
+    failures.push('PYTHON_GRADER_SANDBOX replacement namespace');
+  for (const name of ['AppWriterAgent', 'PythonGraderSandbox', 'PythonGraderRuntime']) {
     const declaration = worker.exports?.[name];
     if (
       declaration?.type !== 'durable-object' ||

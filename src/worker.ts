@@ -8,6 +8,7 @@ import {
 export { AppWriterAgent } from './app_writer/agent.ts';
 export {
   createCloudflarePythonGraderSandboxFactory,
+  PythonGraderRuntime,
   PythonGraderSandbox,
 } from './python_lab/cloudflare_sandbox.ts';
 import { createCloudflarePythonGraderSandboxFactory } from './python_lab/cloudflare_sandbox.ts';

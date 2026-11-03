@@ -8,7 +8,7 @@ import {
 } from './runner.ts';
 
 /** Owns one disposable Python interpreter with no outbound network access. */
-export class PythonGraderSandbox extends DurableObject {
+export class PythonGraderRuntime extends DurableObject {
   private getContainer(): Container {
     const container = this.ctx.container;
     if (!container) throw new Error('Python grader container is not configured.');
@@ -80,8 +80,11 @@ export class PythonGraderSandbox extends DurableObject {
   }
 }
 
+/** Retains the previous namespace; new grading uses the replacement runtime only. */
+export class PythonGraderSandbox extends DurableObject {}
+
 export type PythonGraderSandboxNamespace = Pick<
-  DurableObjectNamespace<PythonGraderSandbox>,
+  DurableObjectNamespace<PythonGraderRuntime>,
   'getByName'
 >;
 

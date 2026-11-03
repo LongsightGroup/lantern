@@ -50,7 +50,7 @@ export default defineConfig({
       }),
       PYTHON_GRADER_SANDBOX: bindings.durableObject({
         worker: 'lantern',
-        exportName: 'PythonGraderSandbox',
+        exportName: 'PythonGraderRuntime',
       }),
       APP_GENERATION_WORKFLOW: bindings.workflow({
         name: 'lantern-app-generation',
@@ -68,7 +68,9 @@ export default defineConfig({
     exports: {
       LanternLmsCapabilityBinding: exports.worker(),
       AppWriterAgent: exports.durableObject({ storage: 'sqlite' }),
-      PythonGraderSandbox: exports.durableObject({ storage: 'sqlite', container: pythonGrader }),
+      // Cloudflare requires a new namespace when changing the Container scheduling policy.
+      PythonGraderSandbox: exports.durableObject({ storage: 'sqlite' }),
+      PythonGraderRuntime: exports.durableObject({ storage: 'sqlite', container: pythonGrader }),
       AppGenerationWorkflow: exports.workflow({
         name: 'lantern-app-generation',
       }),
