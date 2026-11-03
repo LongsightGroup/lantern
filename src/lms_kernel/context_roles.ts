@@ -2,29 +2,35 @@ import type { RosterRole } from '../../sdk/worker-app-sdk.ts';
 
 const MEMBERSHIP = 'http://purl.imsglobal.org/vocab/lis/v2/membership';
 const SUBROLES = new Map<string, readonly string[]>([
-  ['Administrator', [
+  [
     'Administrator',
-    'Developer',
-    'ExternalDeveloper',
-    'ExternalSupport',
-    'ExternalSystemAdministrator',
-    'Support',
-    'SystemAdministrator',
-  ]],
-  ['Instructor', [
-    'ExternalInstructor',
-    'Grader',
-    'GuestInstructor',
-    'Lecturer',
-    'PrimaryInstructor',
-    'SecondaryInstructor',
-    'TeachingAssistant',
-    'TeachingAssistantGroup',
-    'TeachingAssistantOffering',
-    'TeachingAssistantSection',
-    'TeachingAssistantSectionAssociation',
-    'TeachingAssistantTemplate',
-  ]],
+    [
+      'Administrator',
+      'Developer',
+      'ExternalDeveloper',
+      'ExternalSupport',
+      'ExternalSystemAdministrator',
+      'Support',
+      'SystemAdministrator',
+    ],
+  ],
+  [
+    'Instructor',
+    [
+      'ExternalInstructor',
+      'Grader',
+      'GuestInstructor',
+      'Lecturer',
+      'PrimaryInstructor',
+      'SecondaryInstructor',
+      'TeachingAssistant',
+      'TeachingAssistantGroup',
+      'TeachingAssistantOffering',
+      'TeachingAssistantSection',
+      'TeachingAssistantSectionAssociation',
+      'TeachingAssistantTemplate',
+    ],
+  ],
   ['Learner', ['ExternalLearner', 'GuestLearner', 'Instructor', 'Learner', 'NonCreditLearner']],
 ]);
 
@@ -37,7 +43,9 @@ export function parseLtiContextRole(value: string): RosterRole {
     const parts = value.slice(MEMBERSHIP.length + 1).split('#');
     const [role, subrole] = parts;
     if (
-      parts.length !== 2 || role === undefined || subrole === undefined ||
+      parts.length !== 2 ||
+      role === undefined ||
+      subrole === undefined ||
       !SUBROLES.get(role)?.includes(subrole)
     ) {
       return 'other';

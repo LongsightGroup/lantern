@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { createAppWriterPlatformServicesHandler } from './platform_services.ts';
 import type { AppGenerationPlan, AppWriterWorkspaceFile } from './types.ts';
 
-Deno.test('app writer platform service routes source compilation through the configured compiler', async () => {
+test('app writer platform service routes source compilation through the configured compiler', async () => {
   const compileInputs: unknown[] = [];
   const service = createAppWriterPlatformServicesHandler({
     sourceCompiler: {
@@ -47,7 +48,7 @@ Deno.test('app writer platform service routes source compilation through the con
   assertEquals(body.notes, ['compiled']);
 });
 
-Deno.test('app writer platform service routes preview through the configured previewer', async () => {
+test('app writer platform service routes preview through the configured previewer', async () => {
   const previewInputs: unknown[] = [];
   const service = createAppWriterPlatformServicesHandler({
     previewer: {
@@ -97,7 +98,7 @@ Deno.test('app writer platform service routes preview through the configured pre
   assertEquals(body.summary, 'Failed 1/1 preview assertions.');
 });
 
-Deno.test('app writer platform service fails clearly when an endpoint is not configured', async () => {
+test('app writer platform service fails clearly when an endpoint is not configured', async () => {
   const service = createAppWriterPlatformServicesHandler({});
   const response = await service.fetch(
     new Request('https://platform.example/app-writer/preview/run', {

@@ -16,28 +16,28 @@ Do not start by reading internal routes or admin code.
 List the curated starters:
 
 ```sh
-deno task app:new --list-starters
+npm run app:new -- --list-starters
 ```
 
 If you are building a general reviewed activity, scaffold `simple-activity`:
 
 ```sh
-deno task app:new /tmp/my-lantern-app --starter=simple-activity --app-id=my-app --title="My App"
+npm run app:new -- /tmp/my-lantern-app --starter=simple-activity --app-id=my-app --title="My App"
 ```
 
 If you are building a reviewed browser autograder, scaffold
 `browser-autograder`:
 
 ```sh
-deno task app:new /tmp/my-browser-autograder --starter=browser-autograder --app-id=my-autograder --title="My Autograder"
+npm run app:new -- /tmp/my-browser-autograder --starter=browser-autograder --app-id=my-autograder --title="My Autograder"
 ```
 
 Then run the same loop for either starter:
 
 ```sh
-deno task app:validate /tmp/my-browser-autograder
-deno task app:test-preview /tmp/my-browser-autograder
-deno task app:preview /tmp/my-browser-autograder
+npm run app:validate -- /tmp/my-browser-autograder
+npm run app:test-preview -- /tmp/my-browser-autograder
+npm run app:preview -- /tmp/my-browser-autograder
 ```
 
 Use `app:preview` when you want a live browser URL. `app:test-preview` is the
@@ -54,12 +54,12 @@ If you also want Lantern's local admin and package review UI on your machine,
 run:
 
 ```sh
-deno task local:init
-deno task local:bootstrap
-deno task local:start
+npm run local:init
+npm run local:bootstrap
+npm run local:start
 ```
 
-Then open the localhost URL printed by Wrangler.
+Then open the localhost URL printed by the Cloudflare Vite dev server.
 
 ## Package Shape
 
@@ -137,19 +137,19 @@ submission binding, finalize, grading, and audit for both paths.
 List curated starters:
 
 ```sh
-deno task app:new --list-starters
+npm run app:new -- --list-starters
 ```
 
 Scaffold one package:
 
 ```sh
-deno task app:new /path/to/app --starter=simple-activity --app-id=my-app --title="My App"
+npm run app:new -- /path/to/app --starter=simple-activity --app-id=my-app --title="My App"
 ```
 
 Run the authoring dev loop:
 
 ```sh
-deno task app:dev /path/to/app
+npm run app:dev -- /path/to/app
 ```
 
 `app:dev` serves a stable local preview URL, reruns validation and preview
@@ -159,25 +159,25 @@ next valid save reloads the preview.
 Validate one package without serving a preview:
 
 ```sh
-deno task app:validate /path/to/app
+npm run app:validate -- /path/to/app
 ```
 
 Execute preview assertions without serving a preview:
 
 ```sh
-deno task app:test-preview /path/to/app
+npm run app:test-preview -- /path/to/app
 ```
 
 Start the runtime preview without the validation loop:
 
 ```sh
-deno task app:preview /path/to/app
+npm run app:preview -- /path/to/app
 ```
 
 Choose a port explicitly:
 
 ```sh
-deno task app:preview /path/to/app --port=8421
+npm run app:preview -- /path/to/app --port=8421
 ```
 
 What validation checks today:
@@ -226,7 +226,7 @@ Do not add:
 - initial local state
 
 `preview/tests.json` is a simple list of DOM assertions that describe what must
-be visible in preview. Run `deno task app:test-preview /path/to/app` to execute
+be visible in preview. Run `npm run app:test-preview -- /path/to/app` to execute
 those assertions on Lantern's local preview seam. Keep the checks narrow:
 selector existence, exact text, or contains text. This is a reviewed package
 checklist, not a second browser automation product.
@@ -239,7 +239,7 @@ and admin import.
 When you want to move a reviewed package into Lantern's governed inventory:
 
 1. Start Lantern locally.
-2. Open `/admin/packages/import` on the localhost URL printed by Wrangler.
+2. Open `/admin/packages/import` on the localhost URL printed by the Cloudflare Vite dev server.
 3. Choose the exact package directory you scaffolded and validated locally.
 
 Lantern validates the manifest and referenced files, stores an immutable

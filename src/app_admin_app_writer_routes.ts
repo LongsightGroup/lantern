@@ -1,4 +1,4 @@
-import type { Hono } from '@hono/hono';
+import type { Hono } from 'hono';
 import { listGenerationActivityEvents } from './app_writer/service_activity.ts';
 import {
   AppPackageGenerationFailedError,
@@ -61,15 +61,17 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
 
       if (action === 'preview') {
         return context.html(
-          renderAppWriterPlanPreviewPage(adminPageInput(context, {
-            promptText,
-            audience,
-            contentSummary,
-            gradingMode,
-            requestedAppId,
-            planning: planPreview.planning,
-            selectedContext: planPreview.selectedContext,
-          })),
+          renderAppWriterPlanPreviewPage(
+            adminPageInput(context, {
+              promptText,
+              audience,
+              contentSummary,
+              gradingMode,
+              requestedAppId,
+              planning: planPreview.planning,
+              selectedContext: planPreview.selectedContext,
+            }),
+          ),
         );
       }
 
@@ -111,9 +113,8 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       await services.appWriterAgentSessions.observe({
         generationId: started.run.generationId,
         ownerId: started.run.ownerId,
-        workflowInstanceId: scheduleResult.mode === 'workflow'
-          ? scheduleResult.workflowInstanceId
-          : null,
+        workflowInstanceId:
+          scheduleResult.mode === 'workflow' ? scheduleResult.workflowInstanceId : null,
         observedAt: started.run.updatedAt,
       });
 
@@ -124,14 +125,16 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
       }
 
       return context.html(
-        renderAppWriterPage(adminPageInput(context, {
-          promptText,
-          audience,
-          contentSummary,
-          gradingMode,
-          requestedAppId,
-          notice: createErrorNotice('App generation blocked', error),
-        })),
+        renderAppWriterPage(
+          adminPageInput(context, {
+            promptText,
+            audience,
+            contentSummary,
+            gradingMode,
+            requestedAppId,
+            notice: createErrorNotice('App generation blocked', error),
+          }),
+        ),
         statusForError(error),
       );
     }
@@ -146,44 +149,52 @@ export function registerAdminAppWriterRoutes(app: Hono, services: AppServices): 
 
       if (run === null) {
         return context.html(
-          renderAppWriterPage(adminPageInput(context, {
-            notice: {
-              tone: 'error',
-              title: 'Generation run not found',
-              detail: 'Lantern could not find that app writer run.',
-            },
-          })),
+          renderAppWriterPage(
+            adminPageInput(context, {
+              notice: {
+                tone: 'error',
+                title: 'Generation run not found',
+                detail: 'Lantern could not find that app writer run.',
+              },
+            }),
+          ),
           404,
         );
       }
 
-      const packageVersion = run.packageVersionId === null
-        ? null
-        : await repository.getPackageVersionById(run.packageVersionId);
+      const packageVersion =
+        run.packageVersionId === null
+          ? null
+          : await repository.getPackageVersionById(run.packageVersionId);
       const workspace = await repository.getAppGenerationWorkspaceByGenerationId(generationId);
       const activityEvents = await listGenerationActivityEvents(repository, generationId);
-      const runtimeLog = packageVersion === null
-        ? { session: null, evidence: [] }
-        : await loadPreviewCapabilityLog({
-          repository,
-          packageVersionId: packageVersion.id,
-        });
+      const runtimeLog =
+        packageVersion === null
+          ? { session: null, evidence: [] }
+          : await loadPreviewCapabilityLog({
+              repository,
+              packageVersionId: packageVersion.id,
+            });
 
       return context.html(
-        renderAppGenerationRunPage(adminPageInput(context, {
-          run,
-          workspace,
-          packageVersion,
-          latestPreviewSession: runtimeLog.session,
-          previewEvidence: runtimeLog.evidence,
-          activityEvents,
-        })),
+        renderAppGenerationRunPage(
+          adminPageInput(context, {
+            run,
+            workspace,
+            packageVersion,
+            latestPreviewSession: runtimeLog.session,
+            previewEvidence: runtimeLog.evidence,
+            activityEvents,
+          }),
+        ),
       );
     } catch (error) {
       return context.html(
-        renderAppWriterPage(adminPageInput(context, {
-          notice: createErrorNotice('Generation run unavailable', error),
-        })),
+        renderAppWriterPage(
+          adminPageInput(context, {
+            notice: createErrorNotice('Generation run unavailable', error),
+          }),
+        ),
         statusForError(error),
       );
     }

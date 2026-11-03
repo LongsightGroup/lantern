@@ -23,6 +23,7 @@ export function resolvePreviousApprovedPackageVersion(
     return null;
   }
 
-  return history.slice(currentIndex + 1).find((version) => version.approvalStatus === 'approved') ??
-    null;
+  return (
+    history.slice(currentIndex + 1).find((version) => version.approvalStatus === 'approved') ?? null
+  );
 }

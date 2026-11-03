@@ -34,11 +34,7 @@ export function createD1InstitutionRepository(db: D1Database): InstitutionReposi
     },
 
     async getInstitutionById(id) {
-      const row = await queryD1First<D1Row>(
-        db,
-        `SELECT * FROM institutions WHERE id = ?`,
-        [id],
-      );
+      const row = await queryD1First<D1Row>(db, `SELECT * FROM institutions WHERE id = ?`, [id]);
       return row === null ? null : mapInstitution(row);
     },
 
@@ -70,23 +66,26 @@ export function createD1InstitutionRepository(db: D1Database): InstitutionReposi
     },
 
     async createInvite(input) {
-      await runD1Batch(db, [{
-        sql: `
+      await runD1Batch(db, [
+        {
+          sql: `
           INSERT INTO institution_invites (
             id, institution_id, token_hash, role, created_by_user_id,
             created_at, expires_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `,
-        parameters: [
-          input.id,
-          input.institutionId,
-          input.tokenHash,
-          input.role,
-          input.createdByUserId,
-          input.createdAt,
-          input.expiresAt,
-        ],
-      }, governanceEventStatement(input.event)]);
+          parameters: [
+            input.id,
+            input.institutionId,
+            input.tokenHash,
+            input.role,
+            input.createdByUserId,
+            input.createdAt,
+            input.expiresAt,
+          ],
+        },
+        governanceEventStatement(input.event),
+      ]);
     },
 
     async acceptInvite(input) {

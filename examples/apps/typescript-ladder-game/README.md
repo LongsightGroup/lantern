@@ -13,15 +13,15 @@ It demonstrates a narrower browser-autograder shape:
 If you want to evaluate it quickly as a shipped example, run:
 
 ```sh
-deno task app:preview examples/apps/typescript-ladder-game
+npm run app:preview -- examples/apps/typescript-ladder-game
 ```
 
 If you want to inspect it as a reviewed package, run the same local checks used
 for authoring:
 
 ```sh
-deno task app:validate examples/apps/typescript-ladder-game
-deno task app:test-preview examples/apps/typescript-ladder-game
+npm run app:validate -- examples/apps/typescript-ladder-game
+npm run app:test-preview -- examples/apps/typescript-ladder-game
 ```
 
 For the full package loop, read:

@@ -27,11 +27,9 @@ export function createD1ActivityRepositoryMethods(
   return {
     async createAttemptEvidenceArtifact(input) {
       try {
-        const results = await runD1Batch<D1AttemptEvidenceArtifactRow>(
-          db,
-          [
-            {
-              sql: `
+        const results = await runD1Batch<D1AttemptEvidenceArtifactRow>(db, [
+          {
+            sql: `
                 INSERT INTO attempt_evidence_artifacts (
                   artifact_id,
                   attempt_id,
@@ -69,28 +67,27 @@ export function createD1ActivityRepositoryMethods(
                   sha256,
                   created_at AS createdAt
               `,
-              parameters: [
-                input.artifactId,
-                input.kind,
-                input.contentType,
-                input.fileName,
-                input.storageKey,
-                input.byteSize,
-                input.sha256,
-                input.createdAt,
-                input.attemptId,
-              ],
-            },
-            {
-              sql: `
+            parameters: [
+              input.artifactId,
+              input.kind,
+              input.contentType,
+              input.fileName,
+              input.storageKey,
+              input.byteSize,
+              input.sha256,
+              input.createdAt,
+              input.attemptId,
+            ],
+          },
+          {
+            sql: `
                 UPDATE attempts
                 SET next_evidence_artifact_sequence = next_evidence_artifact_sequence + 1
                 WHERE attempt_id = ?
               `,
-              parameters: [input.attemptId],
-            },
-          ],
-        );
+            parameters: [input.attemptId],
+          },
+        ]);
         const row = results[0]?.results?.[0] ?? null;
 
         if (row === null) {

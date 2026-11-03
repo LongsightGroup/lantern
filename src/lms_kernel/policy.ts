@@ -3,21 +3,21 @@ import type { CapabilityGrantRecord, GovernedRuntimeSession } from './types.ts';
 
 export type PrimitiveAuthorizationResult =
   | {
-    readonly allowed: true;
-    readonly grants: readonly CapabilityGrantRecord[];
-  }
+      readonly allowed: true;
+      readonly grants: readonly CapabilityGrantRecord[];
+    }
   | {
-    readonly allowed: false;
-    readonly reason:
-      | 'session_expired'
-      | 'institution_inactive'
-      | 'connection_inactive'
-      | 'installation_inactive'
-      | 'actor_not_authorized'
-      | 'service_unavailable'
-      | 'manifest_capability_missing'
-      | 'grant_missing';
-  };
+      readonly allowed: false;
+      readonly reason:
+        | 'session_expired'
+        | 'institution_inactive'
+        | 'connection_inactive'
+        | 'installation_inactive'
+        | 'actor_not_authorized'
+        | 'service_unavailable'
+        | 'manifest_capability_missing'
+        | 'grant_missing';
+    };
 
 export function authorizeRosterRead(input: {
   readonly session: GovernedRuntimeSession;
@@ -54,12 +54,13 @@ export function authorizeRosterRead(input: {
       return { allowed: false, reason: 'manifest_capability_missing' };
     }
 
-    const grant = input.grants.find((candidate) =>
-      candidate.capability === capability &&
-      candidate.packageVersionId === input.session.packageVersionId &&
-      candidate.revokedAt === null &&
-      (candidate.scope.kind === 'institution' ||
-        candidate.scope.lmsContextId === input.session.lmsContextId)
+    const grant = input.grants.find(
+      (candidate) =>
+        candidate.capability === capability &&
+        candidate.packageVersionId === input.session.packageVersionId &&
+        candidate.revokedAt === null &&
+        (candidate.scope.kind === 'institution' ||
+          candidate.scope.lmsContextId === input.session.lmsContextId),
     );
 
     if (grant === undefined) {

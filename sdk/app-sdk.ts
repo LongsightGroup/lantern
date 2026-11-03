@@ -58,41 +58,41 @@ export interface BootstrapPayload {
 
 export type AttemptEvent =
   | {
-    type: 'answer';
-    questionId: string;
-    answer: string | string[];
-    correct?: boolean;
-    scoreGiven?: number;
-    scoreMaximum?: number;
-    timestamp: string;
-  }
+      type: 'answer';
+      questionId: string;
+      answer: string | string[];
+      correct?: boolean;
+      scoreGiven?: number;
+      scoreMaximum?: number;
+      timestamp: string;
+    }
   | {
-    type: 'progress';
-    checkpoint: string;
-    value: number;
-    timestamp: string;
-  }
+      type: 'progress';
+      checkpoint: string;
+      value: number;
+      timestamp: string;
+    }
   | {
-    type: 'complete';
-    timestamp: string;
-  };
+      type: 'complete';
+      timestamp: string;
+    };
 
 export type AttemptEventLearningVerb = 'answered' | 'progressed' | 'completed';
 export type AttemptEventObjectType = 'question' | 'checkpoint' | 'activity';
 
 export type AttemptEventResult =
   | {
-    response: string | string[];
-    success: boolean | null;
-    scoreGiven: number | null;
-    scoreMaximum: number | null;
-  }
+      response: string | string[];
+      success: boolean | null;
+      scoreGiven: number | null;
+      scoreMaximum: number | null;
+    }
   | {
-    value: number;
-  }
+      value: number;
+    }
   | {
-    completionState: 'completed';
-  };
+      completionState: 'completed';
+    };
 
 export interface NormalizedAttemptEvent {
   eventType: AttemptEvent['type'];

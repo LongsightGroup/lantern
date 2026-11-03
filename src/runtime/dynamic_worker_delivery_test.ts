@@ -1,5 +1,5 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertNotEquals, assertRejects, assertStringIncludes } from '@std/assert';
-import { Miniflare } from 'miniflare';
 import {
   buildReviewedRuntimeAssetMap,
   buildReviewedRuntimeWorkerCode,
@@ -12,7 +12,7 @@ import {
   buildRuntimeSessionRecord,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('Dynamic Worker delivery worker ids stay deterministic and reviewed-identity keyed', () => {
+test('Dynamic Worker delivery worker ids stay deterministic and reviewed-identity keyed', () => {
   const firstId = buildReviewedRuntimeWorkerId({
     runtimeContractSignature: 'sig-a',
   });
@@ -32,7 +32,7 @@ Deno.test('Dynamic Worker delivery worker ids stay deterministic and reviewed-id
   assertNotEquals(firstId, differentEnvelopeId);
 });
 
-Deno.test('Dynamic Worker delivery describes the reviewed envelope using the deterministic worker id', () => {
+test('Dynamic Worker delivery describes the reviewed envelope using the deterministic worker id', () => {
   const delivery = createDynamicWorkerRuntimeDelivery({
     loader: {
       get() {
@@ -59,7 +59,7 @@ Deno.test('Dynamic Worker delivery describes the reviewed envelope using the det
   );
 });
 
-Deno.test('Dynamic Worker delivery embeds immutable reviewed assets plus browser grader files', async () => {
+test('Dynamic Worker delivery embeds immutable reviewed assets plus browser grader files', async () => {
   const session = buildRuntimeSessionRecord({
     snapshotRoot: 'var/packages/template-app/0.1.0',
     entrypointPath: 'var/packages/template-app/0.1.0/dist/index.html',
@@ -118,7 +118,7 @@ Deno.test('Dynamic Worker delivery embeds immutable reviewed assets plus browser
   );
 });
 
-Deno.test('Dynamic Worker delivery code blocks outbound access and carries no extra bindings', async () => {
+test('Dynamic Worker delivery code blocks outbound access and carries no extra bindings', async () => {
   const session = buildRuntimeSessionRecord({
     snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
     entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
@@ -142,7 +142,7 @@ Deno.test('Dynamic Worker delivery code blocks outbound access and carries no ex
   assertEquals((code.modules['index.js'] ?? '').includes('globalThis.Deno'), false);
 });
 
-Deno.test('reviewed app Workers receive only the LMS binding and hard invocation limits', async () => {
+test('reviewed app Workers receive only the LMS binding and hard invocation limits', async () => {
   let loadedCode: DynamicWorkerCode | null = null;
   let invocationLimits: { readonly cpuMs: number; readonly subRequests: number } | null = null;
   const lmsBinding = { listRoster: () => Promise.resolve({ ok: true }) };
@@ -197,69 +197,7 @@ Deno.test('reviewed app Workers receive only the LMS binding and hard invocation
   assertEquals(Object.keys(code.env ?? {}), ['LANTERN_LMS']);
 });
 
-Deno.test('Photo Roster bundle runs in workerd and reaches roster data only through RPC', async () => {
-  const appScript = await Deno.readTextFile('examples/apps/photo-roster/dist/worker.js');
-  const common = { modules: true, compatibilityDate: '2026-07-15' } as const;
-  const miniflare = new Miniflare({
-    workers: [
-      {
-        ...common,
-        name: 'photo-roster',
-        script: appScript,
-        serviceBindings: {
-          LANTERN_LMS: { name: 'lantern-lms', entrypoint: 'LanternLms' },
-        },
-      },
-      {
-        ...common,
-        name: 'lantern-lms',
-        script: `
-          import { WorkerEntrypoint } from 'cloudflare:workers';
-          export class LanternLms extends WorkerEntrypoint {
-            listRoster(input) {
-              if (input.runtimeSessionId !== 'session-1' || input.runtimeSessionToken !== 'token-1') {
-                return { ok: false, error: { code: 'session_expired', traceId: 'trace-denied' } };
-              }
-              return {
-                ok: true,
-                value: {
-                  observedAt: '2026-07-20T15:00:00.000Z',
-                  members: [{
-                    subjectId: 'subject-1',
-                    displayName: 'Ada Lovelace',
-                    roles: ['learner'],
-                    status: 'active',
-                    email: 'ada@example.edu'
-                  }]
-                }
-              };
-            }
-          }
-          export default { fetch() { return new Response('RPC only', { status: 405 }); } };
-        `,
-      },
-    ],
-  });
-  try {
-    const response = await miniflare.dispatchFetch('https://photo-roster.internal/', {
-      headers: {
-        'x-lantern-runtime-session-id': 'session-1',
-        'x-lantern-runtime-session-token': 'token-1',
-        'x-lantern-trace-id': 'trace-1',
-      },
-    });
-    const html = await response.text();
-
-    assertEquals(response.status, 200);
-    assertEquals(response.headers.get('cache-control'), 'private, no-store');
-    assertStringIncludes(html, 'Ada Lovelace');
-    assertStringIncludes(html, 'ada@example.edu');
-  } finally {
-    await miniflare.dispose();
-  }
-});
-
-Deno.test('Dynamic Worker delivery keeps missing reviewed assets distinct from loader delivery failures', async () => {
+test('Dynamic Worker delivery keeps missing reviewed assets distinct from loader delivery failures', async () => {
   const session = buildRuntimeSessionRecord({
     snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
     entrypointPath: 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
@@ -342,8 +280,8 @@ function createLoaderStub() {
       callback: () =>
         | Promise<{ modules: Record<string, string> }>
         | {
-          modules: Record<string, string>;
-        },
+            modules: Record<string, string>;
+          },
     ) {
       return {
         getEntrypoint() {

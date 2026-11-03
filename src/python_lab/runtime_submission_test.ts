@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import {
   buildAttemptRecord,
@@ -11,15 +12,17 @@ import { createInMemoryPythonLabRepository } from './repository_memory.ts';
 import type { PythonGraderSandboxFactory } from './runner.ts';
 import { runRuntimeCodeSubmission } from './runtime_submission.ts';
 
-Deno.test('Python runtime submissions keep practice unfinalized and make final runs idempotent', async () => {
+test('Python runtime submissions keep practice unfinalized and make final runs idempotent', async () => {
   const repository = createRepository();
   const pythonLabRepository = createInMemoryPythonLabRepository({
-    definitions: [{
-      packageVersionId: 1,
-      functionName: 'add',
-      privateArtifactKey: 'var/private-python-lab/lab-123/assignment.json',
-      createdAt: '2026-07-13T00:00:00Z',
-    }],
+    definitions: [
+      {
+        packageVersionId: 1,
+        functionName: 'add',
+        privateArtifactKey: 'var/private-python-lab/lab-123/assignment.json',
+        createdAt: '2026-07-13T00:00:00Z',
+      },
+    ],
   });
   const artifacts = createArtifactStore(privateArtifact());
   const session = runtimeSession();
@@ -69,15 +72,17 @@ Deno.test('Python runtime submissions keep practice unfinalized and make final r
   assertEquals((await repository.getAttemptById('attempt-123'))?.status, 'completed');
 });
 
-Deno.test('Python runtime submission never finalizes or publishes a grade when the runner fails', async () => {
+test('Python runtime submission never finalizes or publishes a grade when the runner fails', async () => {
   const repository = createRepository();
   const pythonLabRepository = createInMemoryPythonLabRepository({
-    definitions: [{
-      packageVersionId: 1,
-      functionName: 'add',
-      privateArtifactKey: 'var/private-python-lab/lab-123/assignment.json',
-      createdAt: '2026-07-13T00:00:00Z',
-    }],
+    definitions: [
+      {
+        packageVersionId: 1,
+        functionName: 'add',
+        privateArtifactKey: 'var/private-python-lab/lab-123/assignment.json',
+        createdAt: '2026-07-13T00:00:00Z',
+      },
+    ],
   });
 
   await assertRejects(
@@ -103,7 +108,7 @@ Deno.test('Python runtime submission never finalizes or publishes a grade when t
   assertEquals(await pythonLabRepository.getFinalCodeSubmissionRunByAttemptId('attempt-123'), null);
 });
 
-Deno.test('concurrent final submissions reserve one source artifact and recover after the winner finishes', async () => {
+test('concurrent final submissions reserve one source artifact and recover after the winner finishes', async () => {
   const repository = createRepository();
   const pythonLabRepository = createInMemoryPythonLabRepository({ definitions: [definition()] });
   const blockingArtifacts = createBlockingArtifactStore(privateArtifact());
@@ -156,7 +161,7 @@ Deno.test('concurrent final submissions reserve one source artifact and recover 
   );
 });
 
-Deno.test('a final run whose source was stored before its database update is recovered on retry', async () => {
+test('a final run whose source was stored before its database update is recovered on retry', async () => {
   const repository = createRepository();
   const baseRepository = createInMemoryPythonLabRepository({ definitions: [definition()] });
   let failPersistence = true;
@@ -208,11 +213,7 @@ function createRepository() {
       buildPackageVersionRecord({
         appId: 'python-lab-lab-123',
         version: '1.0.0',
-        capabilities: [
-          'read_launch_context',
-          'read_activity_content',
-          'run_code_submission',
-        ],
+        capabilities: ['read_launch_context', 'read_activity_content', 'run_code_submission'],
         grading: { mode: 'sandbox', rubricFile: null, maxScore: 10 },
         catalogVisibility: 'python_lab_trial',
       }),
@@ -239,11 +240,7 @@ function runtimeSession() {
   return buildRuntimeSessionRecord({
     appId: 'python-lab-lab-123',
     packageVersion: '1.0.0',
-    capabilities: [
-      'read_launch_context',
-      'read_activity_content',
-      'run_code_submission',
-    ],
+    capabilities: ['read_launch_context', 'read_activity_content', 'run_code_submission'],
     preview: { previewSessionId: 'preview-session-123' },
   });
 }

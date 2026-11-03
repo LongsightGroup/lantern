@@ -130,11 +130,13 @@ export function createD1PackageVersionRepositoryMethods(
         throw new Error(`Python Lab package version ${id} is unexpectedly installed.`);
       }
 
-      await runD1Batch(db, [{
-        sql: `DELETE FROM package_versions
+      await runD1Batch(db, [
+        {
+          sql: `DELETE FROM package_versions
             WHERE id = ? AND catalog_visibility = 'python_lab_trial'`,
-        parameters: [id],
-      }]);
+          parameters: [id],
+        },
+      ]);
     },
 
     async approvePackageVersion(input) {
@@ -474,7 +476,7 @@ function isD1UniqueViolation(error: unknown): boolean {
 
 function parseUserRoleArray(value: unknown, fieldName: string): UserRole[] {
   return expectD1StringArray(value, fieldName).map((role, index) =>
-    expectD1StringLiteral(role, `${fieldName}[${index}]`, ['learner', 'instructor'])
+    expectD1StringLiteral(role, `${fieldName}[${index}]`, ['learner', 'instructor']),
   );
 }
 
@@ -489,7 +491,7 @@ function parseCapabilityArray(value: unknown, fieldName: string): Capability[] {
       'read_local_state',
       'write_local_state',
       'run_code_submission',
-    ])
+    ]),
   );
 }
 
@@ -534,10 +536,7 @@ function parseValidationIssues(value: unknown, fieldName: string): ValidationIss
   }));
 }
 
-function parseReviewedRuntimeContract(
-  value: unknown,
-  fieldName: string,
-): ReviewedRuntimeContract {
+function parseReviewedRuntimeContract(value: unknown, fieldName: string): ReviewedRuntimeContract {
   const record = expectD1JsonRecord(value, fieldName);
 
   return {
@@ -554,10 +553,7 @@ function parseReviewedRuntimeContract(
   };
 }
 
-function parseAppRuntime(
-  value: unknown,
-  fieldName: string,
-): ReviewedRuntimeContract['runtime'] {
+function parseAppRuntime(value: unknown, fieldName: string): ReviewedRuntimeContract['runtime'] {
   const record = expectD1JsonRecord(value, fieldName);
   const kind = expectD1StringLiteral(record.kind, `${fieldName}.kind`, ['browser', 'worker']);
   return {
@@ -566,10 +562,7 @@ function parseAppRuntime(
   };
 }
 
-function expectJsonRecordArray(
-  value: unknown,
-  fieldName: string,
-): Array<Record<string, unknown>> {
+function expectJsonRecordArray(value: unknown, fieldName: string): Array<Record<string, unknown>> {
   if (!Array.isArray(value)) {
     throw new TypeError(`Expected D1 ${fieldName} JSON to be an object array.`);
   }

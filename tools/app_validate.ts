@@ -50,7 +50,7 @@ export function readArgs(args: string[]): AppValidateArgs {
   }
 
   if (packageRoot === null) {
-    throw new Error('Usage: deno task app:validate <package-root> [--json]');
+    throw new Error('Usage: npm run app:validate -- <package-root> [--json]');
   }
 
   return {
@@ -95,7 +95,7 @@ export function renderValidationFailure(
           `  - ${diagnostic.message}`,
           `    Fix: ${diagnostic.fix}`,
         ]),
-      ].join('\n')
+      ].join('\n'),
     )
     .join('\n');
 }
@@ -133,5 +133,5 @@ export function serializeValidationResult(result: LocalAppValidationResult): str
 }
 
 if (import.meta.main) {
-  Deno.exit(await runAppValidate(Deno.args));
+  process.exit(await runAppValidate(process.argv.slice(2)));
 }

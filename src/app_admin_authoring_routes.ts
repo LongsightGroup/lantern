@@ -1,4 +1,4 @@
-import type { Context, Hono } from '@hono/hono';
+import type { Context, Hono } from 'hono';
 import { type AuthoringGeneratedDraftView, renderAuthoringPage } from './admin/authoring_page.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
@@ -49,14 +49,16 @@ export function registerAdminAuthoringRoutes(app: Hono, services: AppServices): 
       const saved = new URL(context.req.url).searchParams.get('saved') === '1';
 
       return context.html(
-        renderAuthoringPage(adminPageInput(context, {
-          packageVersion: state.packageVersion,
-          draft: state.draft,
-          currentFiles: state.currentFiles,
-          latestPreviewSession: state.latestPreviewSession,
-          previewEvidence: state.previewEvidence,
-          notice: saved ? AUTHORING_SAVED_NOTICE : null,
-        })),
+        renderAuthoringPage(
+          adminPageInput(context, {
+            packageVersion: state.packageVersion,
+            draft: state.draft,
+            currentFiles: state.currentFiles,
+            latestPreviewSession: state.latestPreviewSession,
+            previewEvidence: state.previewEvidence,
+            notice: saved ? AUTHORING_SAVED_NOTICE : null,
+          }),
+        ),
       );
     } catch (error) {
       return await renderAuthoringError(context, services, appId, version, error);
@@ -105,14 +107,16 @@ export function registerAdminAuthoringRoutes(app: Hono, services: AppServices): 
       };
 
       return context.html(
-        renderAuthoringPage(adminPageInput(context, {
-          packageVersion: state.packageVersion,
-          draft: state.draft,
-          currentFiles: state.currentFiles,
-          latestPreviewSession: state.latestPreviewSession,
-          previewEvidence: state.previewEvidence,
-          generatedDraft,
-        })),
+        renderAuthoringPage(
+          adminPageInput(context, {
+            packageVersion: state.packageVersion,
+            draft: state.draft,
+            currentFiles: state.currentFiles,
+            latestPreviewSession: state.latestPreviewSession,
+            previewEvidence: state.previewEvidence,
+            generatedDraft,
+          }),
+        ),
       );
     } catch (error) {
       return await renderAuthoringError(
@@ -337,15 +341,17 @@ async function renderAuthoringError(
 ) {
   if (state !== null) {
     return context.html(
-      renderAuthoringPage(adminPageInput(context, {
-        packageVersion: state.packageVersion,
-        draft: state.draft,
-        currentFiles: state.currentFiles,
-        latestPreviewSession: state.latestPreviewSession,
-        previewEvidence: state.previewEvidence,
-        generatedDraft,
-        notice: createErrorNotice('Authoring draft unavailable', error),
-      })),
+      renderAuthoringPage(
+        adminPageInput(context, {
+          packageVersion: state.packageVersion,
+          draft: state.draft,
+          currentFiles: state.currentFiles,
+          latestPreviewSession: state.latestPreviewSession,
+          previewEvidence: state.previewEvidence,
+          generatedDraft,
+          notice: createErrorNotice('Authoring draft unavailable', error),
+        }),
+      ),
       statusForError(error),
     );
   }
@@ -355,10 +361,12 @@ async function renderAuthoringError(
 
   if (!packageVersion) {
     return context.html(
-      renderPackageIndexPage(adminPageInput(context, {
-        versions: [],
-        notice: createErrorNotice('Authoring draft unavailable', error),
-      })),
+      renderPackageIndexPage(
+        adminPageInput(context, {
+          versions: [],
+          notice: createErrorNotice('Authoring draft unavailable', error),
+        }),
+      ),
       statusForError(error),
     );
   }
@@ -366,25 +374,29 @@ async function renderAuthoringError(
   const history = await repository.listPackageVersionsByApp(packageVersion.appId);
 
   return context.html(
-    renderPackageDetailPage(adminPageInput(context, {
-      packageVersion,
-      history,
-      notice: createErrorNotice('Authoring draft unavailable', error),
-    })),
+    renderPackageDetailPage(
+      adminPageInput(context, {
+        packageVersion,
+        history,
+        notice: createErrorNotice('Authoring draft unavailable', error),
+      }),
+    ),
     statusForError(error),
   );
 }
 
 function renderVersionNotFound(context: Context) {
   return context.html(
-    renderPackageIndexPage(adminPageInput(context, {
-      versions: [],
-      notice: {
-        tone: 'error',
-        title: 'Version not found',
-        detail: 'Lantern could not find that app version.',
-      },
-    })),
+    renderPackageIndexPage(
+      adminPageInput(context, {
+        versions: [],
+        notice: {
+          tone: 'error',
+          title: 'Version not found',
+          detail: 'Lantern could not find that app version.',
+        },
+      }),
+    ),
     404,
   );
 }

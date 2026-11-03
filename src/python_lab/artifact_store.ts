@@ -90,9 +90,10 @@ export function buildPythonLabPrivateArtifactKey(labId: string): string {
   return `var/private-python-lab/${labId}/assignment.json`;
 }
 
-export function buildPythonSubmissionArtifactKey(
-  input: { attemptId: string; runId: string },
-): string {
+export function buildPythonSubmissionArtifactKey(input: {
+  attemptId: string;
+  runId: string;
+}): string {
   return `var/private-python-lab/submissions/${input.attemptId}/${input.runId}.py`;
 }
 
@@ -104,7 +105,8 @@ function parsePrivateAssignmentArtifact(input: unknown): PythonLabPrivateArtifac
   const record = input as Record<string, unknown>;
 
   if (
-    record.kind !== 'assignment' || typeof record.functionName !== 'string' ||
+    record.kind !== 'assignment' ||
+    typeof record.functionName !== 'string' ||
     typeof record.referenceCode !== 'string' ||
     !Array.isArray(record.cases)
   ) {

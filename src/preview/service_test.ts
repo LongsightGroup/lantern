@@ -1,3 +1,7 @@
+import { join } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assertEquals, assertRejects } from '@std/assert';
 import { getReferencePackageSourceRoot } from '../package_review/intake.ts';
 import { getDefaultRuntimeArtifactStore } from '../runtime/artifact_store_fs.ts';
@@ -11,13 +15,13 @@ import {
 
 const artifactStore = getDefaultRuntimeArtifactStore();
 
-Deno.test('preview service loads preview.fixtures_file and validates required fields before preparing launch context', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service loads preview.fixtures_file and validates required fields before preparing launch context', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -60,17 +64,17 @@ Deno.test('preview service loads preview.fixtures_file and validates required fi
     assertEquals(prepared.launch.activityId, 'activity-preview-9');
     assertEquals(prepared.fixtureData.attempt_id, 'attempt-preview-123');
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service prepares pending package versions for review test launch', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service prepares pending package versions for review test launch', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -111,12 +115,12 @@ Deno.test('preview service prepares pending package versions for review test lau
     assertEquals(prepared.launch.userRole, 'learner');
     assertEquals(prepared.fixtureData.attempt_id, 'attempt-preview-pending');
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service fails clearly when preview fixtures are missing and does not fall back to runtime defaults', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service fails clearly when preview fixtures are missing and does not fall back to runtime defaults', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/missing.json');
@@ -149,17 +153,17 @@ Deno.test('preview service fails clearly when preview fixtures are missing and d
       'Saved test launch file /preview/missing.json is missing from the reviewed app files.',
     );
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service applies explicit test-launch overrides over saved defaults', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service applies explicit test-launch overrides over saved defaults', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -205,17 +209,17 @@ Deno.test('preview service applies explicit test-launch overrides over saved def
     assertEquals(prepared.fixtureData.launch.user_role, 'learner');
     assertEquals(prepared.fixtureData.launch.course_id, 'course-preview-42');
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service returns fake identity/session defaults shaped for runtime bootstrap and evidence capture', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service returns fake identity/session defaults shaped for runtime bootstrap and evidence capture', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -274,17 +278,17 @@ Deno.test('preview service returns fake identity/session defaults shaped for run
     assertEquals(created.fakeScoring.activityProgress, 'Completed');
     assertEquals(created.fakeScoring.gradingProgress, 'FullyGraded');
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service defaults admin launches to admin origin and canonical preview content', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service defaults admin launches to admin origin and canonical preview content', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -325,17 +329,17 @@ Deno.test('preview service defaults admin launches to admin origin and canonical
     assertEquals(prepared.origin, 'adminTestLaunch');
     assertEquals(prepared.contentPath, '/content/activity.json');
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service keeps explicit authoring origin and selected content in the runtime session', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service keeps explicit authoring origin and selected content in the runtime session', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -404,17 +408,17 @@ Deno.test('preview service keeps explicit authoring origin and selected content 
     assertEquals(launched.runtimeSession.launch.activityId, '/content/bonus.json');
     assertEquals(launched.runtimeSession.launch.submissionMode, 'anonymous_submission');
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview runtime sessions from admin and authoring origins both keep live LMS services disabled', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview runtime sessions from admin and authoring origins both keep live LMS services disabled', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -477,17 +481,17 @@ Deno.test('preview runtime sessions from admin and authoring origins both keep l
     assertEquals(authoringLaunch.runtimeSession.services.ags, null);
     assertEquals(authoringLaunch.runtimeSession.services.nrps, null);
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service records admin authoring draft launches with the authoring route detail', async () => {
-  const snapshotRoot = await Deno.makeTempDir({ prefix: 'lantern-preview-' });
+test('preview service records admin authoring draft launches with the authoring route detail', async () => {
+  const snapshotRoot = await mkdtemp(join(tmpdir(), 'lantern-preview-'));
 
   try {
     await writePreviewManifest(snapshotRoot, '/preview/fixtures.json');
-    await Deno.mkdir(`${snapshotRoot}/preview`, { recursive: true });
-    await Deno.writeTextFile(
+    await mkdir(`${snapshotRoot}/preview`, { recursive: true });
+    await writeFile(
       `${snapshotRoot}/preview/fixtures.json`,
       JSON.stringify({
         launch: {
@@ -540,11 +544,11 @@ Deno.test('preview service records admin authoring draft launches with the autho
       '/admin/packages/template-app/versions/0.1.0/authoring',
     );
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('preview service reads committed quick-study fixtures without inventing a second preview path', async () => {
+test('preview service reads committed quick-study fixtures without inventing a second preview path', async () => {
   const snapshotRoot = getReferencePackageSourceRoot('quick-study');
   const approvedPackage = buildPackageVersionRecord({
     id: 18,
@@ -592,7 +596,7 @@ Deno.test('preview service reads committed quick-study fixtures without inventin
 });
 
 async function writePreviewManifest(snapshotRoot: string, fixturesFile: string): Promise<void> {
-  await Deno.writeTextFile(
+  await writeFile(
     `${snapshotRoot}/manifest.json`,
     JSON.stringify({
       schema_version: '2',

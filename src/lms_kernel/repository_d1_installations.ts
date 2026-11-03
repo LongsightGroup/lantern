@@ -11,23 +11,26 @@ import {
 export function createD1AppInstallationRepository(db: D1Database): AppInstallationRepository {
   const repository: AppInstallationRepository = {
     async createInstallation(input) {
-      await runD1Batch(db, [{
-        sql: `
+      await runD1Batch(db, [
+        {
+          sql: `
           INSERT INTO app_installations (
             id, institution_id, app_id, package_version_id, status,
             installed_by_user_id, installed_at, updated_at
           ) VALUES (?, ?, ?, ?, 'pending_approval', ?, ?, ?)
         `,
-        parameters: [
-          input.id,
-          input.institutionId,
-          input.appId,
-          input.packageVersionId,
-          input.installedByUserId,
-          input.now,
-          input.now,
-        ],
-      }, governanceEventStatement(input.event)]);
+          parameters: [
+            input.id,
+            input.institutionId,
+            input.appId,
+            input.packageVersionId,
+            input.installedByUserId,
+            input.now,
+            input.now,
+          ],
+        },
+        governanceEventStatement(input.event),
+      ]);
       return requireInstallation(await repository.getInstallationById(input.id), input.id);
     },
 
@@ -114,11 +117,9 @@ export function createD1AppInstallationRepository(db: D1Database): AppInstallati
     },
 
     async getInstallationById(id) {
-      const row = await queryD1First<D1Row>(
-        db,
-        `SELECT * FROM app_installations WHERE id = ?`,
-        [id],
-      );
+      const row = await queryD1First<D1Row>(db, `SELECT * FROM app_installations WHERE id = ?`, [
+        id,
+      ]);
       return row === null ? null : mapInstallation(row);
     },
 
@@ -180,8 +181,9 @@ export function createD1AppInstallationRepository(db: D1Database): AppInstallati
 
     async createCapabilityGrant(input) {
       const lmsContextId = input.scope.kind === 'context' ? input.scope.lmsContextId : null;
-      await runD1Batch(db, [{
-        sql: `
+      await runD1Batch(db, [
+        {
+          sql: `
           INSERT INTO capability_grants (
             id, institution_id, app_installation_id, package_version_id,
             capability, scope_kind, lms_context_id, approved_by_user_id, approved_at
@@ -192,18 +194,20 @@ export function createD1AppInstallationRepository(db: D1Database): AppInstallati
             revoked_by_user_id = NULL,
             revoked_at = NULL
         `,
-        parameters: [
-          input.id,
-          input.institutionId,
-          input.appInstallationId,
-          input.packageVersionId,
-          input.capability,
-          input.scope.kind,
-          lmsContextId,
-          input.approvedByUserId,
-          input.approvedAt,
-        ],
-      }, governanceEventStatement(input.event)]);
+          parameters: [
+            input.id,
+            input.institutionId,
+            input.appInstallationId,
+            input.packageVersionId,
+            input.capability,
+            input.scope.kind,
+            lmsContextId,
+            input.approvedByUserId,
+            input.approvedAt,
+          ],
+        },
+        governanceEventStatement(input.event),
+      ]);
       const row = await queryD1First<D1Row>(
         db,
         `

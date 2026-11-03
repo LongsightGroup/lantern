@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from '@hono/hono';
+import type { MiddlewareHandler } from 'hono';
 import type { AppServices } from '../app_services.ts';
 import { getAdminSession } from '../admin_auth/context.ts';
 import { setKernelAdminContext } from './admin_context.ts';
@@ -17,7 +17,7 @@ export function createKernelAdminContextMiddleware(
     if (memberships.length === 0) {
       if (path === '/admin/onboarding' || path.startsWith('/admin/invites/')) {
         await next();
-        return;
+        return undefined;
       }
       return context.redirect('/admin/onboarding', 303);
     }
@@ -40,5 +40,6 @@ export function createKernelAdminContextMiddleware(
       return context.redirect('/admin/governance', 303);
     }
     await next();
+    return undefined;
   };
 }

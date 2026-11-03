@@ -32,11 +32,11 @@ export function createAdminTestApp(services: Partial<AppServices> = {}) {
     ...restServices,
     ...(explicitEnv
       ? {
-        env: createObjectEnvReader({
-          ADMIN_AUTH_ALLOW_SIGNUP: '1',
-          APP_ORIGIN: explicitEnv.get('APP_ORIGIN') ?? 'http://localhost',
-        }),
-      }
+          env: createObjectEnvReader({
+            ADMIN_AUTH_ALLOW_SIGNUP: '1',
+            APP_ORIGIN: explicitEnv.get('APP_ORIGIN') ?? 'http://localhost',
+          }),
+        }
       : {}),
   });
 
@@ -152,7 +152,7 @@ export function cookieHeaderFromResponse(response: Response): string | null {
 
   const cookie = response.headers.get('set-cookie');
 
-  return cookie ? cookie.split(';')[0] ?? cookie : null;
+  return cookie ? (cookie.split(';')[0] ?? cookie) : null;
 }
 
 function withDefaultAdminSessionCookie(app: ReturnType<typeof createApp>) {

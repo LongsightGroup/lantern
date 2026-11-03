@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { selectAppWriterContext } from './context.ts';
 import { buildInitializedAppWriterWorkspace } from './workspace_initialization.ts';
 
-Deno.test('app writer workspace initialization includes instructions, SDK, DoD, generated-app, design, and validation contracts', () => {
+test('app writer workspace initialization includes instructions, SDK, DoD, generated-app, design, and validation contracts', () => {
   const contextSelection = selectAppWriterContext({
     promptText: 'Create a phonics flashcard app with student progress.',
     requestedAppId: 'phonics-flashcards',

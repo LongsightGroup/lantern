@@ -4,11 +4,7 @@ export function formValue(value: string | null): string {
   return value ?? '';
 }
 
-export function requireFormText(
-  value: string | null,
-  label: string,
-  maxLength: number,
-): string {
+export function requireFormText(value: string | null, label: string, maxLength: number): string {
   const text = formValue(value);
   if (text.trim() === '' || text.length > maxLength) {
     throw new Error(`${label} is required and must contain at most ${maxLength} characters.`);
@@ -45,7 +41,8 @@ export async function readBoundedLabForm(request: Request): Promise<URLSearchPar
     const declaredLength = Number(contentLength);
 
     if (
-      !Number.isSafeInteger(declaredLength) || declaredLength < 0 ||
+      !Number.isSafeInteger(declaredLength) ||
+      declaredLength < 0 ||
       declaredLength > LAB_FORM_MAX_BYTES
     ) {
       throw new Error('Python Lab form is too large.');

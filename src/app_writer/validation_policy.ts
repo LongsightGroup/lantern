@@ -77,8 +77,7 @@ export function validateSdkCapabilities(
     findings.push({
       code: 'sdk_capability_missing',
       severity: 'error',
-      message:
-        `Generated app calls GatewayApp.${method}() but manifest capabilities do not include ${capability}.`,
+      message: `Generated app calls GatewayApp.${method}() but manifest capabilities do not include ${capability}.`,
       file: 'dist/app.js',
       field: '/capabilities',
       fix: `Add ${capability} to manifest capabilities or remove the GatewayApp.${method}() call.`,
@@ -135,8 +134,7 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
     code: 'external_network_forbidden',
     pattern: /\bfetch\s*\(|https?:\/\//i,
     message: 'Generated apps cannot use arbitrary outbound network access.',
-    fix:
-      'Use Lantern GatewayApp methods and reviewed package files instead of external network calls.',
+    fix: 'Use Lantern GatewayApp methods and reviewed package files instead of external network calls.',
   },
   {
     code: 'external_script_forbidden',
@@ -160,8 +158,7 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
     code: 'browser_storage_forbidden',
     pattern: /\b(?:localStorage|sessionStorage)\b/,
     message: 'Generated apps cannot use localStorage or sessionStorage.',
-    fix:
-      'Use GatewayApp.readLocalState() and GatewayApp.writeLocalState() when local state is declared.',
+    fix: 'Use GatewayApp.readLocalState() and GatewayApp.writeLocalState() when local state is declared.',
   },
   {
     code: 'browser_persistent_storage_forbidden',
@@ -180,16 +177,14 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
     pattern:
       /(?:^|\n)\s*export\s+default\s*\{[\s\S]{0,400}\bfetch\s*\(|(?:^|\n)\s*addEventListener\s*\(\s*["']fetch["']|\b(?:WorkerEntrypoint|ExportedHandler|ExecutionContext|ScheduledController|MessageBatch)\b/,
     message: 'Generated apps cannot define Cloudflare Worker entrypoints.',
-    fix:
-      'Keep Worker, routing, scheduling, and queue code in Lantern platform code. Generated apps must use window.GatewayApp only.',
+    fix: 'Keep Worker, routing, scheduling, and queue code in Lantern platform code. Generated apps must use window.GatewayApp only.',
   },
   {
     code: 'durable_object_forbidden',
     pattern:
       /\b(?:DurableObject|DurableObjectNamespace|DurableObjectState|Durable Object|Durable Objects|ctx\.storage|state\.storage|env\s*\.\s*[A-Z][A-Z0-9_]*\b)/i,
     message: 'Generated apps cannot reference Durable Objects or platform storage bindings.',
-    fix:
-      'Use GatewayApp local state and attempt events. Lantern may implement those capabilities with Durable Objects or D1 behind the gateway.',
+    fix: 'Use GatewayApp local state and attempt events. Lantern may implement those capabilities with Durable Objects or D1 behind the gateway.',
   },
   {
     code: 'platform_boundary_forbidden',
@@ -204,7 +199,6 @@ const STATIC_POLICY_RULES: readonly StaticPolicyRule[] = [
     pattern:
       /\b(?:SCORM|LMSInitialize|LMSSetValue|LMSGetValue|LMSCommit|LMSFinish|API_1484_11|TinCan|xAPI|LRS|Learning Record Store|cmi5)\b/i,
     message: 'Generated apps cannot use SCORM, xAPI, cmi5, or LRS APIs directly.',
-    fix:
-      'Use Lantern GatewayApp local state, attempt events, and finalizeAttempt(). Lantern may export standards-shaped records behind the gateway later.',
+    fix: 'Use Lantern GatewayApp local state, attempt events, and finalizeAttempt(). Lantern may export standards-shaped records behind the gateway later.',
   },
 ];

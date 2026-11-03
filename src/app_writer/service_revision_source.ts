@@ -200,15 +200,13 @@ function rewriteRevisionManifest(input: {
     throw new Error('Revision source manifest.json must be a JSON object.');
   }
 
-  return `${
-    JSON.stringify(
-      {
-        ...Object.fromEntries(Object.entries(parsed)),
-        app_id: input.appId,
-        version: input.targetVersion,
-      },
-      null,
-      2,
-    )
-  }\n`;
+  return `${JSON.stringify(
+    {
+      ...Object.fromEntries(Object.entries(parsed)),
+      app_id: input.appId,
+      version: input.targetVersion,
+    },
+    null,
+    2,
+  )}\n`;
 }

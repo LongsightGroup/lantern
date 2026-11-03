@@ -8,7 +8,7 @@ export async function listGenerationActivityEvents(
 ): Promise<AuditEventRecord[]> {
   const eventBatches = await Promise.all(
     APP_GENERATION_AUDIT_EVENT_TYPES.map((eventType) =>
-      repository.listAuditEventsByEventType(eventType)
+      repository.listAuditEventsByEventType(eventType),
     ),
   );
 

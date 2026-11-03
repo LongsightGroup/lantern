@@ -157,9 +157,10 @@ export interface AcceptResourceLinkLaunchInput {
   readonly ltiToolSessionId: string | null;
   readonly nrpsContextMembershipsUrl: string | null;
   readonly nrpsServiceVersions: readonly string[];
-  readonly loadPackageVersion: (
-    input: { readonly packageVersionId: number; readonly appId: string },
-  ) => Promise<GovernedLaunchPackage | null>;
+  readonly loadPackageVersion: (input: {
+    readonly packageVersionId: number;
+    readonly appId: string;
+  }) => Promise<GovernedLaunchPackage | null>;
   readonly createId: () => string;
   readonly now?: Date;
   readonly traceId?: string;
@@ -169,9 +170,8 @@ export async function acceptResourceLinkLaunch(
   input: AcceptResourceLinkLaunchInput,
 ): Promise<MintGovernedSessionResult> {
   const installationId = input.installationId.trim();
-  const installation = installationId === ''
-    ? null
-    : await input.repository.getInstallationById(installationId);
+  const installation =
+    installationId === '' ? null : await input.repository.getInstallationById(installationId);
   if (
     installation === null ||
     installation.institutionId !== input.connection.institutionId ||

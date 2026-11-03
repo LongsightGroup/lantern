@@ -1,4 +1,4 @@
-import type { Hono } from '@hono/hono';
+import type { Hono } from 'hono';
 import type { AppServices } from './app_services.ts';
 import { renderHomePage } from './pages/home.ts';
 import { statusForError } from './app_status_support.ts';

@@ -1,9 +1,10 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPackageOverviewPage } from './package_overview.ts';
 import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 
-Deno.test('renderPackageOverviewPage directs reviewed versions through governance', () => {
+test('renderPackageOverviewPage directs reviewed versions through governance', () => {
   const body = renderPackageOverviewPage({
     identity: ADMIN_TEST_IDENTITY,
     appId: 'typescript-ladder-game',

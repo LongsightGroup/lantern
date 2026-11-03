@@ -49,11 +49,13 @@ export function buildRuntimeSessionRecord(
       'write_local_state',
     ],
     snapshotRoot: sessionOverrides.snapshotRoot ?? 'var/packages/chapter-4-asteroids/0.1.0',
-    entrypointPath: sessionOverrides.entrypointPath ??
-      'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
-    contentPath: sessionOverrides.contentPath ??
+    entrypointPath:
+      sessionOverrides.entrypointPath ?? 'var/packages/chapter-4-asteroids/0.1.0/dist/index.html',
+    contentPath:
+      sessionOverrides.contentPath ??
       'var/packages/chapter-4-asteroids/0.1.0/content/activity.json',
-    services: sessionOverrides.services ??
+    services:
+      sessionOverrides.services ??
       buildLaunchServiceClaims({
         lms: servicesLms,
       }),

@@ -1,7 +1,8 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { ADMIN_LAYOUT_STYLES } from './layout_styles.ts';
 
-Deno.test('admin layout styles apply primary button treatment to link buttons', () => {
+test('admin layout styles apply primary button treatment to link buttons', () => {
   assertStringIncludes(ADMIN_LAYOUT_STYLES, '.button-primary,\n      button.button-primary');
   assertStringIncludes(
     ADMIN_LAYOUT_STYLES,
@@ -9,16 +10,16 @@ Deno.test('admin layout styles apply primary button treatment to link buttons', 
   );
 });
 
-Deno.test('admin layout styles avoid inset left-edge accent stripes', () => {
+test('admin layout styles avoid inset left-edge accent stripes', () => {
   assertEquals(ADMIN_LAYOUT_STYLES.includes('inset 3px 0 0'), false);
 });
 
-Deno.test('admin layout styles do not use the old indigo accent palette', () => {
+test('admin layout styles do not use the old indigo accent palette', () => {
   assertEquals(ADMIN_LAYOUT_STYLES.includes('#4f46e5'), false);
   assertEquals(ADMIN_LAYOUT_STYLES.includes('#4338ca'), false);
 });
 
-Deno.test('admin layout styles use vendored Pico and system fonts', () => {
+test('admin layout styles use vendored Pico and system fonts', () => {
   assertStringIncludes(ADMIN_LAYOUT_STYLES, '--pico-font-family-sans-serif');
   assertStringIncludes(ADMIN_LAYOUT_STYLES, '--pico-font-family: var(--font)');
   assertStringIncludes(
@@ -28,7 +29,7 @@ Deno.test('admin layout styles use vendored Pico and system fonts', () => {
   assertEquals(ADMIN_LAYOUT_STYLES.includes('DM Sans'), false);
 });
 
-Deno.test('admin layout styles let Pico own radio and checkbox control visuals', () => {
+test('admin layout styles let Pico own radio and checkbox control visuals', () => {
   assertEquals(ADMIN_LAYOUT_STYLES.includes('-webkit-appearance: auto;'), false);
   assertEquals(ADMIN_LAYOUT_STYLES.includes('appearance: auto;'), false);
   assertStringIncludes(
@@ -39,7 +40,7 @@ Deno.test('admin layout styles let Pico own radio and checkbox control visuals',
   assertStringIncludes(ADMIN_LAYOUT_STYLES, '.field .chip-row input[type="radio"]');
 });
 
-Deno.test('admin sidebar nav overrides Pico spread alignment', () => {
+test('admin sidebar nav overrides Pico spread alignment', () => {
   assertStringIncludes(ADMIN_LAYOUT_STYLES, '.sidebar-nav {');
   assertStringIncludes(ADMIN_LAYOUT_STYLES, 'justify-content: flex-start;');
   assertStringIncludes(ADMIN_LAYOUT_STYLES, 'align-items: stretch;');

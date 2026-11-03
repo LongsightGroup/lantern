@@ -58,8 +58,9 @@ export function createD1GovernedRuntimeRepository(db: D1Database): GovernedRunti
 
     async createGovernedRuntimeSession(input) {
       const session = input.session;
-      await runD1Batch(db, [{
-        sql: `
+      await runD1Batch(db, [
+        {
+          sql: `
           INSERT INTO governed_runtime_sessions (
             runtime_session_id, runtime_session_token, launch_trace_id, runtime_expires_at,
             institution_id, lms_connection_id, lms_context_id, app_installation_id,
@@ -68,28 +69,30 @@ export function createD1GovernedRuntimeRepository(db: D1Database): GovernedRunti
             nrps_context_memberships_url, nrps_service_versions, connector_kind, created_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `,
-        parameters: [
-          session.runtimeSessionId,
-          session.runtimeSessionToken,
-          session.launchTraceId,
-          session.runtimeExpiresAt,
-          session.institutionId,
-          session.lmsConnectionId,
-          session.lmsContextId,
-          session.appInstallationId,
-          session.appId,
-          session.packageVersionId,
-          session.packageVersion,
-          session.packageCapabilities,
-          session.actorSubjectId,
-          session.actorType,
-          session.ltiToolSessionId,
-          session.nrpsContextMembershipsUrl,
-          session.nrpsServiceVersions,
-          session.connectorKind,
-          input.createdAt,
-        ],
-      }, governanceEventStatement(input.event)]);
+          parameters: [
+            session.runtimeSessionId,
+            session.runtimeSessionToken,
+            session.launchTraceId,
+            session.runtimeExpiresAt,
+            session.institutionId,
+            session.lmsConnectionId,
+            session.lmsContextId,
+            session.appInstallationId,
+            session.appId,
+            session.packageVersionId,
+            session.packageVersion,
+            session.packageCapabilities,
+            session.actorSubjectId,
+            session.actorType,
+            session.ltiToolSessionId,
+            session.nrpsContextMembershipsUrl,
+            session.nrpsServiceVersions,
+            session.connectorKind,
+            input.createdAt,
+          ],
+        },
+        governanceEventStatement(input.event),
+      ]);
       const stored = await repository.getGovernedRuntimeSession({
         runtimeSessionId: session.runtimeSessionId,
         runtimeSessionToken: session.runtimeSessionToken,
@@ -157,11 +160,9 @@ export function createD1GovernedRuntimeRepository(db: D1Database): GovernedRunti
     },
 
     async getRosterContinuation(id) {
-      const row = await queryD1First<D1Row>(
-        db,
-        `SELECT * FROM roster_continuations WHERE id = ?`,
-        [id],
-      );
+      const row = await queryD1First<D1Row>(db, `SELECT * FROM roster_continuations WHERE id = ?`, [
+        id,
+      ]);
       return row === null ? null : mapContinuation(row);
     },
 

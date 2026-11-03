@@ -38,12 +38,12 @@ export type PrimitiveErrorCode =
 export type PrimitiveResult<T> =
   | { readonly ok: true; readonly value: T }
   | {
-    readonly ok: false;
-    readonly error: {
-      readonly code: PrimitiveErrorCode;
-      readonly traceId: string;
+      readonly ok: false;
+      readonly error: {
+        readonly code: PrimitiveErrorCode;
+        readonly traceId: string;
+      };
     };
-  };
 
 export interface LanternLmsBinding {
   listRoster(input: RosterListInput): Promise<PrimitiveResult<RosterPage>>;

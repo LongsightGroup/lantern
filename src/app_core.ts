@@ -1,5 +1,5 @@
-import { csrf } from '@hono/hono/csrf';
-import { Hono } from '@hono/hono';
+import { csrf } from 'hono/csrf';
+import { Hono } from 'hono';
 import { registerAdminAppWriterRoutes } from './app_admin_app_writer_routes.ts';
 import {
   registerProtectedAdminAuthRoutes,

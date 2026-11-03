@@ -1,5 +1,5 @@
-import { csrf } from '@hono/hono/csrf';
-import type { Context, Hono } from '@hono/hono';
+import { csrf } from 'hono/csrf';
+import type { Context, Hono } from 'hono';
 import type { AppServices } from './app_services.ts';
 import type { AdminAuthSocialProviderId } from './admin_auth/config.ts';
 import { renderAdminAuthPage, renderAdminLogoutPage } from './admin_auth/page.ts';
@@ -7,10 +7,8 @@ import { renderAdminAuthPage, renderAdminLogoutPage } from './admin_auth/page.ts
 type AuthMode = 'login' | 'signup';
 
 export function registerPublicAdminAuthRoutes(app: Hono, services: AppServices): void {
-  app.on(
-    ['GET', 'POST'],
-    '/api/auth/*',
-    (context) => services.adminAuth.handleAuthRequest(context.req.raw),
+  app.on(['GET', 'POST'], '/api/auth/*', (context) =>
+    services.adminAuth.handleAuthRequest(context.req.raw),
   );
 
   app.get('/admin/login', (context) => renderAuthPage(context, services, 'login'));
@@ -113,20 +111,21 @@ async function handleAuthForm(context: Context, services: AppServices, mode: Aut
     );
   }
 
-  const result = mode === 'login'
-    ? await services.adminAuth.signIn({
-      request: context.req.raw,
-      email: values.email,
-      password: values.password,
-      returnTo,
-    })
-    : await services.adminAuth.signUp({
-      request: context.req.raw,
-      name: values.name,
-      email: values.email,
-      password: values.password,
-      returnTo,
-    });
+  const result =
+    mode === 'login'
+      ? await services.adminAuth.signIn({
+          request: context.req.raw,
+          email: values.email,
+          password: values.password,
+          returnTo,
+        })
+      : await services.adminAuth.signUp({
+          request: context.req.raw,
+          name: values.name,
+          email: values.email,
+          password: values.password,
+          returnTo,
+        });
 
   if (result.success) {
     return result.response;
@@ -145,7 +144,10 @@ async function handleAuthForm(context: Context, services: AppServices, mode: Aut
   );
 }
 
-function readAuthFormValues(form: FormData, mode: AuthMode): {
+function readAuthFormValues(
+  form: FormData,
+  mode: AuthMode,
+): {
   name: string;
   email: string;
   password: string;
@@ -157,11 +159,14 @@ function readAuthFormValues(form: FormData, mode: AuthMode): {
   };
 }
 
-function validateAuthForm(mode: AuthMode, values: {
-  name: string;
-  email: string;
-  password: string;
-}): string | null {
+function validateAuthForm(
+  mode: AuthMode,
+  values: {
+    name: string;
+    email: string;
+    password: string;
+  },
+): string | null {
   if (mode === 'login') {
     return !values.email || !values.password ? 'Enter your email and password.' : null;
   }

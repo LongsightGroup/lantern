@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertInstanceOf, assertRejects } from '@std/assert';
 import type { D1Database, D1PreparedStatement, D1Result } from './d1.ts';
 import {
@@ -8,7 +9,7 @@ import {
   splitSqlStatements,
 } from './d1.ts';
 
-Deno.test('splitSqlStatements keeps semicolons inside strings and comments', () => {
+test('splitSqlStatements keeps semicolons inside strings and comments', () => {
   assertEquals(
     splitSqlStatements(`
       CREATE TABLE notes (body TEXT DEFAULT 'one;two');
@@ -25,7 +26,7 @@ Deno.test('splitSqlStatements keeps semicolons inside strings and comments', () 
   );
 });
 
-Deno.test('normalizeD1Parameter maps booleans, dates, JSON, and bytes to D1-safe values', () => {
+test('normalizeD1Parameter maps booleans, dates, JSON, and bytes to D1-safe values', () => {
   const date = new Date('2026-05-13T12:34:56.000Z');
   const bytes = new Uint8Array([1, 2, 3]);
 
@@ -40,7 +41,7 @@ Deno.test('normalizeD1Parameter maps booleans, dates, JSON, and bytes to D1-safe
   assertInstanceOf(normalizeD1Parameter(bytes), ArrayBuffer);
 });
 
-Deno.test('prepareD1 binds normalized parameters', () => {
+test('prepareD1 binds normalized parameters', () => {
   const db = createStubD1Database();
   const statement = prepareD1(db, 'select * from launches where active = ?', [
     true,
@@ -49,7 +50,7 @@ Deno.test('prepareD1 binds normalized parameters', () => {
   assertEquals(statement.boundValues, [1]);
 });
 
-Deno.test('query helpers fail clearly when D1 reports failure', async () => {
+test('query helpers fail clearly when D1 reports failure', async () => {
   const db = createStubD1Database({
     runResult: {
       success: false,
@@ -64,7 +65,7 @@ Deno.test('query helpers fail clearly when D1 reports failure', async () => {
   );
 });
 
-Deno.test('queryD1Objects returns rows from successful D1 result', async () => {
+test('queryD1Objects returns rows from successful D1 result', async () => {
   const db = createStubD1Database({
     allResult: {
       success: true,

@@ -16,9 +16,7 @@ export interface TestLtiToolContext {
   lineItemRequests: unknown[];
 }
 
-export function createTestLtiToolContext(
-  input: TestLtiToolContextInput = {},
-): TestLtiToolContext {
+export function createTestLtiToolContext(input: TestLtiToolContextInput = {}): TestLtiToolContext {
   const submittedScores: unknown[] = [];
   const lineItemRequests: unknown[] = [];
   const session = buildTestLtiSession({
@@ -52,18 +50,18 @@ export function createTestLtiToolContext(
           return Promise.resolve(
             input.submitScoreSuccess === false
               ? {
-                success: false,
-                error: {
-                  message: input.submitScoreMessage ?? 'score publish failed',
-                  code: 'score_publish_failed',
-                  serviceKind: 'ags',
-                  operation: 'submitScore',
-                },
-              }
+                  success: false,
+                  error: {
+                    message: input.submitScoreMessage ?? 'score publish failed',
+                    code: 'score_publish_failed',
+                    serviceKind: 'ags',
+                    operation: 'submitScore',
+                  },
+                }
               : {
-                success: true,
-                data: undefined,
-              },
+                  success: true,
+                  data: undefined,
+                },
           );
         },
         getMembers: () =>

@@ -1,3 +1,4 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import {
   appendMissingEnvAssignments,
   createLocalBetterAuthSecret,
@@ -10,7 +11,7 @@ import {
 const LOCAL_DIRECTORIES = ['var/packages', 'var/attempt-evidence', 'var/authoring-drafts'] as const;
 
 if (import.meta.main) {
-  const outputPath = readOutputPath(Deno.args) ?? DEFAULT_LOCAL_ENV_PATH;
+  const outputPath = readOutputPath(process.argv.slice(2)) ?? DEFAULT_LOCAL_ENV_PATH;
   const existingText = await readOptionalTextFile(outputPath);
   const assignments = defaultLocalEnvAssignments();
   const generatedJwk = await createLocalToolPrivateJwkString();
@@ -24,10 +25,10 @@ if (import.meta.main) {
     },
   });
 
-  await Deno.writeTextFile(outputPath, next.text);
+  await writeFile(outputPath, next.text);
 
   for (const path of LOCAL_DIRECTORIES) {
-    await Deno.mkdir(path, { recursive: true });
+    await mkdir(path, { recursive: true });
   }
 
   console.log(
@@ -44,8 +45,8 @@ if (import.meta.main) {
 
   console.log('');
   console.log('Next:');
-  console.log('1. Run `deno task local:bootstrap` to apply local D1 migrations.');
-  console.log('2. Run `deno task local:start` and open the Wrangler localhost URL.');
+  console.log('1. Run `npm run local:bootstrap` to apply local D1 migrations.');
+  console.log('2. Run `npm run local:start` and open the Cloudflare Vite localhost URL.');
 }
 
 function readOutputPath(args: string[]): string | null {
@@ -66,9 +67,9 @@ function readOutputPath(args: string[]): string | null {
 
 async function readOptionalTextFile(path: string): Promise<string | null> {
   try {
-    return await Deno.readTextFile(path);
+    return await readFile(path, 'utf8');
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       return null;
     }
 

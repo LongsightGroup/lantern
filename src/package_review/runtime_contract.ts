@@ -95,7 +95,7 @@ export async function verifyReviewedRuntimeContractSignature(input: {
 
     if (
       serializeReviewedRuntimeContract(signedRuntimeContract) !==
-        serializeReviewedRuntimeContract(input.runtimeContract)
+      serializeReviewedRuntimeContract(input.runtimeContract)
     ) {
       throw new Error('Reviewed runtime contract payload drifted.');
     }

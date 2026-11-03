@@ -1,4 +1,4 @@
-import type { Context } from '@hono/hono';
+import type { Context } from 'hono';
 import { readLoginRequest } from './app_request_support.ts';
 import { errorMessage, statusForError } from './app_status_support.ts';
 import { renderLtiPlatformStorageLaunchPage, renderTopLevelLaunchPage } from './app_lti_views.ts';
@@ -13,12 +13,11 @@ export async function handleLoginInitiation(context: Context, services: AppServi
     if (loginRequest.request.clientId === null) {
       throw new Error('LTI login initiation requires client_id.');
     }
-    const connection = await services.getLmsKernelRepository()
-      .getLmsConnectionByPlatformIdentity({
-        issuer: loginRequest.request.iss,
-        clientId: loginRequest.request.clientId,
-        deploymentId: loginRequest.request.deploymentId,
-      });
+    const connection = await services.getLmsKernelRepository().getLmsConnectionByPlatformIdentity({
+      issuer: loginRequest.request.iss,
+      clientId: loginRequest.request.clientId,
+      deploymentId: loginRequest.request.deploymentId,
+    });
     if (connection === null || connection.status === 'disabled') {
       throw new Error('No active institution LMS connection matches this login request.');
     }
@@ -30,9 +29,9 @@ export async function handleLoginInitiation(context: Context, services: AppServi
     if (installationId === null) {
       throw new Error('Governed app launch target is missing installation_id.');
     }
-    const installation = await services.getLmsKernelRepository().getInstallationById(
-      installationId,
-    );
+    const installation = await services
+      .getLmsKernelRepository()
+      .getInstallationById(installationId);
     if (
       installation === null ||
       installation.institutionId !== connection.institutionId ||
@@ -46,14 +45,16 @@ export async function handleLoginInitiation(context: Context, services: AppServi
       iss: connection.issuer,
       client_id: connection.clientId,
       lti_deployment_id: connection.deploymentId,
-      login_hint: loginRequest.compatibility.decodedLoginHint ??
-        loginRequest.request.loginHint,
+      login_hint: loginRequest.compatibility.decodedLoginHint ?? loginRequest.request.loginHint,
       target_link_uri: targetLinkUri,
       launchUrl: `${appOrigin}/lti/launch`,
-      ...(loginRequest.request.ltiMessageHint === null ? {} : {
-        lti_message_hint: loginRequest.compatibility.decodedLtiMessageHint ??
-          loginRequest.request.ltiMessageHint,
-      }),
+      ...(loginRequest.request.ltiMessageHint === null
+        ? {}
+        : {
+            lti_message_hint:
+              loginRequest.compatibility.decodedLtiMessageHint ??
+              loginRequest.request.ltiMessageHint,
+          }),
     });
     return renderLoginRedirect(context, {
       location,

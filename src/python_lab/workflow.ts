@@ -40,7 +40,8 @@ export function isPythonLabGenerationWorkflowBinding(
   value: unknown,
 ): value is PythonLabGenerationWorkflowBinding {
   return (
-    typeof value === 'object' && value !== null &&
+    typeof value === 'object' &&
+    value !== null &&
     typeof (value as Partial<PythonLabGenerationWorkflowBinding>).create === 'function'
   );
 }

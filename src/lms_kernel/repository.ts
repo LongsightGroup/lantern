@@ -58,10 +58,7 @@ export interface InstitutionRepository {
   ): Promise<InstitutionRecord>;
   getInstitutionById(id: string): Promise<InstitutionRecord | null>;
   listMembershipsForUser(userId: string): Promise<InstitutionMembershipRecord[]>;
-  getMembership(
-    institutionId: string,
-    userId: string,
-  ): Promise<InstitutionMembershipRecord | null>;
+  getMembership(institutionId: string, userId: string): Promise<InstitutionMembershipRecord | null>;
   createInvite(
     input: GovernedWrite & {
       readonly id: string;
@@ -219,18 +216,13 @@ export interface GovernedRuntimeRepository {
 }
 
 export interface GovernanceEventRepository {
-  appendGovernanceEvents(
-    events: readonly Omit<GovernanceEventRecord, 'id'>[],
-  ): Promise<void>;
-  appendGovernanceEvent(
-    event: Omit<GovernanceEventRecord, 'id'>,
-  ): Promise<GovernanceEventRecord>;
+  appendGovernanceEvents(events: readonly Omit<GovernanceEventRecord, 'id'>[]): Promise<void>;
+  appendGovernanceEvent(event: Omit<GovernanceEventRecord, 'id'>): Promise<GovernanceEventRecord>;
   listGovernanceEvents(filter: GovernanceEventFilter): Promise<GovernanceEventRecord[]>;
 }
 
-export type LmsKernelRepository =
-  & InstitutionRepository
-  & LmsConnectionRepository
-  & AppInstallationRepository
-  & GovernedRuntimeRepository
-  & GovernanceEventRepository;
+export type LmsKernelRepository = InstitutionRepository &
+  LmsConnectionRepository &
+  AppInstallationRepository &
+  GovernedRuntimeRepository &
+  GovernanceEventRepository;

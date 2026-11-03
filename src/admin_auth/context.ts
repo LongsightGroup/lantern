@@ -1,4 +1,4 @@
-import type { Context } from '@hono/hono';
+import type { Context } from 'hono';
 import type { AdminIdentity } from '../admin/layout_support.ts';
 import type { AdminAuthSession } from './service.ts';
 

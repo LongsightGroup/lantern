@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createTestApp as createApp } from './test_helpers/app.ts';
 import {
@@ -13,7 +14,7 @@ import { generatePythonLab } from './python_lab/lab_service.ts';
 import { createInMemoryPythonLabRepository } from './python_lab/repository_memory.ts';
 import type { PythonGraderSandboxFactory } from './python_lab/runner.ts';
 
-Deno.test('public Python Lab creates one cookie-scoped trial, keeps it out of inventory, and captures a Canvas access request', async () => {
+test('public Python Lab creates one cookie-scoped trial, keeps it out of inventory, and captures a Canvas access request', async () => {
   const packageRepository = createInMemoryPackageReviewRepository();
   const pythonLabRepository = createInMemoryPythonLabRepository();
   const artifacts = createMemoryArtifactStore();
@@ -24,11 +25,7 @@ Deno.test('public Python Lab creates one cookie-scoped trial, keeps it out of in
       buildImportedPackageVersion({
         appId: 'public-python-lab-fixture',
         version: '1.0.0',
-        capabilities: [
-          'read_launch_context',
-          'read_activity_content',
-          'run_code_submission',
-        ],
+        capabilities: ['read_launch_context', 'read_activity_content', 'run_code_submission'],
         grading: { mode: 'sandbox', rubricFile: null, maxScore: 10 },
       }),
     );
@@ -129,16 +126,18 @@ Deno.test('public Python Lab creates one cookie-scoped trial, keeps it out of in
       institution: request.institution,
       status: request.status,
     })),
-    [{
-      name: 'Ada Instructor',
-      workEmail: 'ada@example.edu',
-      institution: 'Example University',
-      status: 'new',
-    }],
+    [
+      {
+        name: 'Ada Instructor',
+        workEmail: 'ada@example.edu',
+        institution: 'Example University',
+        status: 'new',
+      },
+    ],
   );
 });
 
-Deno.test('public Python Lab queues generation and exposes a meaningful generating status', async () => {
+test('public Python Lab queues generation and exposes a meaningful generating status', async () => {
   const packageRepository = createInMemoryPackageReviewRepository();
   const pythonLabRepository = createInMemoryPythonLabRepository();
   const queuedLabIds: string[] = [];
@@ -172,7 +171,7 @@ Deno.test('public Python Lab queues generation and exposes a meaningful generati
   assertEquals((await packageRepository.listPackageVersions()).length, 0);
 });
 
-Deno.test('concurrent Lab creates admit only one daily visitor reservation', async () => {
+test('concurrent Lab creates admit only one daily visitor reservation', async () => {
   const packageRepository = createInMemoryPackageReviewRepository();
   const pythonLabRepository = createInMemoryPythonLabRepository();
   const queuedLabIds: string[] = [];
@@ -206,7 +205,10 @@ Deno.test('concurrent Lab creates admit only one daily visitor reservation', asy
     }),
   ]);
 
-  assertEquals(responses.map((response) => response.status).sort(), [303, 429]);
+  assertEquals(
+    responses.map((response) => response.status).sort((left, right) => left - right),
+    [303, 429],
+  );
   assertEquals(queuedLabIds.length, 1);
 });
 
@@ -234,7 +236,10 @@ function cookieHeader(value: string | null): string {
     throw new Error('Expected Lab cookies.');
   }
 
-  return value.split(', ').map((part) => part.split(';')[0]).join('; ');
+  return value
+    .split(', ')
+    .map((part) => part.split(';')[0])
+    .join('; ');
 }
 
 function generatedCases() {

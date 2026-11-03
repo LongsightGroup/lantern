@@ -117,7 +117,8 @@ export async function runRuntimeCodeSubmission(input: {
   }
 
   if (
-    evaluation.hiddenSummary === null || evaluation.scoreGiven === null ||
+    evaluation.hiddenSummary === null ||
+    evaluation.scoreGiven === null ||
     evaluation.scoreMaximum === null
   ) {
     throw new Error('Final Python evaluation did not produce a trusted score.');
@@ -226,11 +227,11 @@ async function finalizeTrustedRun(input: {
   const finalizedNow = input.attempt.finalizedAt === null;
   const finalizedAttempt = finalizedNow
     ? await input.repository.finalizeAttempt({
-      attemptId: input.attempt.attemptId,
-      status: 'completed',
-      completionState: 'completed',
-      finalizedAt: input.now().toISOString(),
-    })
+        attemptId: input.attempt.attemptId,
+        status: 'completed',
+        completionState: 'completed',
+        finalizedAt: input.now().toISOString(),
+      })
     : input.attempt;
 
   if (finalizedNow) {
@@ -266,9 +267,10 @@ async function finalizeTrustedRun(input: {
   };
 }
 
-function parseCodeSubmissionRequest(
-  input: unknown,
-): { phase: 'practice' | 'final'; source: string } {
+function parseCodeSubmissionRequest(input: unknown): {
+  phase: 'practice' | 'final';
+  source: string;
+} {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     denyRuntimeBroker({
       category: 'specInvalid',
@@ -292,7 +294,8 @@ function parseCodeSubmissionRequest(
   }
 
   if (
-    typeof record.source !== 'string' || record.source.trim() === '' ||
+    typeof record.source !== 'string' ||
+    record.source.trim() === '' ||
     record.source.length > 32_000
   ) {
     denyRuntimeBroker({

@@ -223,14 +223,14 @@ export function summarizeGrading(grading: GradingSettings): {
   detail: string;
 } {
   if (grading.mode === 'declarative') {
-    const maximumScore = grading.maxScore === null
-      ? 'Maximum score not recorded yet.'
-      : `Maximum score ${grading.maxScore}.`;
+    const maximumScore =
+      grading.maxScore === null
+        ? 'Maximum score not recorded yet.'
+        : `Maximum score ${grading.maxScore}.`;
 
     return {
       label: 'Automatic scoring',
-      detail:
-        `Lantern scores learner work automatically using reviewed scoring rules saved with this app. ${maximumScore}`,
+      detail: `Lantern scores learner work automatically using reviewed scoring rules saved with this app. ${maximumScore}`,
     };
   }
 
@@ -265,8 +265,7 @@ export function summarizeValidation(
   if (packageVersion.validationIssues.length === 0) {
     return {
       label: 'Checks passed',
-      detail:
-        `Lantern checked the manifest and saved files for this version in ${packageVersion.artifact.snapshotRoot}.`,
+      detail: `Lantern checked the manifest and saved files for this version in ${packageVersion.artifact.snapshotRoot}.`,
       issues: [],
     };
   }
@@ -304,9 +303,10 @@ export function summarizeAccessibilityReview(
 
   return {
     label: failedChecks.length === 0 ? 'Passed review' : 'Flagged review',
-    detail: failedChecks.length === 0
-      ? 'All recorded checks passed or were marked not applicable.'
-      : `Failed checks: ${failedChecks.join(', ')}.`,
+    detail:
+      failedChecks.length === 0
+        ? 'All recorded checks passed or were marked not applicable.'
+        : `Failed checks: ${failedChecks.join(', ')}.`,
     failedChecks,
     exceptionNote: packageVersion.accessibilityReview.exceptionNote,
   };

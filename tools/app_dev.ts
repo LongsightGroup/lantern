@@ -1,3 +1,6 @@
+import { watchLocalPackage } from './local_watch.ts';
+import { serve } from '@hono/node-server';
+import { once } from 'node:events';
 import {
   createLocalDevRequestHandler,
   loadLocalDevState,
@@ -6,18 +9,15 @@ import {
 import { getDefaultWatchDebounceMs, runWatchMode } from '../src/authoring/watch.ts';
 
 try {
-  const args = readArgs(Deno.args);
+  const args = readArgs(process.argv.slice(2));
   let state = await loadLocalDevState(args.packageRoot, {
     logger: logPreviewEntry,
   });
 
-  const server = Deno.serve(
-    {
-      hostname: '127.0.0.1',
-      port: args.port,
-      onListen() {},
-    },
-    createLocalDevRequestHandler({
+  const server = serve({
+    hostname: '127.0.0.1',
+    port: args.port,
+    fetch: createLocalDevRequestHandler({
       getState() {
         return state;
       },
@@ -25,22 +25,24 @@ try {
         return baseUrl;
       },
     }),
-  );
-  const address = server.addr as Deno.NetAddr;
-  const baseUrl = `http://${address.hostname}:${address.port}/`;
+  });
+  await once(server, 'listening');
+  const address = server.address();
+  if (address === null || typeof address === 'string') {
+    throw new Error('Lantern preview did not bind a TCP port.');
+  }
+  const baseUrl = `http://${address.address}:${address.port}/`;
 
   console.log(`Lantern authoring dev loop listening on ${baseUrl}`);
   console.log(renderLocalDevStateSummary({ state, baseUrl }));
   let exitCode = currentExitCode(state);
   let initialWatchRun = true;
 
-  const watcher = Deno.watchFs(args.packageRoot, {
-    recursive: true,
-  });
+  const watcher = watchLocalPackage(args.packageRoot);
 
   try {
     await runWatchMode({
-      iterator: watcher[Symbol.asyncIterator](),
+      iterator: watcher.iterator,
       once: args.once,
       debounceMs: args.debounceMs,
       log: (message) => console.log(message),
@@ -66,11 +68,13 @@ try {
     });
   } finally {
     watcher.close();
-    await server.shutdown();
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   }
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Lantern authoring dev loop failed.');
-  Deno.exit(1);
+  process.exit(1);
 }
 
 interface AppDevArgs {
@@ -105,7 +109,7 @@ function readArgs(args: string[]): AppDevArgs {
   }
 
   if (packageRoot === null) {
-    throw new Error('Usage: deno task app:dev <package-root> [--port=8420] [--once]');
+    throw new Error('Usage: npm run app:dev -- <package-root> [--port=8420] [--once]');
   }
 
   return {

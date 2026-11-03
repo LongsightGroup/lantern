@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assert, assertEquals, assertStringIncludes } from '@std/assert';
 import photoRoster from '../examples/apps/photo-roster/source/worker.ts';
 import { createSyntheticRosterConnector } from './lms_kernel/connector.ts';
@@ -15,7 +16,7 @@ import { createInMemoryPackageReviewRepository } from './test_helpers/package_re
 import { buildPackageVersionRecord } from './test_helpers/package_review.ts';
 import type { RuntimeDelivery } from './runtime/delivery.ts';
 
-Deno.test('governed Worker route uses the standalone session and strips app-controlled headers', async () => {
+test('governed Worker route uses the standalone session and strips app-controlled headers', async () => {
   const session: GovernedRuntimeSession = {
     ...buildGovernedSyntheticSession(),
     runtimeExpiresAt: '2099-07-19T17:00:00.000Z',
@@ -93,16 +94,13 @@ Deno.test('governed Worker route uses the standalone session and strips app-cont
     "frame-ancestors 'self' https://courses.example.edu",
   );
   assertEquals(response.headers.get('x-lantern-trace-id'), session.launchTraceId);
-  assertEquals(
-    workerRequest.headers.get('x-lantern-runtime-session-id'),
-    session.runtimeSessionId,
-  );
+  assertEquals(workerRequest.headers.get('x-lantern-runtime-session-id'), session.runtimeSessionId);
   assertEquals(workerRequest.headers.get('x-lantern-trace-id'), session.launchTraceId);
   assertEquals(kernelRepository.events.at(-1)?.traceId, session.launchTraceId);
   assertEquals(kernelRepository.events.at(-1)?.eventType, 'runtime.response');
 });
 
-Deno.test('Photo Roster follows gateway-owned pagination URLs through authorization and signed cursors', async () => {
+test('Photo Roster follows gateway-owned pagination URLs through authorization and signed cursors', async () => {
   const session = {
     ...buildGovernedSyntheticSession(),
     runtimeExpiresAt: '2099-07-19T17:00:00.000Z',
@@ -164,8 +162,7 @@ Deno.test('Photo Roster follows gateway-owned pagination URLs through authorizat
     getRepository: () =>
       createInMemoryPackageReviewRepository({ packageVersions: [packageVersion] }),
   });
-  const launchUrl =
-    `https://runtime.lantern.example/governed/sessions/${session.runtimeSessionId}?token=${session.runtimeSessionToken}&ignored=untrusted`;
+  const launchUrl = `https://runtime.lantern.example/governed/sessions/${session.runtimeSessionId}?token=${session.runtimeSessionToken}&ignored=untrusted`;
   let currentUrl = launchUrl;
   for (const expectedCount of [24, 24, 9]) {
     const response = await app.request(currentUrl);

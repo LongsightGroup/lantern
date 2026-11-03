@@ -150,8 +150,8 @@ export function createRevisionAssertingWorkspaceRunner(): AppWriterWorkspaceRunn
       });
       const revision = input.selectedContext.revision as
         | {
-          targetVersion?: unknown;
-        }
+            targetVersion?: unknown;
+          }
         | undefined;
 
       assertEquals(input.requestedAppId, 'phonics-match');
@@ -183,10 +183,10 @@ export function createRevisionAssertingWorkspaceRunner(): AppWriterWorkspaceRunn
         files: input.initializedWorkspace.files.map((file) =>
           file.path === 'dist/app.js'
             ? {
-              ...file,
-              contents: `${file.contents}\nconsole.log("revision summary ready");\n`,
-            }
-            : file
+                ...file,
+                contents: `${file.contents}\nconsole.log("revision summary ready");\n`,
+              }
+            : file,
         ),
         progressUpdates: [
           {
@@ -259,7 +259,8 @@ export function buildTypeScriptAuthoringPackageFiles(
     },
     {
       path: 'source/app.ts',
-      contents: input.appSource ??
+      contents:
+        input.appSource ??
         'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("Lantern preview injects window.GatewayApp.");\n  const content = await gateway.getActivityContent<ActivityContent>();\n  document.body.dataset.title = content.title;\n  await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });\n  await gateway.finalizeAttempt({ completionState: "completed" });\n}\nvoid start();\n',
     },
   ];
@@ -303,9 +304,10 @@ export function buildPreviewResult(
         detail: {},
       },
     ],
-    summary: validationFindings.length === 0
-      ? 'Passed 1/1 preview assertions.'
-      : `Failed ${validationFindings.length}/${validationFindings.length} preview assertions.`,
+    summary:
+      validationFindings.length === 0
+        ? 'Passed 1/1 preview assertions.'
+        : `Failed ${validationFindings.length}/${validationFindings.length} preview assertions.`,
   };
 }
 

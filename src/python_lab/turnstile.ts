@@ -26,7 +26,8 @@ export function createTurnstilePythonLabHumanVerifier(secret: string): PythonLab
       const body = await response.json();
 
       if (
-        body === null || typeof body !== 'object' ||
+        body === null ||
+        typeof body !== 'object' ||
         (body as Record<string, unknown>).success !== true
       ) {
         throw new Error('Verification was not accepted.');

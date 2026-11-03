@@ -4,9 +4,8 @@ export type GovernanceEventInput = Omit<GovernanceEventRecord, 'id'>;
 
 type RequiredKeys = 'traceId' | 'eventType' | 'actorType' | 'outcome' | 'occurredAt';
 
-export type GovernanceEventBaseInput =
-  & Pick<GovernanceEventInput, RequiredKeys>
-  & Partial<Omit<GovernanceEventInput, RequiredKeys>>;
+export type GovernanceEventBaseInput = Pick<GovernanceEventInput, RequiredKeys> &
+  Partial<Omit<GovernanceEventInput, RequiredKeys>>;
 
 export function governanceEventBase(input: GovernanceEventBaseInput): GovernanceEventInput {
   return {

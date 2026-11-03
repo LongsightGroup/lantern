@@ -1,4 +1,4 @@
-import type { PrimitiveErrorCode, RosterCapability, RosterRole } from '../../sdk/worker-app-sdk.ts';
+import type { RosterCapability, RosterRole } from '../../sdk/worker-app-sdk.ts';
 
 export type InstitutionRole = 'owner' | 'admin' | 'auditor';
 export type LmsPlatformType = 'canvas' | 'moodle' | 'brightspace' | 'sakai' | 'synthetic';
@@ -138,7 +138,7 @@ export interface GovernanceEventRecord {
   readonly connectorKind: ConnectorKind | null;
   readonly objectCount: number | null;
   readonly latencyMs: number | null;
-  readonly errorCode: PrimitiveErrorCode | string | null;
+  readonly errorCode: string | null;
   readonly requestMetadata: Readonly<Record<string, string>>;
   readonly occurredAt: string;
 }

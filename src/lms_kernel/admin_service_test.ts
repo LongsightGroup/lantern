@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import type { RosterCapability } from '../../sdk/worker-app-sdk.ts';
 import {
@@ -19,13 +20,10 @@ import type {
 
 const NOW = '2026-07-20T15:00:00.000Z';
 
-Deno.test('kernel administration requires explicit approval for every exact app version', async () => {
+test('kernel administration requires explicit approval for every exact app version', async () => {
   const repository = new AdminMemoryLmsKernelRepository();
   const packageRepository = createInMemoryPackageReviewRepository({
-    packageVersions: [
-      buildPhotoRosterVersion(1, '0.1.0'),
-      buildPhotoRosterVersion(2, '0.2.0'),
-    ],
+    packageVersions: [buildPhotoRosterVersion(1, '0.1.0'), buildPhotoRosterVersion(2, '0.2.0')],
   });
   const service = createLmsKernelAdminService({
     repository,
@@ -55,12 +53,7 @@ Deno.test('kernel administration requires explicit approval for every exact app 
     },
   });
 
-  for (
-    const capability of [
-      'lms.roster.members.read',
-      'lms.roster.profile_photo.read',
-    ] as const
-  ) {
+  for (const capability of ['lms.roster.members.read', 'lms.roster.profile_photo.read'] as const) {
     const granted = await service.grantCapability({
       membership: ownerMembership(),
       installationId: installed.value.id,
@@ -104,7 +97,7 @@ Deno.test('kernel administration requires explicit approval for every exact app 
   );
 });
 
-Deno.test('auditors cannot mutate governance and context grants cannot cross institutions', async () => {
+test('auditors cannot mutate governance and context grants cannot cross institutions', async () => {
   const repository = new AdminMemoryLmsKernelRepository();
   repository.contexts.push({
     id: 'foreign-context',
@@ -271,9 +264,10 @@ class AdminMemoryLmsKernelRepository extends MemoryLmsKernelRepository {
     institutionId: string | null,
     update: (current: AppInstallationRecord) => AppInstallationRecord,
   ): AppInstallationRecord | null {
-    const index = this.installations.findIndex((installation) =>
-      installation.id === id &&
-      (institutionId === null || installation.institutionId === institutionId)
+    const index = this.installations.findIndex(
+      (installation) =>
+        installation.id === id &&
+        (institutionId === null || installation.institutionId === institutionId),
     );
     if (index < 0) return null;
     const next = update(this.installations[index]!);
@@ -290,10 +284,7 @@ function buildPhotoRosterVersion(id: number, version: string) {
     approvalStatus: 'approved',
     reviewedAt: NOW,
     runtime: { kind: 'worker', entrypoint: '/dist/worker.js' },
-    capabilities: [
-      'lms.roster.members.read',
-      'lms.roster.profile_photo.read',
-    ],
+    capabilities: ['lms.roster.members.read', 'lms.roster.profile_photo.read'],
   });
 }
 

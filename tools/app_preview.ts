@@ -1,3 +1,4 @@
+import { serve } from '@hono/node-server';
 import {
   createLocalPreviewHarness,
   type LocalPreviewLogEntry,
@@ -5,7 +6,7 @@ import {
 import { validateLocalAppPackage } from '../src/authoring/local_app.ts';
 
 try {
-  const { packageRoot, port } = readArgs(Deno.args);
+  const { packageRoot, port } = readArgs(process.argv.slice(2));
   const result = await validateLocalAppPackage(packageRoot);
 
   if (!result.ok || !result.appPackage) {
@@ -15,7 +16,7 @@ try {
       console.error(`- ${issue}`);
     }
 
-    Deno.exit(1);
+    process.exit(1);
   }
 
   const harness = createLocalPreviewHarness({
@@ -27,10 +28,10 @@ try {
     `Lantern authoring preview listening on http://localhost:${port}${harness.entrypointPath}`,
   );
 
-  Deno.serve({ port }, (request) => harness.handle(request));
+  serve({ port, fetch: (request) => harness.handle(request) });
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Lantern app preview failed.');
-  Deno.exit(1);
+  process.exit(1);
 }
 
 function readArgs(args: string[]): {
@@ -55,7 +56,7 @@ function readArgs(args: string[]): {
   }
 
   if (packageRoot === null) {
-    throw new Error('Usage: deno task app:preview <package-root> [--port=8420]');
+    throw new Error('Usage: npm run app:preview -- <package-root> [--port=8420]');
   }
 
   return {

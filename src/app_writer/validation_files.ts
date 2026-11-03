@@ -40,8 +40,7 @@ export function normalizeWorkspaceFiles(
         message: `Generated file path ${file.path} must stay inside the virtual workspace.`,
         file: file.path,
         field: null,
-        fix:
-          'Use a relative package path without leading slash, backslash, or parent-directory segments.',
+        fix: 'Use a relative package path without leading slash, backslash, or parent-directory segments.',
         detail: {},
       });
       continue;
@@ -136,8 +135,7 @@ export function validatePinnedStyleFiles(
       message: `${path} is a Lantern-owned reviewed stylesheet and must not be modified.`,
       file: path,
       field: null,
-      fix:
-        `Restore ${path} to the pinned Lantern-provided stylesheet and put app-specific styles in dist/app.css.`,
+      fix: `Restore ${path} to the pinned Lantern-provided stylesheet and put app-specific styles in dist/app.css.`,
       detail: {},
     });
   }
@@ -181,8 +179,7 @@ export function validateDesignContract(
       message: 'Generated app shell must keep the Lantern app root.',
       file: 'dist/index.html',
       field: null,
-      fix:
-        'Use <main id="app" class="ln-app" data-test="app-root"></main> as the reviewed app root.',
+      fix: 'Use <main id="app" class="ln-app" data-test="app-root"></main> as the reviewed app root.',
       detail: {},
     });
   }
@@ -241,8 +238,7 @@ function isAllowedPath(starterId: AppWriterStarterId, path: string): boolean {
 }
 
 function hasLanternAppRoot(html: string): boolean {
-  return /<main\b(?=[^>]*\bclass=["'][^"']*\bln-app\b[^"']*["'])(?=[^>]*\bdata-test=["']app-root["'])[^>]*>/i
-    .test(
-      html,
-    );
+  return /<main\b(?=[^>]*\bclass=["'][^"']*\bln-app\b[^"']*["'])(?=[^>]*\bdata-test=["']app-root["'])[^>]*>/i.test(
+    html,
+  );
 }

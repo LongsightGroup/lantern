@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import {
   buildAttemptEvidenceArtifactRecord,
@@ -7,7 +8,7 @@ import {
 import type { EvidenceArtifactStore } from './runtime/evidence_artifact_store.ts';
 import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
-Deno.test('GET /admin/packages/:appId/evidence/:artifactId returns the stored anonymous evidence artifact', async () => {
+test('GET /admin/packages/:appId/evidence/:artifactId returns the stored anonymous evidence artifact', async () => {
   const evidenceBytes = new TextEncoder().encode(
     JSON.stringify({
       submissionMode: 'anonymous_submission',
@@ -44,9 +45,7 @@ Deno.test('GET /admin/packages/:appId/evidence/:artifactId returns the stored an
   const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
     evidenceArtifactStore,
-  }).request(
-    'http://localhost/admin/packages/chapter-4-asteroids/evidence/artifact-001',
-  );
+  }).request('http://localhost/admin/packages/chapter-4-asteroids/evidence/artifact-001');
 
   assertEquals(response.status, 200);
   assertEquals(response.headers.get('content-type'), 'application/json');
@@ -54,7 +53,7 @@ Deno.test('GET /admin/packages/:appId/evidence/:artifactId returns the stored an
   assertEquals(await response.text(), new TextDecoder().decode(evidenceBytes));
 });
 
-Deno.test('GET /admin/packages/:appId/evidence/:artifactId returns screenshot evidence inline through the same route', async () => {
+test('GET /admin/packages/:appId/evidence/:artifactId returns screenshot evidence inline through the same route', async () => {
   const evidenceBytes = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const repository = createInMemoryPackageReviewRepository({
     attempts: [
@@ -86,9 +85,7 @@ Deno.test('GET /admin/packages/:appId/evidence/:artifactId returns screenshot ev
   const response = await createAuthenticatedTestApp({
     getRepository: () => repository,
     evidenceArtifactStore,
-  }).request(
-    'http://localhost/admin/packages/chapter-4-asteroids/evidence/artifact-002',
-  );
+  }).request('http://localhost/admin/packages/chapter-4-asteroids/evidence/artifact-002');
 
   assertEquals(response.status, 200);
   assertEquals(response.headers.get('content-type'), 'image/png');

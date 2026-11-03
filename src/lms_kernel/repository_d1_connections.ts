@@ -11,39 +11,38 @@ import {
 export function createD1LmsConnectionRepository(db: D1Database): LmsConnectionRepository {
   const repository: LmsConnectionRepository = {
     async createLmsConnection(input) {
-      await runD1Batch(db, [{
-        sql: `
+      await runD1Batch(db, [
+        {
+          sql: `
           INSERT INTO lms_connections (
             id, institution_id, label, platform_type, issuer, lms_origin, client_id,
             deployment_id, authorization_endpoint, access_token_url, jwks_url,
             status, created_at, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
         `,
-        parameters: [
-          input.id,
-          input.institutionId,
-          input.label,
-          input.platformType,
-          input.issuer,
-          input.lmsOrigin,
-          input.clientId,
-          input.deploymentId,
-          input.authorizationEndpoint,
-          input.accessTokenUrl,
-          input.jwksUrl,
-          input.now,
-          input.now,
-        ],
-      }, governanceEventStatement(input.event)]);
+          parameters: [
+            input.id,
+            input.institutionId,
+            input.label,
+            input.platformType,
+            input.issuer,
+            input.lmsOrigin,
+            input.clientId,
+            input.deploymentId,
+            input.authorizationEndpoint,
+            input.accessTokenUrl,
+            input.jwksUrl,
+            input.now,
+            input.now,
+          ],
+        },
+        governanceEventStatement(input.event),
+      ]);
       return requireConnection(await repository.getLmsConnectionById(input.id), input.id);
     },
 
     async getLmsConnectionById(id) {
-      const row = await queryD1First<D1Row>(
-        db,
-        `SELECT * FROM lms_connections WHERE id = ?`,
-        [id],
-      );
+      const row = await queryD1First<D1Row>(db, `SELECT * FROM lms_connections WHERE id = ?`, [id]);
       return row === null ? null : mapConnection(row);
     },
 
@@ -165,11 +164,7 @@ export function createD1LmsConnectionRepository(db: D1Database): LmsConnectionRe
     },
 
     async getLmsContextById(id) {
-      const row = await queryD1First<D1Row>(
-        db,
-        `SELECT * FROM lms_contexts WHERE id = ?`,
-        [id],
-      );
+      const row = await queryD1First<D1Row>(db, `SELECT * FROM lms_contexts WHERE id = ?`, [id]);
       return row === null ? null : mapLmsContext(row);
     },
   };

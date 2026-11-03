@@ -1,4 +1,4 @@
-import type { Hono } from '@hono/hono';
+import type { Hono } from 'hono';
 import { createErrorNotice } from './app_notice_support.ts';
 import type { AppServices } from './app_services.ts';
 
@@ -13,15 +13,21 @@ export function registerAdminPythonLabRoutes(
 ): void {
   app.get('/admin/python-lab-requests', async (context) => {
     try {
-      return context.html(renderPythonLabRequestsPage(adminPageInput(context, {
-        requests: await services.pythonLabRepository.listAccessRequests(),
-      })));
+      return context.html(
+        renderPythonLabRequestsPage(
+          adminPageInput(context, {
+            requests: await services.pythonLabRepository.listAccessRequests(),
+          }),
+        ),
+      );
     } catch (error) {
       return context.html(
-        renderPythonLabRequestsPage(adminPageInput(context, {
-          requests: [],
-          notice: createErrorNotice('Python Lab requests unavailable', error),
-        })),
+        renderPythonLabRequestsPage(
+          adminPageInput(context, {
+            requests: [],
+            notice: createErrorNotice('Python Lab requests unavailable', error),
+          }),
+        ),
         500,
       );
     }
@@ -45,10 +51,12 @@ export function registerAdminPythonLabRoutes(
       return context.redirect('/admin/python-lab-requests', 303);
     } catch (error) {
       return context.html(
-        renderPythonLabRequestsPage(adminPageInput(context, {
-          requests: await services.pythonLabRepository.listAccessRequests(),
-          notice: createErrorNotice('Python Lab request was not updated', error),
-        })),
+        renderPythonLabRequestsPage(
+          adminPageInput(context, {
+            requests: await services.pythonLabRepository.listAccessRequests(),
+            notice: createErrorNotice('Python Lab request was not updated', error),
+          }),
+        ),
         400,
       );
     }

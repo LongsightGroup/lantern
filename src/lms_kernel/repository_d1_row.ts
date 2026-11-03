@@ -140,11 +140,7 @@ export function mapConnection(row: D1Row): LmsConnectionRecord {
     authorizationEndpoint: requireString(row, 'authorization_endpoint'),
     accessTokenUrl: requireString(row, 'access_token_url'),
     jwksUrl: requireString(row, 'jwks_url'),
-    status: requireEnum(
-      row.status,
-      ['pending', 'active', 'disabled'],
-      'lms_connections.status',
-    ),
+    status: requireEnum(row.status, ['pending', 'active', 'disabled'], 'lms_connections.status'),
     validatedAt: optionalString(row, 'validated_at'),
     createdAt: requireString(row, 'created_at'),
     updatedAt: requireString(row, 'updated_at'),
@@ -198,9 +194,10 @@ export function mapCapabilityGrant(row: D1Row): CapabilityGrantRecord {
     appInstallationId: requireString(row, 'app_installation_id'),
     packageVersionId: requireInteger(row, 'package_version_id'),
     capability: requireRosterCapability(row.capability),
-    scope: scopeKind === 'institution'
-      ? { kind: 'institution' }
-      : { kind: 'context', lmsContextId: contextId! },
+    scope:
+      scopeKind === 'institution'
+        ? { kind: 'institution' }
+        : { kind: 'context', lmsContextId: contextId! },
     approvedByUserId: requireString(row, 'approved_by_user_id'),
     approvedAt: requireString(row, 'approved_at'),
     revokedByUserId: optionalString(row, 'revoked_by_user_id'),
@@ -352,10 +349,7 @@ export function mapGovernanceEvent(row: D1Row): GovernanceEventRecord {
   };
 }
 
-export function requireInstitution(
-  value: InstitutionRecord | null,
-  id: string,
-): InstitutionRecord {
+export function requireInstitution(value: InstitutionRecord | null, id: string): InstitutionRecord {
   if (value === null) {
     throw new Error(`Institution ${id} was not found after persistence.`);
   }

@@ -25,9 +25,7 @@ export async function generatePythonLab(input: {
   readonly importPackageFromSource: (
     source: PackageSource,
     options: { storageRoot: string },
-  ) => Promise<
-    ImportedPackageVersion
-  >;
+  ) => Promise<ImportedPackageVersion>;
   readonly createId: () => string;
   readonly now?: () => Date;
 }): Promise<PythonLabRecord> {
@@ -170,6 +168,6 @@ async function cleanFailedPythonLabMaterialization(input: {
   }
 
   return (await Promise.allSettled(cleanup)).flatMap((result) =>
-    result.status === 'rejected' ? [result.reason] : []
+    result.status === 'rejected' ? [result.reason] : [],
   );
 }

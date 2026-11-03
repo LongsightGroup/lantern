@@ -1,10 +1,11 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import type { CapabilityGrantRecord, GovernedRuntimeSession } from './types.ts';
 import { authorizeRosterRead, requiredRosterCapabilities } from './policy.ts';
 
 const NOW = new Date('2026-07-19T16:00:00.000Z');
 
-Deno.test('roster policy requires the base capability plus separately requested fields', () => {
+test('roster policy requires the base capability plus separately requested fields', () => {
   assertEquals(requiredRosterCapabilities([]), ['lms.roster.members.read']);
   assertEquals(requiredRosterCapabilities(['email', 'photo']), [
     'lms.roster.members.read',
@@ -13,29 +14,24 @@ Deno.test('roster policy requires the base capability plus separately requested 
   ]);
 });
 
-Deno.test('roster policy allows exact-version grants scoped to the current context', () => {
+test('roster policy allows exact-version grants scoped to the current context', () => {
   const result = authorizeRosterRead({
     session: buildSession(),
     grants: [
       buildGrant('members', 'lms.roster.members.read'),
       buildGrant('photo', 'lms.roster.profile_photo.read'),
     ],
-    requestedCapabilities: [
-      'lms.roster.members.read',
-      'lms.roster.profile_photo.read',
-    ],
+    requestedCapabilities: ['lms.roster.members.read', 'lms.roster.profile_photo.read'],
     now: NOW,
   });
 
   assertEquals(result.allowed, true);
 });
 
-Deno.test('roster policy denies a grant from another package version or context', () => {
+test('roster policy denies a grant from another package version or context', () => {
   const wrongVersion = authorizeRosterRead({
     session: buildSession(),
-    grants: [
-      { ...buildGrant('members', 'lms.roster.members.read'), packageVersionId: 99 },
-    ],
+    grants: [{ ...buildGrant('members', 'lms.roster.members.read'), packageVersionId: 99 }],
     requestedCapabilities: ['lms.roster.members.read'],
     now: NOW,
   });
@@ -55,7 +51,7 @@ Deno.test('roster policy denies a grant from another package version or context'
   assertEquals(wrongContext, { allowed: false, reason: 'grant_missing' });
 });
 
-Deno.test('roster policy fails closed for missing NRPS claims and expired sessions', () => {
+test('roster policy fails closed for missing NRPS claims and expired sessions', () => {
   const missingNrps = authorizeRosterRead({
     session: {
       ...buildSession(),

@@ -119,12 +119,14 @@ export function parseAppGenerationPlanningResult(
     selectedStarterId: expectStarterId(record.selectedStarterId, `${fieldName}.selectedStarterId`),
     progressUpdates: parseProgressUpdates(record.progressUpdates, `${fieldName}.progressUpdates`),
     notes: expectStringArray(record.notes, `${fieldName}.notes`),
-    ...(record.modelRequestMetadata === undefined ? {} : {
-      modelRequestMetadata: parseModelRequestMetadata(
-        record.modelRequestMetadata,
-        `${fieldName}.modelRequestMetadata`,
-      ),
-    }),
+    ...(record.modelRequestMetadata === undefined
+      ? {}
+      : {
+          modelRequestMetadata: parseModelRequestMetadata(
+            record.modelRequestMetadata,
+            `${fieldName}.modelRequestMetadata`,
+          ),
+        }),
   };
 }
 
@@ -148,12 +150,14 @@ export function parseAppPackageGenerationResult(
       record.validationFindings,
       `${fieldName}.validationFindings`,
     ),
-    ...(record.modelRequestMetadata === undefined ? {} : {
-      modelRequestMetadata: parseModelRequestMetadata(
-        record.modelRequestMetadata,
-        `${fieldName}.modelRequestMetadata`,
-      ),
-    }),
+    ...(record.modelRequestMetadata === undefined
+      ? {}
+      : {
+          modelRequestMetadata: parseModelRequestMetadata(
+            record.modelRequestMetadata,
+            `${fieldName}.modelRequestMetadata`,
+          ),
+        }),
   };
 }
 

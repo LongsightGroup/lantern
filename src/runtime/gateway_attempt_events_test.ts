@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertObjectMatch, assertRejects } from '@std/assert';
 import { createTestApp as createApp } from '../test_helpers/app.ts';
 import { withRuntimeOriginEnv } from '../app_test_support.ts';
@@ -10,7 +11,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('runtime gateway accepts authenticated attempt-event writes and persists append-only attempt events', async () => {
+test('runtime gateway accepts authenticated attempt-event writes and persists append-only attempt events', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
@@ -61,7 +62,7 @@ Deno.test('runtime gateway accepts authenticated attempt-event writes and persis
   });
 });
 
-Deno.test('runtime gateway blocks missing capability, bad payloads, and bad tokens before any write', async () => {
+test('runtime gateway blocks missing capability, bad payloads, and bad tokens before any write', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       attempts: [buildAttemptRecord()],
@@ -128,7 +129,7 @@ Deno.test('runtime gateway blocks missing capability, bad payloads, and bad toke
   });
 });
 
-Deno.test('runtime gateway validates attempt event payloads and capabilities', async () => {
+test('runtime gateway validates attempt event payloads and capabilities', async () => {
   assertEquals(
     parseAttemptEvent({
       type: 'complete',
@@ -160,7 +161,7 @@ Deno.test('runtime gateway validates attempt event payloads and capabilities', a
           type: 'answer',
           answer: 'asteroid',
           timestamp: '2026-03-24T02:30:00Z',
-        })
+        }),
       ),
     RuntimeBrokerDenialError,
   );
@@ -172,7 +173,7 @@ Deno.test('runtime gateway validates attempt event payloads and capabilities', a
             capabilities: ['read_launch_context'],
           }),
           'submit_attempt_event',
-        )
+        ),
       ),
     RuntimeBrokerDenialError,
   )) as RuntimeBrokerDenialError;
@@ -181,7 +182,7 @@ Deno.test('runtime gateway validates attempt event payloads and capabilities', a
   assertEquals(capabilityError.capability, 'submit_attempt_event');
 });
 
-Deno.test('runtime gateway helper appends attempt events directly against the durable ledger', async () => {
+test('runtime gateway helper appends attempt events directly against the durable ledger', async () => {
   const repository = createInMemoryPackageReviewRepository({
     attempts: [buildAttemptRecord()],
     previewSessions: [buildPreviewSessionRecord({ fakeAttemptId: 'attempt-123' })],

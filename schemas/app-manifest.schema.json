@@ -277,10 +277,7 @@
             "type": "object",
             "properties": { "mode": { "const": "completion" } },
             "not": {
-              "anyOf": [
-                { "required": ["rubric_file"] },
-                { "required": ["max_score"] }
-              ]
+              "anyOf": [{ "required": ["rubric_file"] }, { "required": ["max_score"] }]
             }
           }
         },

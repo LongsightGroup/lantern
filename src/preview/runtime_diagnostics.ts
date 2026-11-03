@@ -39,14 +39,17 @@ export async function loadPreviewRuntimeDiagnostics(input: {
     input.session.fakeAttemptId,
     `${input.session.fakeAttemptId}:${input.session.sessionId}`,
   ]);
-  const auditEvents = (await Promise.all(
-    [...attemptIds].map((attemptId) => input.repository.listAuditEventsByAttemptId(attemptId)),
-  )).flat();
+  const auditEvents = (
+    await Promise.all(
+      [...attemptIds].map((attemptId) => input.repository.listAuditEventsByAttemptId(attemptId)),
+    )
+  ).flat();
 
   return auditEvents
-    .filter((event) =>
-      event.packageVersionId === input.session.packageVersionId &&
-      PREVIEW_RUNTIME_FAILURE_EVENT_TYPES.has(event.eventType)
+    .filter(
+      (event) =>
+        event.packageVersionId === input.session.packageVersionId &&
+        PREVIEW_RUNTIME_FAILURE_EVENT_TYPES.has(event.eventType),
     )
     .sort((left, right) => left.occurredAt.localeCompare(right.occurredAt) || left.id - right.id)
     .map(toPreviewRuntimeDiagnostic);

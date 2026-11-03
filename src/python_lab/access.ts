@@ -26,9 +26,9 @@ export function appendCookie(
 ): void {
   headers.append(
     'set-cookie',
-    `${name}=${
-      encodeURIComponent(value)
-    }; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`,
+    `${name}=${encodeURIComponent(
+      value,
+    )}; Path=${path}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`,
   );
 }
 

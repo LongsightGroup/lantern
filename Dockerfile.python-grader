@@ -1,5 +1,9 @@
-FROM docker.io/cloudflare/sandbox:0.12.3-python
+FROM python:3.15-slim-trixie
 
-# Keep the graded interpreter free of third-party packages. The fixed command
-# also uses -I -S, so Python does not add user or site-package paths.
-RUN rm -rf /usr/local/lib/python*/site-packages /usr/lib/python*/site-packages
+COPY --from=docker.io/cloudflare/sandbox:1.0.3 /usr/local/bin/sandbox-shim /usr/local/bin/sandbox-shim
+
+# The interpreter has no third-party packages; grading also uses -I -S.
+RUN rm -rf /usr/local/lib/python*/site-packages /usr/lib/python*/site-packages \
+    && mkdir -p /workspace
+WORKDIR /workspace
+CMD ["sleep", "infinity"]

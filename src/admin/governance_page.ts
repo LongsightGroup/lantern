@@ -22,11 +22,11 @@ export function renderInstitutionOnboardingPage(input: {
     intro:
       'This institution owns LMS connections, app installations, permission decisions, and audit history.',
     activePath: '/admin/governance',
-    notice: input.error === undefined
-      ? null
-      : { tone: 'error', title: 'Institution was not created', detail: input.error },
-    body:
-      `<section class="panel"><form class="panel-body stack" method="post" action="/admin/onboarding">
+    notice:
+      input.error === undefined
+        ? null
+        : { tone: 'error', title: 'Institution was not created', detail: input.error },
+    body: `<section class="panel"><form class="panel-body stack" method="post" action="/admin/onboarding">
       <label>Institution name
         <input name="name" required minlength="2" maxlength="120" autocomplete="organization">
       </label>
@@ -48,10 +48,9 @@ export function renderInviteAcceptancePage(input: {
       'Accepting consumes this one-time invitation and adds your account with the role chosen by the institution.',
     activePath: '/admin/governance',
     notice: null,
-    body:
-      `<section class="panel"><form class="panel-body stack" method="post" action="/admin/invites/${
-        encodeURIComponent(input.token)
-      }/accept">
+    body: `<section class="panel"><form class="panel-body stack" method="post" action="/admin/invites/${encodeURIComponent(
+      input.token,
+    )}/accept">
       <div class="button-row"><button class="button-primary" type="submit">Accept invitation</button></div>
     </form></section>`,
   });
@@ -99,11 +98,14 @@ export function renderGovernancePage(input: {
     intro:
       'Institution-owned LMS connections, reviewed app installations, explicit capability grants, and append-only decisions.',
     activePath: '/admin/governance',
-    notice: input.notice === undefined ? null : {
-      tone: input.notice.tone,
-      title: input.notice.tone === 'success' ? 'Saved' : 'Action blocked',
-      detail: input.notice.detail,
-    },
+    notice:
+      input.notice === undefined
+        ? null
+        : {
+            tone: input.notice.tone,
+            title: input.notice.tone === 'success' ? 'Saved' : 'Action blocked',
+            detail: input.notice.detail,
+          },
     body,
   });
 }
@@ -124,14 +126,17 @@ function renderConnections(
   canGovern: boolean,
   publicOrigin: string,
 ): string {
-  const rows = connections.length === 0
-    ? '<p>No LMS connections yet.</p>'
-    : connections.map((connection) =>
-      `<article class="table-row"><div class="table-row-top"><div>
+  const rows =
+    connections.length === 0
+      ? '<p>No LMS connections yet.</p>'
+      : connections
+          .map(
+            (connection) =>
+              `<article class="table-row"><div class="table-row-top"><div>
         <p class="line-title">${escapeHtml(connection.label)}</p>
-        <p class="line-copy">${escapeHtml(connection.platformType)} · ${
-        escapeHtml(connection.issuer)
-      }</p>
+        <p class="line-copy">${escapeHtml(connection.platformType)} · ${escapeHtml(
+          connection.issuer,
+        )}</p>
         ${renderPlatformDiagnostic(connection)}
       </div><span class="status-badge status-${
         connection.status === 'active' ? 'approved' : 'pending'
@@ -140,26 +145,27 @@ function renderConnections(
         <span><strong>Client</strong> ${escapeHtml(connection.clientId)}</span>
         <span><strong>Deployment</strong> ${escapeHtml(connection.deploymentId)}</span>
         <span><strong>Approved embedding origin</strong> ${escapeHtml(connection.lmsOrigin)}</span>
-        <span><strong>Validated</strong> ${
-        escapeHtml(formatDateTime(connection.validatedAt))
-      }</span>
+        <span><strong>Validated</strong> ${escapeHtml(
+          formatDateTime(connection.validatedAt),
+        )}</span>
       </div>
       ${
         canGovern && connection.status !== 'disabled'
-          ? `<form method="post" action="/admin/governance/connections/${
-            escapeHtml(connection.id)
-          }/disable"><button class="button-ghost" type="submit">Disable connection</button></form>`
+          ? `<form method="post" action="/admin/governance/connections/${escapeHtml(
+              connection.id,
+            )}/disable"><button class="button-ghost" type="submit">Disable connection</button></form>`
           : ''
-      }</article>`
-    ).join('');
+      }</article>`,
+          )
+          .join('');
   return `<section class="panel"><div class="panel-body stack">
     <div><p class="section-label">LMS boundary</p><h2>Connections</h2>
     <p>Canvas, Moodle, Brightspace, and Sakai remain pending until a signed launch validates the registration. Synthetic activates immediately.</p></div>
     <dl>
       <dt>OIDC login URL</dt><dd><code>${escapeHtml(`${publicOrigin}/lti/login`)}</code></dd>
-      <dt>Redirect and launch URL</dt><dd><code>${
-    escapeHtml(`${publicOrigin}/lti/launch`)
-  }</code></dd>
+      <dt>Redirect and launch URL</dt><dd><code>${escapeHtml(
+        `${publicOrigin}/lti/launch`,
+      )}</code></dd>
       <dt>JWKS URL</dt><dd><code>${escapeHtml(`${publicOrigin}/lti/jwks.json`)}</code></dd>
       <dt>Required NRPS scope</dt><dd><code>https://purl.imsglobal.org/spec/lti-nrps/scope/contextmembership.readonly</code></dd>
     </dl>
@@ -218,90 +224,91 @@ function renderInstallations(input: {
   readonly hasSyntheticConnection: boolean;
   readonly publicOrigin: string;
 }): string {
-  const rows = input.installations.length === 0
-    ? '<p>No governed apps installed yet.</p>'
-    : input.installations.map((installation) => {
-      const packageVersion = input.packageById.get(installation.packageVersionId);
-      const grants = input.grants.get(installation.id) ?? [];
-      return `<article class="table-row" id="installation-${
-        escapeHtml(installation.id)
-      }"><div class="table-row-top"><div>
+  const rows =
+    input.installations.length === 0
+      ? '<p>No governed apps installed yet.</p>'
+      : input.installations
+          .map((installation) => {
+            const packageVersion = input.packageById.get(installation.packageVersionId);
+            const grants = input.grants.get(installation.id) ?? [];
+            return `<article class="table-row" id="installation-${escapeHtml(
+              installation.id,
+            )}"><div class="table-row-top"><div>
         <p class="line-title">${escapeHtml(packageVersion?.title ?? installation.appId)}</p>
-        <p class="line-copy">Exact reviewed version ${
-        escapeHtml(packageVersion?.version ?? String(installation.packageVersionId))
-      }</p>
+        <p class="line-copy">Exact reviewed version ${escapeHtml(
+          packageVersion?.version ?? String(installation.packageVersionId),
+        )}</p>
         ${
-        packageVersion === undefined
-          ? ''
-          : `<p>Reviewed ${escapeHtml(formatDateTime(packageVersion.reviewedAt))}${
-            packageVersion.reviewNotes === null
-              ? ''
-              : ` · ${escapeHtml(packageVersion.reviewNotes)}`
-          }</p>`
-      }
+          packageVersion === undefined
+            ? ''
+            : `<p>Reviewed ${escapeHtml(formatDateTime(packageVersion.reviewedAt))}${
+                packageVersion.reviewNotes === null
+                  ? ''
+                  : ` · ${escapeHtml(packageVersion.reviewNotes)}`
+              }</p>`
+        }
       </div><span class="status-badge status-${
         installation.status === 'active' ? 'approved' : 'pending'
       }">${escapeHtml(installation.status)}</span></div>
-      ${
-        renderCapabilityApprovals(
-          installation,
-          packageVersion,
-          grants,
-          input.contexts,
-          input.canGovern,
-        )
-      }
+      ${renderCapabilityApprovals(
+        installation,
+        packageVersion,
+        grants,
+        input.contexts,
+        input.canGovern,
+      )}
       ${
         input.canGovern && installation.status !== 'active'
-          ? `<form method="post" action="/admin/governance/installations/${
-            escapeHtml(installation.id)
-          }/activate"><button class="button-primary" type="submit">Activate after approvals</button></form>`
+          ? `<form method="post" action="/admin/governance/installations/${escapeHtml(
+              installation.id,
+            )}/activate"><button class="button-primary" type="submit">Activate after approvals</button></form>`
           : ''
       }
       ${
         input.canGovern && input.hasSyntheticConnection && installation.status === 'active'
-          ? `<form method="post" action="/admin/governance/installations/${
-            escapeHtml(installation.id)
-          }/synthetic-launch"><button class="button-secondary" type="submit">Launch with synthetic LMS</button></form>`
+          ? `<form method="post" action="/admin/governance/installations/${escapeHtml(
+              installation.id,
+            )}/synthetic-launch"><button class="button-secondary" type="submit">Launch with synthetic LMS</button></form>`
           : ''
       }
       ${
         input.canGovern && installation.status !== 'disabled'
-          ? `<form method="post" action="/admin/governance/installations/${
-            escapeHtml(installation.id)
-          }/disable"><button class="button-ghost" type="submit">Disable app</button></form>`
+          ? `<form method="post" action="/admin/governance/installations/${escapeHtml(
+              installation.id,
+            )}/disable"><button class="button-ghost" type="submit">Disable app</button></form>`
           : ''
       }
       ${
         installation.status === 'active'
-          ? `<p><strong>LMS target link URI</strong><br><code>${
-            escapeHtml(
-              `${input.publicOrigin}/lti/launch?installation_id=${
-                encodeURIComponent(installation.id)
-              }`,
-            )
-          }</code></p>`
+          ? `<p><strong>LMS target link URI</strong><br><code>${escapeHtml(
+              `${input.publicOrigin}/lti/launch?installation_id=${encodeURIComponent(
+                installation.id,
+              )}`,
+            )}</code></p>`
           : ''
       }
       </article>`;
-    }).join('');
-  const options = input.packages.filter((item) =>
-    item.approvalStatus === 'approved' && item.runtime.kind === 'worker'
-  ).map((item) =>
-    `<option value="${item.id}">${escapeHtml(item.title)} · ${escapeHtml(item.version)}</option>`
-  ).join('');
+          })
+          .join('');
+  const options = input.packages
+    .filter((item) => item.approvalStatus === 'approved' && item.runtime.kind === 'worker')
+    .map(
+      (item) =>
+        `<option value="${item.id}">${escapeHtml(item.title)} · ${escapeHtml(item.version)}</option>`,
+    )
+    .join('');
   return `<section class="panel"><div class="panel-body stack">
     <div><p class="section-label">Reviewed execution</p><h2>App installations</h2>
     <p>Changing a package version creates a new approval boundary. Grants never carry forward.</p></div>
     <div class="table-list">${rows}</div>
     ${
-    input.canGovern && options !== ''
-      ? `<form class="stack" method="post" action="/admin/governance/installations">
+      input.canGovern && options !== ''
+        ? `<form class="stack" method="post" action="/admin/governance/installations">
           <label>Reviewed Worker app <select name="packageVersionId" required>${options}</select></label>
           <div class="button-row"><button class="button-primary" type="submit">Install for review</button></div>
         </form>`
-      : ''
-  }
+        : ''
+    }
   </div></section>`;
 }
 
@@ -315,37 +322,38 @@ function renderCapabilityApprovals(
   if (packageVersion === undefined) {
     return '<p>Reviewed package record is unavailable.</p>';
   }
-  return `<div class="stack">${
-    packageVersion.capabilities.map((capability) => {
+  return `<div class="stack">${packageVersion.capabilities
+    .map((capability) => {
       const matching = grants.filter((grant) => grant.capability === capability);
       const active = matching.filter((grant) => grant.revokedAt === null);
-      const grantRows = matching.map((grant) =>
-        `<li id="grant-${escapeHtml(grant.id)}">${
-          escapeHtml(
-            grant.scope.kind === 'institution'
-              ? 'All institution contexts'
-              : grant.scope.lmsContextId,
-          )
-        }
-      · approved by ${escapeHtml(grant.approvedByUserId)} at ${
-          escapeHtml(formatDateTime(grant.approvedAt))
-        }
+      const grantRows = matching
+        .map(
+          (grant) =>
+            `<li id="grant-${escapeHtml(grant.id)}">${escapeHtml(
+              grant.scope.kind === 'institution'
+                ? 'All institution contexts'
+                : grant.scope.lmsContextId,
+            )}
+      · approved by ${escapeHtml(grant.approvedByUserId)} at ${escapeHtml(
+        formatDateTime(grant.approvedAt),
+      )}
       · ${
-          grant.revokedAt === null
-            ? 'active'
-            : `revoked ${escapeHtml(formatDateTime(grant.revokedAt))}`
-        }
+        grant.revokedAt === null
+          ? 'active'
+          : `revoked ${escapeHtml(formatDateTime(grant.revokedAt))}`
+      }
       ${
-          canGovern && grant.revokedAt === null
-            ? `<form class="inline-form" method="post" action="/admin/governance/grants/${
-              escapeHtml(grant.id)
-            }/revoke"><button class="button-ghost" type="submit">Revoke</button></form>`
-            : ''
-        }</li>`
-      ).join('');
-      return `<div><p><strong>${escapeHtml(capability)}</strong> · ${
-        escapeHtml(capabilityFieldLabel(capability))
-      } · ${active.length > 0 ? 'approved' : 'approval required'}</p>
+        canGovern && grant.revokedAt === null
+          ? `<form class="inline-form" method="post" action="/admin/governance/grants/${escapeHtml(
+              grant.id,
+            )}/revoke"><button class="button-ghost" type="submit">Revoke</button></form>`
+          : ''
+      }</li>`,
+        )
+        .join('');
+      return `<div><p><strong>${escapeHtml(capability)}</strong> · ${escapeHtml(
+        capabilityFieldLabel(capability),
+      )} · ${active.length > 0 ? 'approved' : 'approval required'}</p>
       ${grantRows === '' ? '' : `<ul>${grantRows}</ul>`}
       ${
         canGovern && active.length === 0
@@ -353,8 +361,8 @@ function renderCapabilityApprovals(
           : ''
       }
     </div>`;
-    }).join('')
-  }</div>`;
+    })
+    .join('')}</div>`;
 }
 
 function capabilityFieldLabel(capability: string): string {
@@ -375,14 +383,17 @@ function renderGrantForm(
   capability: string,
   contexts: readonly LmsContextRecord[],
 ): string {
-  const contextOptions = contexts.map((context) =>
-    `<option value="${escapeHtml(context.id)}">${
-      escapeHtml(context.label ?? context.providerContextId)
-    }</option>`
-  ).join('');
-  return `<form class="inline-form" method="post" action="/admin/governance/installations/${
-    escapeHtml(installationId)
-  }/grants">
+  const contextOptions = contexts
+    .map(
+      (context) =>
+        `<option value="${escapeHtml(context.id)}">${escapeHtml(
+          context.label ?? context.providerContextId,
+        )}</option>`,
+    )
+    .join('');
+  return `<form class="inline-form" method="post" action="/admin/governance/installations/${escapeHtml(
+    installationId,
+  )}/grants">
     <input type="hidden" name="capability" value="${escapeHtml(capability)}">
     <select name="scope">
       <option value="institution">All institution contexts</option>
@@ -408,9 +419,9 @@ function renderInvite(invite: { readonly token: string; readonly expiresAt: stri
   return `<section class="panel"><div class="panel-body stack">
     <p class="section-label">One-time invitation</p>
     <p><a href="${escapeHtml(path)}">${escapeHtml(path)}</a></p>
-    <p>Expires ${
-    escapeHtml(formatDateTime(invite.expiresAt))
-  }. Copy this link now; Lantern stores only its hash.</p>
+    <p>Expires ${escapeHtml(
+      formatDateTime(invite.expiresAt),
+    )}. Copy this link now; Lantern stores only its hash.</p>
   </div></section>`;
 }
 
@@ -419,18 +430,21 @@ function renderEvents(
   connections: readonly LmsConnectionRecord[],
   installations: readonly AppInstallationRecord[],
 ): string {
-  const rows = events.length === 0
-    ? '<p>No governance events recorded yet.</p>'
-    : events.map((event) =>
-      `<article class="table-row"><p class="line-title">${escapeHtml(event.eventType)}</p>
-      <p class="line-copy">${escapeHtml(event.decision ?? 'execution')} · ${
-        escapeHtml(event.outcome)
-      }${event.capability === null ? '' : ` · ${escapeHtml(event.capability)}`}</p>
-      <div class="table-row-meta"><span><strong>Trace</strong> <a href="?traceId=${
-        encodeURIComponent(event.traceId)
-      }">${escapeHtml(event.traceId)}</a></span><span>${
-        escapeHtml(formatDateTime(event.occurredAt))
-      }</span>
+  const rows =
+    events.length === 0
+      ? '<p>No governance events recorded yet.</p>'
+      : events
+          .map(
+            (event) =>
+              `<article class="table-row"><p class="line-title">${escapeHtml(event.eventType)}</p>
+      <p class="line-copy">${escapeHtml(event.decision ?? 'execution')} · ${escapeHtml(
+        event.outcome,
+      )}${event.capability === null ? '' : ` · ${escapeHtml(event.capability)}`}</p>
+      <div class="table-row-meta"><span><strong>Trace</strong> <a href="?traceId=${encodeURIComponent(
+        event.traceId,
+      )}">${escapeHtml(event.traceId)}</a></span><span>${escapeHtml(
+        formatDateTime(event.occurredAt),
+      )}</span>
       ${
         event.appInstallationId === null
           ? ''
@@ -440,14 +454,21 @@ function renderEvents(
         event.capabilityGrantId === null
           ? ''
           : `<a href="#grant-${escapeHtml(event.capabilityGrantId)}">Grant</a>`
-      }</div></article>`
-    ).join('');
-  const connectionOptions = connections.map((connection) =>
-    `<option value="${escapeHtml(connection.id)}">${escapeHtml(connection.label)}</option>`
-  ).join('');
-  const installationOptions = installations.map((installation) =>
-    `<option value="${escapeHtml(installation.id)}">${escapeHtml(installation.appId)}</option>`
-  ).join('');
+      }</div></article>`,
+          )
+          .join('');
+  const connectionOptions = connections
+    .map(
+      (connection) =>
+        `<option value="${escapeHtml(connection.id)}">${escapeHtml(connection.label)}</option>`,
+    )
+    .join('');
+  const installationOptions = installations
+    .map(
+      (installation) =>
+        `<option value="${escapeHtml(installation.id)}">${escapeHtml(installation.appId)}</option>`,
+    )
+    .join('');
   return `<section class="panel"><div class="panel-body stack">
     <div><p class="section-label">Append-only ledger</p><h2>Recent governance events</h2>
     <p>Roster payloads, names, emails, provider IDs, photo URLs, tokens, cursors, and media handles are excluded.</p></div>

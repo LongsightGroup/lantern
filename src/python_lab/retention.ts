@@ -41,8 +41,9 @@ async function purgeExpiredLab(
 
   if (lab.packageVersionId !== null) {
     const packageVersion = await input.repository.getPackageVersionById(lab.packageVersionId);
-    const sourceKeys = await input.pythonLabRepository
-      .listSubmissionArtifactKeysByPackageVersionId(lab.packageVersionId);
+    const sourceKeys = await input.pythonLabRepository.listSubmissionArtifactKeysByPackageVersionId(
+      lab.packageVersionId,
+    );
 
     for (const sourceKey of sourceKeys) {
       privateKeys.add(sourceKey);

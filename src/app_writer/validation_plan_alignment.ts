@@ -60,8 +60,7 @@ export function validateGeneratedAppPackagePlanAlignment(input: {
     findings.push({
       code: 'manifest_plan_grading_mode_mismatch',
       severity: 'error',
-      message:
-        `Generated manifest grading mode must match planned mode ${input.appPlan.grading.mode}.`,
+      message: `Generated manifest grading mode must match planned mode ${input.appPlan.grading.mode}.`,
       file: 'manifest.json',
       field: '/grading/mode',
       fix: `Set manifest grading.mode to ${input.appPlan.grading.mode}.`,
@@ -76,8 +75,7 @@ export function validateGeneratedAppPackagePlanAlignment(input: {
     findings.push({
       code: 'manifest_plan_max_score_mismatch',
       severity: 'error',
-      message:
-        `Generated manifest max score must match planned max score ${input.appPlan.grading.maxScore}.`,
+      message: `Generated manifest max score must match planned max score ${input.appPlan.grading.maxScore}.`,
       file: 'manifest.json',
       field: '/grading/max_score',
       fix: `Set manifest grading.max_score to ${input.appPlan.grading.maxScore}.`,
@@ -177,8 +175,7 @@ function validateManifestCapabilitiesMatchPlan(
       message: `Generated manifest declares unplanned capability ${capability}.`,
       file: 'manifest.json',
       field: '/capabilities',
-      fix:
-        `Remove ${capability} from manifest capabilities or repair the app plan before writing files.`,
+      fix: `Remove ${capability} from manifest capabilities or repair the app plan before writing files.`,
       detail: {
         capability,
       },

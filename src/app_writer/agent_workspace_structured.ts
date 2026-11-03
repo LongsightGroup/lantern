@@ -137,14 +137,15 @@ async function runStructuredModelLoop(input: {
 
       return {
         ...parsed,
-        progressUpdates: parsed.progressUpdates.length === 0
-          ? [
-            {
-              stage: input.progressStage,
-              message: `Completed structured ${input.stage} workspace generation.`,
-            },
-          ]
-          : parsed.progressUpdates,
+        progressUpdates:
+          parsed.progressUpdates.length === 0
+            ? [
+                {
+                  stage: input.progressStage,
+                  message: `Completed structured ${input.stage} workspace generation.`,
+                },
+              ]
+            : parsed.progressUpdates,
         notes: [
           `Workspace structured harness completed ${input.stage} on attempt ${attempt}.`,
           ...buildHarnessFailureNotes(failures),
@@ -173,9 +174,9 @@ async function runStructuredModelLoop(input: {
   });
 }
 
-function parseStructuredModelJson(text: string): ReturnType<
-  typeof parseStructuredWorkspaceHarnessResult
-> {
+function parseStructuredModelJson(
+  text: string,
+): ReturnType<typeof parseStructuredWorkspaceHarnessResult> {
   let parsed: unknown;
 
   try {
@@ -266,9 +267,8 @@ async function storeModelProgress(input: {
   stage: AppGenerationModelRequestStage;
   attempt: number;
 }): Promise<void> {
-  const session = await input.state.storage.get<StoredAppWriterAgentSession>(
-    AGENT_SESSION_STORAGE_KEY,
-  );
+  const session =
+    await input.state.storage.get<StoredAppWriterAgentSession>(AGENT_SESSION_STORAGE_KEY);
 
   if (session === undefined) {
     return;
@@ -345,9 +345,11 @@ function updateLastMetadataFailure(
 }
 
 function buildHarnessFailureNotes(failures: readonly StructuredResponseFailure[]): string[] {
-  return failures.slice(-3).map((failure, index) =>
-    `Harness failure ${index + 1}: ${failure.errorCode}: ${failure.error}`
-  );
+  return failures
+    .slice(-3)
+    .map(
+      (failure, index) => `Harness failure ${index + 1}: ${failure.errorCode}: ${failure.error}`,
+    );
 }
 
 async function withTimeout<T>(

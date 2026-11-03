@@ -29,29 +29,32 @@ function renderEmptyState(): string {
 }
 
 function renderRequests(requests: readonly PythonLabAccessRequestRecord[]): string {
-  return `<section class="panel"><div class="panel-body"><div class="table-scroll"><table class="detail-table"><thead><tr><th>Instructor</th><th>Institution</th><th>Requested</th><th>Status</th></tr></thead><tbody>${
-    requests.map(renderRequest).join('')
-  }</tbody></table></div></div></section>`;
+  return `<section class="panel"><div class="panel-body"><div class="table-scroll"><table class="detail-table"><thead><tr><th>Instructor</th><th>Institution</th><th>Requested</th><th>Status</th></tr></thead><tbody>${requests
+    .map(renderRequest)
+    .join('')}</tbody></table></div></div></section>`;
 }
 
 function renderRequest(request: PythonLabAccessRequestRecord): string {
-  return `<tr><td><div class="detail-table-stack"><strong>${
-    escapeHtml(request.name)
-  }</strong><span>${escapeHtml(request.workEmail)}</span></div></td><td>${
-    escapeHtml(request.institution)
-  }</td><td>${
-    escapeHtml(formatDateTime(request.createdAt))
-  }</td><td><form method="post" action="/admin/python-lab-requests/${
-    encodeURIComponent(request.requestId)
-  }" class="button-row"><label class="sr-only" for="status-${
-    escapeHtml(request.requestId)
-  }">Request status</label><select id="status-${escapeHtml(request.requestId)}" name="status">${
-    renderStatusOptions(request.status)
-  }</select><button class="button-secondary" type="submit">Update</button></form></td></tr>`;
+  return `<tr><td><div class="detail-table-stack"><strong>${escapeHtml(
+    request.name,
+  )}</strong><span>${escapeHtml(request.workEmail)}</span></div></td><td>${escapeHtml(
+    request.institution,
+  )}</td><td>${escapeHtml(
+    formatDateTime(request.createdAt),
+  )}</td><td><form method="post" action="/admin/python-lab-requests/${encodeURIComponent(
+    request.requestId,
+  )}" class="button-row"><label class="sr-only" for="status-${escapeHtml(
+    request.requestId,
+  )}">Request status</label><select id="status-${escapeHtml(request.requestId)}" name="status">${renderStatusOptions(
+    request.status,
+  )}</select><button class="button-secondary" type="submit">Update</button></form></td></tr>`;
 }
 
 function renderStatusOptions(current: PythonLabAccessRequestRecord['status']): string {
-  return (['new', 'contacted', 'closed'] as const).map((status) =>
-    `<option value="${status}"${status === current ? ' selected' : ''}>${status}</option>`
-  ).join('');
+  return (['new', 'contacted', 'closed'] as const)
+    .map(
+      (status) =>
+        `<option value="${status}"${status === current ? ' selected' : ''}>${status}</option>`,
+    )
+    .join('');
 }

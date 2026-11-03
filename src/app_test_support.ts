@@ -16,21 +16,21 @@ export function getReferenceAppSnapshotRoot(appId: ReferenceAppId): string {
 
 export function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
-    Deno.env.delete(name);
+    delete process.env[name];
     return;
   }
 
-  Deno.env.set(name, value);
+  process.env[name] = value;
 }
 
 export async function withCanvasReturnEnv(run: () => Promise<void>): Promise<void> {
-  const previousAppOrigin = Deno.env.get('APP_ORIGIN');
-  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
-  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
+  const previousAppOrigin = process.env['APP_ORIGIN'];
+  const previousToolKey = process.env['LTI_TOOL_PRIVATE_JWK'];
+  const previousStateSecret = process.env['LTI_STATE_SECRET'];
 
-  Deno.env.set('APP_ORIGIN', 'https://lantern.example');
-  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
-  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
+  process.env['APP_ORIGIN'] = 'https://lantern.example';
+  process.env['LTI_TOOL_PRIVATE_JWK'] = getTestToolPrivateJwkEnvValue();
+  process.env['LTI_STATE_SECRET'] = TEST_LTI_STATE_SECRET;
 
   try {
     await run();
@@ -48,15 +48,15 @@ export async function withRuntimeOriginEnv<T>(
     runtimeOrigin?: string;
   } = {},
 ): Promise<T> {
-  const previousAppOrigin = Deno.env.get('APP_ORIGIN');
-  const previousRuntimeOrigin = Deno.env.get('APP_RUNTIME_ORIGIN');
-  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
-  const previousStateSecret = Deno.env.get('LTI_STATE_SECRET');
+  const previousAppOrigin = process.env['APP_ORIGIN'];
+  const previousRuntimeOrigin = process.env['APP_RUNTIME_ORIGIN'];
+  const previousToolKey = process.env['LTI_TOOL_PRIVATE_JWK'];
+  const previousStateSecret = process.env['LTI_STATE_SECRET'];
 
-  Deno.env.set('APP_ORIGIN', options.appOrigin ?? 'https://lantern.example');
-  Deno.env.set('APP_RUNTIME_ORIGIN', options.runtimeOrigin ?? 'https://runtime.lantern.example');
-  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
-  Deno.env.set('LTI_STATE_SECRET', TEST_LTI_STATE_SECRET);
+  process.env['APP_ORIGIN'] = options.appOrigin ?? 'https://lantern.example';
+  process.env['APP_RUNTIME_ORIGIN'] = options.runtimeOrigin ?? 'https://runtime.lantern.example';
+  process.env['LTI_TOOL_PRIVATE_JWK'] = getTestToolPrivateJwkEnvValue();
+  process.env['LTI_STATE_SECRET'] = TEST_LTI_STATE_SECRET;
 
   try {
     return await run();

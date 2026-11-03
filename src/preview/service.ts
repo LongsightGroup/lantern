@@ -310,8 +310,9 @@ function buildPreviewLaunchDetail(
     runtimeSessionId,
     origin: previewSession.origin,
     contentPath: previewSession.contentPath,
-    route: previewSession.origin === 'adminAuthoringDraft'
-      ? `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/authoring`
-      : `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/preview`,
+    route:
+      previewSession.origin === 'adminAuthoringDraft'
+        ? `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/authoring`
+        : `/admin/packages/${previewSession.appId}/versions/${previewSession.packageVersion}/preview`,
   };
 }

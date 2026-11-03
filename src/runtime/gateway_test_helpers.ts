@@ -16,11 +16,11 @@ export function getReferenceAppSnapshotRoot(appId: 'chapter-4-asteroids' | 'quic
 
 export function restoreEnv(name: string, value: string | undefined): void {
   if (value === undefined) {
-    Deno.env.delete(name);
+    delete process.env[name];
     return;
   }
 
-  Deno.env.set(name, value);
+  process.env[name] = value;
 }
 
 export async function withFetchStub<T>(

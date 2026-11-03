@@ -104,13 +104,13 @@ export interface PackageArtifactRecord {
 
 export type AppRuntime =
   | {
-    readonly kind: 'browser';
-    readonly entrypoint: string;
-  }
+      readonly kind: 'browser';
+      readonly entrypoint: string;
+    }
   | {
-    readonly kind: 'worker';
-    readonly entrypoint: string;
-  };
+      readonly kind: 'worker';
+      readonly entrypoint: string;
+    };
 
 export interface ReviewedRuntimeContract {
   runtimeContractVersion: '2';
@@ -313,9 +313,7 @@ export interface AuthoringDraftRecord {
   files: AuthoringDraftFileRecord[];
 }
 
-export type PreviewSessionOrigin =
-  | 'adminTestLaunch'
-  | 'adminAuthoringDraft';
+export type PreviewSessionOrigin = 'adminTestLaunch' | 'adminAuthoringDraft';
 
 export interface PreviewSessionRecord {
   sessionId: string;

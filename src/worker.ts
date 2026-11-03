@@ -1,3 +1,10 @@
+import { workflowCheckpoint } from './platform/workflow_checkpoint.ts';
+import {
+  WorkflowEntrypoint,
+  WorkerEntrypoint,
+  type WorkflowEvent,
+  type WorkflowStep,
+} from 'cloudflare:workers';
 export { AppWriterAgent } from './app_writer/agent.ts';
 export {
   createCloudflarePythonGraderSandboxFactory,
@@ -18,43 +25,6 @@ import type { PythonLabGenerationWorkflowParams } from './python_lab/workflow.ts
 import type { PrimitiveResult, RosterPage } from '../sdk/worker-app-sdk.ts';
 import { createWorkerHandler } from './worker_handler.ts';
 
-interface WorkflowEntrypointRuntimeClass {
-  new (): object;
-}
-
-declare const WorkflowEntrypoint: WorkflowEntrypointRuntimeClass | undefined;
-declare const WorkerEntrypoint: WorkflowEntrypointRuntimeClass | undefined;
-
-interface WorkflowEvent<Params> {
-  readonly payload: Readonly<Params>;
-  readonly timestamp: Date;
-  readonly instanceId: string;
-}
-
-interface WorkflowStep {
-  do<Result>(name: string, callback: () => Result | Promise<Result>): Promise<Result>;
-  do<Result>(
-    name: string,
-    config: WorkflowStepConfig,
-    callback: () => Result | Promise<Result>,
-  ): Promise<Result>;
-}
-
-interface WorkflowStepConfig {
-  retries?: {
-    limit: number;
-    delay: string | number;
-    backoff?: 'constant' | 'linear' | 'exponential';
-  };
-  timeout?: string | number;
-}
-
-const WorkflowEntrypointBase: WorkflowEntrypointRuntimeClass =
-  typeof WorkflowEntrypoint === 'function' ? WorkflowEntrypoint : Object;
-const WorkerEntrypointBase: WorkflowEntrypointRuntimeClass = typeof WorkerEntrypoint === 'function'
-  ? WorkerEntrypoint
-  : Object;
-
 interface LanternLmsBindingProps {
   readonly appId: string;
   readonly packageVersionId: number;
@@ -62,10 +32,13 @@ interface LanternLmsBindingProps {
 
 export default createWorkerHandler(createCloudflarePythonGraderSandboxFactory);
 
-export class AppGenerationWorkflow extends WorkflowEntrypointBase {
+export class AppGenerationWorkflow extends WorkflowEntrypoint<
+  WorkerBindings,
+  AppGenerationWorkflowParams
+> {
   declare readonly env: WorkerBindings;
 
-  async run(
+  override async run(
     event: WorkflowEvent<AppGenerationWorkflowParams>,
     step: WorkflowStep,
   ): Promise<unknown> {
@@ -79,11 +52,13 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '2 minutes',
       },
-      () =>
-        runAppGenerationInitializationWorkflowStep({
-          bindings: this.env,
-          params: event.payload,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationInitializationWorkflowStep({
+            bindings: this.env,
+            params: event.payload,
+          }),
+        ),
     );
 
     if (!initialized.ok) {
@@ -100,11 +75,13 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '5 minutes',
       },
-      () =>
-        runAppGenerationPlanningWorkflowStep({
-          bindings: this.env,
-          initialized: initialized.value,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationPlanningWorkflowStep({
+            bindings: this.env,
+            initialized: initialized.value,
+          }),
+        ),
     );
 
     if (!planned.ok) {
@@ -121,11 +98,13 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '45 minutes',
       },
-      () =>
-        runAppGenerationFileWorkflowStep({
-          bindings: this.env,
-          planned: planned.value,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationFileWorkflowStep({
+            bindings: this.env,
+            planned: planned.value,
+          }),
+        ),
     );
 
     if (!generated.ok) {
@@ -142,36 +121,43 @@ export class AppGenerationWorkflow extends WorkflowEntrypointBase {
         },
         timeout: '15 minutes',
       },
-      () =>
-        runAppGenerationFinishWorkflowStep({
-          bindings: this.env,
-          generated: generated.value,
-        }),
+      async () =>
+        workflowCheckpoint(
+          await runAppGenerationFinishWorkflowStep({
+            bindings: this.env,
+            generated: generated.value,
+          }),
+        ),
     );
   }
 }
 
-export class PythonLabGenerationWorkflow extends WorkflowEntrypointBase {
+export class PythonLabGenerationWorkflow extends WorkflowEntrypoint<
+  WorkerBindings,
+  PythonLabGenerationWorkflowParams
+> {
   declare readonly env: WorkerBindings;
 
-  async run(
+  override async run(
     event: WorkflowEvent<PythonLabGenerationWorkflowParams>,
     step: WorkflowStep,
   ): Promise<unknown> {
-    return await step.do(
-      'generate Python autograder Lab',
-      { timeout: '10 minutes' },
-      () =>
-        runPythonLabGenerationWorkflow({
+    return await step.do('generate Python autograder Lab', { timeout: '10 minutes' }, async () =>
+      workflowCheckpoint(
+        await runPythonLabGenerationWorkflow({
           bindings: this.env,
           params: event.payload,
           createPythonSandboxFactory: createCloudflarePythonGraderSandboxFactory,
         }),
+      ),
     );
   }
 }
 
-export class LanternLmsCapabilityBinding extends WorkerEntrypointBase {
+export class LanternLmsCapabilityBinding extends WorkerEntrypoint<
+  WorkerBindings,
+  LanternLmsBindingProps
+> {
   declare readonly env: WorkerBindings;
   declare readonly props: LanternLmsBindingProps;
 
@@ -204,11 +190,13 @@ function isLmsBindingRosterEnvelope(value: unknown): value is {
     return false;
   }
   const record = value as Record<string, unknown>;
-  return typeof record.runtimeSessionId === 'string' &&
+  return (
+    typeof record.runtimeSessionId === 'string' &&
     record.runtimeSessionId.length > 0 &&
     typeof record.runtimeSessionToken === 'string' &&
     record.runtimeSessionToken.length > 0 &&
     (record.traceId === undefined ||
       (typeof record.traceId === 'string' && record.traceId.length > 0)) &&
-    'request' in record;
+    'request' in record
+  );
 }

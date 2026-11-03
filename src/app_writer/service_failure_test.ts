@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import {
   createStaticAppWriterWorkspaceRunner,
@@ -18,7 +19,7 @@ import {
   createStagedAppWriterWorkspaceRunner,
 } from './service_test_support.ts';
 
-Deno.test('app writer service records authoring provider capacity failures on the plan', async () => {
+test('app writer service records authoring provider capacity failures on the plan', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const stagedWorkspaceRunner = createStagedAppWriterWorkspaceRunner();
   const workspaceRunner: AppWriterWorkspaceRunner = {
@@ -62,7 +63,7 @@ Deno.test('app writer service records authoring provider capacity failures on th
   assertEquals(workspace?.validationFindings, error.run.validationFindings);
 });
 
-Deno.test('app writer service persists harness model metadata on failed authoring runs', async () => {
+test('app writer service persists harness model metadata on failed authoring runs', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const stagedWorkspaceRunner = createStagedAppWriterWorkspaceRunner();
   const workspaceRunner: AppWriterWorkspaceRunner = {
@@ -123,7 +124,7 @@ Deno.test('app writer service persists harness model metadata on failed authorin
   );
 });
 
-Deno.test('app writer service records failed workspaceRunner runs before rejecting', async () => {
+test('app writer service records failed workspaceRunner runs before rejecting', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   const error = await assertRejects(
@@ -154,7 +155,7 @@ Deno.test('app writer service records failed workspaceRunner runs before rejecti
   assertEquals(persisted?.validationFindings[0]?.message, 'model offline');
 });
 
-Deno.test('app writer service can continue a previously started durable run', async () => {
+test('app writer service can continue a previously started durable run', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   await startAppPackageGenerationRun({
@@ -178,7 +179,7 @@ Deno.test('app writer service can continue a previously started durable run', as
   assertEquals(result.run.generatedAppId, 'phonics-match');
 });
 
-Deno.test('app writer service classifies model request timeouts distinctly', async () => {
+test('app writer service classifies model request timeouts distinctly', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   const error = await assertRejects(
@@ -206,7 +207,7 @@ Deno.test('app writer service classifies model request timeouts distinctly', asy
   });
 });
 
-Deno.test('app writer service explains invalid workspace harness JSON clearly', async () => {
+test('app writer service explains invalid workspace harness JSON clearly', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   const error = await assertRejects(
@@ -240,7 +241,7 @@ Deno.test('app writer service explains invalid workspace harness JSON clearly', 
   );
 });
 
-Deno.test('app writer service explains invalid workspace harness shape clearly', async () => {
+test('app writer service explains invalid workspace harness shape clearly', async () => {
   const repository = createInMemoryPackageReviewRepository();
 
   const error = await assertRejects(

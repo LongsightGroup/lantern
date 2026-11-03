@@ -1,12 +1,16 @@
+import { join } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assertEquals, assertThrows } from '@std/assert';
 import {
-  buildWranglerR2PutArgs,
+  buildCloudflareR2PutArgs,
   listReferencePackageSourceUploads,
   readArgs,
   syncReferencePackageSources,
 } from './reference_sync_support.ts';
 
-Deno.test('readArgs defaults to remote sync across all curated reference apps', () => {
+test('readArgs defaults to remote sync across all curated reference apps', () => {
   const args = readArgs(['--bucket=lantern-artifacts']);
 
   assertEquals(args.bucket, 'lantern-artifacts');
@@ -15,34 +19,34 @@ Deno.test('readArgs defaults to remote sync across all curated reference apps', 
   assertEquals(args.appIds.length > 0, true);
 });
 
-Deno.test('readArgs accepts local filtered sync and rejects persist-to without local', () => {
+test('readArgs accepts local filtered sync and rejects persist-to without local', () => {
   const parsed = readArgs([
     '--bucket=lantern-artifacts',
     '--app-id=template-app',
     '--local',
-    '--persist-to=.wrangler/state/v3/r2',
+    '--persist-to=.cloudflare/state',
     '--dry-run',
   ]);
 
   assertEquals(parsed.appIds, ['template-app']);
   assertEquals(parsed.mode, 'local');
-  assertEquals(parsed.persistTo, '.wrangler/state/v3/r2');
+  assertEquals(parsed.persistTo, '.cloudflare/state');
   assertEquals(parsed.dryRun, true);
 
   assertThrows(
-    () => readArgs(['--bucket=lantern-artifacts', '--persist-to=.wrangler/state/v3/r2']),
+    () => readArgs(['--bucket=lantern-artifacts', '--persist-to=.cloudflare/state']),
     Error,
     '--persist-to requires --local.',
   );
 });
 
-Deno.test('listReferencePackageSourceUploads maps source files into the curated bucket layout', async () => {
-  const sourceRoot = await Deno.makeTempDir({ prefix: 'lantern-reference-sync-' });
+test('listReferencePackageSourceUploads maps source files into the curated bucket layout', async () => {
+  const sourceRoot = await mkdtemp(join(tmpdir(), 'lantern-reference-sync-'));
 
   try {
-    await Deno.mkdir(`${sourceRoot}/dist`, { recursive: true });
-    await Deno.writeTextFile(`${sourceRoot}/manifest.json`, '{}\n');
-    await Deno.writeTextFile(`${sourceRoot}/dist/app.js`, "console.log('ok');\n");
+    await mkdir(`${sourceRoot}/dist`, { recursive: true });
+    await writeFile(`${sourceRoot}/manifest.json`, '{}\n');
+    await writeFile(`${sourceRoot}/dist/app.js`, "console.log('ok');\n");
 
     const uploads = await listReferencePackageSourceUploads(['template-app'], {
       resolveSourceRoot: () => sourceRoot,
@@ -66,19 +70,18 @@ Deno.test('listReferencePackageSourceUploads maps source files into the curated 
       ],
     );
   } finally {
-    await Deno.remove(sourceRoot, { recursive: true });
+    await rm(sourceRoot, { recursive: true });
   }
 });
 
-Deno.test('buildWranglerR2PutArgs keeps wrangler scoped to one explicit object write', () => {
-  const args = buildWranglerR2PutArgs(
+test('buildCloudflareR2PutArgs keeps Cloudflare scoped to one explicit object write', () => {
+  const args = buildCloudflareR2PutArgs(
     {
       bucket: 'lantern-artifacts',
       appIds: ['template-app'],
       mode: 'local',
-      configPath: 'wrangler.jsonc',
-      envName: 'staging',
-      persistTo: '.wrangler/state/v3/r2',
+      cloudflareMode: 'staging',
+      persistTo: '.cloudflare/state',
       dryRun: false,
     },
     {
@@ -90,45 +93,42 @@ Deno.test('buildWranglerR2PutArgs keeps wrangler scoped to one explicit object w
   );
 
   assertEquals(args, [
-    'wrangler',
-    '--config',
-    'wrangler.jsonc',
-    '--env',
-    'staging',
     'r2',
-    'object',
+    'objects',
     'put',
-    'lantern-artifacts/reference-packages/template-app/source/manifest.json',
+    'reference-packages/template-app/source/manifest.json',
+    '--bucket-name',
+    'lantern-artifacts',
     '--file',
     'examples/apps/template/manifest.json',
+    '--mode',
+    'staging',
     '--local',
     '--persist-to',
-    '.wrangler/state/v3/r2',
-    '--force',
+    '.cloudflare/state',
   ]);
 });
 
-Deno.test('syncReferencePackageSources dry-run plans uploads without invoking wrangler', async () => {
-  const sourceRoot = await Deno.makeTempDir({ prefix: 'lantern-reference-sync-' });
+test('syncReferencePackageSources dry-run plans uploads without invoking Cloudflare', async () => {
+  const sourceRoot = await mkdtemp(join(tmpdir(), 'lantern-reference-sync-'));
   const commands: string[][] = [];
 
   try {
-    await Deno.writeTextFile(`${sourceRoot}/manifest.json`, '{}\n');
+    await writeFile(`${sourceRoot}/manifest.json`, '{}\n');
 
     const summary = await syncReferencePackageSources(
       {
         bucket: 'lantern-artifacts',
         appIds: ['template-app'],
         mode: 'remote',
-        configPath: null,
-        envName: null,
+        cloudflareMode: null,
         persistTo: null,
         dryRun: true,
       },
       {
         resolveSourceRoot: () => sourceRoot,
         resolveBucketRoot: () => 'reference-packages/template-app/source',
-        runWranglerCommand(args) {
+        runCloudflareCommand(args) {
           commands.push(args);
 
           return Promise.resolve();
@@ -143,6 +143,6 @@ Deno.test('syncReferencePackageSources dry-run plans uploads without invoking wr
       'reference-packages/template-app/source/manifest.json',
     );
   } finally {
-    await Deno.remove(sourceRoot, { recursive: true });
+    await rm(sourceRoot, { recursive: true });
   }
 });

@@ -7,7 +7,7 @@
  * serves `governed_runtime_sessions` minted by `lms_kernel`. Keep LMS launches
  * off this plane.
  */
-import type { Context, Hono } from '@hono/hono';
+import type { Context, Hono } from 'hono';
 import type { RuntimeSessionRecord } from './lti/types.ts';
 import {
   readBearerToken,
@@ -66,8 +66,7 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         failRuntimeOutcome({
           type: 'integrity_failure',
           code: 'package_version_missing',
-          message:
-            `Runtime session package version id ${runtime.session.packageVersionId} was not found.`,
+          message: `Runtime session package version id ${runtime.session.packageVersionId} was not found.`,
           status: 409,
           detail: {
             packageVersionId: runtime.session.packageVersionId,
@@ -320,16 +319,19 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
         detail: { phase: result.phase, alreadyFinalized: result.alreadyFinalized },
       });
 
-      return context.json({
-        accepted: true,
-        phase: result.phase,
-        publicOutcomes: result.publicOutcomes,
-        hiddenSummary: result.hiddenSummary,
-        scoreGiven: result.scoreGiven,
-        scoreMaximum: result.scoreMaximum,
-        alreadyFinalized: result.alreadyFinalized,
-        gradePublished: result.gradePublished,
-      }, 202);
+      return context.json(
+        {
+          accepted: true,
+          phase: result.phase,
+          publicOutcomes: result.publicOutcomes,
+          hiddenSummary: result.hiddenSummary,
+          scoreGiven: result.scoreGiven,
+          scoreMaximum: result.scoreMaximum,
+          alreadyFinalized: result.alreadyFinalized,
+          gradePublished: result.gradePublished,
+        },
+        202,
+      );
     });
   });
 
@@ -391,8 +393,8 @@ export function registerRuntimeRoutes(app: Hono, services: AppServices): void {
       requireRuntimeOriginBoundary(context, services);
       session = await requireRuntimeSession(repository, sessionId);
       const url = new URL(context.req.url);
-      const token = readBearerToken(context.req.header('authorization')) ??
-        url.searchParams.get('token');
+      const token =
+        readBearerToken(context.req.header('authorization')) ?? url.searchParams.get('token');
 
       authorizeRuntimeSession({
         token: requireTrimmedString(token, 'Runtime session token is required.'),
@@ -651,8 +653,7 @@ function requireRuntimePackageVersionCanRun(packageVersion: PackageVersionRecord
   failRuntimeOutcome({
     type: 'integrity_failure',
     code: 'package_version_not_approved',
-    message:
-      `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
+    message: `Runtime session package version ${packageVersion.appId}@${packageVersion.version} is not approved.`,
     status: 409,
     detail: {
       packageVersionId: packageVersion.id,

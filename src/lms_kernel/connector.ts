@@ -11,9 +11,9 @@ import type {
 export type RosterConnectorResult =
   | { readonly ok: true; readonly page: RosterConnectorPage }
   | {
-    readonly ok: false;
-    readonly errorCode: Extract<PrimitiveErrorCode, 'upstream_unavailable' | 'rate_limited'>;
-  };
+      readonly ok: false;
+      readonly errorCode: Extract<PrimitiveErrorCode, 'upstream_unavailable' | 'rate_limited'>;
+    };
 
 export interface RosterConnector {
   listPage(input: {
@@ -54,9 +54,10 @@ export function createNrpsRosterConnector(
           const message = result.error.message.toLowerCase();
           return {
             ok: false,
-            errorCode: message.includes('429') || message.includes('rate')
-              ? 'rate_limited'
-              : 'upstream_unavailable',
+            errorCode:
+              message.includes('429') || message.includes('rate')
+                ? 'rate_limited'
+                : 'upstream_unavailable',
           };
         }
 
@@ -82,8 +83,10 @@ export function createNrpsRosterConnector(
 }
 
 function sameStrings(left: readonly string[], right: readonly string[]): boolean {
-  return left.length === right.length &&
-    [...left].sort().every((value, index) => value === [...right].sort()[index]);
+  return (
+    left.length === right.length &&
+    [...left].sort().every((value, index) => value === [...right].sort()[index])
+  );
 }
 
 export function createSyntheticRosterConnector(): RosterConnector {
@@ -137,16 +140,7 @@ function parseSyntheticOffset(value: string | null): number | null {
 }
 
 function buildSyntheticMembers(): RosterConnectorMember[] {
-  const firstNames = [
-    'Avery',
-    'Jordan',
-    'Morgan',
-    'Riley',
-    'Cameron',
-    'Taylor',
-    'Casey',
-    'Quinn',
-  ];
+  const firstNames = ['Avery', 'Jordan', 'Morgan', 'Riley', 'Cameron', 'Taylor', 'Casey', 'Quinn'];
   const lastNames = ['Allen', 'Brooks', 'Chen', 'Diaz', 'Evans', 'Foster', 'Gupta', 'Hall'];
   return Array.from({ length: 57 }, (_, index) => {
     const firstName = firstNames[index % firstNames.length]!;

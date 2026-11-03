@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assert, assertEquals, assertRejects } from '@std/assert';
 import type { D1Database } from '../db/d1.ts';
 import { runD1 } from '../db/d1.ts';
@@ -26,7 +27,7 @@ const OWNER = {
   createdAt: NOW,
 } as const;
 
-Deno.test('D1 version replacement invalidates old sessions, grants, and photos permanently', async () => {
+test('D1 version replacement invalidates old sessions, grants, and photos permanently', async () => {
   await withKernelD1(async (db) => {
     const repository = await seedRuntime(db);
     const admin = createLmsKernelAdminService({
@@ -41,7 +42,7 @@ Deno.test('D1 version replacement invalidates old sessions, grants, and photos p
             approvalStatus: 'approved',
             runtime: { kind: 'worker', entrypoint: '/dist/worker.js' },
             capabilities: [...CAPABILITIES],
-          })
+          }),
         ),
       }),
     });
@@ -59,14 +60,14 @@ Deno.test('D1 version replacement invalidates old sessions, grants, and photos p
       true,
     );
     assert(
-      await repository.getAuthorizedProtectedMediaReference({ id: 'media-1', now: NOW }) !== null,
+      (await repository.getAuthorizedProtectedMediaReference({ id: 'media-1', now: NOW })) !== null,
     );
 
     assert((await admin.installApp({ membership: OWNER, packageVersionId: 2 })).ok);
     assertEquals(await repository.getGovernedRuntimeSession(lookup), null);
     assertEquals(
-      (await repository.listCapabilityGrants('installation-1')).every((grant) =>
-        grant.revokedAt === NOW
+      (await repository.listCapabilityGrants('installation-1')).every(
+        (grant) => grant.revokedAt === NOW,
       ),
       true,
     );
@@ -77,12 +78,14 @@ Deno.test('D1 version replacement invalidates old sessions, grants, and photos p
     );
     for (const capability of CAPABILITIES) {
       assert(
-        (await admin.grantCapability({
-          membership: OWNER,
-          installationId: 'installation-1',
-          capability,
-          lmsContextId: 'context-1',
-        })).ok,
+        (
+          await admin.grantCapability({
+            membership: OWNER,
+            installationId: 'installation-1',
+            capability,
+            lmsContextId: 'context-1',
+          })
+        ).ok,
       );
     }
     assert(
@@ -104,12 +107,14 @@ Deno.test('D1 version replacement invalidates old sessions, grants, and photos p
     );
     for (const capability of CAPABILITIES) {
       assert(
-        (await admin.grantCapability({
-          membership: OWNER,
-          installationId: 'installation-1',
-          capability,
-          lmsContextId: 'context-1',
-        })).ok,
+        (
+          await admin.grantCapability({
+            membership: OWNER,
+            installationId: 'installation-1',
+            capability,
+            lmsContextId: 'context-1',
+          })
+        ).ok,
       );
     }
     assert(
@@ -134,7 +139,7 @@ Deno.test('D1 version replacement invalidates old sessions, grants, and photos p
   });
 });
 
-Deno.test('D1 rolls back session and grant invalidation when version replacement audit fails', async () => {
+test('D1 rolls back session and grant invalidation when version replacement audit fails', async () => {
   await withKernelD1(async (db) => {
     const repository = await seedRuntime(db);
     await assertRejects(() =>
@@ -145,7 +150,7 @@ Deno.test('D1 rolls back session and grant invalidation when version replacement
         installedByUserId: 'admin-1',
         now: NOW,
         event: event('app_installation.version_replaced', 999_999),
-      })
+      }),
     );
     const session = await repository.getGovernedRuntimeSession({
       runtimeSessionId: 'runtime-1',
@@ -154,13 +159,13 @@ Deno.test('D1 rolls back session and grant invalidation when version replacement
     assert(session !== null);
     assertEquals(session.runtimeExpiresAt, '2026-07-20T15:10:00.000Z');
     assertEquals(
-      (await repository.listCapabilityGrants('installation-1')).every((grant) =>
-        grant.revokedAt === null
+      (await repository.listCapabilityGrants('installation-1')).every(
+        (grant) => grant.revokedAt === null,
       ),
       true,
     );
     assert(
-      await repository.getAuthorizedProtectedMediaReference({ id: 'media-1', now: NOW }) !== null,
+      (await repository.getAuthorizedProtectedMediaReference({ id: 'media-1', now: NOW })) !== null,
     );
   });
 });

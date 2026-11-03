@@ -102,9 +102,11 @@ export async function finalizeRuntimeSession(input: {
     session: input.session,
     payload: input.payload,
     env: input.env,
-    ...(input.getLtiToolContext === undefined ? {} : {
-      getLtiToolContext: input.getLtiToolContext,
-    }),
+    ...(input.getLtiToolContext === undefined
+      ? {}
+      : {
+          getLtiToolContext: input.getLtiToolContext,
+        }),
     artifactStore: input.artifactStore,
     now,
   });

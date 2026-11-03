@@ -1,4 +1,4 @@
-import type { Context } from '@hono/hono';
+import type { Context } from 'hono';
 import type { AdminNotice } from './admin/layout.ts';
 import { createErrorNotice, packageDetailPath } from './app_notice_support.ts';
 import { normalizeOptionalString } from './app_request_support.ts';
@@ -28,30 +28,33 @@ export async function handleReviewDecision(
     const reviewNotes = normalizeOptionalString(formData.get('reviewNotes'));
     const accessibilityReview = readAccessibilityReviewForm(formData);
     const repository = services.getRepository();
-    const packageVersion = decision === 'approve'
-      ? await repository.approvePackageVersion({
-        id,
-        reviewNotes,
-        accessibilityReview,
-      })
-      : await repository.rejectPackageVersion({
-        id,
-        reviewNotes,
-        accessibilityReview,
-      });
+    const packageVersion =
+      decision === 'approve'
+        ? await repository.approvePackageVersion({
+            id,
+            reviewNotes,
+            accessibilityReview,
+          })
+        : await repository.rejectPackageVersion({
+            id,
+            reviewNotes,
+            accessibilityReview,
+          });
     const actor = getKernelAdminContext(context);
-    await services.getLmsKernelRepository().appendGovernanceEvent(governanceEventBase({
-      traceId: crypto.randomUUID(),
-      eventType: decision === 'approve' ? 'package.approved' : 'package.rejected',
-      actorType: 'user',
-      actorId: actor.membership.userId,
-      institutionId: actor.membership.institutionId,
-      appId: packageVersion.appId,
-      packageVersionId: packageVersion.id,
-      decision: decision === 'approve' ? 'allowed' : 'denied',
-      outcome: 'completed',
-      occurredAt: new Date().toISOString(),
-    }));
+    await services.getLmsKernelRepository().appendGovernanceEvent(
+      governanceEventBase({
+        traceId: crypto.randomUUID(),
+        eventType: decision === 'approve' ? 'package.approved' : 'package.rejected',
+        actorType: 'user',
+        actorId: actor.membership.userId,
+        institutionId: actor.membership.institutionId,
+        appId: packageVersion.appId,
+        packageVersionId: packageVersion.id,
+        decision: decision === 'approve' ? 'allowed' : 'denied',
+        outcome: 'completed',
+        occurredAt: new Date().toISOString(),
+      }),
+    );
 
     return context.redirect(packageDetailPath(packageVersion.appId, packageVersion.version), 303);
   } catch (error) {
@@ -105,10 +108,12 @@ export async function renderInventoryError(
   }
 
   return context.html(
-    renderPackageIndexPage(adminPageInput(context, {
-      versions,
-      notice: createErrorNotice(title, error),
-    })),
+    renderPackageIndexPage(
+      adminPageInput(context, {
+        versions,
+        notice: createErrorNotice(title, error),
+      }),
+    ),
     statusForError(error),
   );
 }
@@ -124,10 +129,12 @@ export async function renderPackagesPage(
   const versions = await services.getRepository().listPackageVersions();
 
   return context.html(
-    renderPackageIndexPage(adminPageInput(context, {
-      versions,
-      notice: input.notice ?? null,
-    })),
+    renderPackageIndexPage(
+      adminPageInput(context, {
+        versions,
+        notice: input.notice ?? null,
+      }),
+    ),
     input.status ?? 200,
   );
 }
@@ -145,10 +152,12 @@ export async function renderPackageDetailError(
 
     if (!packageVersion) {
       return context.html(
-        renderPackageIndexPage(adminPageInput(context, {
-          versions: [],
-          notice: createErrorNotice(title, error),
-        })),
+        renderPackageIndexPage(
+          adminPageInput(context, {
+            versions: [],
+            notice: createErrorNotice(title, error),
+          }),
+        ),
         statusForError(error),
       );
     }
@@ -156,19 +165,23 @@ export async function renderPackageDetailError(
     const history = await repository.listPackageVersionsByApp(packageVersion.appId);
 
     return context.html(
-      renderPackageDetailPage(adminPageInput(context, {
-        packageVersion,
-        history,
-        notice: createErrorNotice(title, error),
-      })),
+      renderPackageDetailPage(
+        adminPageInput(context, {
+          packageVersion,
+          history,
+          notice: createErrorNotice(title, error),
+        }),
+      ),
       statusForError(error),
     );
   } catch {
     return context.html(
-      renderPackageIndexPage(adminPageInput(context, {
-        versions: [],
-        notice: createErrorNotice(title, error),
-      })),
+      renderPackageIndexPage(
+        adminPageInput(context, {
+          versions: [],
+          notice: createErrorNotice(title, error),
+        }),
+      ),
       statusForError(error),
     );
   }

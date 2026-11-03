@@ -1,7 +1,8 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { renderHomePage } from './home.ts';
 
-Deno.test('renderHomePage includes only the operational app entry points', () => {
+test('renderHomePage includes only the operational app entry points', () => {
   const html = renderHomePage();
 
   assertStringIncludes(html, 'Lantern runtime');
@@ -14,7 +15,7 @@ Deno.test('renderHomePage includes only the operational app entry points', () =>
   assertEquals(html.includes('Why IT can say yes'), false);
 });
 
-Deno.test('renderHomePage excludes tenant-private identifiers from public output', () => {
+test('renderHomePage excludes tenant-private identifiers from public output', () => {
   const html = renderHomePage();
 
   for (const forbidden of ['issuer', 'client_id', 'user_id', 'deployment_id', 'resource_link_id']) {

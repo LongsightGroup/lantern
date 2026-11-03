@@ -91,9 +91,8 @@ export function createGovernedRosterService(input: {
         now: observedAt,
       });
       if (!authorization.allowed) {
-        const code = authorization.reason === 'session_expired'
-          ? 'session_expired'
-          : 'permission_denied';
+        const code =
+          authorization.reason === 'session_expired' ? 'session_expired' : 'permission_denied';
         await recordDecision({
           repository: input.repository,
           session,
@@ -143,9 +142,8 @@ export function createGovernedRosterService(input: {
         return primitiveFailure('invalid_request', traceId);
       }
 
-      const connector = session.connectorKind === 'synthetic'
-        ? input.syntheticConnector
-        : input.nrpsConnector;
+      const connector =
+        session.connectorKind === 'synthetic' ? input.syntheticConnector : input.nrpsConnector;
       const startedAt = performance.now();
       const connectorResult = await connector.listPage({
         session,
@@ -183,16 +181,17 @@ export function createGovernedRosterService(input: {
         );
       }
 
-      const nextCursor = connectorResult.page.nextContinuation === null
-        ? undefined
-        : await persistContinuation({
-          repository: input.repository,
-          env: input.env,
-          session,
-          continuation: connectorResult.page.nextContinuation,
-          now: observedAt,
-          createId,
-        });
+      const nextCursor =
+        connectorResult.page.nextContinuation === null
+          ? undefined
+          : await persistContinuation({
+              repository: input.repository,
+              env: input.env,
+              session,
+              continuation: connectorResult.page.nextContinuation,
+              now: observedAt,
+              createId,
+            });
 
       await recordCompletion({
         repository: input.repository,
@@ -356,32 +355,34 @@ async function recordDecision(input: {
   readonly requestMetadata: Readonly<Record<string, string>>;
   readonly occurredAt: string;
 }): Promise<void> {
-  await input.repository.appendGovernanceEvents(input.capabilities.map((capability) => {
-    const grant = input.grants.find((candidate) => candidate.capability === capability);
-    return {
-      traceId: input.traceId,
-      eventType: 'primitive.authorization',
-      institutionId: input.session.institutionId,
-      lmsConnectionId: input.session.lmsConnectionId,
-      lmsContextId: input.session.lmsContextId,
-      appInstallationId: input.session.appInstallationId,
-      appId: input.session.appId,
-      packageVersionId: input.session.packageVersionId,
-      runtimeSessionId: input.session.runtimeSessionId,
-      actorType: input.session.actorType,
-      actorId: input.session.actorSubjectId,
-      capability,
-      capabilityGrantId: grant?.id ?? null,
-      decision: input.decision,
-      outcome: input.outcome,
-      connectorKind: input.session.connectorKind,
-      objectCount: null,
-      latencyMs: null,
-      errorCode: input.errorCode,
-      requestMetadata: input.requestMetadata,
-      occurredAt: input.occurredAt,
-    };
-  }));
+  await input.repository.appendGovernanceEvents(
+    input.capabilities.map((capability) => {
+      const grant = input.grants.find((candidate) => candidate.capability === capability);
+      return {
+        traceId: input.traceId,
+        eventType: 'primitive.authorization',
+        institutionId: input.session.institutionId,
+        lmsConnectionId: input.session.lmsConnectionId,
+        lmsContextId: input.session.lmsContextId,
+        appInstallationId: input.session.appInstallationId,
+        appId: input.session.appId,
+        packageVersionId: input.session.packageVersionId,
+        runtimeSessionId: input.session.runtimeSessionId,
+        actorType: input.session.actorType,
+        actorId: input.session.actorSubjectId,
+        capability,
+        capabilityGrantId: grant?.id ?? null,
+        decision: input.decision,
+        outcome: input.outcome,
+        connectorKind: input.session.connectorKind,
+        objectCount: null,
+        latencyMs: null,
+        errorCode: input.errorCode,
+        requestMetadata: input.requestMetadata,
+        occurredAt: input.occurredAt,
+      };
+    }),
+  );
 }
 
 async function recordCompletion(input: {
@@ -419,10 +420,7 @@ async function recordCompletion(input: {
   });
 }
 
-function primitiveFailure(
-  code: PrimitiveErrorCode,
-  traceId: string,
-): PrimitiveResult<never> {
+function primitiveFailure(code: PrimitiveErrorCode, traceId: string): PrimitiveResult<never> {
   return { ok: false, error: { code, traceId } };
 }
 

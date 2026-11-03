@@ -24,9 +24,8 @@ export function renderPackageIndexPage(input: {
   versions: PackageVersionRecord[];
   notice?: AdminNotice | null;
 }): string {
-  const body = input.versions.length === 0
-    ? renderEmptyState()
-    : renderPackageLibrary(input.versions);
+  const body =
+    input.versions.length === 0 ? renderEmptyState() : renderPackageLibrary(input.versions);
 
   return renderAdminLayout({
     identity: input.identity,
@@ -118,17 +117,13 @@ function renderPackageEntry(entry: PackageLibraryEntry): string {
       <div class="stack">
         <p class="line-title">
           <span>${escapeHtml(entry.title)}</span>
-          <span class="${approvalStatusClass(entry.latestApprovalStatus)}">${
-    escapeHtml(
-      approvalStatusLabel(entry.latestApprovalStatus),
-    )
-  }</span>
+          <span class="${approvalStatusClass(entry.latestApprovalStatus)}">${escapeHtml(
+            approvalStatusLabel(entry.latestApprovalStatus),
+          )}</span>
         </p>
-        <p class="line-copy">${
-    escapeHtml(
-      entry.description ?? 'No app description was provided.',
-    )
-  }</p>
+        <p class="line-copy">${escapeHtml(
+          entry.description ?? 'No app description was provided.',
+        )}</p>
       </div>
       <div class="button-row">
         <a class="button-primary" href="/admin/packages/${escapeHtml(entry.appId)}">Open app</a>

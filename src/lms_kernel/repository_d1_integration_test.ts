@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import type { D1Database } from '../db/d1.ts';
 import { runD1 } from '../db/d1.ts';
@@ -7,7 +8,7 @@ import { createD1LmsKernelRepository } from './repository_d1.ts';
 
 const NOW = '2026-07-20T15:00:00.000Z';
 
-Deno.test('D1 rolls back a governed mutation when its audit event cannot commit', async () => {
+test('D1 rolls back a governed mutation when its audit event cannot commit', async () => {
   await withKernelD1(async (db) => {
     await seedAuthUser(db, 'owner-1');
     const repository = createD1LmsKernelRepository(db);
@@ -27,7 +28,7 @@ Deno.test('D1 rolls back a governed mutation when its audit event cannot commit'
           actorId: 'owner-1',
           occurredAt: NOW,
         }),
-      })
+      }),
     );
 
     assertEquals(await repository.getInstitutionById('institution-rollback'), null);
@@ -35,7 +36,7 @@ Deno.test('D1 rolls back a governed mutation when its audit event cannot commit'
   });
 });
 
-Deno.test('D1 invitation acceptance is one-time and appends its audit event atomically', async () => {
+test('D1 invitation acceptance is one-time and appends its audit event atomically', async () => {
   await withKernelD1(async (db) => {
     await Promise.all([seedAuthUser(db, 'owner-1'), seedAuthUser(db, 'admin-1')]);
     const repository = createD1LmsKernelRepository(db);
@@ -86,10 +87,12 @@ Deno.test('D1 invitation acceptance is one-time and appends its audit event atom
     assertEquals(accepted?.role, 'admin');
     assertEquals(replay, null);
     assertEquals(
-      (await repository.listGovernanceEvents({
-        institutionId: 'institution-1',
-        traceId: 'trace-accepted',
-      })).length,
+      (
+        await repository.listGovernanceEvents({
+          institutionId: 'institution-1',
+          traceId: 'trace-accepted',
+        })
+      ).length,
       1,
     );
     await assertRejects(

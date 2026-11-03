@@ -155,8 +155,8 @@ export class MemoryLmsKernelRepository implements LmsKernelRepository {
     readonly revokedByUserId: string;
     readonly revokedAt: string;
   }): Promise<CapabilityGrantRecord | null> {
-    const index = this.grants.findIndex((grant) =>
-      grant.id === input.id && grant.institutionId === input.institutionId
+    const index = this.grants.findIndex(
+      (grant) => grant.id === input.id && grant.institutionId === input.institutionId,
     );
     if (index < 0) {
       return Promise.resolve(null);
@@ -177,9 +177,7 @@ export class MemoryLmsKernelRepository implements LmsKernelRepository {
   }
 
   listCapabilityGrantsForInstitution(institutionId: string): Promise<CapabilityGrantRecord[]> {
-    return Promise.resolve(
-      this.grants.filter((grant) => grant.institutionId === institutionId),
-    );
+    return Promise.resolve(this.grants.filter((grant) => grant.institutionId === institutionId));
   }
 
   getGovernedRuntimeSession(input: {
@@ -249,9 +247,8 @@ export class MemoryLmsKernelRepository implements LmsKernelRepository {
     readonly now: string;
   }): Promise<ProtectedMediaReference | null> {
     const reference = this.media.get(input.id);
-    const photoGrant = this.grants.find((grant) =>
-      grant.capability === 'lms.roster.profile_photo.read' &&
-      grant.revokedAt === null
+    const photoGrant = this.grants.find(
+      (grant) => grant.capability === 'lms.roster.profile_photo.read' && grant.revokedAt === null,
     );
     if (
       reference === undefined ||
@@ -263,44 +260,36 @@ export class MemoryLmsKernelRepository implements LmsKernelRepository {
     return Promise.resolve(reference);
   }
 
-  appendGovernanceEvent(
-    event: Omit<GovernanceEventRecord, 'id'>,
-  ): Promise<GovernanceEventRecord> {
+  appendGovernanceEvent(event: Omit<GovernanceEventRecord, 'id'>): Promise<GovernanceEventRecord> {
     return Promise.resolve(this.recordGovernanceEvent(event));
   }
 
-  appendGovernanceEvents(
-    events: readonly Omit<GovernanceEventRecord, 'id'>[],
-  ): Promise<void> {
+  appendGovernanceEvents(events: readonly Omit<GovernanceEventRecord, 'id'>[]): Promise<void> {
     for (const event of events) this.recordGovernanceEvent(event);
     return Promise.resolve();
   }
 
   listGovernanceEvents(filter: GovernanceEventFilter): Promise<GovernanceEventRecord[]> {
     return Promise.resolve(
-      this.events.filter((event) =>
-        event.institutionId === filter.institutionId &&
-        (filter.traceId === undefined || event.traceId === filter.traceId) &&
-        (filter.capability === undefined || event.capability === filter.capability) &&
-        (filter.decision === undefined || event.decision === filter.decision) &&
-        (filter.outcome === undefined || event.outcome === filter.outcome)
+      this.events.filter(
+        (event) =>
+          event.institutionId === filter.institutionId &&
+          (filter.traceId === undefined || event.traceId === filter.traceId) &&
+          (filter.capability === undefined || event.capability === filter.capability) &&
+          (filter.decision === undefined || event.decision === filter.decision) &&
+          (filter.outcome === undefined || event.outcome === filter.outcome),
       ),
     );
   }
 
-  protected recordGovernanceEvent(
-    event: Omit<GovernanceEventRecord, 'id'>,
-  ): GovernanceEventRecord {
+  protected recordGovernanceEvent(event: Omit<GovernanceEventRecord, 'id'>): GovernanceEventRecord {
     const record = { id: this.events.length + 1, ...event };
     this.events.push(record);
     return record;
   }
 }
 
-export function buildKernelGrant(
-  id: string,
-  capability: RosterCapability,
-): CapabilityGrantRecord {
+export function buildKernelGrant(id: string, capability: RosterCapability): CapabilityGrantRecord {
   return {
     id,
     institutionId: 'institution-1',

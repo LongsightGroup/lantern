@@ -20,7 +20,8 @@ export function parseRosterListInput(value: unknown): RosterListInputParseResult
   }
 
   if (
-    value.cursor !== undefined && (typeof value.cursor !== 'string' || value.cursor.length === 0)
+    value.cursor !== undefined &&
+    (typeof value.cursor !== 'string' || value.cursor.length === 0)
   ) {
     return { ok: false };
   }

@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import {
   executePythonFunction,
@@ -6,7 +7,7 @@ import {
   type PythonGraderSandboxFactory,
 } from './runner.ts';
 
-Deno.test('executePythonFunction stages a fixed wrapper, parses JSON, and destroys the sandbox', async () => {
+test('executePythonFunction stages a fixed wrapper, parses JSON, and destroys the sandbox', async () => {
   const writes: Array<{ path: string; contents: string }> = [];
   let command = '';
   let destroyed = false;
@@ -32,11 +33,10 @@ Deno.test('executePythonFunction stages a fixed wrapper, parses JSON, and destro
   });
 
   assertEquals(result, { status: 'passed', value: 3 });
-  assertEquals(writes.map((item) => item.path), [
-    '/workspace/solution.py',
-    '/workspace/invoke.py',
-    '/workspace/request.json',
-  ]);
+  assertEquals(
+    writes.map((item) => item.path),
+    ['/workspace/solution.py', '/workspace/invoke.py', '/workspace/request.json'],
+  );
   assertEquals(command, PYTHON_GRADER_COMMAND);
   assertStringIncludes(PYTHON_GRADER_COMMAND, 'python3 -I -S');
   assertStringIncludes(writes[1]?.contents ?? '', 'class BoundedOutput');
@@ -44,7 +44,7 @@ Deno.test('executePythonFunction stages a fixed wrapper, parses JSON, and destro
   assertEquals(destroyed, true);
 });
 
-Deno.test('executePythonFunction rejects malformed output and still destroys the sandbox', async () => {
+test('executePythonFunction rejects malformed output and still destroys the sandbox', async () => {
   let destroyed = false;
   const result = await executePythonFunction({
     sandboxFactory: fakeSandboxFactory({
@@ -73,7 +73,7 @@ Deno.test('executePythonFunction rejects malformed output and still destroys the
   assertEquals(destroyed, true);
 });
 
-Deno.test('executePythonFunction reports sandbox cleanup failure as a runner failure', async () => {
+test('executePythonFunction reports sandbox cleanup failure as a runner failure', async () => {
   const result = await executePythonFunction({
     sandboxFactory: fakeSandboxFactory({
       writeFile() {

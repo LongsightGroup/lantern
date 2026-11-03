@@ -1,4 +1,4 @@
-import type { Context, Hono } from '@hono/hono';
+import type { Context, Hono } from 'hono';
 import { readEnv } from './platform/env.ts';
 import type { AppServices } from './app_services.ts';
 
@@ -49,11 +49,13 @@ const IP_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 
 export function registerPythonLabRoutes(app: Hono, services: PythonLabRouteServices): void {
   app.get(LAB_PATH, (context) => {
-    return context.html(renderPythonLabPage({
-      title: 'Lantern Python Autograder Lab',
-      heading: 'Create a gradeable Python assignment',
-      body: renderLabCreateForm(readEnv('AUTOGRADER_TURNSTILE_SITE_KEY', services.env) ?? ''),
-    }));
+    return context.html(
+      renderPythonLabPage({
+        title: 'Lantern Python Autograder Lab',
+        heading: 'Create a gradeable Python assignment',
+        body: renderLabCreateForm(readEnv('AUTOGRADER_TURNSTILE_SITE_KEY', services.env) ?? ''),
+      }),
+    );
   });
 
   app.post(`${LAB_PATH}/labs`, async (context) => {
@@ -63,8 +65,8 @@ export function registerPythonLabRoutes(app: Hono, services: PythonLabRouteServi
         token: formValue(form.get('cf-turnstile-response')),
         remoteIp: context.req.header('cf-connecting-ip') ?? null,
       });
-      const visitorToken = readCookie(context.req.header('cookie'), 'lantern_python_lab_visitor') ??
-        randomToken();
+      const visitorToken =
+        readCookie(context.req.header('cookie'), 'lantern_python_lab_visitor') ?? randomToken();
       const visitorHash = await hashToken(visitorToken);
       const remoteIp = context.req.header('cf-connecting-ip') ?? null;
       const requestIpHash = remoteIp === null ? null : await hashToken(remoteIp);
@@ -94,9 +96,12 @@ export function registerPythonLabRoutes(app: Hono, services: PythonLabRouteServi
       const admission = await services.pythonLabRepository.reserveLab({
         lab: record,
         visitorDay: now.toISOString().slice(0, 10),
-        ipWindowStartedAt: requestIpHash === null ? null : new Date(
-          Math.floor(now.getTime() / IP_RATE_LIMIT_WINDOW_MS) * IP_RATE_LIMIT_WINDOW_MS,
-        ).toISOString(),
+        ipWindowStartedAt:
+          requestIpHash === null
+            ? null
+            : new Date(
+                Math.floor(now.getTime() / IP_RATE_LIMIT_WINDOW_MS) * IP_RATE_LIMIT_WINDOW_MS,
+              ).toISOString(),
       });
 
       if (admission.status === 'visitor_limited') {
@@ -176,11 +181,13 @@ export function registerPythonLabRoutes(app: Hono, services: PythonLabRouteServi
     const resolved = await resolveAuthorizedLab(context, services);
     if ('response' in resolved) return resolved.response;
     const lab = resolved.lab;
-    return context.html(renderPythonLabPage({
-      title: lab.authorDraft.title,
-      heading: lab.authorDraft.title,
-      body: renderLabStatus(lab),
-    }));
+    return context.html(
+      renderPythonLabPage({
+        title: lab.authorDraft.title,
+        heading: lab.authorDraft.title,
+        body: renderLabStatus(lab),
+      }),
+    );
   });
 
   app.get(`${LAB_PATH}/labs/:labId/status`, async (context) => {
@@ -205,11 +212,13 @@ export function registerPythonLabRoutes(app: Hono, services: PythonLabRouteServi
         sandboxFactory: services.pythonGraderSandboxFactory,
         createId: randomToken,
       });
-      return context.html(renderPythonLabPage({
-        title: lab.authorDraft.title,
-        heading: lab.authorDraft.title,
-        body: renderCandidatePage(lab, source, result),
-      }));
+      return context.html(
+        renderPythonLabPage({
+          title: lab.authorDraft.title,
+          heading: lab.authorDraft.title,
+          body: renderCandidatePage(lab, source, result),
+        }),
+      );
     } catch {
       return context.html(
         renderPythonLabPage({
@@ -230,9 +239,9 @@ export function registerPythonLabRoutes(app: Hono, services: PythonLabRouteServi
     if (lab.state !== 'ready' || lab.packageVersionId === null) {
       throw new Error('Python Lab is not ready for learner preview.');
     }
-    const packageVersion = await services.getRepository().getPackageVersionById(
-      lab.packageVersionId,
-    );
+    const packageVersion = await services
+      .getRepository()
+      .getPackageVersionById(lab.packageVersionId);
     if (packageVersion === null) {
       throw new Error('Python Lab package was not found.');
     }
@@ -347,7 +356,10 @@ async function resolveAuthorizedLab(
 }
 
 class PythonLabAccessError extends Error {
-  constructor(readonly status: 403 | 404, message: string) {
+  constructor(
+    readonly status: 403 | 404,
+    message: string,
+  ) {
     super(message);
   }
 }

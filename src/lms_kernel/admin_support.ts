@@ -26,8 +26,13 @@ export function isHttpsUrl(value: string): boolean {
 }
 
 export function institutionSlug(name: string, suffix: string): string {
-  const base = name.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '').slice(0, 48) || 'institution';
+  const base =
+    name
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 48) || 'institution';
   return `${base}-${suffix.replaceAll('-', '').slice(0, 8)}`;
 }
 

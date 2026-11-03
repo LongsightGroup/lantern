@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { selectAppWriterContext } from './context.ts';
 import { APP_WRITER_EVALUATION_PROMPTS } from './evaluation_corpus.ts';
 
-Deno.test('app writer evaluation corpus covers the planned prompt families', () => {
+test('app writer evaluation corpus covers the planned prompt families', () => {
   assertEquals(
     APP_WRITER_EVALUATION_PROMPTS.map((prompt) => prompt.id),
     [
@@ -19,7 +20,7 @@ Deno.test('app writer evaluation corpus covers the planned prompt families', () 
   );
 });
 
-Deno.test('app writer evaluation corpus matches starter selection expectations', () => {
+test('app writer evaluation corpus matches starter selection expectations', () => {
   for (const prompt of APP_WRITER_EVALUATION_PROMPTS) {
     assertEquals(
       selectAppWriterContext({

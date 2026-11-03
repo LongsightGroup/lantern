@@ -12,8 +12,8 @@ credentials, direct database access, or direct grade-write power.
 If you want to evaluate Lantern as a JS/TS teaching tool, start here instead of
 with the full platform install:
 
-1. Install [Deno](https://deno.com/).
-2. Run `deno task app:preview examples/apps/typescript-ladder-game`.
+1. Install [Node.js 26 LTS](https://nodejs.org/) and run `npm ci`.
+2. Run `npm run app:preview -- examples/apps/typescript-ladder-game`.
 3. Open the localhost URL printed by the command.
 
 This path does not need LMS setup or a Cloudflare account. It runs the same
@@ -26,12 +26,12 @@ When you want the full local admin and review flow, use the built-in local
 bootstrap path:
 
 ```sh
-deno task local:init
-deno task local:bootstrap
-deno task local:start
+npm run local:init
+npm run local:bootstrap
+npm run local:start
 ```
 
-Then open the localhost URL printed by Wrangler.
+Then open the localhost URL printed by the Cloudflare Vite dev server.
 
 For arbitrary reviewed packages, use `/admin/packages/import`. Reference apps
 remain available at `/admin/packages/reference`.
@@ -40,8 +40,8 @@ What these commands do:
 
 - `local:init` writes `.env.local`, generates a local development signing key,
   and creates Lantern's local artifact directories
-- `local:bootstrap` applies local D1 migrations through Wrangler
-- `local:start` runs Lantern through Wrangler with the checked-in Worker config
+- `local:bootstrap` applies local D1 migrations through cf
+- `local:start` runs Lantern through cf with cloudflare.config.ts
 
 ## JS/TS Authoring Path
 
@@ -67,8 +67,8 @@ Start with:
 Common path:
 
 ```sh
-deno task app:new /tmp/my-lantern-app --starter=simple-activity --app-id=my-app --title="My App"
-deno task app:dev /tmp/my-lantern-app
+npm run app:new -- /tmp/my-lantern-app --starter=simple-activity --app-id=my-app --title="My App"
+npm run app:dev -- /tmp/my-lantern-app
 ```
 
 `app:dev` starts one local loop with a stable preview URL. It reruns package
@@ -202,10 +202,11 @@ This keeps LTI config, login redirects, dynamic registration callbacks, and Deep
 Linking responses consistent behind Cloudflare domains, routes, and previews.
 
 The repo treats the Workers entrypoint at [src/worker.ts](src/worker.ts) as the
-canonical runtime path. The Deno app wrapper in [src/app.ts](src/app.ts) exists
+canonical runtime path. The local app wrapper in [src/test_helpers/app.ts](src/test_helpers/app.ts) exists
 for injected tests and package preview tooling; full persistence runs through
-the Worker `DB` binding. The repo also includes a starter Wrangler config at
-[wrangler.jsonc](wrangler.jsonc).
+the Worker `DB` binding. The typed deployment configuration lives in
+[cloudflare.config.ts](cloudflare.config.ts), with the browser service defined in
+[cloudflare.platform.ts](cloudflare.platform.ts).
 
 Current Workers boundaries:
 
@@ -226,9 +227,9 @@ Current Workers boundaries:
 - repository-backed Worker routes use D1 through a binding named `DB`
 - curated reference package imports on Workers read source files from
   `PACKAGE_ARTIFACTS` under `reference-packages/<app-id>/source`
-- the Wrangler starter enables `nodejs_compat` and Smart Placement because
+- the Cloudflare configuration enables `nodejs_compat` and Smart Placement because
   Lantern makes multiple D1 queries per request
-- both Wrangler configs now include `worker_loaders` for the `LOADER` binding
+- the gateway configuration declares the `LOADER` binding
   used to cache Dynamic Workers by reviewed runtime identity instead of by
   session id
 
@@ -251,24 +252,25 @@ package source files into `PACKAGE_ARTIFACTS` during Cloudflare bootstrap or
 release with:
 
 ```sh
-deno task reference:sync --bucket=replace-with-package-artifact-bucket
+npm run reference:sync -- --bucket=replace-with-package-artifact-bucket
 ```
 
-This command shells out to Wrangler's `r2 object put` flow. Authenticate with
-Wrangler first or provide a Cloudflare API token in the environment you use for
-the command.
+This command uses the installed `cf r2 objects put` CLI. Authenticate with
+`cf auth login` or provide a Cloudflare API token before syncing remotely.
+Local syncs use `.cloudflare/state`, the same directory as the dev server.
 
-For local Worker development, Wrangler now builds a single generated Worker
-artifact through `deno task build:worker` before `dev` or `deploy`. The repo
-also enforces `deno task check:worker`, which rebuilds the Worker bundle and
-fails if Deno-only runtime references slip back into it. The generated file is
-`output/worker.bundle.mjs` and is not checked in.
+`npm run build` uses `cf build` and the Cloudflare Vite plugin to build the gateway,
+the browser service, and the Python container. Build Output is written under
+`.cloudflare/output/v0/` and is not checked in. `npm run check:worker` verifies the
+build and required bindings, and rejects Deno-only references in Worker modules.
+`npm run check:deploy` validates both deployable Workers without API requests.
+Use `npm run deploy` when ready to publish: it builds once, deploys the browser
+service explicitly, then deploys the gateway and its Python container.
 
 To run the Worker locally:
 
 - set Worker vars such as `APP_ORIGIN`, `BETTER_AUTH_SECRET`, and
-  `LTI_TOOL_PRIVATE_JWK` with
-  `--var ...` flags or `.dev.vars`
+  `LTI_TOOL_PRIVATE_JWK` in `.env.local`
 - keep the `LOADER` Worker Loader binding present; Lantern uses it for the
   governed Dynamic Worker envelope around immutable reviewed runtime delivery
 - keep the `DB` D1 binding present; it is the Worker persistence binding
@@ -282,17 +284,17 @@ with these redirect URIs:
 - `http://localhost:8417/api/auth/callback/google`
 
 Then configure both `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` as Worker
-secrets, or put both values in local `.dev.vars`. Setting only one value fails
+secrets, or put both values in local `.env.local`. Setting only one value fails
 startup clearly.
 
 - if you want the demo import path to work on Workers, provision the curated
   reference sources into the same bucket first with
-  `deno task reference:sync --bucket=<bucket-name>` or
-  `deno task reference:sync --bucket=<bucket-name> --local --persist-to=<dir>`
+  `npm run reference:sync -- --bucket=<bucket-name>` or
+  `npm run reference:sync -- --bucket=<bucket-name> --local --persist-to=<dir>`
   before calling `/admin/packages/import-reference`
-- then run `npx wrangler dev --local`
+- then run `npm run local:start`
 
-The reviewed runtime contract remains the same across local Deno preview and the
+The reviewed runtime contract remains the same across local Node.js preview and the
 Cloudflare-native Worker path. The browser still sees one Lantern-owned session
 document plus the same `GatewayBootstrap` and `GatewayApp` bridge. What changes
 on Workers is only the immutable delivery substrate for reviewed browser-first
@@ -320,11 +322,11 @@ code-hosting path for arbitrary uploaded server logic.
   [examples/apps/template/README.md](examples/apps/template/README.md)
 - Public UI design contract: [DESIGN.md](DESIGN.md)
 - Canonical Workers entrypoint: [src/worker.ts](src/worker.ts)
-- Test/tooling app wrapper: [src/app.ts](src/app.ts)
+- Test/tooling app wrapper: [src/test_helpers/app.ts](src/test_helpers/app.ts)
 
 ## Stack
 
-- Deno
+- Node.js 26 LTS and TypeScript 7
 - Hono
 - Cloudflare Workers
 - Cloudflare D1
@@ -336,20 +338,54 @@ code-hosting path for arbitrary uploaded server logic.
 
 ## Local Development
 
+Use Node.js 26.13.0 and npm 12.2.1, then install the locked dependencies with
+`npm ci`. The Node version is recorded in `.node-version`.
+
+Vite+ runs formatting, linting, TypeScript checks, and tests. App Writer uses the
+installed TypeScript 7 compiler for local source compilation; it does not fetch
+compiler libraries at runtime. Package and rubric validators are precompiled from
+`schemas/` so Workers never compile schemas with `new Function`. Run
+`npm run schemas:generate` after changing a schema; validation checks for stale output. Cloudflare's Vite and Vitest plugins use the same pinned Miniflare 5 runtime.
+Node tests run in the `node` Vite+ project; D1, RPC, and Browser Rendering tests run
+inside workerd in the `workers` project. Cloudflare's test pool owns their runtime
+and storage lifecycle.
+
+Cloudflare Puppeteer is pinned to `1.5.0-rc.0` because it removes the vulnerable
+legacy browser-download dependency tree. CI runs the dependency audit to catch
+new advisories. Miniflare also embeds an older downloader that npm's audit cannot
+see. The install step replaces that bundled copy with pinned `@puppeteer/browsers`
+3.2.6, removes its unused legacy dependencies, uses current Chrome, and keeps the
+Chrome sandbox enabled in CI. The patch verifies the upstream and patched file
+hashes and fails on unexpected changes; review it when upgrading Miniflare.
+The current `cf` beta also imports two removed Miniflare helpers. A second
+hash-checked install patch redirects those imports to Cloudflare's maintained
+`workers-utils` entrypoints. Review that patch when upgrading `cf`.
+
+Run `npm run browser:install` after installing dependencies to download the pinned
+Chrome version. Local preview assertions execute generated JavaScript in Chrome's
+sandboxed renderer, with no Node objects or inherited host environment. Lantern
+handles preview requests and blocks external requests. No DOM emulator executes
+app code in the host process.
+
+CI installs Chrome into a fresh cache and runs both local preview regression tests
+and `npm run check:browser`, which exercises the production App Writer preview handler in the Workers test
+pool with a real Browser Rendering binding. Linux hosts must allow Chrome's sandbox user
+namespaces; CI enables them explicitly instead of disabling the browser sandbox.
+
 Fast path:
 
 ```sh
-deno task local:init
-deno task local:bootstrap
-deno task local:start
+npm run local:init
+npm run local:bootstrap
+npm run local:start
 ```
 
-Open the localhost URL printed by Wrangler.
+Open the localhost URL printed by the Cloudflare Vite dev server.
 
 Generated local environment:
 
-- `.env.local`: written by `deno task local:init`
-- `PORT`: defaults to `8417`
+- `.env.local`: written by `npm run local:init`
+- the Vite dev server listens on port `8417`
 - `APP_ORIGIN`: defaults to `http://localhost:8417`
 - `APP_RUNTIME_ORIGIN`: defaults to `http://localhost:8417` so local preview and
   reviewed runtime stay on one origin
@@ -372,27 +408,25 @@ Manual minimum environment if you do not use `local:init`:
 
 Common commands:
 
-- `deno task local:init`
-- `deno task local:migrate`
-- `deno task local:bootstrap`
-- `deno task local:start`
-- `deno task local:dev`
-- `deno task dev`
-- `deno task start`
-- `deno task app:new --list-starters`
-- `deno task app:new <output-root> --starter=<id> --app-id=<app-id> --title="<title>"`
-- `deno task app:dev <package-root>`
-- `deno task app:validate <package-root>`
-- `deno task app:test-preview <package-root>`
-- `deno task app:preview <package-root>`
-- `deno task reference:sync --bucket=<bucket-name>`
-- `deno task fmt`
-- `deno task fmt:check`
-- `deno task lint`
-- `deno task check`
-- `deno task check:worker`
-- `deno task test`
-- `deno task validate`
+- `npm run local:init`
+- `npm run local:migrate`
+- `npm run local:bootstrap`
+- `npm run local:start`
+- `npm run local:dev`
+- `npm run app:new -- --list-starters`
+- `npm run app:new -- <output-root> --starter=<id> --app-id=<app-id> --title="<title>"`
+- `npm run app:dev -- <package-root>`
+- `npm run app:validate -- <package-root>`
+- `npm run app:test-preview -- <package-root>`
+- `npm run app:preview -- <package-root>`
+- `npm run reference:sync -- --bucket=<bucket-name>`
+- `npm run fmt`
+- `npm run fmt:check`
+- `npm run lint`
+- `npm run check`
+- `npm run check:worker`
+- `npm run test`
+- `npm run validate`
 
 Default local port: `8417`
 

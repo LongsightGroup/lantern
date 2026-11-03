@@ -47,23 +47,23 @@ export function mapRuntimeSessionRow(row: RuntimeSessionRow | undefined): Runtim
 }
 
 function mapLaunchServices(row: RuntimeSessionRow): RuntimeSessionRecord['services'] {
-  const hasAgs = row.agsScope.length > 0 || row.agsLineitemsUrl !== null ||
-    row.agsLineitemUrl !== null;
+  const hasAgs =
+    row.agsScope.length > 0 || row.agsLineitemsUrl !== null || row.agsLineitemUrl !== null;
   const hasNrps = row.nrpsContextMembershipsUrl !== null;
 
   return {
     ags: hasAgs
       ? {
-        scope: row.agsScope,
-        lineitemsUrl: row.agsLineitemsUrl,
-        lineitemUrl: row.agsLineitemUrl,
-      }
+          scope: row.agsScope,
+          lineitemsUrl: row.agsLineitemsUrl,
+          lineitemUrl: row.agsLineitemUrl,
+        }
       : null,
     nrps: hasNrps
       ? {
-        contextMembershipsUrl: row.nrpsContextMembershipsUrl!,
-        serviceVersions: row.nrpsServiceVersions,
-      }
+          contextMembershipsUrl: row.nrpsContextMembershipsUrl!,
+          serviceVersions: row.nrpsServiceVersions,
+        }
       : null,
   };
 }

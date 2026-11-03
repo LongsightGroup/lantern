@@ -54,7 +54,10 @@ export function createD1GovernanceEventRepository(db: D1Database): GovernanceEve
   return {
     async appendGovernanceEvents(events) {
       if (events.length === 0) return;
-      await runD1Batch(db, events.map((event) => governanceEventStatement(event)));
+      await runD1Batch(
+        db,
+        events.map((event) => governanceEventStatement(event)),
+      );
     },
 
     async appendGovernanceEvent(event) {
@@ -102,8 +105,8 @@ export function createD1GovernanceEventRepository(db: D1Database): GovernanceEve
           SELECT * FROM governance_events
           WHERE ${clauses.join(' AND ')}
           ORDER BY ${
-          filter.traceId === undefined ? 'occurred_at DESC, id DESC' : 'occurred_at ASC, id ASC'
-        }
+            filter.traceId === undefined ? 'occurred_at DESC, id DESC' : 'occurred_at ASC, id ASC'
+          }
           LIMIT ?
         `,
         parameters,

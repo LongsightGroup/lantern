@@ -46,6 +46,7 @@ export interface LanternLtiToolContextInput {
 
 export function createD1LtiStorage(database: D1Database, logger?: LtiLogger): LTIStorage {
   return new D1Storage({
+    tenantId: 'lantern',
     // SAFETY: Cloudflare's D1 binding satisfies the runtime query surface expected by drizzle-orm/d1.
     database: database as unknown as AnyD1Database,
     ...(logger === undefined ? {} : { logger }),

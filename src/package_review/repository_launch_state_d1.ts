@@ -203,11 +203,9 @@ export function createD1LaunchStateRepositoryMethods(
     },
 
     async appendAttemptEvent(input) {
-      const results = await runD1Batch<D1AttemptEventRow>(
-        db,
-        [
-          {
-            sql: `
+      const results = await runD1Batch<D1AttemptEventRow>(db, [
+        {
+          sql: `
               INSERT INTO attempt_events (
                 attempt_id,
                 sequence,
@@ -243,27 +241,26 @@ export function createD1LaunchStateRepositoryMethods(
                 event,
                 received_at AS receivedAt
             `,
-            parameters: [
-              input.event.type,
-              input.normalizedEvent.learningVerb,
-              input.normalizedEvent.objectId,
-              input.normalizedEvent.objectType,
-              input.normalizedEvent.result,
-              input.event,
-              input.receivedAt,
-              input.attemptId,
-            ],
-          },
-          {
-            sql: `
+          parameters: [
+            input.event.type,
+            input.normalizedEvent.learningVerb,
+            input.normalizedEvent.objectId,
+            input.normalizedEvent.objectType,
+            input.normalizedEvent.result,
+            input.event,
+            input.receivedAt,
+            input.attemptId,
+          ],
+        },
+        {
+          sql: `
               UPDATE attempts
               SET next_attempt_event_sequence = next_attempt_event_sequence + 1
               WHERE attempt_id = ?
             `,
-            parameters: [input.attemptId],
-          },
-        ],
-      );
+          parameters: [input.attemptId],
+        },
+      ]);
       const row = results[0]?.results?.[0] ?? null;
 
       if (row === null) {

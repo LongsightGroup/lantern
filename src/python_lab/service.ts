@@ -141,9 +141,10 @@ export async function evaluatePythonSubmission(input: {
   readonly sandboxFactory: PythonGraderSandboxFactory;
   readonly createOneTimeId: () => string;
 }): Promise<CodeSubmissionEvaluation> {
-  const cases = input.phase === 'practice'
-    ? input.cases.filter((testCase) => testCase.visibility === 'public')
-    : input.cases;
+  const cases =
+    input.phase === 'practice'
+      ? input.cases.filter((testCase) => testCase.visibility === 'public')
+      : input.cases;
   const executions = await mapWithConcurrency(
     cases,
     PYTHON_SANDBOX_CONCURRENCY,
@@ -167,9 +168,9 @@ export async function evaluatePythonSubmission(input: {
     (execution) => execution.status === 'failed' && execution.kind === 'runner',
   );
 
-  const publicOutcomes = outcomes.filter((outcome) => outcome.visibility === 'public').map(
-    ({ label, status, message }) => ({ label, status, message }),
-  );
+  const publicOutcomes = outcomes
+    .filter((outcome) => outcome.visibility === 'public')
+    .map(({ label, status, message }) => ({ label, status, message }));
   const hiddenOutcomes = outcomes.filter((outcome) => outcome.visibility === 'hidden');
   const passed = outcomes.filter((outcome) => outcome.status === 'passed').length;
   const isScored = input.phase !== 'practice';
@@ -177,10 +178,13 @@ export async function evaluatePythonSubmission(input: {
   return {
     phase: input.phase,
     publicOutcomes,
-    hiddenSummary: input.phase === 'practice' ? null : {
-      passed: hiddenOutcomes.filter((outcome) => outcome.status === 'passed').length,
-      total: hiddenOutcomes.length,
-    },
+    hiddenSummary:
+      input.phase === 'practice'
+        ? null
+        : {
+            passed: hiddenOutcomes.filter((outcome) => outcome.status === 'passed').length,
+            total: hiddenOutcomes.length,
+          },
     scoreGiven: isScored ? calculatePythonScore(passed, outcomes.length) : null,
     scoreMaximum: isScored ? PYTHON_ASSIGNMENT_MAX_SCORE : null,
     runnerFailed,
@@ -192,26 +196,31 @@ async function mapWithConcurrency<T, U>(
   concurrency: number,
   map: (value: T) => Promise<U>,
 ): Promise<U[]> {
-  const results = new Array<U>(values.length);
+  const results = Array.from<U>({ length: values.length });
   let nextIndex = 0;
   const workerCount = Math.min(concurrency, values.length);
 
-  await Promise.all(Array.from({ length: workerCount }, async () => {
-    while (true) {
-      const index = nextIndex;
-      nextIndex += 1;
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (true) {
+        const index = nextIndex;
+        nextIndex += 1;
 
-      if (index >= values.length) return;
-      results[index] = await map(values[index]!);
-    }
-  }));
+        if (index >= values.length) return;
+        results[index] = await map(values[index]!);
+      }
+    }),
+  );
 
   return results;
 }
 
 export function calculatePythonScore(passed: number, total: number): number {
   if (
-    !Number.isInteger(passed) || !Number.isInteger(total) || total <= 0 || passed < 0 ||
+    !Number.isInteger(passed) ||
+    !Number.isInteger(total) ||
+    total <= 0 ||
+    passed < 0 ||
     passed > total
   ) {
     throw new PythonAssignmentValidationError('Python test score inputs are invalid.');
@@ -232,9 +241,10 @@ function toCodeTestOutcome(
     return {
       label: testCase.label,
       status: 'failed',
-      message: testCase.visibility === 'public'
-        ? 'Returned a different value than expected.'
-        : 'Hidden test failed.',
+      message:
+        testCase.visibility === 'public'
+          ? 'Returned a different value than expected.'
+          : 'Hidden test failed.',
     };
   }
 
@@ -251,18 +261,23 @@ function jsonValuesEqual(left: JsonValue, right: JsonValue): boolean {
   }
 
   if (Array.isArray(left) || Array.isArray(right)) {
-    return Array.isArray(left) && Array.isArray(right) &&
-      left.length === right.length && left.every((value, index) =>
-        jsonValuesEqual(value, right[index]!)
-      );
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => jsonValuesEqual(value, right[index]!))
+    );
   }
 
   if (typeof left === 'object' && typeof right === 'object') {
     const leftKeys = Object.keys(left).sort();
     const rightKeys = Object.keys(right).sort();
 
-    return leftKeys.length === rightKeys.length && leftKeys.every(
-      (key, index) => key === rightKeys[index] && jsonValuesEqual(left[key]!, right[key]!),
+    return (
+      leftKeys.length === rightKeys.length &&
+      leftKeys.every(
+        (key, index) => key === rightKeys[index] && jsonValuesEqual(left[key]!, right[key]!),
+      )
     );
   }
 

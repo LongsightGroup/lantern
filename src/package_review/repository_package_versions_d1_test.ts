@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import type { D1Database, D1Parameter, D1PreparedStatement, D1Result } from '../db/d1.ts';
 import {
@@ -7,7 +8,7 @@ import {
 import { createD1PackageVersionRepositoryMethods } from './repository_package_versions_d1.ts';
 import type { PackageVersionRecord } from './types.ts';
 
-Deno.test('D1 package version repository registers and refetches a package version', async () => {
+test('D1 package version repository registers and refetches a package version', async () => {
   const imported = buildImportedPackageVersion();
   const db = createRecordingD1Database([
     toD1PackageVersionRow(buildPackageVersionRecordFromImport(imported)),
@@ -26,7 +27,7 @@ Deno.test('D1 package version repository registers and refetches a package versi
   ]);
 });
 
-Deno.test('D1 package version repository lists parsed package version rows', async () => {
+test('D1 package version repository lists parsed package version rows', async () => {
   const db = createRecordingD1Database([
     toD1PackageVersionRow(
       buildPackageVersionRecordFromImport(
@@ -48,7 +49,7 @@ Deno.test('D1 package version repository lists parsed package version rows', asy
   assertEquals(db.statements[0]?.parameters, ['chapter-4-asteroids']);
 });
 
-Deno.test('D1 package version repository persists sandbox grading through the explicit sandbox marker', async () => {
+test('D1 package version repository persists sandbox grading through the explicit sandbox marker', async () => {
   const imported = buildImportedPackageVersion({
     appId: 'python-lab-123',
     version: '1.0.0',
@@ -66,7 +67,7 @@ Deno.test('D1 package version repository persists sandbox grading through the ex
   assertEquals(db.statements[0]?.parameters.slice(10, 14), ['browser', null, 10, 1]);
 });
 
-Deno.test('D1 package version repository registers a Python Lab package as non-catalog in its insert', async () => {
+test('D1 package version repository registers a Python Lab package as non-catalog in its insert', async () => {
   const imported = buildImportedPackageVersion({
     appId: 'python-lab-123',
     version: '1.0.0',
@@ -88,7 +89,7 @@ Deno.test('D1 package version repository registers a Python Lab package as non-c
   assertEquals(db.statements[0]?.parameters[14], 'python_lab_trial');
 });
 
-Deno.test('D1 package version repository reports duplicate package versions clearly', async () => {
+test('D1 package version repository reports duplicate package versions clearly', async () => {
   const db = createRecordingD1Database([], {
     runError: new Error(
       'UNIQUE constraint failed: package_versions.app_id, package_versions.version',
@@ -103,7 +104,7 @@ Deno.test('D1 package version repository reports duplicate package versions clea
   );
 });
 
-Deno.test('D1 package version repository reviews package versions with JSON accessibility review', async () => {
+test('D1 package version repository reviews package versions with JSON accessibility review', async () => {
   const reviewed = buildPackageVersionRecordFromImport(buildImportedPackageVersion());
   const db = createRecordingD1Database([
     toD1PackageVersionRow({
@@ -247,9 +248,8 @@ function toD1PackageVersionRow(record: PackageVersionRecord): D1Row {
     catalogVisibility: record.catalogVisibility,
     approvalStatus: record.approvalStatus,
     reviewNotes: record.reviewNotes,
-    accessibilityReview: record.accessibilityReview === null
-      ? null
-      : JSON.stringify(record.accessibilityReview),
+    accessibilityReview:
+      record.accessibilityReview === null ? null : JSON.stringify(record.accessibilityReview),
     reviewedAt: record.reviewedAt,
     validationIssues: JSON.stringify(record.validationIssues),
     manifestJson: JSON.stringify(record.manifestJson),

@@ -1,3 +1,5 @@
+import { readFile, rm } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { withRuntimeOriginEnv } from './app_test_support.ts';
 import {
@@ -16,7 +18,7 @@ const SAVED_DRAFT_SPEC = `describe("template authoring checks", () => {
 });
 `;
 
-Deno.test('POST /authoring/preview launches a draft snapshot through the governed preview runtime path', async () => {
+test('POST /authoring/preview launches a draft snapshot through the governed preview runtime path', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
@@ -47,12 +49,14 @@ Deno.test('POST /authoring/preview launches a draft snapshot through the governe
       );
       const draft = await repository.getAuthoringDraftById(DRAFT_ID);
       const approvedPackageVersion = await repository.getPackageVersionById(101);
-      const evidence = previewSession === null
-        ? []
-        : await repository.listPreviewEvidence(previewSession.sessionId);
-      const materializedSpec = previewSession === null
-        ? ''
-        : await Deno.readTextFile(`${previewSession.snapshotRoot}/grading/specs/checks.spec.js`);
+      const evidence =
+        previewSession === null
+          ? []
+          : await repository.listPreviewEvidence(previewSession.sessionId);
+      const materializedSpec =
+        previewSession === null
+          ? ''
+          : await readFile(`${previewSession.snapshotRoot}/grading/specs/checks.spec.js`, 'utf8');
 
       assertEquals(previewSession?.origin, 'adminAuthoringDraft');
       assertEquals(
@@ -70,12 +74,12 @@ Deno.test('POST /authoring/preview launches a draft snapshot through the governe
       assertStringIncludes(materializedSpec, 'checks alt text coverage');
       assertEquals(draft?.lastPreviewedAt !== null, true);
     } finally {
-      await Deno.remove('var/authoring-drafts', { recursive: true }).catch(() => {});
+      await rm('var/authoring-drafts', { recursive: true }).catch(() => {});
     }
   });
 });
 
-Deno.test('POST /authoring/preview fails clearly when no saved draft files exist', async () => {
+test('POST /authoring/preview fails clearly when no saved draft files exist', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
     authoringDrafts: [buildTemplateAuthoringDraft()],
@@ -97,7 +101,7 @@ Deno.test('POST /authoring/preview fails clearly when no saved draft files exist
   assertStringIncludes(await response.text(), 'Preview requires at least one saved draft file.');
 });
 
-Deno.test('GET /authoring renders the latest draft preview state and evidence list', async () => {
+test('GET /authoring renders the latest draft preview state and evidence list', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
     authoringDrafts: [
@@ -117,8 +121,7 @@ Deno.test('GET /authoring renders the latest draft preview state and evidence li
         origin: 'adminAuthoringDraft',
         contentPath: '/content/activity.json',
         snapshotRoot: `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z`,
-        entrypointPath:
-          `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z/dist/index.html`,
+        entrypointPath: `var/authoring-drafts/${DRAFT_ID}/snapshots/20260408T170000000Z/dist/index.html`,
       }),
     ],
     previewEvidence: [

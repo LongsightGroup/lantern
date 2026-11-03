@@ -36,10 +36,10 @@ export function createUnavailablePythonGraderSandboxFactory(
 export type PythonExecutionOutcome =
   | { readonly status: 'passed'; readonly value: JsonValue }
   | {
-    readonly status: 'failed';
-    readonly kind: 'submission' | 'runner';
-    readonly message: string;
-  };
+      readonly status: 'failed';
+      readonly kind: 'submission' | 'runner';
+      readonly message: string;
+    };
 
 export async function executePythonFunction(input: {
   readonly sandboxFactory: PythonGraderSandboxFactory;

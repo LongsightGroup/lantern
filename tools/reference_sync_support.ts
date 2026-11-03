@@ -1,3 +1,7 @@
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import type { Dirent } from 'node:fs';
+import { readdir } from 'node:fs/promises';
 import {
   getReferencePackageBucketSourceRoot,
   getReferencePackageSourceRoot,
@@ -12,8 +16,7 @@ export interface ReferenceSyncArgs {
   bucket: string;
   appIds: ReferencePackageId[];
   mode: ReferenceSyncMode;
-  configPath: string | null;
-  envName: string | null;
+  cloudflareMode: string | null;
   persistTo: string | null;
   dryRun: boolean;
 }
@@ -39,17 +42,16 @@ interface ReferenceSyncSourceOptions {
 }
 
 interface ReferenceSyncOptions extends ReferenceSyncSourceOptions {
-  runWranglerCommand?: WranglerCommandRunner;
+  runCloudflareCommand?: CloudflareCommandRunner;
 }
 
-export type WranglerCommandRunner = (args: string[]) => Promise<void>;
+export type CloudflareCommandRunner = (args: string[]) => Promise<void>;
 
 export function readArgs(args: string[]): ReferenceSyncArgs {
   let bucket: string | null = null;
   const appIds: ReferencePackageId[] = [];
   let mode: ReferenceSyncMode = 'remote';
-  let configPath: string | null = null;
-  let envName: string | null = null;
+  let cloudflareMode: string | null = null;
   let persistTo: string | null = null;
   let dryRun = false;
 
@@ -88,13 +90,8 @@ export function readArgs(args: string[]): ReferenceSyncArgs {
       continue;
     }
 
-    if (arg.startsWith('--config=')) {
-      configPath = arg.slice('--config='.length);
-      continue;
-    }
-
-    if (arg.startsWith('--env=')) {
-      envName = arg.slice('--env='.length);
+    if (arg.startsWith('--mode=')) {
+      cloudflareMode = arg.slice('--mode='.length);
       continue;
     }
 
@@ -122,9 +119,8 @@ export function readArgs(args: string[]): ReferenceSyncArgs {
     bucket,
     appIds: appIds.length > 0 ? appIds : listReferencePackageIds(),
     mode,
-    configPath,
-    envName,
-    persistTo,
+    cloudflareMode,
+    persistTo: mode === 'local' ? (persistTo ?? '.cloudflare/state') : null,
     dryRun,
   };
 }
@@ -155,23 +151,22 @@ export async function listReferencePackageSourceUploads(
   return uploads;
 }
 
-export function buildWranglerR2PutArgs(
+export function buildCloudflareR2PutArgs(
   input: ReferenceSyncArgs,
   upload: ReferencePackageSourceUpload,
 ): string[] {
   return [
-    'wrangler',
-    ...(input.configPath === null ? [] : ['--config', input.configPath]),
-    ...(input.envName === null ? [] : ['--env', input.envName]),
     'r2',
-    'object',
+    'objects',
     'put',
-    `${input.bucket}/${upload.objectKey}`,
+    upload.objectKey,
+    '--bucket-name',
+    input.bucket,
     '--file',
     upload.sourcePath,
-    input.mode === 'local' ? '--local' : '--remote',
+    ...(input.cloudflareMode === null ? [] : ['--mode', input.cloudflareMode]),
+    ...(input.mode === 'local' ? ['--local'] : []),
     ...(input.persistTo === null ? [] : ['--persist-to', input.persistTo]),
-    '--force',
   ];
 }
 
@@ -182,10 +177,10 @@ export async function syncReferencePackageSources(
   const uploads = await listReferencePackageSourceUploads(input.appIds, options);
 
   if (!input.dryRun) {
-    const runWranglerCommand = options.runWranglerCommand ?? runWranglerCommandWithNpx;
+    const runCommand = options.runCloudflareCommand ?? runCloudflareCommand;
 
     for (const upload of uploads) {
-      await runWranglerCommand(buildWranglerR2PutArgs(input, upload));
+      await runCommand(buildCloudflareR2PutArgs(input, upload));
     }
   }
 
@@ -200,7 +195,7 @@ export async function syncReferencePackageSources(
 
 function buildUsageMessage(): string {
   return [
-    'Usage: deno task reference:sync --bucket=<bucket-name> [--app-id=<id>] [--remote|--local] [--persist-to=<dir>] [--config=<path>] [--env=<name>] [--dry-run]',
+    'Usage: npm run reference:sync -- --bucket=<bucket-name> [--app-id=<id>] [--remote|--local] [--persist-to=<dir>] [--mode=<name>] [--dry-run]',
     '',
     'Curated reference app ids:',
     ...listReferencePackageIds().map((appId) => `- ${appId}`),
@@ -221,9 +216,9 @@ async function collectDirectoryFiles(
   relativePrefix: string,
   files: string[],
 ): Promise<void> {
-  const entries: Deno.DirEntry[] = [];
+  const entries: Dirent[] = [];
 
-  for await (const entry of Deno.readDir(root)) {
+  for (const entry of await readdir(root, { withFileTypes: true })) {
     entries.push(entry);
   }
 
@@ -233,12 +228,12 @@ async function collectDirectoryFiles(
     const relativePath = relativePrefix === '' ? entry.name : `${relativePrefix}/${entry.name}`;
     const absolutePath = joinLocalPath(root, entry.name);
 
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       await collectDirectoryFiles(absolutePath, relativePath, files);
       continue;
     }
 
-    if (entry.isFile) {
+    if (entry.isFile()) {
       files.push(relativePath);
     }
   }
@@ -248,15 +243,14 @@ function joinLocalPath(root: string, relativePath: string): string {
   return `${root.replaceAll(/\/+$/g, '')}/${relativePath.replaceAll(/^\/+/g, '')}`;
 }
 
-async function runWranglerCommandWithNpx(args: string[]): Promise<void> {
-  const command = new Deno.Command('npx', {
-    args,
-    stdout: 'inherit',
-    stderr: 'inherit',
+async function runCloudflareCommand(args: string[]): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const cli = fileURLToPath(new URL('../node_modules/cf/bin/cf', import.meta.url));
+    const child = spawn(process.execPath, [cli, ...args], { stdio: 'inherit' });
+    child.once('error', reject);
+    child.once('exit', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Cloudflare command failed: cf ${args.join(' ')}`));
+    });
   });
-  const result = await command.spawn().status;
-
-  if (!result.success) {
-    throw new Error(`Wrangler command failed: npx ${args.join(' ')}`);
-  }
 }

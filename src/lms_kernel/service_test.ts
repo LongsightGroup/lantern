@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assert, assertEquals, assertNotEquals, assertStringIncludes } from '@std/assert';
 import { createObjectEnvReader } from '../platform/env.ts';
 import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
@@ -11,7 +12,7 @@ import {
 
 const NOW = new Date('2026-07-19T16:00:00.000Z');
 
-Deno.test('governed roster service returns opaque members, protected media, pagination, and one audit trace', async () => {
+test('governed roster service returns opaque members, protected media, pagination, and one audit trace', async () => {
   const repository = new MemoryLmsKernelRepository({
     session: buildGovernedSyntheticSession(),
     grants: [
@@ -69,7 +70,7 @@ Deno.test('governed roster service returns opaque members, protected media, pagi
   assertEquals(second.value.nextCursor, undefined);
 });
 
-Deno.test('governed roster service rejects a binding from another immutable app version', async () => {
+test('governed roster service rejects a binding from another immutable app version', async () => {
   const repository = new MemoryLmsKernelRepository({
     session: buildGovernedSyntheticSession(),
     grants: [buildKernelGrant('grant-members', 'lms.roster.members.read')],
@@ -105,7 +106,7 @@ Deno.test('governed roster service rejects a binding from another immutable app 
   assertEquals(connectorCalled, false);
 });
 
-Deno.test('governed roster service denies the complete request after photo permission is revoked', async () => {
+test('governed roster service denies the complete request after photo permission is revoked', async () => {
   const repository = new MemoryLmsKernelRepository({
     session: buildGovernedSyntheticSession(),
     grants: [
@@ -148,10 +149,13 @@ Deno.test('governed roster service denies the complete request after photo permi
     assertEquals(result.error.code, 'permission_denied');
   }
   assertEquals(connectorCalled, false);
-  assertEquals(repository.events.map((event) => event.decision), ['denied', 'denied']);
+  assertEquals(
+    repository.events.map((event) => event.decision),
+    ['denied', 'denied'],
+  );
 });
 
-Deno.test('governed roster service rejects a cursor replayed by another package version', async () => {
+test('governed roster service rejects a cursor replayed by another package version', async () => {
   const repository = new MemoryLmsKernelRepository({
     session: buildGovernedSyntheticSession(),
     grants: [buildKernelGrant('grant-members', 'lms.roster.members.read')],

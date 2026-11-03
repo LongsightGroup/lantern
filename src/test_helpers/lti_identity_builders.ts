@@ -69,8 +69,8 @@ export function buildMoodleDeploymentBinding(
     issuer: overrides.issuer ?? 'https://moodle.example',
     clientId: overrides.clientId ?? 'moodle-client-123',
     deploymentId: overrides.deploymentId ?? 'moodle-deployment-123',
-    authorizationEndpoint: overrides.authorizationEndpoint ??
-      'https://moodle.example/mod/lti/auth.php',
+    authorizationEndpoint:
+      overrides.authorizationEndpoint ?? 'https://moodle.example/mod/lti/auth.php',
     accessTokenUrl: overrides.accessTokenUrl ?? 'https://moodle.example/mod/lti/token.php',
     jwksUrl: overrides.jwksUrl ?? 'https://moodle.example/mod/lti/certs.php',
   };
@@ -84,8 +84,8 @@ export function buildSakaiDeploymentBinding(
     issuer: overrides.issuer ?? 'https://sakai.example',
     clientId: overrides.clientId ?? 'sakai-client-123',
     deploymentId: overrides.deploymentId ?? 'sakai-deployment-123',
-    authorizationEndpoint: overrides.authorizationEndpoint ??
-      'https://sakai.example/imsoidc/lti13/oidc_auth',
+    authorizationEndpoint:
+      overrides.authorizationEndpoint ?? 'https://sakai.example/imsoidc/lti13/oidc_auth',
     accessTokenUrl: overrides.accessTokenUrl ?? 'https://sakai.example/imsblis/lti13/token/3',
     jwksUrl: overrides.jwksUrl ?? 'https://sakai.example/imsblis/lti13/keyset',
   };
@@ -179,9 +179,10 @@ export function buildCanvasLoginRequest(overrides: Partial<LoginRequest> = {}): 
   return {
     iss: identity.issuer,
     loginHint: overrides.loginHint ?? 'opaque-login-hint',
-    targetLinkUri: overrides.targetLinkUri === undefined
-      ? 'http://localhost:8417/lti/launch'
-      : overrides.targetLinkUri,
+    targetLinkUri:
+      overrides.targetLinkUri === undefined
+        ? 'http://localhost:8417/lti/launch'
+        : overrides.targetLinkUri,
     clientId: overrides.clientId === undefined ? identity.clientId : overrides.clientId,
     deploymentId: identity.deploymentId,
     ltiMessageHint: overrides.ltiMessageHint ?? 'message-hint-123',
@@ -201,9 +202,10 @@ export function buildSakaiLoginRequest(overrides: Partial<LoginRequest> = {}): L
   return {
     iss: identity.issuer,
     loginHint: overrides.loginHint ?? 'opaque-login-hint',
-    targetLinkUri: overrides.targetLinkUri === undefined
-      ? 'http://localhost:8417/lti/launch'
-      : overrides.targetLinkUri,
+    targetLinkUri:
+      overrides.targetLinkUri === undefined
+        ? 'http://localhost:8417/lti/launch'
+        : overrides.targetLinkUri,
     clientId: overrides.clientId === undefined ? identity.clientId : overrides.clientId,
     deploymentId: identity.deploymentId,
     ltiMessageHint: overrides.ltiMessageHint ?? 'message-hint-123',

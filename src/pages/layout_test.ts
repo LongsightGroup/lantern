@@ -1,7 +1,8 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { renderLayout } from './layout.ts';
 
-Deno.test('public layout uses the navy accent palette instead of indigo', () => {
+test('public layout uses the navy accent palette instead of indigo', () => {
   const html = renderLayout('Lantern', '<main>Home</main>');
 
   assertStringIncludes(html, '--accent: #153a61;');

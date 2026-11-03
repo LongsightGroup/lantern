@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import {
   validateGeneratedAppPackage,
@@ -9,7 +10,7 @@ import {
   buildValidSimpleActivityFiles,
 } from '../test_helpers/app_writer_generated_package.ts';
 
-Deno.test('generated app validation accepts a minimal simple activity package', async () => {
+test('generated app validation accepts a minimal simple activity package', async () => {
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
     files: buildValidSimpleActivityFiles(),
@@ -18,7 +19,7 @@ Deno.test('generated app validation accepts a minimal simple activity package', 
   assertEquals(findings, []);
 });
 
-Deno.test('generated app validation rejects files outside the starter allowlist', async () => {
+test('generated app validation rejects files outside the starter allowlist', async () => {
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
     files: [
@@ -36,7 +37,7 @@ Deno.test('generated app validation rejects files outside the starter allowlist'
   );
 });
 
-Deno.test('generated app validation ignores non-package workspace files', async () => {
+test('generated app validation ignores non-package workspace files', async () => {
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
     files: [
@@ -61,15 +62,14 @@ Deno.test('generated app validation ignores non-package workspace files', async 
   assertEquals(findings, []);
 });
 
-Deno.test('generated app validation rejects external network and storage fallbacks', async () => {
+test('generated app validation rejects external network and storage fallbacks', async () => {
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'dist/app.js'
       ? {
-        ...file,
-        contents:
-          `${file.contents}\nfetch("https://example.com");\nlocalStorage.setItem("x", "1");\nindexedDB.open("x");\ndocument.cookie = "x=1";\neval("console.log(1)");\nnew Function("return 1");\n`,
-      }
-      : file
+          ...file,
+          contents: `${file.contents}\nfetch("https://example.com");\nlocalStorage.setItem("x", "1");\nindexedDB.open("x");\ndocument.cookie = "x=1";\neval("console.log(1)");\nnew Function("return 1");\n`,
+        }
+      : file,
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -94,12 +94,12 @@ Deno.test('generated app validation rejects external network and storage fallbac
   );
 });
 
-Deno.test('generated app validation rejects Worker and Durable Object platform code', async () => {
+test('generated app validation rejects Worker and Durable Object platform code', async () => {
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'dist/app.js'
       ? {
-        ...file,
-        contents: `${file.contents}
+          ...file,
+          contents: `${file.contents}
 export default {
   async fetch(request, env, ctx) {
     const objectId = env.STUDENT_PROGRESS.idFromName("course-1");
@@ -112,8 +112,8 @@ class StudentProgress extends DurableObject {
   }
 }
 `,
-      }
-      : file
+        }
+      : file,
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -134,20 +134,20 @@ class StudentProgress extends DurableObject {
   );
 });
 
-Deno.test('generated app validation rejects direct SCORM, xAPI, cmi5, and LRS runtimes', async () => {
+test('generated app validation rejects direct SCORM, xAPI, cmi5, and LRS runtimes', async () => {
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'dist/app.js'
       ? {
-        ...file,
-        contents: `${file.contents}
+          ...file,
+          contents: `${file.contents}
 window.API.LMSInitialize("");
 window.API.LMSSetValue("cmi.core.lesson_status", "completed");
 sendXAPIStatement({ verb: "answered" });
 fetch("https://lrs.example.test/xapi");
 const launchMode = "cmi5";
 `,
-      }
-      : file
+        }
+      : file,
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -160,14 +160,14 @@ const launchMode = "cmi5";
   );
 });
 
-Deno.test('generated app validation rejects SDK capability mismatches', async () => {
+test('generated app validation rejects SDK capability mismatches', async () => {
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'manifest.json'
       ? {
-        ...file,
-        contents: file.contents.replace('"submit_attempt_event",', ''),
-      }
-      : file
+          ...file,
+          contents: file.contents.replace('"submit_attempt_event",', ''),
+        }
+      : file,
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -180,14 +180,14 @@ Deno.test('generated app validation rejects SDK capability mismatches', async ()
   );
 });
 
-Deno.test('generated app validation rejects modified pinned style files', async () => {
+test('generated app validation rejects modified pinned style files', async () => {
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'dist/pico.min.css'
       ? {
-        ...file,
-        contents: `${file.contents}\nbody { background: red; }\n`,
-      }
-      : file
+          ...file,
+          contents: `${file.contents}\nbody { background: red; }\n`,
+        }
+      : file,
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -200,15 +200,15 @@ Deno.test('generated app validation rejects modified pinned style files', async 
   );
 });
 
-Deno.test('generated app validation rejects missing Lantern design shell', async () => {
+test('generated app validation rejects missing Lantern design shell', async () => {
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'dist/index.html'
       ? {
-        ...file,
-        contents:
-          '<!doctype html><html><head><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./app.css"></head><body><main data-test="app-title">Phonics Match</main><script src="./app.js"></script></body></html>\n',
-      }
-      : file
+          ...file,
+          contents:
+            '<!doctype html><html><head><link rel="stylesheet" href="./pico.min.css"><link rel="stylesheet" href="./app.css"></head><body><main data-test="app-title">Phonics Match</main><script src="./app.js"></script></body></html>\n',
+        }
+      : file,
   );
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'simple-activity',
@@ -225,16 +225,16 @@ Deno.test('generated app validation rejects missing Lantern design shell', async
   );
 });
 
-Deno.test('generated app validation rejects manifest drift from the app plan', () => {
+test('generated app validation rejects manifest drift from the app plan', () => {
   const files = buildValidSimpleActivityFiles().map((file) =>
     file.path === 'manifest.json'
       ? {
-        ...file,
-        contents: file.contents
-          .replace('"app_id": "phonics-match"', '"app_id": "starter-simple-activity"')
-          .replace('"finalize_attempt"', '"write_local_state"'),
-      }
-      : file
+          ...file,
+          contents: file.contents
+            .replace('"app_id": "phonics-match"', '"app_id": "starter-simple-activity"')
+            .replace('"finalize_attempt"', '"write_local_state"'),
+        }
+      : file,
   );
   const findings = validateGeneratedAppPackagePlanAlignment({
     appPlan: buildPlan(),
@@ -255,7 +255,7 @@ Deno.test('generated app validation rejects manifest drift from the app plan', (
   );
 });
 
-Deno.test('generated app validation accepts a browser autograder package shape', async () => {
+test('generated app validation accepts a browser autograder package shape', async () => {
   const findings = await validateGeneratedAppPackage({
     selectedStarterId: 'browser-autograder',
     files: buildValidBrowserAutograderFiles(),

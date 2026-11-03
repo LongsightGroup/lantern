@@ -26,9 +26,10 @@ export default {
       return htmlResponse(renderFailure(result.error.code, result.error.traceId), 403);
     }
 
-    const nextUrl = result.value.nextCursor === undefined
-      ? undefined
-      : createLanternRuntimePageUrl(request, result.value.nextCursor);
+    const nextUrl =
+      result.value.nextCursor === undefined
+        ? undefined
+        : createLanternRuntimePageUrl(request, result.value.nextCursor);
     if (nextUrl === null) {
       return htmlResponse(
         renderFailure(
@@ -43,16 +44,19 @@ export default {
 };
 
 function renderRoster(members: readonly RosterMember[], nextUrl: string | undefined): string {
-  const cards = members.map((member) => {
-    const photo = member.photo === undefined
-      ? `<span class="avatar" aria-hidden="true">${escapeHtml(initials(member.displayName))}</span>`
-      : `<img class="avatar" src="${
-        escapeAttribute(member.photo.url)
-      }" alt="" width="64" height="64" loading="lazy" decoding="async" fetchpriority="low">`;
-    const email = member.email === undefined
-      ? '<span class="muted">Email not shared</span>'
-      : `<a href="mailto:${escapeAttribute(member.email)}">${escapeHtml(member.email)}</a>`;
-    return `<li class="card">
+  const cards = members
+    .map((member) => {
+      const photo =
+        member.photo === undefined
+          ? `<span class="avatar" aria-hidden="true">${escapeHtml(initials(member.displayName))}</span>`
+          : `<img class="avatar" src="${escapeAttribute(
+              member.photo.url,
+            )}" alt="" width="64" height="64" loading="lazy" decoding="async" fetchpriority="low">`;
+      const email =
+        member.email === undefined
+          ? '<span class="muted">Email not shared</span>'
+          : `<a href="mailto:${escapeAttribute(member.email)}">${escapeHtml(member.email)}</a>`;
+      return `<li class="card">
       ${photo}
       <div>
         <h2>${escapeHtml(member.displayName)}</h2>
@@ -60,10 +64,10 @@ function renderRoster(members: readonly RosterMember[], nextUrl: string | undefi
         <p>${email}</p>
       </div>
     </li>`;
-  }).join('');
-  const next = nextUrl === undefined
-    ? ''
-    : `<a class="next" href="${escapeAttribute(nextUrl)}">Next page</a>`;
+    })
+    .join('');
+  const next =
+    nextUrl === undefined ? '' : `<a class="next" href="${escapeAttribute(nextUrl)}">Next page</a>`;
 
   return page(`
     <header>
@@ -77,13 +81,14 @@ function renderRoster(members: readonly RosterMember[], nextUrl: string | undefi
 }
 
 function renderFailure(code: string, traceId: string): string {
-  const message = code === 'permission_denied'
-    ? 'An institution administrator must approve this access, and the LMS launch must provide Names and Roles Provisioning.'
-    : code === 'session_expired'
-    ? 'This launch has expired. Open Photo Roster from the LMS again.'
-    : code === 'rate_limited'
-    ? 'The LMS is limiting roster requests. Try again shortly.'
-    : 'The LMS roster is unavailable right now.';
+  const message =
+    code === 'permission_denied'
+      ? 'An institution administrator must approve this access, and the LMS launch must provide Names and Roles Provisioning.'
+      : code === 'session_expired'
+        ? 'This launch has expired. Open Photo Roster from the LMS again.'
+        : code === 'rate_limited'
+          ? 'The LMS is limiting roster requests. Try again shortly.'
+          : 'The LMS roster is unavailable right now.';
   return page(`
     <section class="notice" role="alert">
       <h1>Photo Roster could not open</h1>
@@ -137,7 +142,11 @@ function htmlResponse(body: string, status: number): Response {
 }
 
 function initials(name: string): string {
-  return name.split(/\s+/).slice(0, 2).map((part) => part.slice(0, 1).toUpperCase()).join('');
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part.slice(0, 1).toUpperCase())
+    .join('');
 }
 
 function roleLabel(role: RosterMember['roles'][number]): string {

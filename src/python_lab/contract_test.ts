@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertThrows } from '@std/assert';
 import {
   parseGeneratedCodeTestInputs,
@@ -5,7 +6,7 @@ import {
   PythonContractError,
 } from './contract.ts';
 
-Deno.test('Python contract accepts only a named function draft and JSON test vectors', () => {
+test('Python contract accepts only a named function draft and JSON test vectors', () => {
   const draft = parsePythonAssignmentDraft({
     title: 'Add numbers',
     prompt: 'Write a function that returns the sum of two integers.',
@@ -30,7 +31,7 @@ Deno.test('Python contract accepts only a named function draft and JSON test vec
   assertEquals(cases.length, 8);
 });
 
-Deno.test('Python contract rejects wrong case counts and non JSON values', () => {
+test('Python contract rejects wrong case counts and non JSON values', () => {
   assertThrows(
     () => parseGeneratedCodeTestInputs({ cases: [] }),
     PythonContractError,

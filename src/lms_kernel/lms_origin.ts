@@ -3,9 +3,13 @@ export function parseLmsOrigin(value: string): string | null {
   try {
     const url = new URL(value.trim());
     if (
-      url.protocol !== 'https:' || url.username !== '' || url.password !== '' ||
+      url.protocol !== 'https:' ||
+      url.username !== '' ||
+      url.password !== '' ||
       url.hostname.includes('*') ||
-      url.pathname !== '/' || url.search !== '' || url.hash !== ''
+      url.pathname !== '/' ||
+      url.search !== '' ||
+      url.hash !== ''
     ) {
       return null;
     }

@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import type { D1Database, D1Parameter, D1PreparedStatement, D1Result } from '../db/d1.ts';
 import {
@@ -6,7 +7,7 @@ import {
 } from '../test_helpers/package_review_test_builder_preview.ts';
 import { createD1PreviewRepositoryMethods } from './repository_preview_d1.ts';
 
-Deno.test('D1 preview repository creates sessions with JSON capabilities and fixtures', async () => {
+test('D1 preview repository creates sessions with JSON capabilities and fixtures', async () => {
   const db = createPlannedD1Database({
     firstResults: [{ id: 1 }, buildPreviewSessionRow()],
   });
@@ -20,7 +21,7 @@ Deno.test('D1 preview repository creates sessions with JSON capabilities and fix
   assertEquals(typeof db.statements[1]?.parameters[18], 'string');
 });
 
-Deno.test('D1 preview repository reports missing package versions clearly', async () => {
+test('D1 preview repository reports missing package versions clearly', async () => {
   const db = createPlannedD1Database({
     firstResults: [null],
   });
@@ -33,7 +34,7 @@ Deno.test('D1 preview repository reports missing package versions clearly', asyn
   );
 });
 
-Deno.test('D1 preview repository gets latest preview with optional origin filter', async () => {
+test('D1 preview repository gets latest preview with optional origin filter', async () => {
   const db = createPlannedD1Database({
     firstResults: [buildPreviewSessionRow({ origin: 'adminAuthoringDraft' })],
   });
@@ -48,7 +49,7 @@ Deno.test('D1 preview repository gets latest preview with optional origin filter
   assertEquals(db.statements[0]?.parameters, [1, 'adminAuthoringDraft']);
 });
 
-Deno.test('D1 preview repository appends evidence with the next sequence', async () => {
+test('D1 preview repository appends evidence with the next sequence', async () => {
   const db = createPlannedD1Database({
     firstResults: [buildPreviewEvidenceRow({ sequence: 3 })],
   });
@@ -78,7 +79,7 @@ Deno.test('D1 preview repository appends evidence with the next sequence', async
   assertEquals(db.statements[1]?.parameters, ['preview-session-123']);
 });
 
-Deno.test('D1 preview repository lists parsed evidence in sequence order', async () => {
+test('D1 preview repository lists parsed evidence in sequence order', async () => {
   const db = createPlannedD1Database({
     allResults: [
       [buildPreviewEvidenceRow({ sequence: 1 }), buildPreviewEvidenceRow({ id: 2, sequence: 2 })],

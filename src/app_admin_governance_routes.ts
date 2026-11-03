@@ -1,4 +1,4 @@
-import type { Context, Hono } from '@hono/hono';
+import type { Context, Hono } from 'hono';
 import {
   renderGovernancePage,
   renderInstitutionOnboardingPage,
@@ -17,9 +17,12 @@ import type { CapabilityGrantRecord, LmsPlatformType } from './lms_kernel/types.
 
 export function registerAdminGovernanceRoutes(app: Hono, services: GovernanceRouteServices): void {
   app.get('/admin/onboarding', (context) =>
-    context.html(renderInstitutionOnboardingPage({
-      identity: adminIdentityFromContext(context),
-    })));
+    context.html(
+      renderInstitutionOnboardingPage({
+        identity: adminIdentityFromContext(context),
+      }),
+    ),
+  );
 
   app.post('/admin/onboarding', async (context) => {
     const form = await context.req.raw.formData();
@@ -40,10 +43,13 @@ export function registerAdminGovernanceRoutes(app: Hono, services: GovernanceRou
   });
 
   app.get('/admin/invites/:token', (context) =>
-    context.html(renderInviteAcceptancePage({
-      identity: adminIdentityFromContext(context),
-      token: context.req.param('token'),
-    })));
+    context.html(
+      renderInviteAcceptancePage({
+        identity: adminIdentityFromContext(context),
+        token: context.req.param('token'),
+      }),
+    ),
+  );
 
   app.post('/admin/invites/:token/accept', async (context) => {
     const result = await services.lmsKernelAdminService.acceptInvite({
@@ -141,7 +147,8 @@ export function registerAdminGovernanceRoutes(app: Hono, services: GovernanceRou
     if (!result.ok) {
       return await renderDashboard(context, services, result.error.message, 400);
     }
-    const path = `/governed/sessions/${encodeURIComponent(result.value.runtimeSessionId)}` +
+    const path =
+      `/governed/sessions/${encodeURIComponent(result.value.runtimeSessionId)}` +
       `?token=${encodeURIComponent(result.value.runtimeSessionToken)}`;
     return context.redirect(path, 303);
   });
@@ -218,8 +225,8 @@ async function renderDashboard(
       institution: admin.institution,
       membership: admin.membership,
       connections,
-      hasSyntheticConnection: connections.some((connection) =>
-        connection.platformType === 'synthetic' && connection.status === 'active'
+      hasSyntheticConnection: connections.some(
+        (connection) => connection.platformType === 'synthetic' && connection.status === 'active',
       ),
       contexts,
       installations,
@@ -275,8 +282,11 @@ function optionalQuery(context: Context, key: string): string | undefined {
 }
 
 function parsePlatformType(value: string): LmsPlatformType | null {
-  return value === 'canvas' || value === 'moodle' || value === 'brightspace' ||
-      value === 'sakai' || value === 'synthetic'
+  return value === 'canvas' ||
+    value === 'moodle' ||
+    value === 'brightspace' ||
+    value === 'sakai' ||
+    value === 'synthetic'
     ? value
     : null;
 }
@@ -285,8 +295,6 @@ function parseDecision(value: string | undefined): 'allowed' | 'denied' | undefi
   return value === 'allowed' || value === 'denied' ? value : undefined;
 }
 
-function parseOutcome(
-  value: string | undefined,
-): 'completed' | 'failed' | 'limited' | undefined {
+function parseOutcome(value: string | undefined): 'completed' | 'failed' | 'limited' | undefined {
   return value === 'completed' || value === 'failed' || value === 'limited' ? value : undefined;
 }

@@ -7,16 +7,13 @@ export type KernelAdminFailureCode =
 export type KernelAdminResult<T> =
   | { readonly ok: true; readonly value: T }
   | {
-    readonly ok: false;
-    readonly error: {
-      readonly code: KernelAdminFailureCode;
-      readonly message: string;
+      readonly ok: false;
+      readonly error: {
+        readonly code: KernelAdminFailureCode;
+        readonly message: string;
+      };
     };
-  };
 
-export function failure<T>(
-  code: KernelAdminFailureCode,
-  message: string,
-): KernelAdminResult<T> {
+export function failure<T>(code: KernelAdminFailureCode, message: string): KernelAdminResult<T> {
   return { ok: false, error: { code, message } };
 }

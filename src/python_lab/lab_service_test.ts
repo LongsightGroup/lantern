@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import {
   buildImportedPackageVersion,
@@ -13,7 +14,7 @@ import type { PythonLabRecord, PythonLabRepository } from './repository.ts';
 import { createInMemoryPythonLabRepository } from './repository_memory.ts';
 import type { PythonGraderSandboxFactory } from './runner.ts';
 
-Deno.test('failed Lab materialization removes its private artifact and non-catalog package', async () => {
+test('failed Lab materialization removes its private artifact and non-catalog package', async () => {
   const packageRepository = createInMemoryPackageReviewRepository();
   const baseRepository = createInMemoryPythonLabRepository();
   const lab = generatingLab();

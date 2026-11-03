@@ -37,15 +37,14 @@ export function installApp(
       );
     }
     const installedAt = deps.now().toISOString();
-    const existing = (await deps.repository.listInstallations(
-      command.membership.institutionId,
-    )).find((installation) => installation.appId === packageVersion.appId);
+    const existing = (
+      await deps.repository.listInstallations(command.membership.institutionId)
+    ).find((installation) => installation.appId === packageVersion.appId);
     const installationId = existing?.id ?? deps.createId();
     const event = adminGovernanceEvent({
       traceId: deps.createId(),
-      eventType: existing === undefined
-        ? 'app_installation.created'
-        : 'app_installation.version_replaced',
+      eventType:
+        existing === undefined ? 'app_installation.created' : 'app_installation.version_replaced',
       institutionId: command.membership.institutionId,
       appInstallationId: installationId,
       appId: packageVersion.appId,
@@ -53,24 +52,25 @@ export function installApp(
       actorId: command.membership.userId,
       occurredAt: installedAt,
     });
-    const installation = existing === undefined
-      ? await deps.repository.createInstallation({
-        id: installationId,
-        institutionId: command.membership.institutionId,
-        appId: packageVersion.appId,
-        packageVersionId: packageVersion.id,
-        installedByUserId: command.membership.userId,
-        now: installedAt,
-        event,
-      })
-      : await deps.repository.replaceInstallationPackageVersion({
-        id: existing.id,
-        institutionId: command.membership.institutionId,
-        packageVersionId: packageVersion.id,
-        installedByUserId: command.membership.userId,
-        now: installedAt,
-        event,
-      });
+    const installation =
+      existing === undefined
+        ? await deps.repository.createInstallation({
+            id: installationId,
+            institutionId: command.membership.institutionId,
+            appId: packageVersion.appId,
+            packageVersionId: packageVersion.id,
+            installedByUserId: command.membership.userId,
+            now: installedAt,
+            event,
+          })
+        : await deps.repository.replaceInstallationPackageVersion({
+            id: existing.id,
+            institutionId: command.membership.institutionId,
+            packageVersionId: packageVersion.id,
+            installedByUserId: command.membership.userId,
+            now: installedAt,
+            event,
+          });
     if (installation === null) {
       return failure('not_found', 'App installation was not found.');
     }
@@ -95,10 +95,7 @@ export function grantCapability(
       );
     }
     const installation = await deps.repository.getInstallationById(command.installationId);
-    if (
-      installation === null ||
-      installation.institutionId !== command.membership.institutionId
-    ) {
+    if (installation === null || installation.institutionId !== command.membership.institutionId) {
       return failure('not_found', 'App installation was not found.');
     }
     const packageVersion = await deps.packageRepository.getPackageVersionById(
@@ -112,10 +109,7 @@ export function grantCapability(
     }
     if (command.lmsContextId !== null) {
       const context = await deps.repository.getLmsContextById(command.lmsContextId);
-      if (
-        context === null ||
-        context.institutionId !== command.membership.institutionId
-      ) {
+      if (context === null || context.institutionId !== command.membership.institutionId) {
         return failure('not_found', 'LMS context was not found.');
       }
     }
@@ -125,8 +119,7 @@ export function grantCapability(
         grant.packageVersionId === installation.packageVersionId &&
         grant.capability === command.capability &&
         grant.scope.kind === scopeKind &&
-        (grant.scope.kind === 'institution' ||
-          grant.scope.lmsContextId === command.lmsContextId),
+        (grant.scope.kind === 'institution' || grant.scope.lmsContextId === command.lmsContextId),
     );
     const grantId = existingGrant?.id ?? deps.createId();
     const approvedAt = deps.now().toISOString();
@@ -136,9 +129,10 @@ export function grantCapability(
       appInstallationId: installation.id,
       packageVersionId: installation.packageVersionId,
       capability: command.capability,
-      scope: command.lmsContextId === null
-        ? { kind: 'institution' }
-        : { kind: 'context', lmsContextId: command.lmsContextId },
+      scope:
+        command.lmsContextId === null
+          ? { kind: 'institution' }
+          : { kind: 'context', lmsContextId: command.lmsContextId },
       approvedByUserId: command.membership.userId,
       approvedAt,
       event: adminGovernanceEvent({
@@ -167,16 +161,10 @@ export function activateInstallation(
 ): Promise<KernelAdminResult<AppInstallationRecord>> {
   return (async () => {
     if (!canGovern(command.membership)) {
-      return failure(
-        'permission_denied',
-        'Only institution owners and admins can activate apps.',
-      );
+      return failure('permission_denied', 'Only institution owners and admins can activate apps.');
     }
     const installation = await deps.repository.getInstallationById(command.installationId);
-    if (
-      installation === null ||
-      installation.institutionId !== command.membership.institutionId
-    ) {
+    if (installation === null || installation.institutionId !== command.membership.institutionId) {
       return failure('not_found', 'App installation was not found.');
     }
     const packageVersion = await deps.packageRepository.getPackageVersionById(
@@ -187,12 +175,14 @@ export function activateInstallation(
     }
     const required = packageVersion.capabilities.filter(isRosterCapability);
     const grants = await deps.repository.listCapabilityGrants(installation.id);
-    const missing = required.filter((capability) =>
-      !grants.some((grant) =>
-        grant.capability === capability &&
-        grant.packageVersionId === installation.packageVersionId &&
-        grant.revokedAt === null
-      )
+    const missing = required.filter(
+      (capability) =>
+        !grants.some(
+          (grant) =>
+            grant.capability === capability &&
+            grant.packageVersionId === installation.packageVersionId &&
+            grant.revokedAt === null,
+        ),
     );
     if (missing.length > 0) {
       return failure(
@@ -230,14 +220,11 @@ export function revokeGrant(
 ): Promise<KernelAdminResult<CapabilityGrantRecord>> {
   return (async () => {
     if (!canGovern(command.membership)) {
-      return failure(
-        'permission_denied',
-        'Only institution owners and admins can revoke access.',
-      );
+      return failure('permission_denied', 'Only institution owners and admins can revoke access.');
     }
-    const existingGrant = (await deps.repository.listCapabilityGrantsForInstitution(
-      command.membership.institutionId,
-    )).find((grant) => grant.id === command.grantId && grant.revokedAt === null);
+    const existingGrant = (
+      await deps.repository.listCapabilityGrantsForInstitution(command.membership.institutionId)
+    ).find((grant) => grant.id === command.grantId && grant.revokedAt === null);
     if (existingGrant === undefined) {
       return failure('not_found', 'Capability grant was not found.');
     }
@@ -305,15 +292,15 @@ export function createSyntheticLaunch(
     ) {
       return failure('not_found', 'The installation package is not runnable.');
     }
-    const connection = (await deps.repository.listLmsConnections(
-      command.membership.institutionId,
-    )).find((item) => item.platformType === 'synthetic' && item.status === 'active');
+    const connection = (
+      await deps.repository.listLmsConnections(command.membership.institutionId)
+    ).find((item) => item.platformType === 'synthetic' && item.status === 'active');
     if (connection === undefined) {
       return failure('not_found', 'Create an active synthetic LMS connection first.');
     }
-    const context = (await deps.repository.listLmsContexts(
-      command.membership.institutionId,
-    )).find((item) => item.lmsConnectionId === connection.id);
+    const context = (await deps.repository.listLmsContexts(command.membership.institutionId)).find(
+      (item) => item.lmsConnectionId === connection.id,
+    );
     if (context === undefined) {
       return failure('not_found', 'The synthetic LMS context was not found.');
     }

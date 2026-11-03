@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import {
   type BrowserPreviewAutomation,
@@ -11,7 +12,7 @@ import {
 } from './cloudflare_browser_preview.ts';
 import { buildValidSimpleActivityFiles } from '../test_helpers/app_writer_generated_package.ts';
 
-Deno.test('Cloudflare Browser previewer returns structured assertion success', async () => {
+test('Cloudflare Browser previewer returns structured assertion success', async () => {
   const automation = createFakeBrowserAutomation(
     new Map([['[data-test="app-title"]', 'Phonics Match']]),
   );
@@ -31,7 +32,7 @@ Deno.test('Cloudflare Browser previewer returns structured assertion success', a
   assertEquals(result.summary, 'Passed 1/1 preview assertions in Cloudflare Browser Rendering.');
 });
 
-Deno.test('Cloudflare Browser previewer maps missing selectors to preview findings', async () => {
+test('Cloudflare Browser previewer maps missing selectors to preview findings', async () => {
   const result = await createCloudflareBrowserAppPackagePreviewer({
     browser: {},
     automation: createFakeBrowserAutomation(new Map()),
@@ -48,7 +49,7 @@ Deno.test('Cloudflare Browser previewer maps missing selectors to preview findin
   assertEquals(result.passedAssertionCount, 0);
 });
 
-Deno.test('Cloudflare Browser previewer validates the package before launching Chromium', async () => {
+test('Cloudflare Browser previewer validates the package before launching Chromium', async () => {
   const automation = createFakeBrowserAutomation(new Map());
   const files = buildValidSimpleActivityFiles().filter((file) => file.path !== 'manifest.json');
   const result = await createCloudflareBrowserAppPackagePreviewer({

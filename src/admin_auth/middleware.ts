@@ -1,4 +1,4 @@
-import type { MiddlewareHandler } from '@hono/hono';
+import type { MiddlewareHandler } from 'hono';
 import type { AppServices } from '../app_services.ts';
 import { setAdminSession } from './context.ts';
 

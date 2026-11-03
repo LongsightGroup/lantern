@@ -3,17 +3,15 @@ import { type AdminIdentity, type AdminNotice, escapeHtml, renderAdminLayout } f
 import type { AppWriterSelectedContext } from '../app_writer/context.ts';
 import { formatProgressStage, formatSelectedContext } from './app_writer_run_view_model.ts';
 
-export function renderAppWriterPage(
-  input: {
-    identity: AdminIdentity;
-    notice?: AdminNotice | null;
-    audience?: string;
-    contentSummary?: string;
-    gradingMode?: string;
-    promptText?: string;
-    requestedAppId?: string;
-  },
-): string {
+export function renderAppWriterPage(input: {
+  identity: AdminIdentity;
+  notice?: AdminNotice | null;
+  audience?: string;
+  contentSummary?: string;
+  gradingMode?: string;
+  promptText?: string;
+  requestedAppId?: string;
+}): string {
   return renderAdminLayout({
     identity: input.identity,
     title: 'Lantern App Writer',
@@ -82,9 +80,9 @@ export function renderAppWriterPlanPreviewPage(input: {
           <div class="facts">
             <div class="fact">
               <span class="fact-label">App type</span>
-              <span class="fact-value">${
-      escapeHtml(formatProgressStage(input.planning.appPlan.activityType))
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                formatProgressStage(input.planning.appPlan.activityType),
+              )}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Starter</span>
@@ -93,9 +91,9 @@ export function renderAppWriterPlanPreviewPage(input: {
             <div class="fact">
               <span class="fact-label">Grading</span>
               <span class="fact-value">${escapeHtml(input.planning.appPlan.grading.mode)}</span>
-              <p class="micro muted">${
-      escapeHtml(input.planning.appPlan.grading.scoringSummary)
-    }</p>
+              <p class="micro muted">${escapeHtml(
+                input.planning.appPlan.grading.scoringSummary,
+              )}</p>
             </div>
             <div class="fact">
               <span class="fact-label">Local state</span>
@@ -168,17 +166,15 @@ function renderAppWriterRequestFields(input: {
   </label>
   <label class="field">
     <span>Audience</span>
-    <input name="audience" value="${
-    escapeHtml(input.audience ?? '')
-  }" placeholder="Grade 4 algebra students">
+    <input name="audience" value="${escapeHtml(
+      input.audience ?? '',
+    )}" placeholder="Grade 4 algebra students">
   </label>
   <label class="field">
     <span>Content</span>
-    <textarea name="contentSummary" rows="4" placeholder="Vocabulary list, concepts, source passage, or practice items">${
-    escapeHtml(
+    <textarea name="contentSummary" rows="4" placeholder="Vocabulary list, concepts, source passage, or practice items">${escapeHtml(
       input.contentSummary ?? '',
-    )
-  }</textarea>
+    )}</textarea>
   </label>
   <label class="field">
     <span>Grading</span>
@@ -191,9 +187,9 @@ function renderAppWriterRequestFields(input: {
   </label>
   <label class="field">
     <span>Requested app ID</span>
-    <input name="requestedAppId" value="${
-    escapeHtml(input.requestedAppId ?? '')
-  }" placeholder="optional-app-id">
+    <input name="requestedAppId" value="${escapeHtml(
+      input.requestedAppId ?? '',
+    )}" placeholder="optional-app-id">
   </label>`;
 }
 
@@ -228,20 +224,14 @@ function renderAttemptEventPlan(planning: AppGenerationPlanningResult): string {
   }
 
   return `<ul>
-    ${
-    planning.appPlan.attemptEvents
+    ${planning.appPlan.attemptEvents
       .map(
         (event) =>
-          `<li><strong>${escapeHtml(event.eventType)}</strong>: ${
-            escapeHtml(event.when)
-          } <span class="micro muted">${
-            escapeHtml(
-              event.questionIdPattern,
-            )
-          }</span></li>`,
+          `<li><strong>${escapeHtml(event.eventType)}</strong>: ${escapeHtml(
+            event.when,
+          )} <span class="micro muted">${escapeHtml(event.questionIdPattern)}</span></li>`,
       )
-      .join('')
-  }
+      .join('')}
   </ul>`;
 }
 

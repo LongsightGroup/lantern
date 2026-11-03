@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { createSyntheticRosterConnector } from './connector.ts';
 import type { GovernedRuntimeSession } from './types.ts';
 
-Deno.test('synthetic roster connector follows the same opaque page seam as NRPS', async () => {
+test('synthetic roster connector follows the same opaque page seam as NRPS', async () => {
   const connector = createSyntheticRosterConnector();
   const first = await connector.listPage({
     session: buildSyntheticSession(),

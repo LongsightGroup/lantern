@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import {
   buildAdminPreviewSessionRecord,
@@ -6,7 +7,7 @@ import {
   createInMemoryPackageReviewRepository,
 } from './package_review.ts';
 
-Deno.test('in-memory preview helpers seed admin and authoring sessions with typed defaults', async () => {
+test('in-memory preview helpers seed admin and authoring sessions with typed defaults', async () => {
   const packageVersion = buildPackageVersionRecord({
     id: 11,
     appId: 'chapter-4-asteroids',
@@ -42,7 +43,7 @@ Deno.test('in-memory preview helpers seed admin and authoring sessions with type
   );
 });
 
-Deno.test('in-memory preview lookup honors the same origin filter as the repository contract', async () => {
+test('in-memory preview lookup honors the same origin filter as the repository contract', async () => {
   const packageVersion = buildPackageVersionRecord({
     id: 12,
     appId: 'chapter-4-asteroids',
@@ -90,7 +91,7 @@ Deno.test('in-memory preview lookup honors the same origin filter as the reposit
   );
 });
 
-Deno.test('preview test builders expose explicit origin and selected content defaults', () => {
+test('preview test builders expose explicit origin and selected content defaults', () => {
   const adminSession = buildAdminPreviewSessionRecord();
   const authoringSession = buildAuthoringPreviewSessionRecord();
 

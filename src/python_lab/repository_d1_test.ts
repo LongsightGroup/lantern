@@ -1,9 +1,11 @@
+import { readFile } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import type { D1Database, D1Parameter, D1PreparedStatement, D1Result } from '../db/d1.ts';
 import { createD1PythonLabRepository } from './repository_d1.ts';
 import type { PythonLabRecord } from './repository.ts';
 
-Deno.test('D1 Python Lab admission reserves the IP window and daily visitor in one batch', async () => {
+test('D1 Python Lab admission reserves the IP window and daily visitor in one batch', async () => {
   const db = createRecordingDatabase();
   const repository = createD1PythonLabRepository(db);
 
@@ -25,7 +27,7 @@ Deno.test('D1 Python Lab admission reserves the IP window and daily visitor in o
   ]);
 });
 
-Deno.test('D1 Python Lab admission translates a unique visitor reservation into a rate-limit result', async () => {
+test('D1 Python Lab admission translates a unique visitor reservation into a rate-limit result', async () => {
   const db = createRecordingDatabase(
     'UNIQUE constraint failed: python_lab_trials.visitor_hash, python_lab_trials.visitor_day',
   );
@@ -40,10 +42,8 @@ Deno.test('D1 Python Lab admission translates a unique visitor reservation into 
   assertEquals(admission, { status: 'visitor_limited' });
 });
 
-Deno.test('Python Lab migration persists the daily visitor and final-run recovery constraints', async () => {
-  const migration = await Deno.readTextFile(
-    'src/db/d1_migrations/0003_python_autograder_lab.sql',
-  );
+test('Python Lab migration persists the daily visitor and final-run recovery constraints', async () => {
+  const migration = await readFile('src/db/d1_migrations/0003_python_autograder_lab.sql', 'utf8');
 
   assertStringIncludes(migration, 'visitor_day TEXT NOT NULL');
   assertStringIncludes(migration, 'UNIQUE (visitor_hash, visitor_day)');
@@ -92,10 +92,14 @@ function createRecordingDatabase(batchError?: string): D1Database & {
     batch(statements) {
       const recorded = statements as RecordingStatement[];
       batches.push(recorded);
-      return Promise.resolve(recorded.map((_statement, index) => ({
-        success: batchError === undefined || index !== recorded.length - 1,
-        ...(batchError === undefined || index !== recorded.length - 1 ? {} : { error: batchError }),
-      })));
+      return Promise.resolve(
+        recorded.map((_statement, index) => ({
+          success: batchError === undefined || index !== recorded.length - 1,
+          ...(batchError === undefined || index !== recorded.length - 1
+            ? {}
+            : { error: batchError }),
+        })),
+      );
     },
     exec() {
       return Promise.resolve({ count: 0, duration: 0 });

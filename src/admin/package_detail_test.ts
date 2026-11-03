@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { ADMIN_TEST_IDENTITY } from '../admin_auth/page_input.ts';
 import { renderPackageDetailPage } from './package_detail.ts';
@@ -8,7 +9,7 @@ import {
   buildPreviewSessionRecord,
 } from '../test_helpers/package_review.ts';
 
-Deno.test('renderPackageDetailPage shows status, exact version, owner, and access details above the fold', () => {
+test('renderPackageDetailPage shows status, exact version, owner, and access details above the fold', () => {
   const pendingVersion = buildPackageVersionRecord();
   const body = renderPackageDetailPage({
     identity: ADMIN_TEST_IDENTITY,
@@ -38,7 +39,7 @@ Deno.test('renderPackageDetailPage shows status, exact version, owner, and acces
   assertEquals(body.includes('Sensitive learner evidence'), false);
 });
 
-Deno.test('renderPackageDetailPage gives pending reviewers changes, launch, runtime, and safety context', () => {
+test('renderPackageDetailPage gives pending reviewers changes, launch, runtime, and safety context', () => {
   const previousVersion = buildPackageVersionRecord({
     id: 1,
     version: '0.1.0',
@@ -106,7 +107,7 @@ Deno.test('renderPackageDetailPage gives pending reviewers changes, launch, runt
   assertStringIncludes(body, 'direct grade writes');
 });
 
-Deno.test('renderPackageDetailPage treats first pending version as a full capability baseline review', () => {
+test('renderPackageDetailPage treats first pending version as a full capability baseline review', () => {
   const pendingVersion = buildPackageVersionRecord({
     id: 10,
     version: '0.1.0',
@@ -126,7 +127,7 @@ Deno.test('renderPackageDetailPage treats first pending version as a full capabi
   assertStringIncludes(body, 'Attempt completion');
 });
 
-Deno.test('renderPackageDetailPage highlights added sensitive capabilities against the previous approved version', () => {
+test('renderPackageDetailPage highlights added sensitive capabilities against the previous approved version', () => {
   const previousVersion = buildPackageVersionRecord({
     id: 20,
     version: '0.1.0',
@@ -162,7 +163,7 @@ Deno.test('renderPackageDetailPage highlights added sensitive capabilities again
   assertStringIncludes(body, 'Confirm the assignment purpose, evidence or grading flow');
 });
 
-Deno.test('renderPackageDetailPage shows removed capabilities against the previous approved version', () => {
+test('renderPackageDetailPage shows removed capabilities against the previous approved version', () => {
   const previousVersion = buildPackageVersionRecord({
     id: 30,
     version: '0.1.0',
@@ -194,7 +195,7 @@ Deno.test('renderPackageDetailPage shows removed capabilities against the previo
   assertStringIncludes(body, 'Added: none.');
 });
 
-Deno.test('renderPackageDetailPage ignores newer approved versions when reviewing an older pending version', () => {
+test('renderPackageDetailPage ignores newer approved versions when reviewing an older pending version', () => {
   const newerApprovedVersion = buildPackageVersionRecord({
     id: 40,
     version: '0.3.0',
@@ -239,7 +240,7 @@ Deno.test('renderPackageDetailPage ignores newer approved versions when reviewin
   assertStringIncludes(body, 'Sensitive learner evidence');
 });
 
-Deno.test('renderPackageDetailPage distinguishes ordinary progress from sensitive evidence and saved file details', () => {
+test('renderPackageDetailPage distinguishes ordinary progress from sensitive evidence and saved file details', () => {
   const reviewedVersion = buildPackageVersionRecord({
     approvalStatus: 'approved',
     capabilities: [
@@ -289,7 +290,7 @@ Deno.test('renderPackageDetailPage distinguishes ordinary progress from sensitiv
   assertEquals(body.includes('/admin/packages/1/approve'), false);
 });
 
-Deno.test('renderPackageDetailPage keeps older reviewed versions explicit when structured accessibility evidence is missing', () => {
+test('renderPackageDetailPage keeps older reviewed versions explicit when structured accessibility evidence is missing', () => {
   const reviewedVersion = buildPackageVersionRecord({
     approvalStatus: 'approved',
     reviewNotes: 'Approved before the accessibility checklist existed.',

@@ -1,3 +1,4 @@
+import { watchLocalPackage } from './local_watch.ts';
 import { runLocalPreviewAssertions } from '../src/authoring/local_preview_assertions.ts';
 import {
   type RenderedPreviewAssertionResult,
@@ -14,16 +15,16 @@ export interface AppTestPreviewArgs {
 
 if (import.meta.main) {
   try {
-    const args = parseArgs(Deno.args);
+    const args = parseArgs(process.argv.slice(2));
     const exitCode = args.watch
       ? await runWatchCommand(args)
       : await runOneShotCommand(args.packageRoot);
-    Deno.exit(exitCode);
+    process.exit(exitCode);
   } catch (error) {
     console.error(
       error instanceof Error ? error.message : 'Lantern preview assertion command failed.',
     );
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -52,7 +53,7 @@ export function parseArgs(args: string[]): AppTestPreviewArgs {
   }
 
   if (packageRoot === null) {
-    throw new Error('Usage: deno task app:test-preview <package-root> [--watch] [--once]');
+    throw new Error('Usage: npm run app:test-preview -- <package-root> [--watch] [--once]');
   }
 
   if (once && !watch) {
@@ -77,20 +78,17 @@ async function runOneShotCommand(packageRoot: string): Promise<number> {
 
 async function runWatchCommand(args: AppTestPreviewArgs): Promise<number> {
   console.log(`Lantern preview watch started for ${args.packageRoot}.`);
-  const watcher = Deno.watchFs(args.packageRoot, {
-    recursive: true,
-  });
+  const watcher = watchLocalPackage(args.packageRoot);
 
   try {
     return await runWatchMode({
-      iterator: watcher[Symbol.asyncIterator](),
+      iterator: watcher.iterator,
       once: args.once,
       debounceMs: args.debounceMs,
       log: (message) => console.log(message),
       runCycle: async (changedPaths) => {
-        const label = changedPaths.length === 0
-          ? 'initial'
-          : `rerun for ${changedPaths.join(', ')}`;
+        const label =
+          changedPaths.length === 0 ? 'initial' : `rerun for ${changedPaths.join(', ')}`;
         console.log(`\n[lantern-preview-test] ${label}`);
 
         const rendered = await runOneShotCycle(args.packageRoot);

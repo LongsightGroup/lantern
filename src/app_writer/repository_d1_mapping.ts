@@ -115,9 +115,7 @@ export function serializeAppGenerationRun(record: AppGenerationRunRecord): unkno
   ];
 }
 
-export function mapD1AppGenerationRunFields(
-  row: D1AppGenerationRunRow,
-): AppGenerationRunRecord {
+export function mapD1AppGenerationRunFields(row: D1AppGenerationRunRow): AppGenerationRunRecord {
   const selectedStarterId = expectD1NullableStringLiteral(
     row.selectedStarterId,
     'app_generation_runs.selectedStarterId',
@@ -208,10 +206,7 @@ export function mapD1AppGenerationWorkspaceFields(
   row: D1AppGenerationWorkspaceRow,
 ): AppGenerationWorkspaceRecord {
   return {
-    generationId: expectD1String(
-      row.generationId,
-      'app_generation_workspaces.generationId',
-    ),
+    generationId: expectD1String(row.generationId, 'app_generation_workspaces.generationId'),
     selectedStarterId: expectD1StringLiteral(
       row.selectedStarterId,
       'app_generation_workspaces.selectedStarterId',

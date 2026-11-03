@@ -108,7 +108,7 @@ function encodeBase64Url(bytes: Uint8Array): string {
 function defaultLocalEnvHeader(): string {
   return [
     '# Local Lantern development defaults.',
-    '# Full Lantern persistence runs through Cloudflare D1 via Wrangler.',
+    '# Full Lantern persistence runs through Cloudflare D1 via cf.',
     '# APP_RUNTIME_ORIGIN defaults to the same localhost origin for local development.',
     '',
   ].join('\n');

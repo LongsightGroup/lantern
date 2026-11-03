@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createTestApp as createApp } from './test_helpers/app.ts';
 import {
@@ -10,7 +11,7 @@ import {
 import { adminSessionCookieValue } from './admin_auth/service.ts';
 import { createInMemoryPackageReviewRepository } from './test_helpers/package_review.ts';
 
-Deno.test('admin pages require authentication', async () => {
+test('admin pages require authentication', async () => {
   const response = await createApp({
     adminAuth: createUnauthenticatedAdminAuth(),
     getRepository: () => createInMemoryPackageReviewRepository(),
@@ -19,13 +20,10 @@ Deno.test('admin pages require authentication', async () => {
   });
 
   assertEquals(response.status, 303);
-  assertEquals(
-    response.headers.get('location'),
-    '/admin/login?returnTo=%2Fadmin%2Fpackages',
-  );
+  assertEquals(response.headers.get('location'), '/admin/login?returnTo=%2Fadmin%2Fpackages');
 });
 
-Deno.test('admin JSON requests return 401 when unauthenticated', async () => {
+test('admin JSON requests return 401 when unauthenticated', async () => {
   const response = await createApp({
     adminAuth: createUnauthenticatedAdminAuth(),
     getRepository: () => createInMemoryPackageReviewRepository(),
@@ -37,7 +35,7 @@ Deno.test('admin JSON requests return 401 when unauthenticated', async () => {
   assertEquals(await response.text(), 'Authentication required.');
 });
 
-Deno.test('admin JSON requests with Accept */* return 401 when unauthenticated', async () => {
+test('admin JSON requests with Accept */* return 401 when unauthenticated', async () => {
   const response = await createApp({
     adminAuth: createUnauthenticatedAdminAuth(),
     getRepository: () => createInMemoryPackageReviewRepository(),
@@ -48,7 +46,7 @@ Deno.test('admin JSON requests with Accept */* return 401 when unauthenticated',
   assertEquals(response.status, 401);
 });
 
-Deno.test('login and signup pages render without a session', async () => {
+test('login and signup pages render without a session', async () => {
   const app = createApp({
     adminAuth: createUnauthenticatedAdminAuth(),
     getRepository: () => createInMemoryPackageReviewRepository(),
@@ -63,7 +61,7 @@ Deno.test('login and signup pages render without a session', async () => {
   assertStringIncludes(await signup.text(), 'Create your Lantern admin account');
 });
 
-Deno.test('login page renders Google sign-in when configured', async () => {
+test('login page renders Google sign-in when configured', async () => {
   const app = createApp({
     adminAuth: createTestAdminAuth({
       session: null,
@@ -78,7 +76,7 @@ Deno.test('login page renders Google sign-in when configured', async () => {
   assertStringIncludes(await login.text(), 'Sign in with Google');
 });
 
-Deno.test('Google sign-in redirects to Google authorization URL', async () => {
+test('Google sign-in redirects to Google authorization URL', async () => {
   const app = createApp({
     adminAuth: createTestAdminAuth({
       session: null,
@@ -103,7 +101,7 @@ Deno.test('Google sign-in redirects to Google authorization URL', async () => {
   assertStringIncludes(response.headers.get('set-cookie') ?? '', 'better-auth.state=');
 });
 
-Deno.test('signup creates an admin session and redirects to packages', async () => {
+test('signup creates an admin session and redirects to packages', async () => {
   const auth = createUnauthenticatedAdminAuth();
   const app = createApp({
     adminAuth: auth,
@@ -132,7 +130,7 @@ Deno.test('signup creates an admin session and redirects to packages', async () 
   assertEquals(packages.status, 200);
 });
 
-Deno.test('duplicate signup fails clearly', async () => {
+test('duplicate signup fails clearly', async () => {
   const response = await createApp({
     adminAuth: createTestAdminAuth({
       session: null,
@@ -154,7 +152,7 @@ Deno.test('duplicate signup fails clearly', async () => {
   assertStringIncludes(await response.text(), 'User already exists.');
 });
 
-Deno.test('login creates an admin session and redirects to requested admin path', async () => {
+test('login creates an admin session and redirects to requested admin path', async () => {
   const auth = createUnauthenticatedAdminAuth();
   const app = createApp({
     adminAuth: auth,
@@ -182,7 +180,7 @@ Deno.test('login creates an admin session and redirects to requested admin path'
   assertEquals(packages.status, 200);
 });
 
-Deno.test('logout invalidates the admin session', async () => {
+test('logout invalidates the admin session', async () => {
   const auth = createAuthenticatedAdminAuth();
   const app = createApp({
     adminAuth: auth,
@@ -214,7 +212,7 @@ Deno.test('logout invalidates the admin session', async () => {
   assertEquals(packages.status, 401);
 });
 
-Deno.test('logout failure is shown and does not clear the admin session', async () => {
+test('logout failure is shown and does not clear the admin session', async () => {
   const auth = createTestAdminAuth({
     session: {
       user: {
@@ -251,7 +249,7 @@ Deno.test('logout failure is shown and does not clear the admin session', async 
   assertEquals(packages.status, 200);
 });
 
-Deno.test('public LTI, runtime, health, and config routes do not require admin auth', async () => {
+test('public LTI, runtime, health, and config routes do not require admin auth', async () => {
   const app = createApp({
     adminAuth: createUnauthenticatedAdminAuth(),
     getRepository: () => createInMemoryPackageReviewRepository(),

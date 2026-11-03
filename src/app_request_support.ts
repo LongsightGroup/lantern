@@ -1,4 +1,4 @@
-import type { Context } from '@hono/hono';
+import type { Context } from 'hono';
 import type { LoginRequest, LoginRequestCompatibility } from './lti/login_request.ts';
 
 export interface ReadLoginRequestResult {

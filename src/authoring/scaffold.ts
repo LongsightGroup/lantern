@@ -1,3 +1,4 @@
+import { copyFile, mkdir, readFile, readdir, stat as fileStat, writeFile } from 'node:fs/promises';
 import type { AppManifest } from '../package_review/manifest_contract.ts';
 import { joinSnapshotPath } from '../package_review/snapshot_path.ts';
 
@@ -126,7 +127,7 @@ function resolveOutputRoot(value: string): string {
   const trimmed = requireNonEmptyString(value, 'Output path is required.');
   const absolute = isAbsolutePath(trimmed)
     ? trimmed
-    : `${Deno.cwd().replace(/\/+$/, '')}/${trimmed}`;
+    : `${process.cwd().replace(/\/+$/, '')}/${trimmed}`;
 
   return absolute.replace(/\/+$/, '');
 }
@@ -137,18 +138,18 @@ function isAbsolutePath(value: string): boolean {
 
 async function prepareOutputRoot(outputRoot: string): Promise<void> {
   try {
-    const stat = await Deno.stat(outputRoot);
+    const stat = await fileStat(outputRoot);
 
-    if (!stat.isDirectory) {
+    if (!stat.isDirectory()) {
       throw new Error(`Scaffold output path ${outputRoot} must be a directory.`);
     }
 
-    for await (const _entry of Deno.readDir(outputRoot)) {
+    for (const _entry of await readdir(outputRoot, { withFileTypes: true })) {
       throw new Error(`Scaffold output path ${outputRoot} must not already contain files.`);
     }
   } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      await Deno.mkdir(outputRoot, { recursive: true });
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      await mkdir(outputRoot, { recursive: true });
       return;
     }
 
@@ -157,18 +158,18 @@ async function prepareOutputRoot(outputRoot: string): Promise<void> {
 }
 
 async function copyDirectory(sourceRoot: string, targetRoot: string): Promise<void> {
-  for await (const entry of Deno.readDir(sourceRoot)) {
+  for (const entry of await readdir(sourceRoot, { withFileTypes: true })) {
     const sourcePath = `${sourceRoot}/${entry.name}`;
     const targetPath = joinSnapshotPath(targetRoot, entry.name, OUTPUT_ROOT_OUTSIDE_MESSAGE);
 
-    if (entry.isDirectory) {
-      await Deno.mkdir(targetPath, { recursive: true });
+    if (entry.isDirectory()) {
+      await mkdir(targetPath, { recursive: true });
       await copyDirectory(sourcePath, targetPath);
       continue;
     }
 
-    if (entry.isFile) {
-      await Deno.copyFile(sourcePath, targetPath);
+    if (entry.isFile()) {
+      await copyFile(sourcePath, targetPath);
     }
   }
 }
@@ -179,20 +180,14 @@ async function rewriteSimpleActivityStarter(context: ScaffoldRewriteContext): Pr
 
 async function rewriteBrowserAutograderStarter(context: ScaffoldRewriteContext): Promise<void> {
   await rewriteStarterIdentityFiles(context);
-  await rewriteTextFile(
-    context.outputRoot,
-    'dist/index.html',
-    (source) => source.replaceAll('Template App', context.title),
+  await rewriteTextFile(context.outputRoot, 'dist/index.html', (source) =>
+    source.replaceAll('Template App', context.title),
   );
-  await rewriteTextFile(
-    context.outputRoot,
-    'dist/app.js',
-    (source) => source.replaceAll('"Template App"', JSON.stringify(context.title)),
+  await rewriteTextFile(context.outputRoot, 'dist/app.js', (source) =>
+    source.replaceAll('"Template App"', JSON.stringify(context.title)),
   );
-  await rewriteTextFile(
-    context.outputRoot,
-    'grading/specs/checks.spec.js',
-    (source) => source.replaceAll("'Template App'", JSON.stringify(context.title)),
+  await rewriteTextFile(context.outputRoot, 'grading/specs/checks.spec.js', (source) =>
+    source.replaceAll("'Template App'", JSON.stringify(context.title)),
   );
 }
 
@@ -265,9 +260,9 @@ async function rewriteJsonFile<T>(
   mutate: (value: T) => T,
 ): Promise<void> {
   const absolutePath = joinSnapshotPath(outputRoot, relativePath, OUTPUT_ROOT_OUTSIDE_MESSAGE);
-  const value = readJsonFile<T>(await Deno.readTextFile(absolutePath));
+  const value = readJsonFile<T>(await readFile(absolutePath, 'utf8'));
 
-  await Deno.writeTextFile(absolutePath, `${JSON.stringify(mutate(value), null, 2)}\n`);
+  await writeFile(absolutePath, `${JSON.stringify(mutate(value), null, 2)}\n`);
 }
 
 async function rewriteTextFile(
@@ -277,7 +272,7 @@ async function rewriteTextFile(
 ): Promise<void> {
   const absolutePath = joinSnapshotPath(outputRoot, relativePath, OUTPUT_ROOT_OUTSIDE_MESSAGE);
 
-  await Deno.writeTextFile(absolutePath, mutate(await Deno.readTextFile(absolutePath)));
+  await writeFile(absolutePath, mutate(await readFile(absolutePath, 'utf8')));
 }
 
 function readJsonFile<T>(text: string): T {

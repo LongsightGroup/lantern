@@ -1,4 +1,4 @@
-import type { Context, Hono } from '@hono/hono';
+import type { Context, Hono } from 'hono';
 import { type AuthoringPageFileView, renderAuthoringPage } from './admin/authoring_page.ts';
 import { renderPackageDetailPage } from './admin/package_detail.ts';
 import { renderPackageIndexPage } from './admin/package_index.ts';
@@ -105,9 +105,10 @@ async function loadAuthoringPreviewState(
     draft,
     currentFiles: await loadCurrentDraftFiles(draft, services),
     latestPreviewSession,
-    previewEvidence: latestPreviewSession === null
-      ? []
-      : await repository.listPreviewEvidence(latestPreviewSession.sessionId),
+    previewEvidence:
+      latestPreviewSession === null
+        ? []
+        : await repository.listPreviewEvidence(latestPreviewSession.sessionId),
   };
 }
 
@@ -148,14 +149,16 @@ async function renderAuthoringPreviewError(
 ) {
   if (state !== null) {
     return context.html(
-      renderAuthoringPage(adminPageInput(context, {
-        packageVersion: state.packageVersion,
-        draft: state.draft,
-        currentFiles: state.currentFiles,
-        latestPreviewSession: state.latestPreviewSession,
-        previewEvidence: state.previewEvidence,
-        notice: createErrorNotice('Draft preview unavailable', error),
-      })),
+      renderAuthoringPage(
+        adminPageInput(context, {
+          packageVersion: state.packageVersion,
+          draft: state.draft,
+          currentFiles: state.currentFiles,
+          latestPreviewSession: state.latestPreviewSession,
+          previewEvidence: state.previewEvidence,
+          notice: createErrorNotice('Draft preview unavailable', error),
+        }),
+      ),
       statusForError(error),
     );
   }
@@ -165,10 +168,12 @@ async function renderAuthoringPreviewError(
 
   if (!packageVersion) {
     return context.html(
-      renderPackageIndexPage(adminPageInput(context, {
-        versions: [],
-        notice: createErrorNotice('Draft preview unavailable', error),
-      })),
+      renderPackageIndexPage(
+        adminPageInput(context, {
+          versions: [],
+          notice: createErrorNotice('Draft preview unavailable', error),
+        }),
+      ),
       statusForError(error),
     );
   }
@@ -176,25 +181,29 @@ async function renderAuthoringPreviewError(
   const history = await repository.listPackageVersionsByApp(packageVersion.appId);
 
   return context.html(
-    renderPackageDetailPage(adminPageInput(context, {
-      packageVersion,
-      history,
-      notice: createErrorNotice('Draft preview unavailable', error),
-    })),
+    renderPackageDetailPage(
+      adminPageInput(context, {
+        packageVersion,
+        history,
+        notice: createErrorNotice('Draft preview unavailable', error),
+      }),
+    ),
     statusForError(error),
   );
 }
 
 function renderVersionNotFound(context: Context) {
   return context.html(
-    renderPackageIndexPage(adminPageInput(context, {
-      versions: [],
-      notice: {
-        tone: 'error',
-        title: 'Version not found',
-        detail: 'Lantern could not find that app version.',
-      },
-    })),
+    renderPackageIndexPage(
+      adminPageInput(context, {
+        versions: [],
+        notice: {
+          tone: 'error',
+          title: 'Version not found',
+          detail: 'Lantern could not find that app version.',
+        },
+      }),
+    ),
     404,
   );
 }

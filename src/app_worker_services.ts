@@ -1,3 +1,4 @@
+import type { PythonGraderSandboxNamespace } from './python_lab/cloudflare_sandbox.ts';
 import type { JSONWebKeySet } from 'jose';
 import {
   createCloudflareAppWriterAgentSessionCoordinator,
@@ -92,13 +93,13 @@ const WORKER_RUNTIME_ARTIFACT_MESSAGE =
 const WORKER_EVIDENCE_ARTIFACT_MESSAGE =
   'Cloudflare Workers evidence artifact storage requires an R2 binding named PACKAGE_ARTIFACTS with write access.';
 const WORKER_REFERENCE_PACKAGE_MESSAGE =
-  'Curated reference packages must be stored in PACKAGE_ARTIFACTS under reference-packages/<app-id>/source before Workers can import or inspect them. Run `deno task reference:sync --bucket=<bucket-name>` during Worker bootstrap or release.';
+  'Curated reference packages must be stored in PACKAGE_ARTIFACTS under reference-packages/<app-id>/source before Workers can import or inspect them. Run `npm run reference:sync -- --bucket=<bucket-name>` during Worker bootstrap or release.';
 const WORKER_RUNTIME_DELIVERY_MESSAGE =
   'Cloudflare Workers reviewed runtime delivery requires a Worker Loader binding named LOADER. Bind the Dynamic Worker loader before serving immutable reviewed runtime bytes from Workers.';
 const WORKER_BROWSER_AUTOGRADER_DRAFT_REFERENCE_MESSAGE =
-  'Cloudflare Workers do not load local browser-autograder draft reference examples. Use the local Deno authoring flow for draft example scaffolding.';
+  'Cloudflare Workers do not load local browser-autograder draft reference examples. Use the local Node.js authoring flow for draft example scaffolding.';
 const WORKER_AUTHORING_DRAFT_PREVIEW_MESSAGE =
-  'Cloudflare Workers do not materialize draft preview snapshots from the local filesystem. Use the local Deno authoring preview flow instead.';
+  'Cloudflare Workers do not materialize draft preview snapshots from the local filesystem. Use the local Node.js authoring preview flow instead.';
 const WORKER_APP_GENERATION_WORKFLOW_MESSAGE =
   'Cloudflare Workers app generation requires a Workflows binding named APP_GENERATION_WORKFLOW.';
 const WORKER_APP_SOURCE_COMPILER_MESSAGE =
@@ -124,7 +125,7 @@ export interface WorkerBindings extends Record<string, unknown> {
 }
 
 export type PythonGraderSandboxFactoryProvider = (
-  namespace: object,
+  namespace: PythonGraderSandboxNamespace,
 ) => PythonGraderSandboxFactory;
 
 export function resolveWorkerServices(
@@ -248,7 +249,8 @@ function resolveWorkerPythonLabArtifactStore(bindings: WorkerBindings) {
 
 function isPythonLabArtifactBucket(value: unknown): value is PythonLabArtifactBucket {
   return (
-    typeof value === 'object' && value !== null &&
+    typeof value === 'object' &&
+    value !== null &&
     typeof (value as Partial<PythonLabArtifactBucket>).get === 'function' &&
     typeof (value as Partial<PythonLabArtifactBucket>).put === 'function' &&
     typeof (value as Partial<PythonLabArtifactBucket>).delete === 'function'
@@ -260,7 +262,8 @@ function resolveWorkerPythonGraderSandboxFactory(
   createFactory: PythonGraderSandboxFactoryProvider | undefined,
 ) {
   if (
-    isPythonGraderSandboxNamespace(bindings.PYTHON_GRADER_SANDBOX) && createFactory !== undefined
+    isPythonGraderSandboxNamespace(bindings.PYTHON_GRADER_SANDBOX) &&
+    createFactory !== undefined
   ) {
     return createFactory(bindings.PYTHON_GRADER_SANDBOX);
   }
@@ -292,8 +295,8 @@ function resolveWorkerPythonLabHumanVerifier(env: EnvReader) {
   return secret
     ? createTurnstilePythonLabHumanVerifier(secret)
     : createUnavailablePythonLabHumanVerifier(
-      'Python autograder Lab requires AUTOGRADER_TURNSTILE_SECRET.',
-    );
+        'Python autograder Lab requires AUTOGRADER_TURNSTILE_SECRET.',
+      );
 }
 
 function resolveWorkerPythonLabGenerationScheduler(bindings: WorkerBindings) {
@@ -306,15 +309,19 @@ function isCloudflareAiBinding(
   value: unknown,
 ): value is import('./app_writer/agent_types.ts').CloudflareAiBinding {
   return (
-    typeof value === 'object' && value !== null &&
+    typeof value === 'object' &&
+    value !== null &&
     typeof (value as { run?: unknown }).run === 'function'
   );
 }
 
-function isPythonGraderSandboxNamespace(
-  value: unknown,
-): value is object {
-  return typeof value === 'object' && value !== null;
+function isPythonGraderSandboxNamespace(value: unknown): value is PythonGraderSandboxNamespace {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'getByName' in value &&
+    typeof value.getByName === 'function'
+  );
 }
 
 function resolveWorkerAdminAuth(bindings: WorkerBindings, env: EnvReader) {

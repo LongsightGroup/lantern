@@ -1,7 +1,5 @@
-import { Ajv2020, type ValidateFunction } from '@ajv2020';
-import manifestSchema from '../../schemas/app-manifest.schema.json' with { type: 'json' };
+import { manifestValidator as validator } from '../generated/schema_validators.mjs';
 import {
-  type AppManifest,
   buildManifestReviewData,
   explainManifestIssues,
   type ManifestReviewData,
@@ -12,14 +10,6 @@ import {
   collectReferencedFileIssuesFromSource,
   readManifestJsonFromSource,
 } from './manifest_files.ts';
-
-const ajv = new Ajv2020({
-  allErrors: true,
-  strict: true,
-  strictRequired: false,
-});
-
-const validator: ValidateFunction<AppManifest> = ajv.compile<AppManifest>(manifestSchema);
 
 export { explainManifestIssues };
 export type { ManifestReviewData, ManifestValidationResult };

@@ -61,12 +61,14 @@ export function buildAgsLaunchService(
 
   return {
     scope: serviceOverrides.scope ?? [DEFAULT_AGS_SCORE_SCOPE, DEFAULT_AGS_LINEITEM_SCOPE],
-    lineitemsUrl: shape === 'lineitem' || shape === 'none'
-      ? null
-      : (serviceOverrides.lineitemsUrl ?? defaults.lineitemsUrl),
-    lineitemUrl: shape === 'lineitems' || shape === 'none'
-      ? null
-      : (serviceOverrides.lineitemUrl ?? defaults.lineitemUrl),
+    lineitemsUrl:
+      shape === 'lineitem' || shape === 'none'
+        ? null
+        : (serviceOverrides.lineitemsUrl ?? defaults.lineitemsUrl),
+    lineitemUrl:
+      shape === 'lineitems' || shape === 'none'
+        ? null
+        : (serviceOverrides.lineitemUrl ?? defaults.lineitemUrl),
   };
 }
 
@@ -76,8 +78,8 @@ export function buildNrpsLaunchService(
   const { lms = 'canvas', ...serviceOverrides } = overrides;
 
   return {
-    contextMembershipsUrl: serviceOverrides.contextMembershipsUrl ??
-      TEST_NRPS_SERVICE_DEFAULTS[lms],
+    contextMembershipsUrl:
+      serviceOverrides.contextMembershipsUrl ?? TEST_NRPS_SERVICE_DEFAULTS[lms],
     serviceVersions: serviceOverrides.serviceVersions ?? ['2.0'],
   };
 }
@@ -88,17 +90,23 @@ export function buildLaunchServiceClaims(
   const lms = overrides.lms;
 
   return {
-    ags: overrides.ags === null ? null : buildAgsLaunchService(
-      {
-        ...(lms === undefined ? {} : { lms }),
-        ...overrides.ags,
-      },
-      overrides.agsShape,
-    ),
-    nrps: overrides.nrps === null ? null : buildNrpsLaunchService({
-      ...(lms === undefined ? {} : { lms }),
-      ...overrides.nrps,
-    }),
+    ags:
+      overrides.ags === null
+        ? null
+        : buildAgsLaunchService(
+            {
+              ...(lms === undefined ? {} : { lms }),
+              ...overrides.ags,
+            },
+            overrides.agsShape,
+          ),
+    nrps:
+      overrides.nrps === null
+        ? null
+        : buildNrpsLaunchService({
+            ...(lms === undefined ? {} : { lms }),
+            ...overrides.nrps,
+          }),
   };
 }
 

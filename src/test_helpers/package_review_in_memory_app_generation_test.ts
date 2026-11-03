@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import { createInMemoryPackageReviewRepository } from './package_review.ts';
 import {
@@ -5,7 +6,7 @@ import {
   buildAppGenerationWorkspaceRecord,
 } from './package_review_in_memory_app_generation.ts';
 
-Deno.test('in-memory repository creates, reads, and updates app generation runs', async () => {
+test('in-memory repository creates, reads, and updates app generation runs', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const created = await repository.createAppGenerationRun(buildAppGenerationRunRecord());
 
@@ -26,7 +27,7 @@ Deno.test('in-memory repository creates, reads, and updates app generation runs'
   assertEquals(fetched?.updatedAt, '2026-05-14T12:05:00.000Z');
 });
 
-Deno.test('in-memory repository rejects duplicate app generation runs', async () => {
+test('in-memory repository rejects duplicate app generation runs', async () => {
   const repository = createInMemoryPackageReviewRepository({
     appGenerationRuns: [buildAppGenerationRunRecord()],
   });
@@ -38,7 +39,7 @@ Deno.test('in-memory repository rejects duplicate app generation runs', async ()
   );
 });
 
-Deno.test('in-memory repository saves current app generation workspace snapshots', async () => {
+test('in-memory repository saves current app generation workspace snapshots', async () => {
   const repository = createInMemoryPackageReviewRepository({
     appGenerationRuns: [buildAppGenerationRunRecord()],
   });

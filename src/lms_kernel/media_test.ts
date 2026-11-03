@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { createProtectedMediaService } from './media.ts';
 import {
@@ -14,7 +15,7 @@ const PNG = Uint8Array.from(
   (char) => char.charCodeAt(0),
 );
 
-Deno.test('protected media revalidates the photo grant and records the shared trace', async () => {
+test('protected media revalidates the photo grant and records the shared trace', async () => {
   const session = buildGovernedSyntheticSession();
   const repository = new MemoryLmsKernelRepository({
     session,
@@ -60,26 +61,23 @@ Deno.test('protected media revalidates the photo grant and records the shared tr
   assertEquals(repository.events[0]?.capability, 'lms.roster.profile_photo.read');
 });
 
-Deno.test('protected media rejects SVG and non-raster types, including MIME-spoofed SVG', async () => {
-  for (
-    const contentType of [
-      'image/svg+xml',
-      'image/svg+xml; charset=UTF-8',
-      'text/html',
-      'image/bmp',
-      'image/png',
-      'image/jpeg',
-    ]
-  ) {
+test('protected media rejects SVG and non-raster types, including MIME-spoofed SVG', async () => {
+  for (const contentType of [
+    'image/svg+xml',
+    'image/svg+xml; charset=UTF-8',
+    'text/html',
+    'image/bmp',
+    'image/png',
+    'image/jpeg',
+  ]) {
     const repository = await mediaRepository();
     const service = createProtectedMediaService({
       repository,
       fetchUpstream: () =>
         Promise.resolve(
-          new Response(
-            '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
-            { headers: { 'content-type': contentType } },
-          ),
+          new Response('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', {
+            headers: { 'content-type': contentType },
+          }),
         ),
     });
     const response = await service.fetch({ mediaId: 'media-1', now: NOW });
@@ -91,7 +89,7 @@ Deno.test('protected media rejects SVG and non-raster types, including MIME-spoo
   }
 });
 
-Deno.test('protected media verifies and preserves raster bytes across upstream stream chunks', async () => {
+test('protected media verifies and preserves raster bytes across upstream stream chunks', async () => {
   const formats = [
     { type: 'image/png', bytes: PNG },
     {
@@ -150,15 +148,17 @@ async function mediaRepository(): Promise<MemoryLmsKernelRepository> {
   return repository;
 }
 
-Deno.test('protected media denies a reference after photo permission is revoked', async () => {
+test('protected media denies a reference after photo permission is revoked', async () => {
   const session = buildGovernedSyntheticSession();
   const repository = new MemoryLmsKernelRepository({
     session,
-    grants: [{
-      ...buildKernelGrant('photo-grant', 'lms.roster.profile_photo.read'),
-      revokedByUserId: 'admin-1',
-      revokedAt: '2026-07-19T15:59:00.000Z',
-    }],
+    grants: [
+      {
+        ...buildKernelGrant('photo-grant', 'lms.roster.profile_photo.read'),
+        revokedByUserId: 'admin-1',
+        revokedAt: '2026-07-19T15:59:00.000Z',
+      },
+    ],
   });
   await repository.saveProtectedMediaReference({
     id: 'media-1',

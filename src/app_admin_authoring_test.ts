@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import type {
   BrowserAutograderDraftFileInput,
@@ -17,7 +18,7 @@ const GENERATED_SPEC = `describe("template authoring checks", () => {
 });
 `;
 
-Deno.test('GET authoring routes expose an explicit entry point and prompt-first draft page', async () => {
+test('GET authoring routes expose an explicit entry point and prompt-first draft page', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });
@@ -46,7 +47,7 @@ Deno.test('GET authoring routes expose an explicit entry point and prompt-first 
   assertStringIncludes(authoringBody, 'Back to version details');
 });
 
-Deno.test('POST /authoring/generate returns notes and diffs without saving the draft yet', async () => {
+test('POST /authoring/generate returns notes and diffs without saving the draft yet', async () => {
   const capturedInputs: Array<{
     appId: string;
     packageVersion: string;
@@ -120,7 +121,7 @@ Deno.test('POST /authoring/generate returns notes and diffs without saving the d
   assertStringIncludes(capturedInput.currentFiles[0]?.contents ?? '', 'template authoring checks');
 });
 
-Deno.test('POST /authoring/save persists generated files and AI provenance into the draft record', async () => {
+test('POST /authoring/save persists generated files and AI provenance into the draft record', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [buildTemplateAuthoringPackageVersionRecord()],
   });

@@ -82,10 +82,9 @@ export interface StartedAppPackageGenerationRun {
 }
 
 export interface ContinueAppPackageGenerationRunInput {
-  repository:
-    & RunAppPackageGenerationInput['repository']
-    & Pick<PackageReviewRepository, 'getAppGenerationRunById'>
-    & Partial<Pick<PackageReviewRepository, 'getPackageVersionById'>>;
+  repository: RunAppPackageGenerationInput['repository'] &
+    Pick<PackageReviewRepository, 'getAppGenerationRunById'> &
+    Partial<Pick<PackageReviewRepository, 'getPackageVersionById'>>;
   workspaceRunner: AppWriterWorkspaceRunner;
   packageSnapshotStore?: PackageSnapshotStore;
   previewer?: AppPackagePreviewer;

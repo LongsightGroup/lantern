@@ -2,12 +2,7 @@ import type { PackageVersionRecord } from '../package_review/types.ts';
 import { escapeHtml } from './layout.ts';
 import { resolvePreviousPackageVersion } from './package_version_history.ts';
 
-export type PackagePageSection =
-  | 'overview'
-  | 'version'
-  | 'diff'
-  | 'preview'
-  | 'authoring';
+export type PackagePageSection = 'overview' | 'version' | 'diff' | 'preview' | 'authoring';
 
 export function renderPackagePageNav(input: {
   appId: string;
@@ -19,53 +14,53 @@ export function renderPackagePageNav(input: {
   const currentVersion = input.currentVersion ?? latestVersion;
   const actionVersion = resolveActionVersion(input.history, input.currentVersion ?? null);
   const authoringVersion = resolveAuthoringVersion(input.history, input.currentVersion ?? null);
-  const diffBaseVersion = currentVersion === null
-    ? null
-    : resolvePreviousPackageVersion(input.history, currentVersion);
+  const diffBaseVersion =
+    currentVersion === null ? null : resolvePreviousPackageVersion(input.history, currentVersion);
   const links = [
     renderNavLink({
       label: 'Overview',
       href: `/admin/packages/${encodeURIComponent(input.appId)}`,
       current: input.currentSection === 'overview',
     }),
-    latestVersion === null ? '' : renderNavLink({
-      label: input.currentSection === 'version' && currentVersion !== null
-        ? `Version ${currentVersion.version}`
-        : 'Latest version',
-      href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${
-        encodeURIComponent(
-          currentVersion?.version ?? latestVersion.version,
-        )
-      }`,
-      current: input.currentSection === 'version',
-    }),
-    currentVersion === null || diffBaseVersion === null ? '' : renderNavLink({
-      label: 'Changes',
-      href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${
-        encodeURIComponent(
-          currentVersion.version,
-        )
-      }/diff`,
-      current: input.currentSection === 'diff',
-    }),
-    actionVersion === null ? '' : renderNavLink({
-      label: 'Test launch',
-      href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${
-        encodeURIComponent(
-          actionVersion.version,
-        )
-      }/preview`,
-      current: input.currentSection === 'preview',
-    }),
-    authoringVersion === null ? '' : renderNavLink({
-      label: 'Authoring',
-      href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${
-        encodeURIComponent(
-          authoringVersion.version,
-        )
-      }/authoring`,
-      current: input.currentSection === 'authoring',
-    }),
+    latestVersion === null
+      ? ''
+      : renderNavLink({
+          label:
+            input.currentSection === 'version' && currentVersion !== null
+              ? `Version ${currentVersion.version}`
+              : 'Latest version',
+          href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${encodeURIComponent(
+            currentVersion?.version ?? latestVersion.version,
+          )}`,
+          current: input.currentSection === 'version',
+        }),
+    currentVersion === null || diffBaseVersion === null
+      ? ''
+      : renderNavLink({
+          label: 'Changes',
+          href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${encodeURIComponent(
+            currentVersion.version,
+          )}/diff`,
+          current: input.currentSection === 'diff',
+        }),
+    actionVersion === null
+      ? ''
+      : renderNavLink({
+          label: 'Test launch',
+          href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${encodeURIComponent(
+            actionVersion.version,
+          )}/preview`,
+          current: input.currentSection === 'preview',
+        }),
+    authoringVersion === null
+      ? ''
+      : renderNavLink({
+          label: 'Authoring',
+          href: `/admin/packages/${encodeURIComponent(input.appId)}/versions/${encodeURIComponent(
+            authoringVersion.version,
+          )}/authoring`,
+          current: input.currentSection === 'authoring',
+        }),
   ]
     .filter((link) => link !== '')
     .join('');
@@ -118,11 +113,7 @@ function resolveAuthoringVersion(
 }
 
 function renderNavLink(input: { label: string; href: string; current: boolean }): string {
-  return `<a class="page-nav-link ${input.current ? 'page-nav-link-current' : ''}" href="${
-    escapeHtml(input.href)
-  }"${input.current ? ' aria-current="page"' : ''}>${
-    escapeHtml(
-      input.label,
-    )
-  }</a>`;
+  return `<a class="page-nav-link ${input.current ? 'page-nav-link-current' : ''}" href="${escapeHtml(
+    input.href,
+  )}"${input.current ? ' aria-current="page"' : ''}>${escapeHtml(input.label)}</a>`;
 }

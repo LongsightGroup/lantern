@@ -141,24 +141,24 @@ export function createDynamicWorkerRuntimeDelivery(input: {
         runtimeContractSignature: delivery.reviewedPackage.runtimeContractSignature,
         envelopeVersion,
       });
-      const worker = input.loader.get(
-        workerId,
-        () =>
-          buildReviewedAppWorkerCode({
-            ...delivery,
-            snapshotStore: input.snapshotStore,
-            lmsBinding: input.createLmsBinding!({
-              appId: delivery.reviewedPackage.appId,
-              packageVersionId: delivery.reviewedPackage.id,
-            }),
+      const worker = input.loader.get(workerId, () =>
+        buildReviewedAppWorkerCode({
+          ...delivery,
+          snapshotStore: input.snapshotStore,
+          lmsBinding: input.createLmsBinding!({
+            appId: delivery.reviewedPackage.appId,
+            packageVersionId: delivery.reviewedPackage.id,
           }),
+        }),
       );
-      return await worker.getEntrypoint(null, {
-        limits: {
-          cpuMs: REVIEWED_WORKER_CPU_MS,
-          subRequests: REVIEWED_WORKER_SUBREQUESTS,
-        },
-      }).fetch(delivery.request);
+      return await worker
+        .getEntrypoint(null, {
+          limits: {
+            cpuMs: REVIEWED_WORKER_CPU_MS,
+            subRequests: REVIEWED_WORKER_SUBREQUESTS,
+          },
+        })
+        .fetch(delivery.request);
     },
   };
 }
@@ -341,8 +341,8 @@ async function readRuntimeWorkerAssetResponse(input: {
 
   return {
     bytes: new Uint8Array(await input.response.arrayBuffer()),
-    contentType: input.response.headers.get('content-type') ??
-      contentTypeForRuntimePath(input.relativePath),
+    contentType:
+      input.response.headers.get('content-type') ?? contentTypeForRuntimePath(input.relativePath),
   };
 }
 

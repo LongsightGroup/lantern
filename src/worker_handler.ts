@@ -1,4 +1,4 @@
-import type { ExecutionContext } from '@hono/hono';
+import type { ExecutionContext } from 'hono';
 import { buildApp } from './app_core.ts';
 import {
   type PythonGraderSandboxFactoryProvider,
@@ -39,7 +39,7 @@ export function createWorkerHandler(
           executionContext?.exports === undefined
             ? undefined
             : (identity) =>
-              executionContext.exports!.LanternLmsCapabilityBinding({ props: identity }),
+                executionContext.exports!.LanternLmsCapabilityBinding({ props: identity }),
           createPythonSandboxFactory,
         ),
         { kernelAdminContext: true },

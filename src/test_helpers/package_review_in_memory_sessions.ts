@@ -4,8 +4,7 @@ import { cloneRecord } from './package_review_in_memory_shared.ts';
 
 type SessionRepository = Pick<
   PackageReviewRepository,
-  | 'createRuntimeSession'
-  | 'getRuntimeSessionById'
+  'createRuntimeSession' | 'getRuntimeSessionById'
 >;
 
 export function createInMemorySessionRepository(state: InMemoryRepositoryState): SessionRepository {

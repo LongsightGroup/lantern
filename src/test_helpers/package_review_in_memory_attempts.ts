@@ -66,9 +66,10 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         );
       }
 
-      const sequence = state.attemptEvidenceArtifacts
-        .filter((candidate) => candidate.attemptId === input.attemptId)
-        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence =
+        state.attemptEvidenceArtifacts
+          .filter((candidate) => candidate.attemptId === input.attemptId)
+          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = cloneRecord({
         ...input,
         sequence,
@@ -123,9 +124,10 @@ export function createInMemoryAttemptRepository(state: InMemoryRepositoryState):
         throw new Error(`Attempt ${input.attemptId} was not found.`);
       }
 
-      const sequence = state.attemptEvents
-        .filter((candidate) => candidate.attemptId === input.attemptId)
-        .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
+      const sequence =
+        state.attemptEvents
+          .filter((candidate) => candidate.attemptId === input.attemptId)
+          .reduce((max, candidate) => Math.max(max, candidate.sequence), 0) + 1;
       const nextRecord = cloneRecord({
         id: nextId(state.attemptEvents),
         attemptId: input.attemptId,

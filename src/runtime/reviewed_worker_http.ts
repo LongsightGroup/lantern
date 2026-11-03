@@ -1,4 +1,4 @@
-import type { Context } from '@hono/hono';
+import type { Context } from 'hono';
 
 /** Builds the sanitized internal request passed to an immutable reviewed Worker. */
 export function buildReviewedWorkerRequest(
@@ -82,12 +82,6 @@ function applyRuntimeDocumentHeaders(headers: Headers, lmsOrigin: string): void 
   );
   headers.set(
     'permissions-policy',
-    [
-      'camera=()',
-      'geolocation=()',
-      'microphone=()',
-      'payment=()',
-      'usb=()',
-    ].join(', '),
+    ['camera=()', 'geolocation=()', 'microphone=()', 'payment=()', 'usb=()'].join(', '),
   );
 }

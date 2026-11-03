@@ -144,7 +144,9 @@ export function parseGeneratedCodeTestInputs(input: unknown): GeneratedCodeTestI
 
 export function parseJsonValue(input: unknown, field = 'Value'): JsonValue {
   if (
-    input === null || typeof input === 'string' || typeof input === 'boolean' ||
+    input === null ||
+    typeof input === 'string' ||
+    typeof input === 'boolean' ||
     (typeof input === 'number' && Number.isFinite(input))
   ) {
     return input;
@@ -172,13 +174,13 @@ export function buildPublicPythonAssignmentContent(input: {
   readonly draft: PythonAssignmentDraft;
   readonly cases: readonly EvaluatedCodeTestCase[];
 }): PublicPythonAssignmentContent {
-  const publicCases = input.cases.filter((testCase) => testCase.visibility === 'public').map(
-    (testCase) => ({
+  const publicCases = input.cases
+    .filter((testCase) => testCase.visibility === 'public')
+    .map((testCase) => ({
       label: testCase.label,
       args: testCase.args,
       expected: testCase.expected,
-    }),
-  );
+    }));
 
   if (publicCases.length !== PYTHON_PUBLIC_CASE_COUNT) {
     throw new PythonContractError('A Python assignment requires exactly three public cases.');

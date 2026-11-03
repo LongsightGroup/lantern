@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects, assertThrows } from '@std/assert';
 import { resolveWorkerServices } from './app_worker_services.ts';
 import { selectAppWriterContext } from './app_writer/context.ts';
@@ -108,7 +109,7 @@ const QUICK_STUDY_SOURCE_FILES = {
   'preview/tests.json': '[]\n',
 } as const;
 
-Deno.test('worker services import and reload the demo package from PACKAGE_ARTIFACTS', async () => {
+test('worker services import and reload the demo package from PACKAGE_ARTIFACTS', async () => {
   const bucket = createSeededArtifactBucket(DEMO_BUCKET_SOURCE_ROOT, DEMO_REFERENCE_SOURCE_FILES);
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(withRequiredDb({ PACKAGE_ARTIFACTS: bucket }), env);
@@ -159,7 +160,7 @@ Deno.test('worker services import and reload the demo package from PACKAGE_ARTIF
   );
 });
 
-Deno.test('worker services import and reload arbitrary reviewed package sources', async () => {
+test('worker services import and reload arbitrary reviewed package sources', async () => {
   const bucket = createInMemoryArtifactBucket({});
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(withRequiredDb({ PACKAGE_ARTIFACTS: bucket }), env);
@@ -205,7 +206,7 @@ Deno.test('worker services import and reload arbitrary reviewed package sources'
   );
 });
 
-Deno.test('worker services expose Dynamic Worker runtime delivery only when LOADER is bound', async () => {
+test('worker services expose Dynamic Worker runtime delivery only when LOADER is bound', async () => {
   const env = createWorkerTestEnv();
   const session = buildRuntimeSessionRecord({
     snapshotRoot: 'var/packages/chapter-4-asteroids/0.1.0',
@@ -254,14 +255,14 @@ Deno.test('worker services expose Dynamic Worker runtime delivery only when LOAD
   );
 });
 
-Deno.test('worker services route D1 persistence through ported repository slices', async () => {
+test('worker services route D1 persistence through ported repository slices', async () => {
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(withRequiredDb({}), env);
 
   assertEquals(await services.getRepository().listPackageVersions(), []);
 });
 
-Deno.test('worker services schedule app generation through APP_GENERATION_WORKFLOW when bound', async () => {
+test('worker services schedule app generation through APP_GENERATION_WORKFLOW when bound', async () => {
   const workflowCreateInputs: unknown[] = [];
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(
@@ -295,8 +296,8 @@ Deno.test('worker services schedule app generation through APP_GENERATION_WORKFL
   ]);
 });
 
-Deno.test('worker services route app writer Agent sessions through APP_WRITER_AGENT when bound', async () => {
-  const observedRequests: Request[] = [];
+test('worker services route app writer Agent sessions through APP_WRITER_AGENT when bound', async () => {
+  const observedRequests: Pick<Request, 'url'>[] = [];
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(
     withRequiredDb({
@@ -330,8 +331,8 @@ Deno.test('worker services route app writer Agent sessions through APP_WRITER_AG
   assertEquals(new URL(observedRequests[0]?.url ?? '').pathname, '/observe');
 });
 
-Deno.test('worker services route app writer workspace harness through APP_WRITER_AGENT when bound', async () => {
-  const observedRequests: Request[] = [];
+test('worker services route app writer workspace harness through APP_WRITER_AGENT when bound', async () => {
+  const observedRequests: Pick<Request, 'url'>[] = [];
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(
     withRequiredDb({
@@ -413,8 +414,8 @@ Deno.test('worker services route app writer workspace harness through APP_WRITER
   assertEquals(new URL(observedRequests[0]?.url ?? '').pathname, '/workspace-harness/author');
 });
 
-Deno.test('worker services use a platform source compiler binding when configured', async () => {
-  const compileRequests: Request[] = [];
+test('worker services use a platform source compiler binding when configured', async () => {
+  const compileRequests: Pick<Request, 'json'>[] = [];
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(
     withRequiredDb({
@@ -461,8 +462,8 @@ Deno.test('worker services use a platform source compiler binding when configure
   assertEquals(result.notes, ['Compiled by platform source compiler service.']);
 });
 
-Deno.test('worker services use a platform app previewer binding when configured', async () => {
-  const previewRequests: Request[] = [];
+test('worker services use a platform app previewer binding when configured', async () => {
+  const previewRequests: Pick<Request, 'json'>[] = [];
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(
     withRequiredDb({
@@ -516,7 +517,7 @@ Deno.test('worker services use a platform app previewer binding when configured'
   assertEquals(result.summary, 'Failed 1/1 preview assertions.');
 });
 
-Deno.test('worker services fail clearly when app generation Workflow is not bound', async () => {
+test('worker services fail clearly when app generation Workflow is not bound', async () => {
   const env = createWorkerTestEnv();
   const services = resolveWorkerServices(withRequiredDb({}), env);
 
@@ -552,7 +553,7 @@ Deno.test('worker services fail clearly when app generation Workflow is not boun
   );
 });
 
-Deno.test('worker services fail during composition when DB is not bound', () => {
+test('worker services fail during composition when DB is not bound', () => {
   const env = createWorkerTestEnv();
 
   assertThrows(
@@ -562,7 +563,7 @@ Deno.test('worker services fail during composition when DB is not bound', () => 
   );
 });
 
-Deno.test('worker services fail clearly when admin auth secret is missing', () => {
+test('worker services fail clearly when admin auth secret is missing', () => {
   const env = createObjectEnvReader({
     APP_ORIGIN: 'https://lantern.example',
     LTI_TOOL_PRIVATE_JWK: getTestToolPrivateJwkEnvValue(),
@@ -706,9 +707,10 @@ function withRequiredDb<T extends Record<string, unknown>>(
   return {
     ...bindings,
     DB: createStubD1Database([]),
-    PACKAGE_ARTIFACTS: 'PACKAGE_ARTIFACTS' in bindings
-      ? bindings.PACKAGE_ARTIFACTS as RuntimeArtifactBucket & PythonLabArtifactBucket
-      : createInMemoryArtifactBucket({}),
+    PACKAGE_ARTIFACTS:
+      'PACKAGE_ARTIFACTS' in bindings
+        ? (bindings.PACKAGE_ARTIFACTS as RuntimeArtifactBucket & PythonLabArtifactBucket)
+        : createInMemoryArtifactBucket({}),
   };
 }
 

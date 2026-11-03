@@ -25,16 +25,16 @@ export function createD1PythonLabRepository(db: D1Database): PythonLabRepository
   return {
     async reserveLab(input) {
       const statements: Array<{ sql: string; parameters: readonly unknown[] }> =
-        input.ipWindowStartedAt === null ? [] : [{
-          sql: `INSERT INTO python_lab_rate_limits (
+        input.ipWindowStartedAt === null
+          ? []
+          : [
+              {
+                sql: `INSERT INTO python_lab_rate_limits (
             request_ip_hash, window_started_at, created_at
           ) VALUES (?, ?, ?)`,
-          parameters: [
-            input.lab.requestIpHash,
-            input.ipWindowStartedAt,
-            input.lab.createdAt,
-          ],
-        }];
+                parameters: [input.lab.requestIpHash, input.ipWindowStartedAt, input.lab.createdAt],
+              },
+            ];
       statements.push({
         sql: `INSERT INTO python_lab_trials (
           lab_id, visitor_hash, visitor_day, request_ip_hash, access_token_hash, state, author_draft,
@@ -103,12 +103,13 @@ export function createD1PythonLabRepository(db: D1Database): PythonLabRepository
       return await requireLab(db, input.labId);
     },
     async listExpiredLabs(now) {
-      return (await queryD1Objects<Record<string, unknown>>(
-        db,
-        'SELECT * FROM python_lab_trials WHERE expires_at <= ?',
-        [now],
-      ))
-        .map(mapLabRow);
+      return (
+        await queryD1Objects<Record<string, unknown>>(
+          db,
+          'SELECT * FROM python_lab_trials WHERE expires_at <= ?',
+          [now],
+        )
+      ).map(mapLabRow);
     },
     async deleteLab(labId) {
       await runD1(db, 'DELETE FROM python_lab_trials WHERE lab_id = ?', [labId]);
@@ -202,7 +203,7 @@ export function createD1PythonLabRepository(db: D1Database): PythonLabRepository
       );
 
       return rows.map((row) =>
-        expectD1String(row.source_artifact_key, 'code_submission_runs.source_artifact_key')
+        expectD1String(row.source_artifact_key, 'code_submission_runs.source_artifact_key'),
       );
     },
     async createAccessRequest(record) {
@@ -226,10 +227,12 @@ export function createD1PythonLabRepository(db: D1Database): PythonLabRepository
       return record;
     },
     async listAccessRequests() {
-      return (await queryD1Objects<Record<string, unknown>>(
-        db,
-        'SELECT * FROM python_lab_access_requests ORDER BY created_at DESC',
-      )).map(mapAccessRequestRow);
+      return (
+        await queryD1Objects<Record<string, unknown>>(
+          db,
+          'SELECT * FROM python_lab_access_requests ORDER BY created_at DESC',
+        )
+      ).map(mapAccessRequestRow);
     },
     async updateAccessRequestStatus(input) {
       await runD1(
@@ -250,11 +253,13 @@ export function createD1PythonLabRepository(db: D1Database): PythonLabRepository
       return mapAccessRequestRow(row);
     },
     async listExpiredAccessRequests(now) {
-      return (await queryD1Objects<Record<string, unknown>>(
-        db,
-        'SELECT * FROM python_lab_access_requests WHERE expires_at <= ?',
-        [now],
-      )).map(mapAccessRequestRow);
+      return (
+        await queryD1Objects<Record<string, unknown>>(
+          db,
+          'SELECT * FROM python_lab_access_requests WHERE expires_at <= ?',
+          [now],
+        )
+      ).map(mapAccessRequestRow);
     },
     async deleteAccessRequest(requestId) {
       await runD1(db, 'DELETE FROM python_lab_access_requests WHERE request_id = ?', [requestId]);
@@ -263,7 +268,7 @@ export function createD1PythonLabRepository(db: D1Database): PythonLabRepository
 }
 
 async function requireLab(db: D1Database, labId: string): Promise<PythonLabRecord> {
-  const lab = await mapOptionalLab(
+  const lab = mapOptionalLab(
     await queryD1First<Record<string, unknown>>(
       db,
       'SELECT * FROM python_lab_trials WHERE lab_id = ?',
@@ -342,10 +347,7 @@ function mapLabRow(row: Record<string, unknown>): PythonLabRecord {
   return {
     labId: expectD1String(row.lab_id, 'python_lab_trials.lab_id'),
     visitorHash: expectD1String(row.visitor_hash, 'python_lab_trials.visitor_hash'),
-    requestIpHash: expectD1NullableString(
-      row.request_ip_hash,
-      'python_lab_trials.request_ip_hash',
-    ),
+    requestIpHash: expectD1NullableString(row.request_ip_hash, 'python_lab_trials.request_ip_hash'),
     accessTokenHash: expectD1String(row.access_token_hash, 'python_lab_trials.access_token_hash'),
     state: expectD1StringLiteral(row.state, 'python_lab_trials.state', LAB_STATES),
     authorDraft,
@@ -423,8 +425,11 @@ function mapOptionalRun(row: Record<string, unknown> | null): CodeSubmissionRunR
 }
 
 function isFinalRunUniqueViolation(error: unknown): boolean {
-  return error instanceof Error && error.message.includes('UNIQUE constraint failed') &&
-    error.message.includes('code_submission_runs.attempt_id');
+  return (
+    error instanceof Error &&
+    error.message.includes('UNIQUE constraint failed') &&
+    error.message.includes('code_submission_runs.attempt_id')
+  );
 }
 
 function parsePublicOutcomes(
@@ -437,11 +442,10 @@ function parsePublicOutcomes(
 
   return value.map((item) => {
     const record = expectD1JsonRecord(item, fieldName);
-    const status = expectD1StringLiteral(
-      record.status,
-      `${fieldName}.status`,
-      ['passed', 'failed'] as const,
-    );
+    const status = expectD1StringLiteral(record.status, `${fieldName}.status`, [
+      'passed',
+      'failed',
+    ] as const);
     const message = expectD1NullableString(record.message, `${fieldName}.message`);
 
     return {

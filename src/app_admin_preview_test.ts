@@ -1,3 +1,5 @@
+import { test } from 'vite-plus/test';
+import { expectString } from './app_writer/binding_result.ts';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import {
   EXAMPLE_SNAPSHOT_ROOT,
@@ -14,7 +16,7 @@ import {
 } from './test_helpers/package_review.ts';
 import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
-Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-launch defaults for approved reviewed versions', async () => {
+test('GET /admin/packages/:appId/versions/:version/preview renders test-launch defaults for approved reviewed versions', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -52,7 +54,7 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-lau
   assertStringIncludes(body, 'action="/admin/packages/chapter-4-asteroids/versions/0.1.0/preview"');
 });
 
-Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-launch defaults for pending review versions', async () => {
+test('GET /admin/packages/:appId/versions/:version/preview renders test-launch defaults for pending review versions', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({
@@ -92,7 +94,7 @@ Deno.test('GET /admin/packages/:appId/versions/:version/preview renders test-lau
   assertStringIncludes(body, 'No LMS sign-in or live LMS writes.');
 });
 
-Deno.test('POST /admin/packages/:appId/versions/:version/preview launches pending review versions only as preview runtime sessions', async () => {
+test('POST /admin/packages/:appId/versions/:version/preview launches pending review versions only as preview runtime sessions', async () => {
   await withCanvasReturnEnv(async () => {
     await withRuntimeOriginEnv(async () => {
       const repository = createInMemoryPackageReviewRepository({
@@ -152,7 +154,7 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview launches pendin
   });
 });
 
-Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a runtime session from submitted test-launch values and redirects to Lantern runtime', async () => {
+test('POST /admin/packages/:appId/versions/:version/preview creates a runtime session from submitted test-launch values and redirects to Lantern runtime', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -218,7 +220,7 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview creates a runti
   });
 });
 
-Deno.test('POST /admin/packages/:appId/versions/:version/preview writes durable preview launch evidence linked to the preview session', async () => {
+test('POST /admin/packages/:appId/versions/:version/preview writes durable preview launch evidence linked to the preview session', async () => {
   await withRuntimeOriginEnv(async () => {
     const repository = createInMemoryPackageReviewRepository({
       packageVersions: [
@@ -267,19 +269,25 @@ Deno.test('POST /admin/packages/:appId/versions/:version/preview writes durable 
     const runtimeLocation = new URL(location);
     const runtimeSessionId = runtimeLocation.pathname.split('/').at(-1) ?? '';
     const auditEvents = await repository.listAuditEventsByEventType('preview.launch');
-    const previewSessionId = String(auditEvents[0]?.detail.previewSessionId ?? '');
+    const previewSessionId = expectString(
+      auditEvents[0]?.detail.previewSessionId ?? '',
+      'audit metadata',
+    );
     const previewEvidence = await repository.listPreviewEvidence(previewSessionId);
 
     assertEquals(response.status, 303);
     assertEquals(auditEvents.length, 1);
     assertEquals(auditEvents[0]?.status, 'succeeded');
-    assertEquals(String(auditEvents[0]?.detail.runtimeSessionId ?? ''), runtimeSessionId);
+    assertEquals(
+      expectString(auditEvents[0]?.detail.runtimeSessionId ?? '', 'audit metadata'),
+      runtimeSessionId,
+    );
     assertEquals(previewEvidence.length, 1);
     assertEquals(previewEvidence[0]?.eventType, 'preview.launch');
   });
 });
 
-Deno.test("POST /admin/packages/:appId/versions/:version/preview launches committed quick-study through Lantern's governed runtime path", async () => {
+test("POST /admin/packages/:appId/versions/:version/preview launches committed quick-study through Lantern's governed runtime path", async () => {
   await withRuntimeOriginEnv(async () => {
     const snapshotRoot = getReferenceAppSnapshotRoot('quick-study');
     const repository = createInMemoryPackageReviewRepository({
@@ -347,7 +355,7 @@ Deno.test("POST /admin/packages/:appId/versions/:version/preview launches commit
   });
 });
 
-Deno.test('GET /admin/packages/:appId/versions/:version/preview keeps reviewer history tied to admin test launches', async () => {
+test('GET /admin/packages/:appId/versions/:version/preview keeps reviewer history tied to admin test launches', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({

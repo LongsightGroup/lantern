@@ -1,4 +1,4 @@
-import { compare, parse } from '@std/semver';
+import { compare } from 'semver';
 import type { PackageVersionRecord } from './types.ts';
 
 export function sortPackageVersions(records: PackageVersionRecord[]): PackageVersionRecord[] {
@@ -7,7 +7,7 @@ export function sortPackageVersions(records: PackageVersionRecord[]): PackageVer
       return left.appId.localeCompare(right.appId);
     }
 
-    const versionComparison = compare(parse(right.version), parse(left.version));
+    const versionComparison = compare(right.version, left.version);
 
     if (versionComparison !== 0) {
       return versionComparison;

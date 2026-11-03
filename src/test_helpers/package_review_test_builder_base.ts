@@ -77,7 +77,8 @@ export function buildPackageVersionRecord(
 
   return {
     ...record,
-    runtimeContract: overrides.runtimeContract ??
+    runtimeContract:
+      overrides.runtimeContract ??
       createReviewedRuntimeContract({
         reviewData: {
           appId: record.appId,
@@ -87,8 +88,8 @@ export function buildPackageVersionRecord(
         },
         artifactDigest: record.artifact.digest,
       }),
-    runtimeContractSignature: overrides.runtimeContractSignature ??
-      'test-reviewed-runtime-contract-signature',
+    runtimeContractSignature:
+      overrides.runtimeContractSignature ?? 'test-reviewed-runtime-contract-signature',
   };
 }
 
@@ -177,8 +178,8 @@ export function buildAttemptEvidenceArtifactRecord(
     kind: overrides.kind ?? 'structured_json',
     contentType: overrides.contentType ?? 'application/json',
     fileName: overrides.fileName ?? 'submission.json',
-    storageKey: overrides.storageKey ??
-      'var/attempt-evidence/attempt-123/artifact-001-submission.json',
+    storageKey:
+      overrides.storageKey ?? 'var/attempt-evidence/attempt-123/artifact-001-submission.json',
     byteSize: overrides.byteSize ?? 128,
     sha256: overrides.sha256 ?? 'sha256:artifact-001',
     createdAt: overrides.createdAt ?? DEFAULT_PHASE3_AT,

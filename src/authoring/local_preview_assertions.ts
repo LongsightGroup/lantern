@@ -1,4 +1,5 @@
-import { Browser, type BrowserWindow } from '@happy-dom';
+import type { HTTPRequest } from 'puppeteer-core';
+import { launchLocalPreviewBrowser } from './local_browser.ts';
 import {
   type LocalAppPackage,
   type LocalAppValidationDiagnostic,
@@ -11,8 +12,7 @@ import { createLocalPreviewHarness, type LocalPreviewLogEntry } from './local_pr
 import type { PackageSource } from '../package_review/package_source.ts';
 
 const DEFAULT_SETTLE_TIMEOUT_MS = 1_000;
-const DEFAULT_IDLE_POLL_MS = 20;
-const DEFAULT_IDLE_STREAK = 3;
+const PREVIEW_ORIGIN = 'https://lantern-preview.local';
 
 export type LocalPreviewAssertionFailureCode =
   | 'selector_not_found'
@@ -66,13 +66,6 @@ export type LocalPreviewAssertionRunResult =
   | FailedLocalPreviewAssertionValidationRun
   | FailedLocalPreviewAssertionRuntimeRun;
 
-interface PreviewRuntimeHandle {
-  window: BrowserWindow;
-  close(): Promise<void>;
-}
-
-type PreviewFetch = (url: string, init?: RequestInit) => Promise<Response>;
-
 export async function runLocalPreviewAssertions(
   packageRoot: string,
   input: {
@@ -125,33 +118,126 @@ export async function runLocalPreviewAssertionsForPackage(
   | Omit<FailedLocalPreviewAssertionRuntimeRun, 'packageRoot'>
 > {
   const runtimeLog: LocalPreviewLogEntry[] = [];
-  const runtime = await loadPreviewRuntime(appPackage, {
-    ...input,
-    runtimeLog,
-  });
-
+  let failureMessage =
+    'Chrome could not start. Run npm run browser:install and check that Chrome sandboxing is available.';
   try {
-    const results = evaluatePreviewAssertions(runtime.window.document, appPackage.previewTests);
-    const failedCount = results.filter((result) => !result.passed).length;
-
-    return {
-      ok: true,
-      results,
-      passedCount: results.length - failedCount,
-      failedCount,
-      runtimeLog,
-    };
-  } catch (error) {
+    // Generated code runs only in Chrome's sandboxed renderer. No Node objects or
+    // host functions are exposed to the page; the gateway stays in this process.
+    const browser = await launchLocalPreviewBrowser();
+    try {
+      failureMessage = 'The local preview browser could not create a page.';
+      const page = await browser.newPage();
+      const runtimeErrors: string[] = [];
+      const harness = createLocalPreviewHarness({
+        appPackage,
+        logger(entry) {
+          runtimeLog.push(entry);
+        },
+      });
+      await page.setBypassServiceWorker(true);
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        void respondToPreviewRequest(request, harness).catch(async () => {
+          runtimeErrors.push('Lantern could not serve a preview request.');
+          await request.abort().catch(() => {});
+        });
+      });
+      page.on('pageerror', () => {
+        runtimeErrors.push('The preview reported a JavaScript runtime error.');
+      });
+      page.on('error', () => {
+        runtimeErrors.push('The preview browser page crashed.');
+      });
+      page.on('console', (message) => {
+        if (message.type() === 'error') {
+          runtimeErrors.push('The preview reported a browser console error.');
+        }
+      });
+      failureMessage = 'The preview page failed to load within 10 seconds.';
+      await page.goto(`${PREVIEW_ORIGIN}${harness.entrypointPath}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 10_000,
+      });
+      failureMessage = `The preview did not settle within ${input.settleTimeoutMs ?? DEFAULT_SETTLE_TIMEOUT_MS}ms.`;
+      await page.waitForNetworkIdle({
+        idleTime: 60,
+        timeout: input.settleTimeoutMs ?? DEFAULT_SETTLE_TIMEOUT_MS,
+      });
+      if (runtimeErrors.length > 0) {
+        return {
+          ok: false,
+          kind: 'runtime_failed',
+          message: runtimeErrors[0] ?? 'The preview runtime failed.',
+          details: runtimeErrors,
+          runtimeLog,
+        };
+      }
+      failureMessage = 'The browser could not evaluate the preview assertions.';
+      const results: LocalPreviewAssertionResult[] = [];
+      for (const test of appPackage.previewTests) {
+        const element = await page.$(test.assert.selector);
+        const actualText = element
+          ? await element.evaluate((node) => node.textContent ?? '')
+          : null;
+        await element?.dispose();
+        results.push(evaluatePreviewAssertion(actualText, test));
+      }
+      const failedCount = results.filter((result) => !result.passed).length;
+      return {
+        ok: true,
+        results,
+        passedCount: results.length - failedCount,
+        failedCount,
+        runtimeLog,
+      };
+    } finally {
+      await browser.close();
+    }
+  } catch {
+    // Browser errors can contain app-controlled text. Keep host diagnostics and
+    // package output out of this structured failure, including missing-browser errors.
     return {
       ok: false,
       kind: 'runtime_failed',
-      message: error instanceof Error ? error.message : 'Lantern preview assertion runtime failed.',
+      message: failureMessage,
       details: [],
       runtimeLog,
     };
-  } finally {
-    await runtime.close();
   }
+}
+
+async function respondToPreviewRequest(
+  request: HTTPRequest,
+  harness: ReturnType<typeof createLocalPreviewHarness>,
+): Promise<void> {
+  const url = new URL(request.url());
+  if (url.origin !== PREVIEW_ORIGIN) {
+    await request.abort('blockedbyclient');
+    return;
+  }
+  if (url.pathname === '/favicon.ico') {
+    await request.respond({ status: 204 });
+    return;
+  }
+  const method = request.method();
+  const body = request.postData();
+  const response = await harness.handle(
+    new Request(url, {
+      method,
+      headers: request.headers(),
+      ...(body === undefined || method === 'GET' || method === 'HEAD' ? {} : { body }),
+    }),
+  );
+  await request.respond({
+    status: response.status,
+    headers: {
+      ...Object.fromEntries(response.headers),
+      'connection-allowlist': '(response-origin)',
+      'content-security-policy':
+        "default-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; worker-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'",
+    },
+    body: new Uint8Array(await response.arrayBuffer()),
+  });
 }
 
 function buildValidationFailure(
@@ -168,365 +254,14 @@ function buildValidationFailure(
   };
 }
 
-async function loadPreviewRuntime(
-  appPackage: LocalAppPackage,
-  input: {
-    settleTimeoutMs?: number;
-    runtimeLog: LocalPreviewLogEntry[];
-  },
-): Promise<PreviewRuntimeHandle> {
-  const harness = createLocalPreviewHarness({
-    appPackage,
-    logger(entry) {
-      input.runtimeLog.push(entry);
-    },
-  });
-  const origin = 'https://lantern-preview.local';
-  const entrypointUrl = `${origin}${harness.entrypointPath}`;
-  const browser = new Browser({
-    settings: {
-      disableJavaScriptFileLoading: true,
-      handleDisabledFileLoadingAsSuccess: true,
-    },
-  });
-  const page = browser.newPage();
-  const fetchPreview: PreviewFetch = async (url, init = {}) => {
-    const requestUrl = new URL(url, entrypointUrl);
-
-    if (requestUrl.origin !== origin) {
-      return await fetch(requestUrl, init);
-    }
-
-    return await harness.handle(new Request(requestUrl, init));
-  };
-
-  try {
-    const entrypointResponse = await fetchPreview(entrypointUrl);
-
-    if (!entrypointResponse.ok) {
-      throw new Error(
-        `Preview entrypoint request failed for ${entrypointUrl} with status ${entrypointResponse.status}.`,
-      );
-    }
-
-    page.content = injectPreviewBaseHref(await entrypointResponse.text(), entrypointUrl);
-    await page.waitUntilComplete();
-
-    const frame = page.frames[0];
-
-    if (!frame) {
-      throw new Error('Lantern preview assertion runner could not load the preview frame.');
-    }
-
-    const runtimeErrors: string[] = [];
-    attachRuntimeErrorCapture(frame.window, runtimeErrors);
-    installControlledScriptLoader(frame.window, entrypointUrl, fetchPreview);
-    const pendingFetches = trackWindowFetch(frame.window, fetchPreview);
-
-    await executePreviewScripts(frame.window, entrypointUrl, fetchPreview);
-    await waitForPreviewIdle({
-      runtimeErrors,
-      pendingFetches,
-      settleTimeoutMs: input.settleTimeoutMs ?? DEFAULT_SETTLE_TIMEOUT_MS,
-    });
-
-    if (runtimeErrors.length > 0) {
-      throw new Error(runtimeErrors.join(' | '));
-    }
-
-    return {
-      window: frame.window,
-      async close() {
-        await browser.close();
-      },
-    };
-  } catch (error) {
-    await browser.close();
-    throw error;
-  }
-}
-
-function installControlledScriptLoader(
-  window: BrowserWindow,
-  entrypointUrl: string,
-  fetchPreview: PreviewFetch,
-): void {
-  const allowedOrigin = new URL(entrypointUrl).origin;
-  const originalAppendChild = window.Node.prototype.appendChild;
-
-  window.Node.prototype.appendChild = function (
-    this: InstanceType<BrowserWindow['Node']>,
-    node: InstanceType<BrowserWindow['Node']>,
-  ): InstanceType<BrowserWindow['Node']> {
-    if (isWindowScriptElement(window, node) && node.src.trim() !== '') {
-      void loadControlledScript(window, node, allowedOrigin, fetchPreview);
-
-      return node;
-    }
-
-    return originalAppendChild.call(this, node) as InstanceType<BrowserWindow['Node']>;
-  };
-}
-
-async function loadControlledScript(
-  window: BrowserWindow,
-  element: InstanceType<BrowserWindow['HTMLScriptElement']>,
-  allowedOrigin: string,
-  fetchPreview: PreviewFetch,
-): Promise<void> {
-  try {
-    const scriptUrl = new URL(element.src, window.location.href);
-
-    if (scriptUrl.origin !== allowedOrigin) {
-      throw new Error(
-        `Preview dynamic script ${scriptUrl.toString()} is outside the preview origin.`,
-      );
-    }
-
-    const response = await fetchPreview(scriptUrl.toString());
-
-    if (!response.ok) {
-      throw new Error(
-        `Preview dynamic script request failed for ${scriptUrl.toString()} with status ${response.status}.`,
-      );
-    }
-
-    const source = await response.text();
-
-    evaluateDynamicScript(window, element, source, scriptUrl.toString());
-    element.dispatchEvent(new window.Event('load'));
-  } catch {
-    element.dispatchEvent(new window.Event('error'));
-  }
-}
-
-function evaluateDynamicScript(
-  window: BrowserWindow,
-  element: InstanceType<BrowserWindow['HTMLScriptElement']>,
-  source: string,
-  sourceUrl: string,
-): void {
-  const originalCurrentScript = Object.getOwnPropertyDescriptor(window.document, 'currentScript');
-  const windowRecord = window as unknown as Record<string, unknown>;
-  const originalLanternCurrentScript = windowRecord.__LanternCurrentScript;
-
-  Object.defineProperty(window.document, 'currentScript', {
-    configurable: true,
-    get() {
-      return element;
-    },
-  });
-  windowRecord.__LanternCurrentScript = element;
-
-  try {
-    window.eval(`${source}\n//# sourceURL=${sourceUrl}`);
-  } finally {
-    if (originalLanternCurrentScript === undefined) {
-      delete windowRecord.__LanternCurrentScript;
-    } else {
-      windowRecord.__LanternCurrentScript = originalLanternCurrentScript;
-    }
-
-    if (originalCurrentScript === undefined) {
-      delete (window.document as unknown as Record<string, unknown>).currentScript;
-    } else {
-      Object.defineProperty(window.document, 'currentScript', originalCurrentScript);
-    }
-  }
-}
-
-function isWindowScriptElement(
-  window: BrowserWindow,
-  value: unknown,
-): value is InstanceType<BrowserWindow['HTMLScriptElement']> {
-  return value instanceof window.HTMLScriptElement;
-}
-
-function attachRuntimeErrorCapture(window: BrowserWindow, runtimeErrors: string[]): void {
-  window.addEventListener('error', (event) => {
-    const errorEvent = event as unknown as {
-      error?: unknown;
-      message?: string;
-    };
-
-    runtimeErrors.push(
-      formatUnknownError(errorEvent.error ?? errorEvent.message ?? 'Unknown runtime error.'),
-    );
-  });
-  window.addEventListener('unhandledrejection', (event) => {
-    const rejectionEvent = event as unknown as {
-      reason?: unknown;
-      preventDefault(): void;
-    };
-
-    runtimeErrors.push(formatUnknownError(rejectionEvent.reason ?? 'Unknown rejected promise.'));
-    rejectionEvent.preventDefault();
-  });
-}
-
-function trackWindowFetch(window: BrowserWindow, fetchPreview: PreviewFetch): () => number {
-  type WindowFetch = BrowserWindow['fetch'];
-
-  let pendingFetches = 0;
-
-  const wrappedFetch: WindowFetch = async (...args) => {
-    pendingFetches += 1;
-
-    try {
-      const response = await fetchPreview(
-        readWindowFetchUrl(window, args[0]),
-        args[1] as RequestInit,
-      );
-      const body = await response.arrayBuffer();
-
-      return new window.Response(body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: [...response.headers.entries()],
-      });
-    } finally {
-      pendingFetches -= 1;
-    }
-  };
-  window.fetch = wrappedFetch;
-
-  return () => pendingFetches;
-}
-
-async function executePreviewScripts(
-  window: BrowserWindow,
-  entrypointUrl: string,
-  fetchPreview: PreviewFetch,
-): Promise<void> {
-  const scripts = [...window.document.querySelectorAll('script')];
-
-  for (const [index, script] of scripts.entries()) {
-    const type = script.getAttribute('type')?.trim() ?? '';
-
-    if (!isSupportedPreviewScriptType(type)) {
-      throw new Error(
-        `Preview assertion runner only supports classic script tags. Unsupported script type "${type}" found in ${entrypointUrl}.`,
-      );
-    }
-
-    const scriptSource = script.getAttribute('src');
-
-    if (!scriptSource) {
-      const source = script.textContent ?? '';
-
-      if (source.trim() === '') {
-        continue;
-      }
-
-      window.eval(`${source}\n//# sourceURL=${entrypointUrl}#inline-${index}`);
-      continue;
-    }
-
-    const scriptUrl = new URL(scriptSource, entrypointUrl).toString();
-    const response = await fetchPreview(scriptUrl);
-
-    if (!response.ok) {
-      throw new Error(
-        `Preview script request failed for ${scriptUrl} with status ${response.status}.`,
-      );
-    }
-
-    const source = await response.text();
-
-    window.eval(`${source}\n//# sourceURL=${scriptUrl}`);
-  }
-}
-
-function injectPreviewBaseHref(html: string, entrypointUrl: string): string {
-  const tag = `<base href="${entrypointUrl}">`;
-
-  if (/<head\b[^>]*>/i.test(html)) {
-    return html.replace(/<head\b[^>]*>/i, (match) => `${match}${tag}`);
-  }
-
-  return `${tag}${html}`;
-}
-
-function readWindowFetchUrl(
-  window: BrowserWindow,
-  input: Parameters<BrowserWindow['fetch']>[0],
-): string {
-  if (typeof input === 'string') {
-    return new URL(input, window.location.href).toString();
-  }
-
-  if (input instanceof URL) {
-    return input.toString();
-  }
-
-  if (input instanceof window.Request) {
-    return input.url;
-  }
-
-  return String(input);
-}
-
-function isSupportedPreviewScriptType(type: string): boolean {
-  return type === '' || type === 'text/javascript' || type === 'application/javascript';
-}
-
-async function waitForPreviewIdle(input: {
-  runtimeErrors: string[];
-  pendingFetches: () => number;
-  settleTimeoutMs: number;
-}): Promise<void> {
-  const deadline = Date.now() + input.settleTimeoutMs;
-  let idleStreak = 0;
-
-  while (Date.now() <= deadline) {
-    if (input.pendingFetches() === 0) {
-      idleStreak += 1;
-    } else {
-      idleStreak = 0;
-    }
-
-    if (idleStreak >= DEFAULT_IDLE_STREAK) {
-      await sleep(DEFAULT_IDLE_POLL_MS);
-
-      if (input.runtimeErrors.length > 0) {
-        throw new Error(input.runtimeErrors.join(' | '));
-      }
-
-      return;
-    }
-
-    if (input.runtimeErrors.length > 0 && input.pendingFetches() === 0) {
-      throw new Error(input.runtimeErrors.join(' | '));
-    }
-
-    await sleep(DEFAULT_IDLE_POLL_MS);
-  }
-
-  if (input.runtimeErrors.length > 0) {
-    throw new Error(input.runtimeErrors.join(' | '));
-  }
-
-  throw new Error(
-    `Lantern preview assertion runner timed out after ${input.settleTimeoutMs}ms waiting for the preview to settle.`,
-  );
-}
-
-function evaluatePreviewAssertions(
-  document: BrowserWindow['document'],
-  tests: readonly LocalPreviewTest[],
-): LocalPreviewAssertionResult[] {
-  return tests.map((test) => evaluatePreviewAssertion(document, test));
-}
-
 function evaluatePreviewAssertion(
-  document: BrowserWindow['document'],
+  textContent: string | null,
   test: LocalPreviewTest,
 ): LocalPreviewAssertionResult {
   const selector = test.assert.selector;
-  const element = document.querySelector(selector);
   const expectation = describeExpectation(test);
 
-  if (!element) {
+  if (textContent === null) {
     return {
       name: test.name,
       selector,
@@ -537,7 +272,7 @@ function evaluatePreviewAssertion(
     };
   }
 
-  const actualText = normalizeAssertionText(element.textContent ?? '');
+  const actualText = normalizeAssertionText(textContent);
 
   if (test.assert.text !== undefined) {
     const expectedText = normalizeAssertionText(test.assert.text);
@@ -604,22 +339,4 @@ function describeExpectation(test: LocalPreviewTest): LocalPreviewAssertionExpec
 
 function normalizeAssertionText(value: string): string {
   return value.replaceAll(/\s+/g, ' ').trim();
-}
-
-function formatUnknownError(value: unknown): string {
-  if (value instanceof Error) {
-    return value.message;
-  }
-
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  return 'Unknown runtime error.';
-}
-
-function sleep(durationMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, durationMs);
-  });
 }

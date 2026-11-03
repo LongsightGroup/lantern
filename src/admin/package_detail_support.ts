@@ -54,27 +54,27 @@ export function renderCapabilityChangeSummary(summary: CapabilityChangeSummary):
 
   if (summary.added.length === 0 && summary.removed.length === 0) {
     return `<div class="detail-stack">
-      <p class="micro muted">Capability changes since approved version ${
-      escapeHtml(summary.previousApprovedVersion.version)
-    }: no capability changes.</p>
+      <p class="micro muted">Capability changes since approved version ${escapeHtml(
+        summary.previousApprovedVersion.version,
+      )}: no capability changes.</p>
       ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
     </div>`;
   }
 
   return `<div class="detail-stack">
-    <p class="micro muted">Capability changes since approved version ${
-    escapeHtml(summary.previousApprovedVersion.version)
-  }.</p>
+    <p class="micro muted">Capability changes since approved version ${escapeHtml(
+      summary.previousApprovedVersion.version,
+    )}.</p>
     ${renderCapabilityChangeGroup('Added', summary.added)}
     ${renderCapabilityChangeGroup('Removed', summary.removed)}
     ${renderCapabilityChangeGroup('Unchanged', summary.unchanged)}
     ${
-    addedSensitive.length === 0
-      ? ''
-      : `<p class="micro muted">Review impact: this version newly requests ${
-        escapeHtml(formatCapabilityNames(addedSensitive))
-      }. Confirm the assignment purpose, evidence or grading flow, and latest preview evidence before approval.</p>`
-  }
+      addedSensitive.length === 0
+        ? ''
+        : `<p class="micro muted">Review impact: this version newly requests ${escapeHtml(
+            formatCapabilityNames(addedSensitive),
+          )}. Confirm the assignment purpose, evidence or grading flow, and latest preview evidence before approval.</p>`
+    }
   </div>`;
 }
 
@@ -89,17 +89,16 @@ export function renderCapabilityChangeGroup(
   return `<div>
     <p class="micro muted">${escapeHtml(label)}</p>
     <ul>
-      ${
-    capabilities
-      .map((capability) =>
-        `<li><strong>${escapeHtml(capability.label)}</strong>: ${escapeHtml(capability.detail)}${
-          capability.flagged
-            ? ` <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span>`
-            : ''
-        }</li>`
-      )
-      .join('')
-  }
+      ${capabilities
+        .map(
+          (capability) =>
+            `<li><strong>${escapeHtml(capability.label)}</strong>: ${escapeHtml(capability.detail)}${
+              capability.flagged
+                ? ` <span class="micro muted">${escapeHtml(capability.sensitivityLabel)}</span>`
+                : ''
+            }</li>`,
+        )
+        .join('')}
     </ul>
   </div>`;
 }
@@ -124,11 +123,9 @@ export function formatPreviewSessionSummary(session: PreviewSessionRecord | null
     return 'No review test launch has been recorded yet.';
   }
 
-  return `Latest review test launch ${session.sessionId} ran as ${
-    formatPreviewRole(
-      session.launch.userRole,
-    )
-  } in course ${session.launch.courseId}.`;
+  return `Latest review test launch ${session.sessionId} ran as ${formatPreviewRole(
+    session.launch.userRole,
+  )} in course ${session.launch.courseId}.`;
 }
 
 export function formatRuntimeLogSummary(records: PreviewEvidenceRecord[]): string {
@@ -163,9 +160,7 @@ export function formatPreviewRole(role: string): string {
 }
 
 export function versionPreviewHref(packageVersion: PackageVersionRecord): string {
-  return `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${
-    escapeHtml(
-      packageVersion.version,
-    )
-  }/preview`;
+  return `/admin/packages/${escapeHtml(packageVersion.appId)}/versions/${escapeHtml(
+    packageVersion.version,
+  )}/preview`;
 }

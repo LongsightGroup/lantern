@@ -82,11 +82,7 @@ export function mapD1RuntimeSessionFields(row: D1RuntimeSessionRow): RuntimeSess
     appId: expectD1String(row.appId, 'appId'),
     packageVersionId: expectD1Number(row.packageVersionId, 'packageVersionId'),
     packageVersion: expectD1String(row.packageVersion, 'packageVersion'),
-    capabilities: parseD1JsonField(
-      row.capabilities,
-      'capabilities',
-      parseCapabilityArray,
-    ),
+    capabilities: parseD1JsonField(row.capabilities, 'capabilities', parseCapabilityArray),
     snapshotRoot: expectD1String(row.snapshotRoot, 'snapshotRoot'),
     entrypointPath: expectD1String(row.entrypointPath, 'entrypointPath'),
     contentPath: expectD1String(row.contentPath, 'contentPath'),
@@ -175,7 +171,7 @@ function parseCapabilityArray(value: unknown, fieldName: string): Capability[] {
       'finalize_attempt',
       'read_local_state',
       'write_local_state',
-    ])
+    ]),
   );
 }
 
@@ -190,9 +186,7 @@ function parseAttemptEventResult(
       completionState: expectD1StringLiteral(
         record.completionState,
         `${fieldName}.completionState`,
-        [
-          'completed',
-        ],
+        ['completed'],
       ),
     };
   }

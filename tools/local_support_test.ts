@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assert, assertEquals } from '@std/assert';
 import {
   appendMissingEnvAssignments,
@@ -8,7 +9,7 @@ import {
   listDeclaredEnvKeys,
 } from './local_support.ts';
 
-Deno.test('appendMissingEnvAssignments creates the default local env file', async () => {
+test('appendMissingEnvAssignments creates the default local env file', async () => {
   const generatedJwk = await createLocalToolPrivateJwkString();
   const result = appendMissingEnvAssignments({
     existingText: null,
@@ -36,7 +37,7 @@ Deno.test('appendMissingEnvAssignments creates the default local env file', asyn
   assert(result.text.includes('LTI_TOOL_PRIVATE_JWK="{'));
 });
 
-Deno.test('appendMissingEnvAssignments preserves existing keys and appends only missing ones', () => {
+test('appendMissingEnvAssignments preserves existing keys and appends only missing ones', () => {
   const result = appendMissingEnvAssignments({
     existingText: ['APP_ORIGIN=http://localhost:9000', ''].join('\n'),
     assignments: {
@@ -59,7 +60,7 @@ Deno.test('appendMissingEnvAssignments preserves existing keys and appends only 
   assert(result.text.includes('APP_ORIGIN=http://localhost:9000'));
 });
 
-Deno.test('listDeclaredEnvKeys finds assignment keys in local env text', () => {
+test('listDeclaredEnvKeys finds assignment keys in local env text', () => {
   const keys = listDeclaredEnvKeys(
     ['# comment', 'APP_ORIGIN=http://localhost:8417', ''].join('\n'),
   );

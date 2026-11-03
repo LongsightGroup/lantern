@@ -1,3 +1,7 @@
+import { join } from 'node:path';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assertEquals, assertRejects, assertThrows } from '@std/assert';
 import {
   buildAttemptEventRecord,
@@ -10,7 +14,7 @@ import type { ReviewedRubric } from './service.ts';
 const EXAMPLE_SNAPSHOT_ROOT = 'examples/apps/chapter-4-asteroids';
 const artifactStore = getDefaultRuntimeArtifactStore();
 
-Deno.test('loadReviewedRubric loads the reviewed rubric from the pinned snapshot', async () => {
+test('loadReviewedRubric loads the reviewed rubric from the pinned snapshot', async () => {
   const grading = await import(`./${'service.ts'}`);
   const packageVersion = buildPackageVersionRecord({
     artifact: {
@@ -27,28 +31,25 @@ Deno.test('loadReviewedRubric loads the reviewed rubric from the pinned snapshot
     artifactStore,
   });
 
-  assertEquals(
-    rubric,
-    {
-      mode: 'per-answer',
-      maxScore: 100,
-      rules: [
-        {
-          questionId: 'q1',
-          correctAnswer: 'resistance to a change in motion',
-          points: 50,
-        },
-        {
-          questionId: 'q2',
-          correctAnswer: 'speed with direction',
-          points: 50,
-        },
-      ],
-    } satisfies ReviewedRubric,
-  );
+  assertEquals(rubric, {
+    mode: 'per-answer',
+    maxScore: 100,
+    rules: [
+      {
+        questionId: 'q1',
+        correctAnswer: 'resistance to a change in motion',
+        points: 50,
+      },
+      {
+        questionId: 'q2',
+        correctAnswer: 'speed with direction',
+        points: 50,
+      },
+    ],
+  } satisfies ReviewedRubric);
 });
 
-Deno.test('loadReviewedRubric rejects malformed or unsupported rubric JSON at the trusted boundary', async () => {
+test('loadReviewedRubric rejects malformed or unsupported rubric JSON at the trusted boundary', async () => {
   const grading = await import(`./${'service.ts'}`);
   const snapshotRoot = await createSnapshotWithRubric({
     mode: 'weighted',
@@ -74,11 +75,11 @@ Deno.test('loadReviewedRubric rejects malformed or unsupported rubric JSON at th
       'Only rubric mode "per-answer" is supported.',
     );
   } finally {
-    await Deno.remove(snapshotRoot, { recursive: true });
+    await rm(snapshotRoot, { recursive: true });
   }
 });
 
-Deno.test('scoreAttempt computes the authoritative final declarative score from durable attempt events', async () => {
+test('scoreAttempt computes the authoritative final declarative score from durable attempt events', async () => {
   const grading = await import(`./${'service.ts'}`);
   const rubric = await grading.loadReviewedRubric({
     snapshotRoot: EXAMPLE_SNAPSHOT_ROOT,
@@ -157,7 +158,7 @@ Deno.test('scoreAttempt computes the authoritative final declarative score from 
   });
 });
 
-Deno.test('scoreAttempt computes completion grading from the finalized attempt state', async () => {
+test('scoreAttempt computes completion grading from the finalized attempt state', async () => {
   const grading = await import(`./${'service.ts'}`);
   const result = grading.scoreAttempt({
     attempt: buildAttemptRecord({
@@ -177,7 +178,7 @@ Deno.test('scoreAttempt computes completion grading from the finalized attempt s
   });
 });
 
-Deno.test('scoreAttempt fails clearly for unsupported or malformed grading inputs', async () => {
+test('scoreAttempt fails clearly for unsupported or malformed grading inputs', async () => {
   const grading = await import(`./${'service.ts'}`);
 
   assertThrows(
@@ -248,10 +249,10 @@ Deno.test('scoreAttempt fails clearly for unsupported or malformed grading input
 });
 
 async function createSnapshotWithRubric(rubric: unknown): Promise<string> {
-  const root = await Deno.makeTempDir({ prefix: 'lantern-grading-' });
+  const root = await mkdtemp(join(tmpdir(), 'lantern-grading-'));
 
-  await Deno.mkdir(`${root}/scoring`, { recursive: true });
-  await Deno.writeTextFile(`${root}/scoring/rubric.json`, JSON.stringify(rubric, null, 2));
+  await mkdir(`${root}/scoring`, { recursive: true });
+  await writeFile(`${root}/scoring/rubric.json`, JSON.stringify(rubric, null, 2));
 
   return root;
 }

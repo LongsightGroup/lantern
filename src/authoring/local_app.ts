@@ -1,3 +1,4 @@
+import { realpath } from 'node:fs/promises';
 import type { Capability } from '../../sdk/app-sdk.ts';
 import { type ManifestReviewData, validateManifest } from '../package_review/manifest.ts';
 import type { AppManifest } from '../package_review/manifest_contract.ts';
@@ -52,29 +53,29 @@ export interface LocalAppPackage extends ValidatedLocalAppSourcePackage {
 
 export type LocalAppPreflightResult =
   | {
-    ok: true;
-    diagnostics: [];
-    issues: [];
-    warnings: string[];
-    validatedPackage: ValidatedLocalAppSourcePackage;
-  }
+      ok: true;
+      diagnostics: [];
+      issues: [];
+      warnings: string[];
+      validatedPackage: ValidatedLocalAppSourcePackage;
+    }
   | {
-    ok: false;
-    diagnostics: LocalAppValidationDiagnostic[];
-    issues: string[];
-    warnings: string[];
-    validatedPackage?: undefined;
-  };
+      ok: false;
+      diagnostics: LocalAppValidationDiagnostic[];
+      issues: string[];
+      warnings: string[];
+      validatedPackage?: undefined;
+    };
 
 export type LocalAppValidationResult =
   | (LocalAppPreflightResult & {
-    ok: true;
-    appPackage: LocalAppPackage;
-  })
+      ok: true;
+      appPackage: LocalAppPackage;
+    })
   | (LocalAppPreflightResult & {
-    ok: false;
-    appPackage?: undefined;
-  });
+      ok: false;
+      appPackage?: undefined;
+    });
 
 class LocalAppDiagnosticError extends Error {
   readonly diagnostic: LocalAppValidationDiagnostic;
@@ -116,8 +117,7 @@ export async function preflightLocalAppPackageSource(
       severity: 'error',
       field: '/preview',
       message: 'Lantern authoring requires preview.fixtures_file and preview.tests_file.',
-      fix:
-        'Add preview.fixtures_file and preview.tests_file to manifest.json and point them at reviewed files under /preview.',
+      fix: 'Add preview.fixtures_file and preview.tests_file to manifest.json and point them at reviewed files under /preview.',
     });
   }
 
@@ -130,29 +130,28 @@ export async function preflightLocalAppPackageSource(
         severity: 'error',
         field: '/entrypoint',
         file: manifest.runtime.entrypoint,
-        message:
-          `Runtime entrypoint ${manifest.runtime.entrypoint} could not be read from the package.`,
-        fix:
-          `Add ${manifest.runtime.entrypoint} to the reviewed package and keep /runtime/entrypoint pointed at that file.`,
+        message: `Runtime entrypoint ${manifest.runtime.entrypoint} could not be read from the package.`,
+        fix: `Add ${manifest.runtime.entrypoint} to the reviewed package and keep /runtime/entrypoint pointed at that file.`,
       }),
     diagnostics,
   );
   const fixtureData = previewConfig
     ? await captureDiagnostic(
-      () => loadPreviewFixtureDataFromSource(source, previewConfig.fixtures_file),
-      diagnostics,
-    )
+        () => loadPreviewFixtureDataFromSource(source, previewConfig.fixtures_file),
+        diagnostics,
+      )
     : null;
   const previewTests = previewConfig
     ? await captureDiagnostic(
-      () => loadPreviewTestsFromSource(source, previewConfig.tests_file),
-      diagnostics,
-    )
+        () => loadPreviewTestsFromSource(source, previewConfig.tests_file),
+        diagnostics,
+      )
     : null;
   const contentPath = resolveContentPath(manifest, manifestValidation.reviewData.capabilities);
-  const content = contentPath === null
-    ? null
-    : await captureDiagnostic(() => loadContentJsonFromSource(source, contentPath), diagnostics);
+  const content =
+    contentPath === null
+      ? null
+      : await captureDiagnostic(() => loadContentJsonFromSource(source, contentPath), diagnostics);
 
   if (
     diagnostics.length > 0 ||
@@ -184,7 +183,7 @@ export async function preflightLocalAppPackageSource(
 
 export async function validateLocalAppPackage(rootPath: string): Promise<LocalAppValidationResult> {
   try {
-    const resolvedRoot = await Deno.realPath(rootPath);
+    const resolvedRoot = await realpath(rootPath);
     const source = createFileSystemPackageSource(resolvedRoot);
     return await validateLocalAppPackageSource(source, resolvedRoot);
   } catch (error) {
@@ -220,11 +219,9 @@ export async function validateLocalAppPackageSource(
 }
 
 export function formatLocalAppDiagnostic(diagnostic: LocalAppValidationDiagnostic): string {
-  return `${
-    describeLocalAppDiagnosticLabel(
-      diagnostic,
-    )
-  }: ${diagnostic.message} Fix: ${diagnostic.fix}`;
+  return `${describeLocalAppDiagnosticLabel(
+    diagnostic,
+  )}: ${diagnostic.message} Fix: ${diagnostic.fix}`;
 }
 
 export function describeLocalAppDiagnosticLabel(
@@ -250,8 +247,8 @@ export function groupLocalAppDiagnostics(
     const key = diagnostic.file
       ? `file:${diagnostic.file}`
       : diagnostic.field
-      ? `field:${diagnostic.field}`
-      : 'package';
+        ? `field:${diagnostic.field}`
+        : 'package';
     const label = describeLocalAppDiagnosticLabel(diagnostic);
     const existing = groups.get(key);
 
@@ -299,8 +296,7 @@ async function loadContentJsonFromSource(
     severity: 'error',
     file: contentPath,
     message: `App content file ${contentPath} could not be read from the package.`,
-    fix:
-      `Add ${contentPath} to the reviewed package or update content_files to point at an existing JSON file.`,
+    fix: `Add ${contentPath} to the reviewed package or update content_files to point at an existing JSON file.`,
   });
 
   return parseJsonText(text, {
@@ -322,8 +318,7 @@ async function loadPreviewFixtureDataFromSource(
     field: '/preview/fixtures_file',
     file: fixturesFile,
     message: `Preview fixtures file ${fixturesFile} could not be read from the package.`,
-    fix:
-      `Add ${fixturesFile} to the reviewed package or update preview.fixtures_file to point at an existing JSON file.`,
+    fix: `Add ${fixturesFile} to the reviewed package or update preview.fixtures_file to point at an existing JSON file.`,
   });
   const parsed = parseJsonText(text, {
     code: 'preview_fixtures_invalid_json',
@@ -342,11 +337,11 @@ async function loadPreviewFixtureDataFromSource(
       severity: 'error',
       field: '/preview/fixtures_file',
       file: fixturesFile,
-      message: error instanceof Error
-        ? error.message
-        : `Preview fixtures file ${fixturesFile} is not valid for Lantern authoring.`,
-      fix:
-        `Add launch.user_role, launch.course_id, launch.activity_id, attempt_id, and local_state to ${fixturesFile}.`,
+      message:
+        error instanceof Error
+          ? error.message
+          : `Preview fixtures file ${fixturesFile} is not valid for Lantern authoring.`,
+      fix: `Add launch.user_role, launch.course_id, launch.activity_id, attempt_id, and local_state to ${fixturesFile}.`,
     });
   }
 }
@@ -361,8 +356,7 @@ async function loadPreviewTestsFromSource(
     field: '/preview/tests_file',
     file: testsFile,
     message: `Preview tests file ${testsFile} could not be read from the package.`,
-    fix:
-      `Add ${testsFile} to the reviewed package or update preview.tests_file to point at an existing JSON file.`,
+    fix: `Add ${testsFile} to the reviewed package or update preview.tests_file to point at an existing JSON file.`,
   });
   const parsed = parseJsonText(text, {
     code: 'preview_tests_invalid_json',
@@ -574,9 +568,10 @@ function buildValidationFailure(
 }
 
 function mapValidationIssueToDiagnostic(issue: ValidationIssue): LocalAppValidationDiagnostic {
-  const missingPath = issue.keyword === 'missing_file'
-    ? issue.message.match(/Referenced file ([^ ]+) is missing/)?.[1]
-    : undefined;
+  const missingPath =
+    issue.keyword === 'missing_file'
+      ? issue.message.match(/Referenced file ([^ ]+) is missing/)?.[1]
+      : undefined;
 
   return {
     code: issue.keyword,

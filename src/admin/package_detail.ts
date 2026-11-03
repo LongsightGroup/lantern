@@ -78,23 +78,17 @@ export function renderPackageDetailPage(input: {
     body: `<section class="panel">
       <div class="panel-body two-column">
         <div class="stack">
-          <p class="${approvalStatusClass(packageVersion.approvalStatus)}">${
-      escapeHtml(
-        approvalStatusLabel(packageVersion.approvalStatus),
-      )
-    }</p>
+          <p class="${approvalStatusClass(packageVersion.approvalStatus)}">${escapeHtml(
+            approvalStatusLabel(packageVersion.approvalStatus),
+          )}</p>
           <div class="stack">
             <h2>Version ${escapeHtml(packageVersion.version)}</h2>
-            <p>${
-      escapeHtml(
-        packageVersion.description ?? 'No package description was provided.',
-      )
-    }</p>
-            <p class="micro muted">${
-      escapeHtml(
-        approvalStatusDetail(packageVersion.approvalStatus),
-      )
-    }</p>
+            <p>${escapeHtml(
+              packageVersion.description ?? 'No package description was provided.',
+            )}</p>
+            <p class="micro muted">${escapeHtml(
+              approvalStatusDetail(packageVersion.approvalStatus),
+            )}</p>
           </div>
           <div class="facts">
             <div class="fact">
@@ -107,19 +101,15 @@ export function renderPackageDetailPage(input: {
             </div>
             <div class="fact">
               <span class="fact-label">Placement</span>
-              <span class="fact-value">${
-      escapeHtml(
-        formatInstallScope(packageVersion.installScope),
-      )
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                formatInstallScope(packageVersion.installScope),
+              )}</span>
             </div>
             <div class="fact">
               <span class="fact-label">Added</span>
-              <span class="fact-value">${
-      escapeHtml(
-        formatDateTime(packageVersion.importedAt),
-      )
-    }</span>
+              <span class="fact-value">${escapeHtml(
+                formatDateTime(packageVersion.importedAt),
+              )}</span>
             </div>
           </div>
           <section class="stack">
@@ -138,10 +128,10 @@ export function renderPackageDetailPage(input: {
             <strong class="fact-value">${escapeHtml(accessibility.label)}</strong>
             <p class="micro muted">${escapeHtml(accessibility.detail)}</p>
             ${
-      accessibility.exceptionNote === null
-        ? ''
-        : `<p class="micro muted">${escapeHtml(accessibility.exceptionNote)}</p>`
-    }
+              accessibility.exceptionNote === null
+                ? ''
+                : `<p class="micro muted">${escapeHtml(accessibility.exceptionNote)}</p>`
+            }
           </section>
           <section class="fact">
             <span class="fact-label">Checks</span>
@@ -158,13 +148,13 @@ export function renderPackageDetailPage(input: {
     ${
       packageVersion.approvalStatus === 'pending'
         ? renderPendingReviewOverview({
-          packageVersion,
-          history: input.history,
-          validation,
-          capabilitySummary,
-          latestPreviewSession,
-          previewEvidence,
-        })
+            packageVersion,
+            history: input.history,
+            validation,
+            capabilitySummary,
+            latestPreviewSession,
+            previewEvidence,
+          })
         : ''
     }
     <section class="panel">
@@ -174,73 +164,61 @@ export function renderPackageDetailPage(input: {
           <details>
             <summary>Show access notes, saved files, and manifest JSON</summary>
             <div class="line-list">
-              ${
-      capabilitySummary
-        .map(
-          (capability) =>
-            `<article class="line-item">
+              ${capabilitySummary
+                .map(
+                  (capability) =>
+                    `<article class="line-item">
               <p class="line-title">${escapeHtml(capability.label)}${
-              capability.flagLabel
-                ? ` <span class="micro muted">${escapeHtml(capability.flagLabel)}</span>`
-                : ''
-            }</p>
+                capability.flagLabel
+                  ? ` <span class="micro muted">${escapeHtml(capability.flagLabel)}</span>`
+                  : ''
+              }</p>
               <p class="line-copy">${escapeHtml(capability.detail)}</p>
-              <p class="micro muted">${escapeHtml(capability.purpose)} ${
-              escapeHtml(
+              <p class="micro muted">${escapeHtml(capability.purpose)} ${escapeHtml(
                 capability.dataScope,
-              )
-            }</p>
+              )}</p>
             </article>`,
-        )
-        .join('')
-    }
+                )
+                .join('')}
               <article class="line-item">
                 <p class="line-title">Scoring setup</p>
                 <p class="line-copy">${escapeHtml(grading.detail)}</p>
               </article>
               <article class="line-item">
                 <p class="line-title">Saved files</p>
-                <p class="line-copy">Lantern saved a reviewed copy in ${
-      escapeHtml(
-        packageVersion.artifact.snapshotRoot,
-      )
-    } with checksum ${escapeHtml(packageVersion.artifact.digest)}.</p>
+                <p class="line-copy">Lantern saved a reviewed copy in ${escapeHtml(
+                  packageVersion.artifact.snapshotRoot,
+                )} with checksum ${escapeHtml(packageVersion.artifact.digest)}.</p>
               </article>
             </div>
             <pre>${escapeHtml(JSON.stringify(packageVersion.manifestJson, null, 2))}</pre>
           </details>
         </div>
         ${
-      validation.issues.length > 0
-        ? `<section class="callout">
+          validation.issues.length > 0
+            ? `<section class="callout">
               <h3>Things to fix</h3>
               <ul>
-                ${
-          validation.issues
-            .map(
-              (issue) =>
-                `<li><strong>${escapeHtml(issue.field)}</strong>: ${
-                  escapeHtml(
-                    issue.message,
+                ${validation.issues
+                  .map(
+                    (issue) =>
+                      `<li><strong>${escapeHtml(issue.field)}</strong>: ${escapeHtml(
+                        issue.message,
+                      )}</li>`,
                   )
-                }</li>`,
-            )
-            .join('')
-        }
+                  .join('')}
               </ul>
             </section>`
-        : ''
-    }
+            : ''
+        }
       </div>
     </section>
     ${renderDecisionSection(packageVersion)}
-    ${
-      renderRuntimeLogSection({
-        packageVersion,
-        latestPreviewSession,
-        previewEvidence,
-      })
-    }
+    ${renderRuntimeLogSection({
+      packageVersion,
+      latestPreviewSession,
+      previewEvidence,
+    })}
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">Other versions</p>
@@ -274,17 +252,17 @@ function renderPendingReviewOverview(input: {
   const standardCapabilityText = `${normalCount} standard runtime ${
     normalCount === 1 ? 'capability' : 'capabilities'
   }`;
-  const sensitiveCapabilityText = sensitiveCount === 0
-    ? ''
-    : `, ${sensitiveCount} sensitive review ${sensitiveCount === 1 ? 'item' : 'items'}`;
+  const sensitiveCapabilityText =
+    sensitiveCount === 0
+      ? ''
+      : `, ${sensitiveCount} sensitive review ${sensitiveCount === 1 ? 'item' : 'items'}`;
   const previewHref = versionPreviewHref(input.packageVersion);
-  const diffHref = previousVersion === null
-    ? null
-    : `/admin/packages/${escapeHtml(input.packageVersion.appId)}/versions/${
-      escapeHtml(
-        input.packageVersion.version,
-      )
-    }/diff`;
+  const diffHref =
+    previousVersion === null
+      ? null
+      : `/admin/packages/${escapeHtml(input.packageVersion.appId)}/versions/${escapeHtml(
+          input.packageVersion.version,
+        )}/diff`;
 
   return `<section class="panel">
     <div class="panel-body stack">
@@ -297,35 +275,37 @@ function renderPendingReviewOverview(input: {
         <div class="button-row">
           <a class="button-primary" href="${previewHref}">Open review test launch</a>
           ${
-    diffHref === null ? '' : `<a class="button-secondary" href="${diffHref}">Compare changes</a>`
-  }
+            diffHref === null
+              ? ''
+              : `<a class="button-secondary" href="${diffHref}">Compare changes</a>`
+          }
         </div>
       </div>
       <div class="line-list">
         <article class="line-item">
           <p class="line-title">What changed</p>
-          <p class="line-copy">${
-    escapeHtml(formatChangeSummary(input.packageVersion, previousVersion))
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            formatChangeSummary(input.packageVersion, previousVersion),
+          )}</p>
           ${
-    diffHref === null
-      ? ''
-      : `<p class="micro muted"><a href="${diffHref}">Open the file-level version diff.</a></p>`
-  }
+            diffHref === null
+              ? ''
+              : `<p class="micro muted"><a href="${diffHref}">Open the file-level version diff.</a></p>`
+          }
           ${renderCapabilityChangeSummary(capabilityChanges)}
         </article>
         <article class="line-item">
           <p class="line-title">What it can do</p>
-          <p class="line-copy">${
-    escapeHtml(`${standardCapabilityText}${sensitiveCapabilityText}.`)
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            `${standardCapabilityText}${sensitiveCapabilityText}.`,
+          )}</p>
           <p class="micro muted">${escapeHtml(formatCapabilityNames(input.capabilitySummary))}</p>
         </article>
         <article class="line-item">
           <p class="line-title">Test launch</p>
-          <p class="line-copy">${
-    escapeHtml(formatPreviewSessionSummary(input.latestPreviewSession))
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            formatPreviewSessionSummary(input.latestPreviewSession),
+          )}</p>
           <p class="micro muted">Review launches stay in Lantern preview mode and do not write to the live LMS.</p>
         </article>
         <article class="line-item">
@@ -364,8 +344,8 @@ function renderCapabilityPrivacySummary(
       </div>
     </section>
     ${
-    sensitiveCapabilities.length > 0 || gradeReviewItem !== null
-      ? `<section class="capability-group capability-group-sensitive">
+      sensitiveCapabilities.length > 0 || gradeReviewItem !== null
+        ? `<section class="capability-group capability-group-sensitive">
         <div class="capability-group-header">
           <div>
             <h3>Sensitive review items</h3>
@@ -378,8 +358,8 @@ function renderCapabilityPrivacySummary(
           ${gradeReviewItem ?? ''}
         </div>
       </section>`
-      : ''
-  }
+        : ''
+    }
     <section class="capability-group capability-group-blocked">
       <div class="capability-group-header">
         <div>
@@ -397,10 +377,10 @@ function renderCapabilityCard(capability: CapabilitySummary): string {
     <div class="capability-card-header">
       <h4>${escapeHtml(capability.label)}</h4>
       <span class="chip capability-classification ${
-    capability.flagged
-      ? 'capability-classification-sensitive'
-      : 'capability-classification-standard'
-  }">${escapeHtml(capability.sensitivityLabel)}</span>
+        capability.flagged
+          ? 'capability-classification-sensitive'
+          : 'capability-classification-standard'
+      }">${escapeHtml(capability.sensitivityLabel)}</span>
     </div>
     <p>${escapeHtml(capability.detail)}</p>
     <dl class="capability-meta">
@@ -425,26 +405,26 @@ function renderCapabilityCard(capability: CapabilitySummary): string {
 }
 
 function summarizeGradeReviewItem(grading: GradingSettings): string | null {
-  if (
-    grading.mode !== 'browser' && grading.mode !== 'declarative' &&
-    grading.mode !== 'sandbox'
-  ) {
+  if (grading.mode !== 'browser' && grading.mode !== 'declarative' && grading.mode !== 'sandbox') {
     return null;
   }
 
-  const gradingLabel = grading.mode === 'browser'
-    ? 'Browser grading'
-    : grading.mode === 'sandbox'
-    ? 'Python sandbox grading'
-    : 'Reviewed scoring rules';
-  const gradingDetail = grading.mode === 'browser'
-    ? 'Lantern runs reviewed browser-grader checks and owns any grade publication.'
-    : grading.mode === 'sandbox'
-    ? 'Lantern runs learner Python in an isolated Sandbox and owns the resulting grade publication.'
-    : 'Lantern scores the attempt with reviewed scoring rules and owns any grade publication.';
-  const maxScore = grading.maxScore === null
-    ? 'Maximum score not recorded.'
-    : `Maximum score ${grading.maxScore}.`;
+  const gradingLabel =
+    grading.mode === 'browser'
+      ? 'Browser grading'
+      : grading.mode === 'sandbox'
+        ? 'Python sandbox grading'
+        : 'Reviewed scoring rules';
+  const gradingDetail =
+    grading.mode === 'browser'
+      ? 'Lantern runs reviewed browser-grader checks and owns any grade publication.'
+      : grading.mode === 'sandbox'
+        ? 'Lantern runs learner Python in an isolated Sandbox and owns the resulting grade publication.'
+        : 'Lantern scores the attempt with reviewed scoring rules and owns any grade publication.';
+  const maxScore =
+    grading.maxScore === null
+      ? 'Maximum score not recorded.'
+      : `Maximum score ${grading.maxScore}.`;
 
   return `<article class="capability-card">
     <div class="capability-card-header">
@@ -486,34 +466,32 @@ function renderRuntimeLogSection(input: {
         <div class="stack">
           <p class="section-label">Runtime log</p>
           <h2>Latest review test activity</h2>
-          <p class="line-copy">${
-    escapeHtml(formatPreviewSessionSummary(input.latestPreviewSession))
-  }</p>
+          <p class="line-copy">${escapeHtml(
+            formatPreviewSessionSummary(input.latestPreviewSession),
+          )}</p>
         </div>
         <div class="button-row">
           <a class="button-secondary" href="${previewHref}">${
-    input.latestPreviewSession === null ? 'Start test launch' : 'Open full test launch log'
-  }</a>
+            input.latestPreviewSession === null ? 'Start test launch' : 'Open full test launch log'
+          }</a>
         </div>
       </div>
       ${
-    input.previewEvidence.length === 0
-      ? '<p class="muted">No runtime gateway events have been recorded for this version yet.</p>'
-      : `<div class="line-list">
+        input.previewEvidence.length === 0
+          ? '<p class="muted">No runtime gateway events have been recorded for this version yet.</p>'
+          : `<div class="line-list">
             ${input.previewEvidence.slice(0, 5).map(renderRuntimeLogItem).join('')}
           </div>
           ${
-        input.previewEvidence.length > 5
-          ? `<p class="micro muted">${
-            escapeHtml(
-              `${
-                input.previewEvidence.length - 5
-              } more events are available on the full test launch log.`,
-            )
-          }</p>`
-          : ''
-      }`
-  }
+            input.previewEvidence.length > 5
+              ? `<p class="micro muted">${escapeHtml(
+                  `${
+                    input.previewEvidence.length - 5
+                  } more events are available on the full test launch log.`,
+                )}</p>`
+              : ''
+          }`
+      }
     </div>
   </section>`;
 }
@@ -521,10 +499,10 @@ function renderRuntimeLogSection(input: {
 function renderRuntimeLogItem(record: PreviewEvidenceRecord): string {
   return `<article class="line-item">
     <p class="line-title">${escapeHtml(formatPreviewEvidenceLabel(record.eventType))}${
-    record.capability === null
-      ? ''
-      : ` <span class="inline-code">${escapeHtml(record.capability)}</span>`
-  }</p>
+      record.capability === null
+        ? ''
+        : ` <span class="inline-code">${escapeHtml(record.capability)}</span>`
+    }</p>
     <p class="micro muted">${escapeHtml(formatDateTime(record.occurredAt))}</p>
     <p class="line-copy">${escapeHtml(record.summary)}</p>
   </article>`;

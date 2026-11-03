@@ -1,10 +1,11 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { validateLocalAppPackage } from './local_app.ts';
 import { createLocalPreviewHarness } from './local_preview.ts';
 
 const TEMPLATE_APP_ROOT = 'examples/apps/template';
 
-Deno.test('validateLocalAppPackage accepts the template app', async () => {
+test('validateLocalAppPackage accepts the template app', async () => {
   const result = await validateLocalAppPackage(TEMPLATE_APP_ROOT);
 
   assertEquals(result.ok, true);
@@ -27,7 +28,7 @@ Deno.test('validateLocalAppPackage accepts the template app', async () => {
   );
 });
 
-Deno.test('local preview harness injects GatewayApp and serves preview state', async () => {
+test('local preview harness injects GatewayApp and serves preview state', async () => {
   const validation = await validateLocalAppPackage(TEMPLATE_APP_ROOT);
 
   assertEquals(validation.ok, true);
@@ -86,8 +87,7 @@ Deno.test('local preview harness injects GatewayApp and serves preview state', a
       instructions:
         'Edit this file first. Keep the app logic small and move lesson-specific data here.',
       prompt: 'What is the one question or interaction this app should teach?',
-      hint:
-        'Use Lantern content files for reviewed lesson data, not hard-coded course text in app.js.',
+      hint: 'Use Lantern content files for reviewed lesson data, not hard-coded course text in app.js.',
     },
   );
 

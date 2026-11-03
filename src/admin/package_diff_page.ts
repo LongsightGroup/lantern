@@ -44,21 +44,17 @@ export function renderPackageDiffPage(input: {
         <div class="panel-header">
           <div class="stack">
             <p class="section-label">Snapshot comparison</p>
-            <h2>Version ${escapeHtml(targetVersion.version)} from ${
-      escapeHtml(
-        baseVersion.version,
-      )
-    }</h2>
+            <h2>Version ${escapeHtml(targetVersion.version)} from ${escapeHtml(
+              baseVersion.version,
+            )}</h2>
             <p class="line-copy">
               Lantern compares the immutable reviewed package snapshots saved for each version.
             </p>
           </div>
           <div class="button-row">
-            <a class="button-secondary" href="/admin/packages/${
-      escapeHtml(
-        targetVersion.appId,
-      )
-    }/versions/${escapeHtml(targetVersion.version)}">Back to version</a>
+            <a class="button-secondary" href="/admin/packages/${escapeHtml(
+              targetVersion.appId,
+            )}/versions/${escapeHtml(targetVersion.version)}">Back to version</a>
           </div>
         </div>
         <div class="facts">
@@ -83,24 +79,24 @@ export function renderPackageDiffPage(input: {
       <div class="panel-body stack">
         <p class="section-label">Contract changes</p>
         ${
-      changedManifestFields.length === 0
-        ? '<p class="line-copy">No core manifest, capability, or grading fields changed.</p>'
-        : `<div class="line-list">
+          changedManifestFields.length === 0
+            ? '<p class="line-copy">No core manifest, capability, or grading fields changed.</p>'
+            : `<div class="line-list">
               ${changedManifestFields.map(renderManifestFieldDiff).join('')}
             </div>`
-    }
+        }
       </div>
     </section>
     <section class="panel">
       <div class="panel-body stack">
         <p class="section-label">File changes</p>
         ${
-      changedFiles.length === 0
-        ? '<p class="line-copy">No package files changed between these snapshots.</p>'
-        : `<div class="table-list">
+          changedFiles.length === 0
+            ? '<p class="line-copy">No package files changed between these snapshots.</p>'
+            : `<div class="table-list">
               ${changedFiles.map(renderFileDiff).join('')}
             </div>`
-    }
+        }
       </div>
     </section>`,
   });
@@ -111,11 +107,9 @@ function renderVersionFact(label: string, packageVersion: PackageVersionRecord):
     <span class="fact-label">${escapeHtml(label)}</span>
     <span class="fact-value">Version ${escapeHtml(packageVersion.version)}</span>
     <p class="micro muted">
-      <span class="${approvalStatusClass(packageVersion.approvalStatus)}">${
-    escapeHtml(
-      approvalStatusLabel(packageVersion.approvalStatus),
-    )
-  }</span>
+      <span class="${approvalStatusClass(packageVersion.approvalStatus)}">${escapeHtml(
+        approvalStatusLabel(packageVersion.approvalStatus),
+      )}</span>
       ${escapeHtml(formatDateTime(packageVersion.importedAt))}
     </p>
   </div>`;

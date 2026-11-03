@@ -79,10 +79,7 @@ export function expectD1NullableStringLiteral<T extends string>(
   return expectD1StringLiteral(value, fieldName, allowed);
 }
 
-export function expectD1JsonRecord(
-  value: unknown,
-  fieldName: string,
-): Record<string, unknown> {
+export function expectD1JsonRecord(value: unknown, fieldName: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new TypeError(`Expected D1 ${fieldName} JSON to be an object.`);
   }

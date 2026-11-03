@@ -1,4 +1,4 @@
-import { type ErrorObject } from '@ajv2020';
+import { type ErrorObject } from 'ajv/dist/2020.js';
 import type { BrowserCapability, Capability, UserRole } from '../../sdk/app-sdk.ts';
 import type { RosterCapability } from '../../sdk/worker-app-sdk.ts';
 import type {
@@ -42,15 +42,15 @@ export interface BrowserAppManifest extends ManifestBase {
   };
   authoring?:
     | {
-      kind: 'browser_autograder';
-      grader_spec_files: string[];
-      evidence_example_file: string;
-    }
+        kind: 'browser_autograder';
+        grader_spec_files: string[];
+        evidence_example_file: string;
+      }
     | {
-      kind: 'python_function';
-      grader_spec_files?: never;
-      evidence_example_file?: never;
-    };
+        kind: 'python_function';
+        grader_spec_files?: never;
+        evidence_example_file?: never;
+      };
 }
 
 export interface WorkerAppManifest extends ManifestBase {
@@ -89,14 +89,14 @@ export interface ManifestReviewData {
 
 export type ManifestValidationResult =
   | {
-    ok: true;
-    issues: [];
-    reviewData: ManifestReviewData;
-  }
+      ok: true;
+      issues: [];
+      reviewData: ManifestReviewData;
+    }
   | {
-    ok: false;
-    issues: ValidationIssue[];
-  };
+      ok: false;
+      issues: ValidationIssue[];
+    };
 
 type RequiredKeywordParams = {
   missingProperty: string;
@@ -175,9 +175,7 @@ function mapManifestIssue(error: ErrorObject): ValidationIssue {
   }
 
   if (error.keyword === 'additionalProperties') {
-    const additionalProperty = String(
-      (error.params as Record<string, unknown>).additionalProperty ?? '',
-    );
+    const additionalProperty = String(error.params.additionalProperty ?? '');
 
     return {
       field: error.instancePath || '/',

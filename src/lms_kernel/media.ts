@@ -1,10 +1,7 @@
 import type { LmsKernelRepository, ProtectedMediaReference } from './repository.ts';
 
 export interface ProtectedMediaService {
-  fetch(input: {
-    readonly mediaId: string;
-    readonly now: Date;
-  }): Promise<Response>;
+  fetch(input: { readonly mediaId: string; readonly now: Date }): Promise<Response>;
 }
 
 export function createProtectedMediaService(input: {
@@ -181,11 +178,17 @@ function matchesRasterSignature(bytes: Uint8Array, contentType: string): boolean
     case 'image/jpeg':
       return startsWith([255, 216, 255]);
     case 'image/gif':
-      return startsWith([71, 73, 70, 56]) &&
-        (bytes[4] === 55 || bytes[4] === 57) && bytes[5] === 97;
+      return (
+        startsWith([71, 73, 70, 56]) && (bytes[4] === 55 || bytes[4] === 57) && bytes[5] === 97
+      );
     case 'image/webp':
-      return startsWith([82, 73, 70, 70]) &&
-        bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80;
+      return (
+        startsWith([82, 73, 70, 70]) &&
+        bytes[8] === 87 &&
+        bytes[9] === 69 &&
+        bytes[10] === 66 &&
+        bytes[11] === 80
+      );
     default:
       return false;
   }

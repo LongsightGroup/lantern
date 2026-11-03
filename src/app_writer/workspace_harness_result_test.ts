@@ -1,10 +1,11 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertThrows } from '@std/assert';
 import {
   formatStructuredWorkspaceHarnessResultContract,
   parseStructuredWorkspaceHarnessResult,
 } from './workspace_harness_result.ts';
 
-Deno.test('structured workspace harness prompt contract parses as the same result shape', () => {
+test('structured workspace harness prompt contract parses as the same result shape', () => {
   const parsed = parseStructuredWorkspaceHarnessResult(
     JSON.parse(
       formatStructuredWorkspaceHarnessResultContract({
@@ -19,7 +20,7 @@ Deno.test('structured workspace harness prompt contract parses as the same resul
   assertEquals(parsed.validationFindings[0]?.severity, 'error');
 });
 
-Deno.test('structured workspace harness result rejects duplicate file paths', () => {
+test('structured workspace harness result rejects duplicate file paths', () => {
   assertThrows(
     () =>
       parseStructuredWorkspaceHarnessResult(

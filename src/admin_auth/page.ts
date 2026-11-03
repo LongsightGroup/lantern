@@ -123,14 +123,14 @@ export function renderAdminAuthPage(input: {
           <div class="auth-field">
             <label for="password">Password</label>
             <input id="password" name="password" type="password" autocomplete="${
-      isSignup ? 'new-password' : 'current-password'
-    }" required>
+              isSignup ? 'new-password' : 'current-password'
+            }" required>
           </div>
           <div class="auth-actions">
             <a class="auth-link" href="${alternateHref}">${alternateLabel}</a>
             <button class="button primary" type="submit">${
-      isSignup ? 'Create account' : 'Sign in'
-    }</button>
+              isSignup ? 'Create account' : 'Sign in'
+            }</button>
           </div>
         </form>
         </div>`,
@@ -152,11 +152,7 @@ export function renderAdminLogoutPage(error?: string): string {
   });
 }
 
-function renderAdminAuthShell(input: {
-  title: string;
-  intro: string;
-  body: string;
-}): string {
+function renderAdminAuthShell(input: { title: string; intro: string; body: string }): string {
   return `<!doctype html>
 <html lang="en" data-theme="light">
   <head>
@@ -190,11 +186,12 @@ function renderSocialSignInForms(
     return '';
   }
 
-  const forms = providers.map((provider) =>
-    `<form class="auth-form" method="post" action="/admin/login/${escapeHtml(provider.id)}">
+  const forms = providers.map(
+    (provider) =>
+      `<form class="auth-form" method="post" action="/admin/login/${escapeHtml(provider.id)}">
           <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}">
           <button class="button" type="submit">Sign in with ${escapeHtml(provider.label)}</button>
-        </form>`
+        </form>`,
   );
 
   return `${forms.join('')}
@@ -204,17 +201,17 @@ function renderSocialSignInForms(
 function renderNameField(name: string | undefined): string {
   return `<div class="auth-field">
             <label for="name">Name</label>
-            <input id="name" name="name" autocomplete="name" required value="${
-    escapeHtml(name ?? '')
-  }">
+            <input id="name" name="name" autocomplete="name" required value="${escapeHtml(
+              name ?? '',
+            )}">
           </div>`;
 }
 
 function renderEmailField(email: string | undefined): string {
   return `<div class="auth-field">
             <label for="email">Email</label>
-            <input id="email" name="email" type="email" autocomplete="email" required value="${
-    escapeHtml(email ?? '')
-  }">
+            <input id="email" name="email" type="email" autocomplete="email" required value="${escapeHtml(
+              email ?? '',
+            )}">
           </div>`;
 }

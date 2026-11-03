@@ -52,8 +52,8 @@ export async function startAppPackageGenerationRun(
   const createdAt = now();
   const requestedAppId = input.requestedAppId ?? null;
   const maxRepairAttempts = input.maxRepairAttempts ?? APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS;
-  const authoringMode = input.authoringMode ??
-    selectAuthoringModeForGeneration(input.sourceCompiler);
+  const authoringMode =
+    input.authoringMode ?? selectAuthoringModeForGeneration(input.sourceCompiler);
   const contextSelection = selectAppWriterContext({
     promptText: input.promptText,
     requestedAppId,
@@ -101,8 +101,8 @@ export async function startAppPackageRevisionRun(
   const now = input.now ?? (() => new Date().toISOString());
   const createdAt = now();
   const maxRepairAttempts = input.maxRepairAttempts ?? APP_WRITER_DEFAULT_MAX_REPAIR_ATTEMPTS;
-  const authoringMode = input.authoringMode ??
-    selectAuthoringModeForGeneration(input.sourceCompiler);
+  const authoringMode =
+    input.authoringMode ?? selectAuthoringModeForGeneration(input.sourceCompiler);
   const contextSelection = selectAppWriterRevisionContext({
     promptText: input.promptText,
     sourcePackageVersion: input.sourcePackageVersion,
@@ -130,8 +130,7 @@ export async function startAppPackageRevisionRun(
     run,
     eventType: 'app_generation.started',
     status: 'accepted',
-    summary:
-      `Started an app writer revision run from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version}.`,
+    summary: `Started an app writer revision run from ${input.sourcePackageVersion.appId}@${input.sourcePackageVersion.version}.`,
     detail: {
       revisionSourcePackageVersionId: input.sourcePackageVersion.id,
       revisionSourceVersion: input.sourcePackageVersion.version,

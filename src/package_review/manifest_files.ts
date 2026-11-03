@@ -135,8 +135,7 @@ export async function collectReferencedFileIssuesFromSource(
         field: '/runtime/entrypoint',
         keyword: 'invalid_asset_path',
         severity: 'error',
-        message:
-          `Entrypoint HTML cannot use root-relative reviewed asset URL ${assetUrl}. Use a relative asset path instead.`,
+        message: `Entrypoint HTML cannot use root-relative reviewed asset URL ${assetUrl}. Use a relative asset path instead.`,
       });
     }
   }

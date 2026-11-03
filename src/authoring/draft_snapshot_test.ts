@@ -1,3 +1,7 @@
+import { join } from 'node:path';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { buildPackageVersionRecord } from '../test_helpers/package_review.ts';
 import type { AuthoringDraftRecord } from '../package_review/types.ts';
@@ -6,10 +10,8 @@ import {
   materializeDraftPreviewPackageVersion,
 } from './draft_snapshot.ts';
 
-Deno.test('materializeDraftPreviewPackageVersion overlays saved draft files into var/authoring-drafts snapshots', async () => {
-  const sourceRoot = await Deno.makeTempDir({
-    prefix: 'lantern-authoring-source-',
-  });
+test('materializeDraftPreviewPackageVersion overlays saved draft files into var/authoring-drafts snapshots', async () => {
+  const sourceRoot = await mkdtemp(join(tmpdir(), 'lantern-authoring-source-'));
   const snapshotRoot = buildAuthoringDraftSnapshotRoot(
     'draft-template-app',
     '2026-04-08T17:00:00Z',
@@ -76,11 +78,13 @@ Deno.test('materializeDraftPreviewPackageVersion overlays saved draft files into
       packageVersion,
       createdAt: '2026-04-08T17:00:00Z',
     });
-    const materializedSpec = await Deno.readTextFile(
+    const materializedSpec = await readFile(
       `${previewPackageVersion.artifact.snapshotRoot}/grading/specs/checks.spec.js`,
+      'utf8',
     );
-    const copiedManifest = await Deno.readTextFile(
+    const copiedManifest = await readFile(
       `${previewPackageVersion.artifact.snapshotRoot}/manifest.json`,
+      'utf8',
     );
 
     assertEquals(previewPackageVersion.artifact.snapshotRoot, snapshotRoot);
@@ -89,26 +93,26 @@ Deno.test('materializeDraftPreviewPackageVersion overlays saved draft files into
     assertStringIncludes(copiedManifest, '"template-app"');
     assertEquals(packageVersion.artifact.snapshotRoot, sourceRoot);
   } finally {
-    await Deno.remove(sourceRoot, { recursive: true });
-    await Deno.remove('var/authoring-drafts', { recursive: true }).catch(() => {});
+    await rm(sourceRoot, { recursive: true });
+    await rm('var/authoring-drafts', { recursive: true }).catch(() => {});
   }
 });
 
 async function seedTemplateSnapshot(root: string): Promise<void> {
-  await Deno.mkdir(`${root}/dist`, { recursive: true });
-  await Deno.mkdir(`${root}/preview`, { recursive: true });
-  await Deno.mkdir(`${root}/grading/specs`, { recursive: true });
-  await Deno.mkdir(`${root}/evidence`, { recursive: true });
-  await Deno.writeTextFile(`${root}/manifest.json`, '{"app_id":"template-app"}\n');
-  await Deno.writeTextFile(`${root}/dist/index.html`, '<!doctype html><title>Template</title>\n');
-  await Deno.writeTextFile(
+  await mkdir(`${root}/dist`, { recursive: true });
+  await mkdir(`${root}/preview`, { recursive: true });
+  await mkdir(`${root}/grading/specs`, { recursive: true });
+  await mkdir(`${root}/evidence`, { recursive: true });
+  await writeFile(`${root}/manifest.json`, '{"app_id":"template-app"}\n');
+  await writeFile(`${root}/dist/index.html`, '<!doctype html><title>Template</title>\n');
+  await writeFile(
     `${root}/preview/fixtures.json`,
     '{"launch":{"user_role":"instructor","course_id":"course_demo","assignment_id":null,"activity_id":"template-app"},"attempt_id":"attempt_demo","local_state":null}\n',
   );
-  await Deno.writeTextFile(`${root}/preview/tests.json`, '[]\n');
-  await Deno.writeTextFile(
+  await writeFile(`${root}/preview/tests.json`, '[]\n');
+  await writeFile(
     `${root}/grading/specs/checks.spec.js`,
     'describe("template authoring checks", () => {\n  it("renders the starter title", () => {});\n});\n',
   );
-  await Deno.writeTextFile(`${root}/evidence/example-output.json`, '{"status":"ok"}\n');
+  await writeFile(`${root}/evidence/example-output.json`, '{"status":"ok"}\n');
 }

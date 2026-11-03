@@ -435,6 +435,6 @@ function requireFailureMessages(value: unknown, index: number): string[] {
     requireString(
       candidate,
       `Browser grader spec result ${index + 1} failure ${failureIndex + 1} must be a string.`,
-    )
+    ),
   );
 }

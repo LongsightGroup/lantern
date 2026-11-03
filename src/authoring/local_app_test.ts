@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assert, assertEquals, assertStringIncludes } from '@std/assert';
 import { type LocalAppValidationDiagnostic, preflightLocalAppPackageSource } from './local_app.ts';
 import { renderValidationFailure, serializeValidationResult } from '../../tools/app_validate.ts';
@@ -6,7 +7,7 @@ import {
   type MemoryPackageSourceFile,
 } from '../package_review/package_source.ts';
 
-Deno.test('preflightLocalAppPackageSource rejects missing preview config with manifest-scoped fix guidance', async () => {
+test('preflightLocalAppPackageSource rejects missing preview config with manifest-scoped fix guidance', async () => {
   const manifest = buildManifest();
 
   delete manifest.preview;
@@ -30,7 +31,7 @@ Deno.test('preflightLocalAppPackageSource rejects missing preview config with ma
   );
 });
 
-Deno.test('preflightLocalAppPackageSource rejects empty preview tests with file-scoped fix guidance', async () => {
+test('preflightLocalAppPackageSource rejects empty preview tests with file-scoped fix guidance', async () => {
   const result = await preflightLocalAppPackageSource(buildPackageSource({ previewTests: [] }));
 
   assertEquals(result.ok, false);
@@ -44,7 +45,7 @@ Deno.test('preflightLocalAppPackageSource rejects empty preview tests with file-
   assertStringIncludes(result.diagnostics[0]?.fix ?? '', 'Add at least one named preview test');
 });
 
-Deno.test('preflightLocalAppPackageSource rejects duplicate preview test names', async () => {
+test('preflightLocalAppPackageSource rejects duplicate preview test names', async () => {
   const result = await preflightLocalAppPackageSource(
     buildPackageSource({
       previewTests: [
@@ -73,7 +74,7 @@ Deno.test('preflightLocalAppPackageSource rejects duplicate preview test names',
   );
 });
 
-Deno.test('renderValidationFailure groups diagnostics by manifest field and file', () => {
+test('renderValidationFailure groups diagnostics by manifest field and file', () => {
   const output = renderValidationFailure({
     ok: false,
     diagnostics: [
@@ -104,7 +105,7 @@ Deno.test('renderValidationFailure groups diagnostics by manifest field and file
   assertStringIncludes(output, 'Fix: Rename duplicate preview tests.');
 });
 
-Deno.test('serializeValidationResult emits stable JSON for success and failure', async () => {
+test('serializeValidationResult emits stable JSON for success and failure', async () => {
   const source = buildPackageSource();
   const success = await preflightLocalAppPackageSource(source);
 
@@ -176,7 +177,8 @@ function buildPackageFiles(
     },
     {
       relativePath: 'dist/index.html',
-      bytes: input.entrypointHtml ??
+      bytes:
+        input.entrypointHtml ??
         '<!doctype html><html lang="en"><body><main>Uploaded Quiz</main></body></html>',
     },
     {
@@ -254,9 +256,8 @@ function buildManifest(): Record<string, unknown> {
 }
 
 function buildDiagnostic(
-  input:
-    & Partial<LocalAppValidationDiagnostic>
-    & Pick<LocalAppValidationDiagnostic, 'message' | 'fix'>,
+  input: Partial<LocalAppValidationDiagnostic> &
+    Pick<LocalAppValidationDiagnostic, 'message' | 'fix'>,
 ): LocalAppValidationDiagnostic {
   return {
     code: input.code ?? 'manual',

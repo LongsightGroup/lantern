@@ -133,11 +133,9 @@ export function createD1PreviewRepositoryMethods(
     },
 
     async appendPreviewEvidence(input) {
-      const results = await runD1Batch<D1PreviewEvidenceRow>(
-        db,
-        [
-          {
-            sql: `
+      const results = await runD1Batch<D1PreviewEvidenceRow>(db, [
+        {
+          sql: `
               INSERT INTO preview_evidence (
                 preview_session_id,
                 sequence,
@@ -167,25 +165,24 @@ export function createD1PreviewRepositoryMethods(
                 detail,
                 occurred_at AS occurredAt
             `,
-            parameters: [
-              input.eventType,
-              input.capability,
-              input.summary,
-              input.detail,
-              input.occurredAt,
-              input.previewSessionId,
-            ],
-          },
-          {
-            sql: `
+          parameters: [
+            input.eventType,
+            input.capability,
+            input.summary,
+            input.detail,
+            input.occurredAt,
+            input.previewSessionId,
+          ],
+        },
+        {
+          sql: `
               UPDATE preview_sessions
               SET next_evidence_sequence = next_evidence_sequence + 1
               WHERE session_id = ?
             `,
-            parameters: [input.previewSessionId],
-          },
-        ],
-      );
+          parameters: [input.previewSessionId],
+        },
+      ]);
       const row = results[0]?.results?.[0] ?? null;
 
       if (row === null) {
@@ -302,16 +299,9 @@ function mapD1PreviewSessionFields(row: D1PreviewSessionRow): PreviewSessionRow 
     appId: expectD1String(row.appId, 'appId'),
     packageVersion: expectD1String(row.packageVersion, 'packageVersion'),
     packageTitle: expectD1String(row.packageTitle, 'packageTitle'),
-    origin: expectD1StringLiteral(row.origin, 'origin', [
-      'adminTestLaunch',
-      'adminAuthoringDraft',
-    ]),
+    origin: expectD1StringLiteral(row.origin, 'origin', ['adminTestLaunch', 'adminAuthoringDraft']),
     contentPath: expectD1String(row.contentPath, 'contentPath'),
-    capabilities: parseD1JsonField(
-      row.capabilities,
-      'capabilities',
-      parseCapabilityArray,
-    ),
+    capabilities: parseD1JsonField(row.capabilities, 'capabilities', parseCapabilityArray),
     snapshotRoot: expectD1String(row.snapshotRoot, 'snapshotRoot'),
     entrypointPath: expectD1String(row.entrypointPath, 'entrypointPath'),
     launchUserId: expectD1String(row.launchUserId, 'launchUserId'),
@@ -356,7 +346,7 @@ function parseCapabilityArray(value: unknown, fieldName: string): Capability[] {
       'finalize_attempt',
       'read_local_state',
       'write_local_state',
-    ])
+    ]),
   );
 }
 
@@ -365,19 +355,15 @@ function parseNullableCapability(value: unknown, fieldName: string): Capability 
     return null;
   }
 
-  return expectD1StringLiteral(
-    value,
-    fieldName,
-    [
-      'read_launch_context',
-      'read_activity_content',
-      'submit_attempt_event',
-      'submit_evidence_artifact',
-      'finalize_attempt',
-      'read_local_state',
-      'write_local_state',
-    ] as const,
-  );
+  return expectD1StringLiteral(value, fieldName, [
+    'read_launch_context',
+    'read_activity_content',
+    'submit_attempt_event',
+    'submit_evidence_artifact',
+    'finalize_attempt',
+    'read_local_state',
+    'write_local_state',
+  ] as const);
 }
 
 function parsePreviewFixtureData(value: unknown, fieldName: string): PreviewFixtureData {
@@ -398,8 +384,9 @@ function parsePreviewFixtureData(value: unknown, fieldName: string): PreviewFixt
       activity_id: expectD1String(launch.activity_id, `${fieldName}.launch.activity_id`),
     },
     attempt_id: expectD1String(record.attempt_id, `${fieldName}.attempt_id`),
-    local_state: record.local_state === null
-      ? null
-      : expectD1JsonRecord(record.local_state, `${fieldName}.local_state`),
+    local_state:
+      record.local_state === null
+        ? null
+        : expectD1JsonRecord(record.local_state, `${fieldName}.local_state`),
   };
 }

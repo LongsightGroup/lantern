@@ -1,4 +1,4 @@
-import type { Context, Hono, Next } from '@hono/hono';
+import type { Context, Hono, Next } from 'hono';
 import {
   customLaunchRouteHandler,
   type CustomResourceLinkLaunchContext,
@@ -10,7 +10,6 @@ import { errorMessage, statusForError } from './app_status_support.ts';
 import type { AppServices } from './app_services.ts';
 import { readEnv } from './platform/env.ts';
 import { resolveRequestAppOrigin } from './app_origin.ts';
-import { adaptLtiToolHonoHandler } from './lti/hono_handler_adapter.ts';
 import type { LmsConnectionRecord } from './lms_kernel/types.ts';
 import { createOpaqueToken } from './lti/token_support.ts';
 import { buildRequestAuditEnvelope } from './request_audit.ts';
@@ -40,7 +39,8 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
       ltiTool: ltiContext.tool,
       logger: ltiContext.logger,
       authorizeLaunch: async (launch) => {
-        const connection = await services.getLmsKernelRepository()
+        const connection = await services
+          .getLmsKernelRepository()
           .getLmsConnectionByPlatformIdentity({
             issuer: launch.issuer,
             clientId: launch.clientId,
@@ -70,7 +70,7 @@ export function registerLaunchRoutes(app: Hono, services: AppServices): void {
       onError: ({ hono, error }) => hono.text(errorMessage(error), statusForError(error)),
     });
 
-    const lanternHandler = adaptLtiToolHonoHandler(handler);
+    const lanternHandler = handler;
     return await lanternHandler(context, next);
   };
 
@@ -87,18 +87,20 @@ async function renderGovernedResourceLinkLaunch(input: {
   } catch (error) {
     const connection = input.launchContext.launch.authorization.connection;
     const audit = buildRequestAuditEnvelope({ context: input.routeContext });
-    await input.services.getLmsKernelRepository().appendGovernanceEvent(launchDeniedEvent({
-      traceId: crypto.randomUUID(),
-      institutionId: connection.institutionId,
-      lmsConnectionId: connection.id,
-      errorCode: 'launch_denied',
-      occurredAt: new Date().toISOString(),
-      requestMetadata: {
-        path: audit.path,
-        ...(audit.cfRay === null ? {} : { cfRay: audit.cfRay }),
-        ...(audit.clientIpMasked === null ? {} : { maskedIp: audit.clientIpMasked }),
-      },
-    }));
+    await input.services.getLmsKernelRepository().appendGovernanceEvent(
+      launchDeniedEvent({
+        traceId: crypto.randomUUID(),
+        institutionId: connection.institutionId,
+        lmsConnectionId: connection.id,
+        errorCode: 'launch_denied',
+        occurredAt: new Date().toISOString(),
+        requestMetadata: {
+          path: audit.path,
+          ...(audit.cfRay === null ? {} : { cfRay: audit.cfRay }),
+          ...(audit.clientIpMasked === null ? {} : { maskedIp: audit.clientIpMasked }),
+        },
+      }),
+    );
     throw error;
   }
 }
@@ -141,9 +143,9 @@ async function loadGovernedLaunchPackage(
   services: AppServices,
   lookup: { readonly packageVersionId: number; readonly appId: string },
 ): Promise<GovernedLaunchPackage | null> {
-  const packageVersion = await services.getRepository().getPackageVersionById(
-    lookup.packageVersionId,
-  );
+  const packageVersion = await services
+    .getRepository()
+    .getPackageVersionById(lookup.packageVersionId);
   if (
     packageVersion === null ||
     packageVersion.approvalStatus !== 'approved' ||

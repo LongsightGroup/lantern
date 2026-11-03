@@ -4,7 +4,7 @@ import {
   type AppWriterAgentSessionCoordinator,
   createNoopAppWriterAgentSessionCoordinator,
 } from './app_writer/agent_session.ts';
-import { createLocalAppPackagePreviewer } from './app_writer/preview.ts';
+import { createLocalAppPackagePreviewer } from './app_writer/preview_local.ts';
 import { createTypeScriptAppPackageSourceCompiler } from './app_writer/typescript_source_compiler.ts';
 import type { AppPackagePreviewer, AppPackageSourceCompiler } from './app_writer/types.ts';
 import {
@@ -138,7 +138,8 @@ export function resolveTestServices(services: Partial<AppServices>): AppServices
   const runtimeArtifactStore = services.runtimeArtifactStore ?? getDefaultRuntimeArtifactStore();
   const ltiStorage = services.getLtiToolStorage?.() ?? createMemoryLtiStorage();
   const getLtiToolContext = createCachedLtiToolContextFactory({ env, storage: ltiStorage });
-  const importPackageFromSource = services.importPackageFromSource ??
+  const importPackageFromSource =
+    services.importPackageFromSource ??
     ((source: PackageSource, options = {}) =>
       importPackage({
         ...options,
@@ -146,7 +147,8 @@ export function resolveTestServices(services: Partial<AppServices>): AppServices
         source,
         snapshotStore,
       }));
-  const loadPackageSnapshotFromSource = services.loadPackageSnapshotFromSource ??
+  const loadPackageSnapshotFromSource =
+    services.loadPackageSnapshotFromSource ??
     ((source: PackageSource, options = {}) =>
       loadPackageSnapshot({
         ...options,
@@ -158,33 +160,38 @@ export function resolveTestServices(services: Partial<AppServices>): AppServices
   return {
     env,
     packageSnapshotStore: snapshotStore,
-    appWriterWorkspaceRunner: services.appWriterWorkspaceRunner ??
-      createUnavailableAppWriterWorkspaceRunner(),
+    appWriterWorkspaceRunner:
+      services.appWriterWorkspaceRunner ?? createUnavailableAppWriterWorkspaceRunner(),
     appPackagePreviewer: services.appPackagePreviewer ?? createLocalAppPackagePreviewer(),
-    appPackageSourceCompiler: services.appPackageSourceCompiler ??
-      createTypeScriptAppPackageSourceCompiler(),
-    appGenerationRunScheduler: services.appGenerationRunScheduler ??
-      createUnavailableAppGenerationRunScheduler(),
-    appWriterAgentSessions: services.appWriterAgentSessions ??
-      createNoopAppWriterAgentSessionCoordinator(),
-    browserAutograderDraftGenerator: services.browserAutograderDraftGenerator ??
+    appPackageSourceCompiler:
+      services.appPackageSourceCompiler ?? createTypeScriptAppPackageSourceCompiler(),
+    appGenerationRunScheduler:
+      services.appGenerationRunScheduler ?? createUnavailableAppGenerationRunScheduler(),
+    appWriterAgentSessions:
+      services.appWriterAgentSessions ?? createNoopAppWriterAgentSessionCoordinator(),
+    browserAutograderDraftGenerator:
+      services.browserAutograderDraftGenerator ??
       createUnavailableBrowserAutograderDraftGenerator(),
-    adminAuth: services.adminAuth ??
+    adminAuth:
+      services.adminAuth ??
       createUnconfiguredAdminAuthService(
         'Lantern admin authentication requires a Cloudflare D1 binding and BETTER_AUTH_SECRET.',
       ),
     runtimeArtifactStore,
     runtimeDelivery: services.runtimeDelivery ?? createDirectRuntimeDelivery(runtimeArtifactStore),
     evidenceArtifactStore: services.evidenceArtifactStore ?? getDefaultEvidenceArtifactStore(),
-    pythonLabRepository: services.pythonLabRepository ??
+    pythonLabRepository:
+      services.pythonLabRepository ??
       createUnavailablePythonLabRepository(
         'Python autograder Lab requires a Cloudflare D1 binding and private artifact storage.',
       ),
-    pythonLabArtifactStore: services.pythonLabArtifactStore ??
+    pythonLabArtifactStore:
+      services.pythonLabArtifactStore ??
       createUnavailablePythonLabArtifactStore(
         'Python autograder Lab requires private R2 artifact storage.',
       ),
-    pythonGraderSandboxFactory: services.pythonGraderSandboxFactory ??
+    pythonGraderSandboxFactory:
+      services.pythonGraderSandboxFactory ??
       createUnavailablePythonGraderSandboxFactory(
         'Python autograder Lab requires the PythonGraderSandbox binding.',
       ),
@@ -197,11 +204,13 @@ export function resolveTestServices(services: Partial<AppServices>): AppServices
         );
       },
     },
-    pythonLabHumanVerifier: services.pythonLabHumanVerifier ??
+    pythonLabHumanVerifier:
+      services.pythonLabHumanVerifier ??
       createUnavailablePythonLabHumanVerifier(
         'Python autograder Lab requires a configured Turnstile verifier.',
       ),
-    pythonLabGenerationScheduler: services.pythonLabGenerationScheduler ??
+    pythonLabGenerationScheduler:
+      services.pythonLabGenerationScheduler ??
       createUnavailablePythonLabGenerationScheduler(
         'Python autograder Lab requires a configured generation Workflow.',
       ),
@@ -227,21 +236,24 @@ export function resolveTestServices(services: Partial<AppServices>): AppServices
     lmsKernelAdminService: services.lmsKernelAdminService ?? createUnavailableKernelAdminService(),
     loadBrowserAutograderDraftReferenceExamples:
       services.loadBrowserAutograderDraftReferenceExamples ??
-        loadBrowserAutograderDraftReferenceExamples,
-    materializeDraftPreviewPackageVersion: services.materializeDraftPreviewPackageVersion ??
-      materializeDraftPreviewPackageVersion,
+      loadBrowserAutograderDraftReferenceExamples,
+    materializeDraftPreviewPackageVersion:
+      services.materializeDraftPreviewPackageVersion ?? materializeDraftPreviewPackageVersion,
     getRepository,
     getLtiToolStorage: services.getLtiToolStorage ?? (() => ltiStorage),
     getLtiToolContext: services.getLtiToolContext ?? getLtiToolContext,
     loadCanvasJwks: services.loadCanvasJwks ?? defaultLoadCanvasJwks,
     importPackageFromSource,
     loadPackageSnapshotFromSource,
-    readReferencePackageReviewData: services.readReferencePackageReviewData ??
+    readReferencePackageReviewData:
+      services.readReferencePackageReviewData ??
       ((appId) => readReferencePackageReviewData(appId, resolveReferencePackageSource(appId))),
-    importReferencePackage: services.importReferencePackage ??
+    importReferencePackage:
+      services.importReferencePackage ??
       ((appId, options = {}) =>
         importPackageFromSource(resolveReferencePackageSource(appId), options)),
-    loadReferencePackageSnapshot: services.loadReferencePackageSnapshot ??
+    loadReferencePackageSnapshot:
+      services.loadReferencePackageSnapshot ??
       ((appId, options = {}) =>
         loadPackageSnapshotFromSource(resolveReferencePackageSource(appId), options)),
   };

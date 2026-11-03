@@ -1,4 +1,4 @@
-import { compare, parse } from '@std/semver';
+import { compare } from 'semver';
 import type { RuntimeSessionRecord } from '../lti/types.ts';
 import type { PackageReviewRepository } from '../package_review/repository.ts';
 import type {
@@ -70,7 +70,7 @@ export function sortPackageVersions(
       return left.appId.localeCompare(right.appId);
     }
 
-    const versionComparison = compare(parse(right.version), parse(left.version));
+    const versionComparison = compare(right.version, left.version);
 
     if (versionComparison !== 0) {
       return versionComparison;
@@ -105,11 +105,12 @@ export function reviewPackageVersion(
     );
   }
 
-  const normalizedAccessibilityReview = accessibilityReview === null
-    ? (() => {
-      throw new Error('Accessibility review is required for new review decisions.');
-    })()
-    : parseAccessibilityReview(accessibilityReview);
+  const normalizedAccessibilityReview =
+    accessibilityReview === null
+      ? (() => {
+          throw new Error('Accessibility review is required for new review decisions.');
+        })()
+      : parseAccessibilityReview(accessibilityReview);
 
   const nextRecord = cloneRecord({
     ...existing,

@@ -69,17 +69,15 @@ export function renderAppGenerationRunPage(input: {
           ${renderGenerationProgress(run.status)}
           ${renderLiveProgress({ run, workspace })}
           ${
-      refreshWhileRunning
-        ? `<p class="line-copy">Lantern is still working. This page refreshes while generation runs, and the run URL can be reopened later.</p>
+            refreshWhileRunning
+              ? `<p class="line-copy">Lantern is still working. This page refreshes while generation runs, and the run URL can be reopened later.</p>
                 <div class="button-row">
-                  <a class="button-secondary" href="/admin/app-writer/runs/${
-          escapeHtml(
-            run.generationId,
-          )
-        }">Refresh status</a>
+                  <a class="button-secondary" href="/admin/app-writer/runs/${escapeHtml(
+                    run.generationId,
+                  )}">Refresh status</a>
                 </div>`
-        : ''
-    }
+              : ''
+          }
           <p>${escapeHtml(run.promptText)}</p>
           <div class="facts">
             <div class="fact">
@@ -104,42 +102,32 @@ export function renderAppGenerationRunPage(input: {
           <section class="fact">
             <span class="fact-label">Package version</span>
             ${
-      packageVersion === null
-        ? `<strong class="fact-value">Not saved</strong>`
-        : `<a class="button-secondary" href="/admin/packages/${
-          escapeHtml(
-            packageVersion.appId,
-          )
-        }/versions/${escapeHtml(packageVersion.version)}">${
-          escapeHtml(
-            packageVersion.approvalStatus === 'approved'
-              ? 'Open approved version'
-              : 'Open pending version',
-          )
-        }</a>`
-    }
+              packageVersion === null
+                ? `<strong class="fact-value">Not saved</strong>`
+                : `<a class="button-secondary" href="/admin/packages/${escapeHtml(
+                    packageVersion.appId,
+                  )}/versions/${escapeHtml(packageVersion.version)}">${escapeHtml(
+                    packageVersion.approvalStatus === 'approved'
+                      ? 'Open approved version'
+                      : 'Open pending version',
+                  )}</a>`
+            }
           </section>
           <section class="fact">
             <span class="fact-label">Preview action</span>
             ${
-      packageVersion === null
-        ? '<strong class="fact-value">Not available</strong><p class="micro muted">Lantern saves previewable packages only after validation and preview checks pass.</p>'
-        : packageVersion.approvalStatus === 'approved'
-        ? `<a class="button-secondary" href="/admin/packages/${
-          escapeHtml(
-            packageVersion.appId,
-          )
-        }/versions/${escapeHtml(packageVersion.version)}/preview">Test launch</a>`
-        : `<a class="button-secondary" href="/admin/packages/${
-          escapeHtml(
-            packageVersion.appId,
-          )
-        }/versions/${
-          escapeHtml(
-            packageVersion.version,
-          )
-        }/preview">Test pending version</a>`
-    }
+              packageVersion === null
+                ? '<strong class="fact-value">Not available</strong><p class="micro muted">Lantern saves previewable packages only after validation and preview checks pass.</p>'
+                : packageVersion.approvalStatus === 'approved'
+                  ? `<a class="button-secondary" href="/admin/packages/${escapeHtml(
+                      packageVersion.appId,
+                    )}/versions/${escapeHtml(packageVersion.version)}/preview">Test launch</a>`
+                  : `<a class="button-secondary" href="/admin/packages/${escapeHtml(
+                      packageVersion.appId,
+                    )}/versions/${escapeHtml(
+                      packageVersion.version,
+                    )}/preview">Test pending version</a>`
+            }
           </section>
           <section class="fact">
             <span class="fact-label">Selected context</span>
@@ -152,9 +140,9 @@ export function renderAppGenerationRunPage(input: {
       <div class="panel-body stack">
         <p class="section-label">App brief</p>
         ${
-      run.appPlan === null
-        ? '<p class="line-copy">No plan was recorded.</p>'
-        : `<div class="line-list">
+          run.appPlan === null
+            ? '<p class="line-copy">No plan was recorded.</p>'
+            : `<div class="line-list">
                 <article class="line-item">
                   <p class="line-title">${escapeHtml(run.appPlan.title)}</p>
                   <p class="line-copy">${escapeHtml(run.appPlan.description)}</p>
@@ -168,7 +156,7 @@ export function renderAppGenerationRunPage(input: {
                   <p class="line-copy">${escapeHtml(run.appPlan.capabilities.join(', '))}</p>
                 </article>
               </div>`
-    }
+        }
       </div>
     </section>
     <section class="panel">
@@ -202,14 +190,12 @@ export function renderAppGenerationRunPage(input: {
         ${renderActivity(run, input.activityEvents ?? [])}
       </div>
     </section>
-    ${
-      renderGeneratedPackageRuntimeLog({
-        packageVersion,
-        workspace,
-        latestPreviewSession,
-        previewEvidence,
-      })
-    }
+    ${renderGeneratedPackageRuntimeLog({
+      packageVersion,
+      workspace,
+      latestPreviewSession,
+      previewEvidence,
+    })}
     ${refreshWhileRunning ? renderGenerationRefreshScript(run.generationId) : ''}`,
   });
 }

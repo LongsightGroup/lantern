@@ -8,3 +8,6 @@ var/authoring-drafts/
 .wrangler/
 output/
 .planning
+node_modules/
+
+.cloudflare/

@@ -46,9 +46,7 @@ export function createInMemoryVersionRepository(state: InMemoryRepositoryState):
           state.packageVersions.filter(
             (record) => record.appId === appId && record.catalogVisibility === 'catalog',
           ),
-        ).map(
-          cloneRecord,
-        ),
+        ).map(cloneRecord),
       );
     },
 
@@ -88,16 +86,12 @@ export function createInMemoryVersionRepository(state: InMemoryRepositoryState):
           .map((session) => session.sessionId),
       );
 
-      removeWhere(
-        state.runtimeSessions,
-        (session) => session.packageVersionId === id,
-      );
+      removeWhere(state.runtimeSessions, (session) => session.packageVersionId === id);
       removeWhere(state.attempts, (attempt) => attemptIds.has(attempt.attemptId));
       removeWhere(state.attemptEvents, (event) => attemptIds.has(event.attemptId));
       removeWhere(state.attemptEvidenceArtifacts, (artifact) => attemptIds.has(artifact.attemptId));
-      removeWhere(
-        state.previewEvidence,
-        (evidence) => previewSessionIds.has(evidence.previewSessionId),
+      removeWhere(state.previewEvidence, (evidence) =>
+        previewSessionIds.has(evidence.previewSessionId),
       );
       removeWhere(state.previewSessions, (session) => previewSessionIds.has(session.sessionId));
       removeWhere(state.packageVersions, (record) => record.id === id);

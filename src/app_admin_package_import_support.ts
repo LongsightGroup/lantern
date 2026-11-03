@@ -96,8 +96,8 @@ function getSharedUploadRoot(files: MemoryPackageSourceFile[]): string | null {
 }
 
 function readUploadedRelativePath(file: File): string {
-  const webkitRelativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath ??
-    null;
+  const webkitRelativePath =
+    (file as File & { webkitRelativePath?: string }).webkitRelativePath ?? null;
 
   return webkitRelativePath && webkitRelativePath !== '' ? webkitRelativePath : file.name;
 }

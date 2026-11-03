@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { createTypeScriptAppPackageSourceCompiler } from './typescript_source_compiler.ts';
 import type { AppGenerationPlan, AppWriterWorkspaceFile } from './types.ts';
 
-Deno.test('TypeScript source compiler typechecks source files and emits reviewed browser JavaScript', async () => {
+test('TypeScript source compiler typechecks source files and emits reviewed browser JavaScript', async () => {
   const result = await createTypeScriptAppPackageSourceCompiler().compile({
     generationId: 'generation-1',
     appPlan: buildAppPlan(),
@@ -27,7 +28,7 @@ Deno.test('TypeScript source compiler typechecks source files and emits reviewed
   );
 });
 
-Deno.test('TypeScript source compiler reports capability-narrowed SDK diagnostics', async () => {
+test('TypeScript source compiler reports capability-narrowed SDK diagnostics', async () => {
   const result = await createTypeScriptAppPackageSourceCompiler().compile({
     generationId: 'generation-1',
     appPlan: buildAppPlan(),
@@ -54,7 +55,8 @@ function buildTypeScriptWorkspaceFiles(
     },
     {
       path: 'source/app.ts',
-      contents: input.appSource ??
+      contents:
+        input.appSource ??
         'async function start() {\n  const gateway = window.GatewayApp;\n  if (!gateway) throw new Error("missing gateway");\n  const content = await gateway.getActivityContent<ActivityContent>();\n  document.body.textContent = content.title;\n  await gateway.emitAttemptEvent({ type: "complete", timestamp: new Date().toISOString() });\n  await gateway.finalizeAttempt({ completionState: "completed" });\n}\nvoid start();\n',
     },
     {

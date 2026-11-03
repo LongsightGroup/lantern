@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import type { AppPackageGenerationResult } from './app_writer/types.ts';
 import { buildValidSimpleActivityFiles } from './test_helpers/app_writer_generated_package.ts';
@@ -18,7 +19,7 @@ import {
 } from './test_helpers/package_review.ts';
 import { createAuthenticatedTestApp } from './test_helpers/admin_auth.ts';
 
-Deno.test('GET /admin/app-writer renders the app writer prompt form', async () => {
+test('GET /admin/app-writer renders the app writer prompt form', async () => {
   const response = await createAuthenticatedTestApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
   }).request('http://localhost/admin/app-writer');
@@ -38,7 +39,7 @@ Deno.test('GET /admin/app-writer renders the app writer prompt form', async () =
   assertStringIncludes(body, 'The model is not called until you confirm the plan.');
 });
 
-Deno.test('POST /admin/app-writer previews the deterministic plan before generation', async () => {
+test('POST /admin/app-writer previews the deterministic plan before generation', async () => {
   const scheduledGenerationIds: string[] = [];
   let workspaceRunnerCallCount = 0;
   const formData = new FormData();
@@ -88,7 +89,7 @@ Deno.test('POST /admin/app-writer previews the deterministic plan before generat
   assertStringIncludes(body, 'Lantern is not calling the model yet.');
 });
 
-Deno.test('POST /admin/app-writer runs generation and redirects to the run detail page', async () => {
+test('POST /admin/app-writer runs generation and redirects to the run detail page', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const backgroundTasks: Promise<void>[] = [];
   const generationControl: { complete: (() => void) | null } = {
@@ -212,7 +213,7 @@ Deno.test('POST /admin/app-writer runs generation and redirects to the run detai
   assertStringIncludes(packageBody, 'Install reviewed app');
 });
 
-Deno.test('POST /admin/app-writer redirects even without a Worker execution context', async () => {
+test('POST /admin/app-writer redirects even without a Worker execution context', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const formData = new FormData();
   formData.set('promptText', 'Create a phonics flashcard app.');
@@ -244,7 +245,7 @@ Deno.test('POST /admin/app-writer redirects even without a Worker execution cont
   assertStringIncludes(detailBody, 'Lantern is still working.');
 });
 
-Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is configured', async () => {
+test('POST /admin/app-writer queues a Workflow when the scheduler is configured', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const scheduledGenerationIds: string[] = [];
   const observedAgentSessions: Array<{ generationId: string; workflowInstanceId: string | null }> =
@@ -327,7 +328,7 @@ Deno.test('POST /admin/app-writer queues a Workflow when the scheduler is config
   assertEquals(events.at(-1)?.detail.workflowInstanceId, 'workflow-1');
 });
 
-Deno.test('GET /admin/app-writer/runs/:generationId shows captured workspace before package save', async () => {
+test('GET /admin/app-writer/runs/:generationId shows captured workspace before package save', async () => {
   const repository = createInMemoryPackageReviewRepository({
     appGenerationRuns: [
       buildAppGenerationRunRecord({
@@ -376,7 +377,7 @@ Deno.test('GET /admin/app-writer/runs/:generationId shows captured workspace bef
   assertStringIncludes(body, 'No immutable package version has been saved yet.');
 });
 
-Deno.test('GET /admin/app-writer/runs/:generationId/events streams through the app writer Agent session', async () => {
+test('GET /admin/app-writer/runs/:generationId/events streams through the app writer Agent session', async () => {
   const response = await createAuthenticatedTestApp({
     getRepository: () => createInMemoryPackageReviewRepository(),
     appWriterAgentSessions: {
@@ -404,7 +405,7 @@ Deno.test('GET /admin/app-writer/runs/:generationId/events streams through the a
   assertStringIncludes(body, '"generationId":"generation-1"');
 });
 
-Deno.test('GET /admin/app-writer/runs/:generationId shows generated package runtime log', async () => {
+test('GET /admin/app-writer/runs/:generationId shows generated package runtime log', async () => {
   const repository = createInMemoryPackageReviewRepository({
     packageVersions: [
       buildPackageVersionRecord({

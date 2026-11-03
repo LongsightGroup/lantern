@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import { createStaticAppWriterWorkspaceRunner } from '../test_helpers/app_writer_workspace_runner.ts';
 import { buildValidSimpleActivityFiles } from '../test_helpers/app_writer_generated_package.ts';
@@ -15,7 +16,7 @@ import {
   createSequencePreviewer,
 } from './service_test_support.ts';
 
-Deno.test('app writer service records package validation failures before rejecting', async () => {
+test('app writer service records package validation failures before rejecting', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const invalidPackage = buildGenerationResult({
     files: [
@@ -62,7 +63,7 @@ Deno.test('app writer service records package validation failures before rejecti
   );
 });
 
-Deno.test('app writer service repairs a generated package once and persists the successful run', async () => {
+test('app writer service repairs a generated package once and persists the successful run', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const invalidPackage = buildGenerationResult({
     files: [
@@ -110,7 +111,7 @@ Deno.test('app writer service repairs a generated package once and persists the 
   );
 });
 
-Deno.test('app writer service preserves validation findings when repair provider fails', async () => {
+test('app writer service preserves validation findings when repair provider fails', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const invalidPackage = buildGenerationResult({
     files: [
@@ -171,7 +172,7 @@ Deno.test('app writer service preserves validation findings when repair provider
   assertEquals(repairStep?.status, 'failed');
 });
 
-Deno.test('app writer service preserves validation findings when structured repair response is invalid', async () => {
+test('app writer service preserves validation findings when structured repair response is invalid', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const invalidPackage = buildGenerationResult({
     files: [
@@ -235,10 +236,7 @@ Deno.test('app writer service preserves validation findings when structured repa
     error.run.validationFindings.some((finding) => finding.code === 'file_path_not_allowed'),
     true,
   );
-  assertEquals(
-    error.run.validationFindings.at(-1)?.code,
-    'generation_structured_response_invalid',
-  );
+  assertEquals(error.run.validationFindings.at(-1)?.code, 'generation_structured_response_invalid');
   assertEquals(error.run.validationFindings.at(-1)?.detail, {
     harnessError: 'structured_response_invalid',
     modelRequestCount: 1,
@@ -249,7 +247,7 @@ Deno.test('app writer service preserves validation findings when structured repa
   );
 });
 
-Deno.test('app writer service compiles TypeScript authoring source before validation', async () => {
+test('app writer service compiles TypeScript authoring source before validation', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const result = await runAppPackageGeneration({
     repository,
@@ -291,7 +289,7 @@ Deno.test('app writer service compiles TypeScript authoring source before valida
   assertEquals(result.run.selectedContext.authoringMode, 'typescript');
 });
 
-Deno.test('app writer service keeps TypeScript authoring files out of package validation findings', async () => {
+test('app writer service keeps TypeScript authoring files out of package validation findings', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const error = await assertRejects(
     () =>
@@ -336,7 +334,7 @@ Deno.test('app writer service keeps TypeScript authoring files out of package va
   );
 });
 
-Deno.test('app writer service stops after exhausted package repair attempts', async () => {
+test('app writer service stops after exhausted package repair attempts', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const invalidPackage = buildGenerationResult({
     files: [
@@ -378,7 +376,7 @@ Deno.test('app writer service stops after exhausted package repair attempts', as
   );
 });
 
-Deno.test('app writer service feeds preview failures into the repair loop', async () => {
+test('app writer service feeds preview failures into the repair loop', async () => {
   const repository = createInMemoryPackageReviewRepository();
   const previewer = createSequencePreviewer([
     [

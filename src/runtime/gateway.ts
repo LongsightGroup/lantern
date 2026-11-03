@@ -294,57 +294,61 @@ export async function finalizeRuntimeAttempt(input: {
       const finalizedNow = attempt.finalizedAt === null;
       const finalizedAttempt = finalizedNow
         ? await input.repository.finalizeAttempt({
-          attemptId: attempt.attemptId,
-          status: completionStateToAttemptStatus(finalizeInput.completionState),
-          completionState: finalizeInput.completionState,
-          finalizedAt: occurredAt,
-        })
+            attemptId: attempt.attemptId,
+            status: completionStateToAttemptStatus(finalizeInput.completionState),
+            completionState: finalizeInput.completionState,
+            finalizedAt: occurredAt,
+          })
         : attempt;
-      const browserGraderResult = packageVersion.grading.mode === 'browser'
-        ? validateBrowserGraderResult({
-          browserGraderResult: finalizeInput.browserGraderResult,
-          packageVersion,
-        })
-        : null;
-      const score: AttemptScoreResult = browserGraderResult === null
-        ? {
-          scoreGiven: 0,
-          scoreMaximum: previewSession.fakeScoreMaximum,
-        }
-        : {
-          scoreGiven: browserGraderResult.scoreGiven,
-          scoreMaximum: browserGraderResult.scoreMaximum,
-        };
+      const browserGraderResult =
+        packageVersion.grading.mode === 'browser'
+          ? validateBrowserGraderResult({
+              browserGraderResult: finalizeInput.browserGraderResult,
+              packageVersion,
+            })
+          : null;
+      const score: AttemptScoreResult =
+        browserGraderResult === null
+          ? {
+              scoreGiven: 0,
+              scoreMaximum: previewSession.fakeScoreMaximum,
+            }
+          : {
+              scoreGiven: browserGraderResult.scoreGiven,
+              scoreMaximum: browserGraderResult.scoreMaximum,
+            };
 
       await input.repository.appendPreviewEvidence({
         previewSessionId: previewSession.sessionId,
         eventType: 'preview.finalize',
         capability: 'finalize_attempt',
-        summary: browserGraderResult === null
-          ? 'Finished the test attempt with simulated scoring and no LMS writes.'
-          : 'Finished the test attempt with browser grader output and no LMS writes.',
-        detail: browserGraderResult === null
-          ? {
-            attemptId: finalizedAttempt.attemptId,
-            completionState: finalizedAttempt.completionState,
-            scoreGiven: score.scoreGiven,
-            scoreMaximum: score.scoreMaximum,
-            submissionMode: input.session.launch.submissionMode,
-            evidenceArtifactCount: evidenceArtifacts.length,
-            evidenceArtifacts,
-            alreadyFinalized: !finalizedNow,
-          }
-          : {
-            attemptId: finalizedAttempt.attemptId,
-            completionState: finalizedAttempt.completionState,
-            scoreGiven: score.scoreGiven,
-            scoreMaximum: score.scoreMaximum,
-            submissionMode: input.session.launch.submissionMode,
-            evidenceArtifactCount: evidenceArtifacts.length,
-            evidenceArtifacts,
-            alreadyFinalized: !finalizedNow,
-            browserGraderResult,
-          },
+        summary:
+          browserGraderResult === null
+            ? 'Finished the test attempt with simulated scoring and no LMS writes.'
+            : 'Finished the test attempt with browser grader output and no LMS writes.',
+        detail:
+          browserGraderResult === null
+            ? {
+                attemptId: finalizedAttempt.attemptId,
+                completionState: finalizedAttempt.completionState,
+                scoreGiven: score.scoreGiven,
+                scoreMaximum: score.scoreMaximum,
+                submissionMode: input.session.launch.submissionMode,
+                evidenceArtifactCount: evidenceArtifacts.length,
+                evidenceArtifacts,
+                alreadyFinalized: !finalizedNow,
+              }
+            : {
+                attemptId: finalizedAttempt.attemptId,
+                completionState: finalizedAttempt.completionState,
+                scoreGiven: score.scoreGiven,
+                scoreMaximum: score.scoreMaximum,
+                submissionMode: input.session.launch.submissionMode,
+                evidenceArtifactCount: evidenceArtifacts.length,
+                evidenceArtifacts,
+                alreadyFinalized: !finalizedNow,
+                browserGraderResult,
+              },
         occurredAt,
       });
 
@@ -504,11 +508,9 @@ function buildEvidenceArtifactStorageKey(input: {
   artifactId: string;
   fileName: string;
 }): string {
-  return `var/attempt-evidence/${input.attemptId}/${input.artifactId}-${
-    sanitizeEvidenceArtifactFileName(
-      input.fileName,
-    )
-  }`;
+  return `var/attempt-evidence/${input.attemptId}/${input.artifactId}-${sanitizeEvidenceArtifactFileName(
+    input.fileName,
+  )}`;
 }
 
 function sanitizeEvidenceArtifactFileName(fileName: string): string {

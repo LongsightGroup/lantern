@@ -178,9 +178,8 @@ export async function generateAppPackageFilesForPlannedRun(input: {
 }
 
 export async function finishGeneratedAppPackageRun(input: {
-  repository:
-    & RunAppPackageGenerationInput['repository']
-    & Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
+  repository: RunAppPackageGenerationInput['repository'] &
+    Pick<PackageReviewRepository, 'getAppGenerationRunById'>;
   workspaceRunner: AppWriterWorkspaceRunner;
   packageSnapshotStore?: PackageSnapshotStore;
   previewer?: AppPackagePreviewer;
@@ -191,7 +190,8 @@ export async function finishGeneratedAppPackageRun(input: {
   now?: () => string;
 }): Promise<RunAppPackageGenerationResult> {
   const now = input.now ?? (() => new Date().toISOString());
-  const run = (await input.repository.getAppGenerationRunById(input.generated.run.generationId)) ??
+  const run =
+    (await input.repository.getAppGenerationRunById(input.generated.run.generationId)) ??
     input.generated.run;
   const workspace = await input.repository.getAppGenerationWorkspaceByGenerationId(
     run.generationId,

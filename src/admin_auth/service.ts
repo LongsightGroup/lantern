@@ -99,10 +99,7 @@ export function createBetterAdminAuthOptions(input: {
   return options;
 }
 
-export function createBetterAdminAuth(input: {
-  db: D1Database;
-  env: EnvReader;
-}): AdminAuthService {
+export function createBetterAdminAuth(input: { db: D1Database; env: EnvReader }): AdminAuthService {
   const config = readAdminAuthConfig(input.env);
   const auth = betterAuth(createBetterAdminAuthOptions({ db: input.db, config }));
 
@@ -162,45 +159,41 @@ function createBetterAuthService(
       };
     },
     signIn(input) {
-      return runBetterAuthAction(
-        async () => {
-          const result = await auth.api.signInEmail({
-            body: {
-              email: input.email,
-              password: input.password,
-              callbackURL: input.returnTo,
-            },
-            headers: input.request.headers,
-            returnHeaders: true,
-          });
+      return runBetterAuthAction(async () => {
+        const result = await auth.api.signInEmail({
+          body: {
+            email: input.email,
+            password: input.password,
+            callbackURL: input.returnTo,
+          },
+          headers: input.request.headers,
+          returnHeaders: true,
+        });
 
-          return {
-            headers: result.headers,
-            location: input.returnTo,
-          };
-        },
-      );
+        return {
+          headers: result.headers,
+          location: input.returnTo,
+        };
+      });
     },
     signUp(input) {
-      return runBetterAuthAction(
-        async () => {
-          const result = await auth.api.signUpEmail({
-            body: {
-              name: input.name,
-              email: input.email,
-              password: input.password,
-              callbackURL: input.returnTo,
-            },
-            headers: input.request.headers,
-            returnHeaders: true,
-          });
+      return runBetterAuthAction(async () => {
+        const result = await auth.api.signUpEmail({
+          body: {
+            name: input.name,
+            email: input.email,
+            password: input.password,
+            callbackURL: input.returnTo,
+          },
+          headers: input.request.headers,
+          returnHeaders: true,
+        });
 
-          return {
-            headers: result.headers,
-            location: input.returnTo,
-          };
-        },
-      );
+        return {
+          headers: result.headers,
+          location: input.returnTo,
+        };
+      });
     },
     startSocialSignIn(input) {
       if (!hasSocialProvider(options.socialProviders, input.providerId)) {
@@ -233,23 +226,21 @@ function createBetterAuthService(
       });
     },
     async signOut(input) {
-      return await runBetterAuthAction(
-        async () => {
-          const result = await auth.api.signOut({
-            headers: input.request.headers,
-            returnHeaders: true,
-          });
+      return await runBetterAuthAction(async () => {
+        const result = await auth.api.signOut({
+          headers: input.request.headers,
+          returnHeaders: true,
+        });
 
-          if (!result.response.success) {
-            throw new Error('Better Auth did not invalidate the admin session.');
-          }
+        if (!result.response.success) {
+          throw new Error('Better Auth did not invalidate the admin session.');
+        }
 
-          return {
-            headers: result.headers,
-            location: input.returnTo,
-          };
-        },
-      );
+        return {
+          headers: result.headers,
+          location: input.returnTo,
+        };
+      });
     },
   };
 }

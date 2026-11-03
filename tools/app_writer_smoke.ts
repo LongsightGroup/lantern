@@ -48,8 +48,8 @@ export function parseAppWriterSmokeArgs(args: string[]): AppWriterSmokeOptions {
     promptIds,
     timeoutMs: readPositiveInteger(values, 'timeout-ms') ?? DEFAULT_TIMEOUT_MS,
     pollMs: readPositiveInteger(values, 'poll-ms') ?? DEFAULT_POLL_MS,
-    requestedAppIdPrefix: readSingle(values, 'requested-app-id-prefix') ??
-      `app-writer-smoke-${Date.now()}`,
+    requestedAppIdPrefix:
+      readSingle(values, 'requested-app-id-prefix') ?? `app-writer-smoke-${Date.now()}`,
   };
 }
 
@@ -121,8 +121,7 @@ async function submitPrompt(input: {
 
   if (response.status !== 303 || location === null) {
     throw new Error(
-      `App writer smoke submit failed for ${input.prompt.id}: ${response.status} ${await response
-        .text()}`,
+      `App writer smoke submit failed for ${input.prompt.id}: ${response.status} ${await response.text()}`,
     );
   }
 
@@ -180,7 +179,7 @@ function readPromptIds(values: ReadonlyMap<string, string[]>): string[] {
     value
       .split(',')
       .map((item) => item.trim())
-      .filter((item) => item !== '')
+      .filter((item) => item !== ''),
   );
 }
 
@@ -246,5 +245,5 @@ function sleep(durationMs: number): Promise<void> {
 }
 
 if (import.meta.main) {
-  await runAppWriterSmoke(parseAppWriterSmokeArgs(Deno.args));
+  await runAppWriterSmoke(parseAppWriterSmokeArgs(process.argv.slice(2)));
 }

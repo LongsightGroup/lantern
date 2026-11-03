@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals } from '@std/assert';
 import { mapRuntimeSessionRow } from './repository_mappers_sessions.ts';
 import type { RuntimeSessionRow } from './repository_row_types.ts';
 
-Deno.test('runtime session mapper preserves preview session markers for review launches', () => {
+test('runtime session mapper preserves preview session markers for review launches', () => {
   const session = mapRuntimeSessionRow(
     buildRuntimeSessionRow({
       previewSessionId: 'preview-session-123',

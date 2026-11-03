@@ -1,65 +1,8 @@
-import { Ajv2020, type ErrorObject, type ValidateFunction } from '@ajv2020';
+import type { ErrorObject } from 'ajv/dist/2020.js';
+import { reviewedRubricValidator } from '../generated/schema_validators.mjs';
 import { normalizeSnapshotPath, toRelativeSnapshotPath } from '../package_review/snapshot_path.ts';
 import type { RuntimeArtifactStore } from '../runtime/artifact_store.ts';
 import type { RawReviewedRubric, ReviewedRubric } from './types.ts';
-
-const ajv = new Ajv2020({
-  allErrors: true,
-  strict: true,
-  strictRequired: false,
-});
-
-const reviewedRubricSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['mode', 'max_score', 'rules'],
-  properties: {
-    mode: { const: 'per-answer' },
-    max_score: {
-      type: 'integer',
-      minimum: 0,
-    },
-    rules: {
-      type: 'array',
-      minItems: 1,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['question_id', 'correct_answer', 'points'],
-        properties: {
-          question_id: {
-            type: 'string',
-            minLength: 1,
-          },
-          correct_answer: {
-            anyOf: [
-              {
-                type: 'string',
-                minLength: 1,
-              },
-              {
-                type: 'array',
-                minItems: 1,
-                items: {
-                  type: 'string',
-                  minLength: 1,
-                },
-              },
-            ],
-          },
-          points: {
-            type: 'integer',
-            minimum: 0,
-          },
-        },
-      },
-    },
-  },
-} as const;
-
-const reviewedRubricValidator: ValidateFunction<RawReviewedRubric> = ajv.compile<RawReviewedRubric>(
-  reviewedRubricSchema,
-);
 
 export async function loadReviewedRubric(input: {
   snapshotRoot: string;
@@ -120,16 +63,12 @@ function explainReviewedRubricIssues(
 
 function mapReviewedRubricIssue(error: ErrorObject): string {
   if (error.keyword === 'required') {
-    const missingProperty = String(
-      (error.params as Record<string, unknown>).missingProperty ?? 'field',
-    );
+    const missingProperty = String(error.params.missingProperty ?? 'field');
     return `Missing required field ${joinJsonPointer(error.instancePath, missingProperty)}.`;
   }
 
   if (error.keyword === 'additionalProperties') {
-    const property = String(
-      (error.params as Record<string, unknown>).additionalProperty ?? 'field',
-    );
+    const property = String(error.params.additionalProperty ?? 'field');
     return `Unsupported field ${property} at ${displayInstancePath(error.instancePath)}.`;
   }
 

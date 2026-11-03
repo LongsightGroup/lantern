@@ -1,3 +1,7 @@
+import { join } from 'node:path';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { test } from 'vite-plus/test';
+import { tmpdir } from 'node:os';
 import { assert, assertEquals, assertRejects, assertThrows } from '@std/assert';
 import { getTestToolPrivateJwkEnvValue } from '../test_helpers/lti.ts';
 import {
@@ -22,23 +26,23 @@ const TEST_RUNTIME_CONTRACT_ENV = {
 };
 
 async function withToolSigningEnv(run: () => Promise<void>): Promise<void> {
-  const previousToolKey = Deno.env.get('LTI_TOOL_PRIVATE_JWK');
-  Deno.env.set('LTI_TOOL_PRIVATE_JWK', getTestToolPrivateJwkEnvValue());
+  const previousToolKey = process.env['LTI_TOOL_PRIVATE_JWK'];
+  process.env['LTI_TOOL_PRIVATE_JWK'] = getTestToolPrivateJwkEnvValue();
 
   try {
     await run();
   } finally {
     if (previousToolKey === undefined) {
-      Deno.env.delete('LTI_TOOL_PRIVATE_JWK');
+      delete process.env['LTI_TOOL_PRIVATE_JWK'];
     } else {
-      Deno.env.set('LTI_TOOL_PRIVATE_JWK', previousToolKey);
+      process.env['LTI_TOOL_PRIVATE_JWK'] = previousToolKey;
     }
   }
 }
 
-Deno.test('importDemoPackage snapshots the demo package into Lantern-managed storage', async () => {
+test('importDemoPackage snapshots the demo package into Lantern-managed storage', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
+    const storageRoot = await mkdtemp(join(tmpdir(), 'lantern-storage-'));
 
     try {
       const result = await importDemoPackage({
@@ -70,26 +74,28 @@ Deno.test('importDemoPackage snapshots the demo package into Lantern-managed sto
         env: TEST_RUNTIME_CONTRACT_ENV,
       });
 
-      const sourceManifest = await Deno.readTextFile(
+      const sourceManifest = await readFile(
         'examples/apps/chapter-4-asteroids/manifest.json',
+        'utf8',
       );
-      const snapshotManifest = await Deno.readTextFile(result.artifact.manifestPath);
-      const sourceEntrypoint = await Deno.readTextFile(
+      const snapshotManifest = await readFile(result.artifact.manifestPath, 'utf8');
+      const sourceEntrypoint = await readFile(
         'examples/apps/chapter-4-asteroids/dist/index.html',
+        'utf8',
       );
-      const snapshotEntrypoint = await Deno.readTextFile(result.artifact.entrypointPath);
+      const snapshotEntrypoint = await readFile(result.artifact.entrypointPath, 'utf8');
 
       assertEquals(snapshotManifest, sourceManifest);
       assertEquals(snapshotEntrypoint, sourceEntrypoint);
     } finally {
-      await Deno.remove(storageRoot, { recursive: true });
+      await rm(storageRoot, { recursive: true });
     }
   });
 });
 
-Deno.test('importDemoPackage refuses to overwrite an existing immutable snapshot', async () => {
+test('importDemoPackage refuses to overwrite an existing immutable snapshot', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
+    const storageRoot = await mkdtemp(join(tmpdir(), 'lantern-storage-'));
 
     try {
       await importDemoPackage({
@@ -111,14 +117,14 @@ Deno.test('importDemoPackage refuses to overwrite an existing immutable snapshot
         'Package version chapter-4-asteroids@0.1.0 already exists and cannot be replaced.',
       );
     } finally {
-      await Deno.remove(storageRoot, { recursive: true });
+      await rm(storageRoot, { recursive: true });
     }
   });
 });
 
-Deno.test('importReferencePackage snapshots each curated reference app into Lantern-managed storage', async () => {
+test('importReferencePackage snapshots each curated reference app into Lantern-managed storage', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
+    const storageRoot = await mkdtemp(join(tmpdir(), 'lantern-storage-'));
 
     try {
       for (const appId of listReferencePackageIds()) {
@@ -147,20 +153,20 @@ Deno.test('importReferencePackage snapshots each curated reference app into Lant
           env: TEST_RUNTIME_CONTRACT_ENV,
         });
 
-        const sourceManifest = await Deno.readTextFile(`${sourceRoot}/manifest.json`);
-        const snapshotManifest = await Deno.readTextFile(result.artifact.manifestPath);
+        const sourceManifest = await readFile(`${sourceRoot}/manifest.json`, 'utf8');
+        const snapshotManifest = await readFile(result.artifact.manifestPath, 'utf8');
 
         assertEquals(snapshotManifest, sourceManifest);
       }
     } finally {
-      await Deno.remove(storageRoot, { recursive: true });
+      await rm(storageRoot, { recursive: true });
     }
   });
 });
 
-Deno.test('importPackage and loadPackageSnapshot use manifest-derived package identity', async () => {
+test('importPackage and loadPackageSnapshot use manifest-derived package identity', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
+    const storageRoot = await mkdtemp(join(tmpdir(), 'lantern-storage-'));
     const sourceRoot = getReferencePackageSourceRoot('quick-study');
     const source = await createMemoryPackageSourceFromDirectory(sourceRoot);
 
@@ -201,16 +207,16 @@ Deno.test('importPackage and loadPackageSnapshot use manifest-derived package id
       assertEquals(loaded.reviewData.version, imported.reviewData.version);
       assertEquals(loaded.artifact.digest, imported.artifact.digest);
       assertEquals(
-        await Deno.readTextFile(imported.artifact.manifestPath),
-        await Deno.readTextFile(`${sourceRoot}/manifest.json`),
+        await readFile(imported.artifact.manifestPath, 'utf8'),
+        await readFile(`${sourceRoot}/manifest.json`, 'utf8'),
       );
     } finally {
-      await Deno.remove(storageRoot, { recursive: true });
+      await rm(storageRoot, { recursive: true });
     }
   });
 });
 
-Deno.test('curated authoring examples stay explicitly registered in the reference package registry', () => {
+test('curated authoring examples stay explicitly registered in the reference package registry', () => {
   const ids = listReferencePackageIds();
 
   assertEquals(ids.includes('template-app'), true);
@@ -236,9 +242,9 @@ Deno.test('curated authoring examples stay explicitly registered in the referenc
   );
 });
 
-Deno.test('importReferencePackage snapshots web-checkup through the explicit curated registry', async () => {
+test('importReferencePackage snapshots web-checkup through the explicit curated registry', async () => {
   await withToolSigningEnv(async () => {
-    const storageRoot = await Deno.makeTempDir({ prefix: 'lantern-storage-' });
+    const storageRoot = await mkdtemp(join(tmpdir(), 'lantern-storage-'));
 
     try {
       const appId = 'web-checkup';
@@ -266,17 +272,17 @@ Deno.test('importReferencePackage snapshots web-checkup through the explicit cur
         env: TEST_RUNTIME_CONTRACT_ENV,
       });
 
-      const sourceManifest = await Deno.readTextFile(`${sourceRoot}/manifest.json`);
-      const snapshotManifest = await Deno.readTextFile(result.artifact.manifestPath);
+      const sourceManifest = await readFile(`${sourceRoot}/manifest.json`, 'utf8');
+      const snapshotManifest = await readFile(result.artifact.manifestPath, 'utf8');
 
       assertEquals(snapshotManifest, sourceManifest);
     } finally {
-      await Deno.remove(storageRoot, { recursive: true });
+      await rm(storageRoot, { recursive: true });
     }
   });
 });
 
-Deno.test('createMemoryPackageSource rejects duplicate normalized paths', () => {
+test('createMemoryPackageSource rejects duplicate normalized paths', () => {
   assertThrows(
     () =>
       createMemoryPackageSource([
@@ -294,7 +300,7 @@ Deno.test('createMemoryPackageSource rejects duplicate normalized paths', () => 
   );
 });
 
-Deno.test('createMemoryPackageSource rejects paths outside the reviewed package root', () => {
+test('createMemoryPackageSource rejects paths outside the reviewed package root', () => {
   assertThrows(
     () =>
       createMemoryPackageSource([
@@ -315,7 +321,7 @@ async function createMemoryPackageSourceFromDirectory(root: string) {
     await Promise.all(
       files.map(async (relativePath) => ({
         relativePath,
-        bytes: await Deno.readFile(`${root}/${relativePath}`),
+        bytes: await readFile(`${root}/${relativePath}`),
       })),
     ),
   );
@@ -333,15 +339,15 @@ async function listFiles(root: string): Promise<string[]> {
 async function walkFiles(root: string, relativeRoot: string, files: string[]): Promise<void> {
   const absoluteRoot = relativeRoot === '' ? root : `${root}/${relativeRoot}`;
 
-  for await (const entry of Deno.readDir(absoluteRoot)) {
+  for (const entry of await readdir(absoluteRoot, { withFileTypes: true })) {
     const relativePath = relativeRoot === '' ? entry.name : `${relativeRoot}/${entry.name}`;
 
-    if (entry.isDirectory) {
+    if (entry.isDirectory()) {
       await walkFiles(root, relativePath, files);
       continue;
     }
 
-    if (entry.isFile) {
+    if (entry.isFile()) {
       files.push(relativePath);
     }
   }

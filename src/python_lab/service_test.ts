@@ -1,3 +1,4 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertRejects } from '@std/assert';
 import { type JsonValue } from './contract.ts';
 import {
@@ -9,7 +10,7 @@ import {
 } from './service.ts';
 import type { PythonGraderSandbox, PythonGraderSandboxFactory } from './runner.ts';
 
-Deno.test('generateAndValidatePythonAssignment derives expected values and requires diagnostic starter code', async () => {
+test('generateAndValidatePythonAssignment derives expected values and requires diagnostic starter code', async () => {
   const assignment = await generateAndValidatePythonAssignment({
     draft: draft(),
     generator: { generate: () => Promise.resolve(generatedCases()) },
@@ -22,7 +23,7 @@ Deno.test('generateAndValidatePythonAssignment derives expected values and requi
   assertEquals(assignment.privateCases[0]?.expected, 3);
 });
 
-Deno.test('generateAndValidatePythonAssignment rejects starter code that passes all public cases', async () => {
+test('generateAndValidatePythonAssignment rejects starter code that passes all public cases', async () => {
   await assertRejects(
     () =>
       generateAndValidatePythonAssignment({
@@ -36,7 +37,7 @@ Deno.test('generateAndValidatePythonAssignment rejects starter code that passes 
   );
 });
 
-Deno.test('generateAndValidatePythonAssignment rejects an unavailable runner instead of accepting the starter failure', async () => {
+test('generateAndValidatePythonAssignment rejects an unavailable runner instead of accepting the starter failure', async () => {
   await assertRejects(
     () =>
       generateAndValidatePythonAssignment({
@@ -54,7 +55,7 @@ Deno.test('generateAndValidatePythonAssignment rejects an unavailable runner ins
   );
 });
 
-Deno.test('evaluatePythonSubmission redacts hidden detail and calculates a ten point final score', async () => {
+test('evaluatePythonSubmission redacts hidden detail and calculates a ten point final score', async () => {
   const assignment = await generateAndValidatePythonAssignment({
     draft: draft(),
     generator: { generate: () => Promise.resolve(generatedCases()) },
@@ -77,7 +78,7 @@ Deno.test('evaluatePythonSubmission redacts hidden detail and calculates a ten p
   assertEquals(calculatePythonScore(7, 8), 8.75);
 });
 
-Deno.test('evaluatePythonSubmission bounds concurrent Sandbox execution', async () => {
+test('evaluatePythonSubmission bounds concurrent Sandbox execution', async () => {
   const assignment = await generateAndValidatePythonAssignment({
     draft: draft(),
     generator: { generate: () => Promise.resolve(generatedCases()) },
@@ -130,39 +131,37 @@ function functionSandboxFactory(): PythonGraderSandboxFactory {
       let source = '';
       let request = '';
 
-      return Promise.resolve(
-        {
-          writeFile(path, contents) {
-            if (path === '/workspace/solution.py') {
-              source = contents;
-            }
+      return Promise.resolve({
+        writeFile(path, contents) {
+          if (path === '/workspace/solution.py') {
+            source = contents;
+          }
 
-            if (path === '/workspace/request.json') {
-              request = contents;
-            }
+          if (path === '/workspace/request.json') {
+            request = contents;
+          }
 
-            return Promise.resolve();
-          },
-          exec() {
-            const payload = JSON.parse(request) as { args: JsonValue[] };
-            const left = payload.args[0];
-            const right = payload.args[1];
-            const value = source.includes('return 0')
-              ? 0
-              : typeof left === 'number' && typeof right === 'number'
+          return Promise.resolve();
+        },
+        exec() {
+          const payload = JSON.parse(request) as { args: JsonValue[] };
+          const left = payload.args[0];
+          const right = payload.args[1];
+          const value = source.includes('return 0')
+            ? 0
+            : typeof left === 'number' && typeof right === 'number'
               ? left + right
               : null;
-            return Promise.resolve({
-              exitCode: 0,
-              stdout: JSON.stringify({ ok: true, value }),
-              stderr: '',
-            });
-          },
-          destroy() {
-            return Promise.resolve();
-          },
-        } satisfies PythonGraderSandbox,
-      );
+          return Promise.resolve({
+            exitCode: 0,
+            stdout: JSON.stringify({ ok: true, value }),
+            stderr: '',
+          });
+        },
+        destroy() {
+          return Promise.resolve();
+        },
+      } satisfies PythonGraderSandbox);
     },
   };
 }
@@ -188,27 +187,25 @@ function createConcurrencyTrackingSandboxFactory(): {
         maxActive = Math.max(maxActive, active);
         let request = '';
 
-        return Promise.resolve(
-          {
-            writeFile(path, contents) {
-              if (path === '/workspace/request.json') request = contents;
-              return Promise.resolve();
-            },
-            async exec() {
-              await new Promise<void>((resolve) => setTimeout(resolve, 1));
-              const args = (JSON.parse(request) as { args: number[] }).args;
-              return {
-                exitCode: 0,
-                stdout: JSON.stringify({ ok: true, value: args[0]! + args[1]! }),
-                stderr: '',
-              };
-            },
-            destroy() {
-              active -= 1;
-              return Promise.resolve();
-            },
-          } satisfies PythonGraderSandbox,
-        );
+        return Promise.resolve({
+          writeFile(path, contents) {
+            if (path === '/workspace/request.json') request = contents;
+            return Promise.resolve();
+          },
+          async exec() {
+            await new Promise<void>((resolve) => setTimeout(resolve, 1));
+            const args = (JSON.parse(request) as { args: number[] }).args;
+            return {
+              exitCode: 0,
+              stdout: JSON.stringify({ ok: true, value: args[0]! + args[1]! }),
+              stderr: '',
+            };
+          },
+          destroy() {
+            active -= 1;
+            return Promise.resolve();
+          },
+        } satisfies PythonGraderSandbox);
       },
     },
   };

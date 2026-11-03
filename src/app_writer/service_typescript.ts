@@ -70,12 +70,10 @@ function projectTypeScriptAuthoringWorkspaceFiles(input: {
   const nonPackageFiles = selectNonPackageWorkspaceFiles(input.baseFiles);
   const authoringSourceFiles = [...input.baseFiles, ...input.compiledFiles]
     .filter((file) => isTypeScriptAuthoringSourcePath(file.path))
-    .map(
-      (file): AppWriterWorkspaceFile => ({
-        ...file,
-        role: 'evidence',
-      }),
-    );
+    .map((file): AppWriterWorkspaceFile => ({
+      ...file,
+      role: 'evidence',
+    }));
   const packageFiles = input.compiledFiles.filter(
     (file) => !isTypeScriptAuthoringSourcePath(file.path),
   );

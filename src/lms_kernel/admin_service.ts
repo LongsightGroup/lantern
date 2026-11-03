@@ -99,7 +99,8 @@ export function createLmsKernelAdminService(input: {
     repository: input.repository,
     packageRepository: input.packageRepository,
     createId: input.createId ?? (() => crypto.randomUUID()),
-    createSecret: input.createSecret ??
+    createSecret:
+      input.createSecret ??
       (() => `${crypto.randomUUID()}${crypto.randomUUID()}`.replaceAll('-', '')),
     now: input.now ?? (() => new Date()),
     ...(input.syncLtiToolRegistration === undefined

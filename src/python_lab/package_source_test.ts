@@ -1,8 +1,9 @@
+import { test } from 'vite-plus/test';
 import { assertEquals, assertStringIncludes } from '@std/assert';
 import { validateManifest } from '../package_review/manifest.ts';
 import { createPythonLabPackageSource } from './package_source.ts';
 
-Deno.test('Python Lab package contains only public assignment content and a sandbox grading contract', async () => {
+test('Python Lab package contains only public assignment content and a sandbox grading contract', async () => {
   const source = createPythonLabPackageSource({
     labId: 'lab-123',
     content: {

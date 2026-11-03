@@ -1,4 +1,4 @@
-import type { Context } from '@hono/hono';
+import type { Context } from 'hono';
 import type { InstitutionMembershipRecord, InstitutionRecord } from './types.ts';
 
 const KERNEL_ADMIN_CONTEXT = 'lmsKernelAdminContext';
@@ -21,6 +21,7 @@ export function getKernelAdminContext(context: Context): KernelAdminContext {
 }
 
 function isKernelAdminContext(value: unknown): value is KernelAdminContext {
-  return typeof value === 'object' && value !== null &&
-    'institution' in value && 'membership' in value;
+  return (
+    typeof value === 'object' && value !== null && 'institution' in value && 'membership' in value
+  );
 }

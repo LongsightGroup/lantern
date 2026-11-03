@@ -6,12 +6,14 @@ import type {
   PythonLabRepository,
 } from './repository.ts';
 
-export function createInMemoryPythonLabRepository(input: {
-  readonly labs?: readonly PythonLabRecord[];
-  readonly definitions?: readonly CodeAssignmentDefinitionRecord[];
-  readonly runs?: readonly CodeSubmissionRunRecord[];
-  readonly accessRequests?: readonly PythonLabAccessRequestRecord[];
-} = {}): PythonLabRepository {
+export function createInMemoryPythonLabRepository(
+  input: {
+    readonly labs?: readonly PythonLabRecord[];
+    readonly definitions?: readonly CodeAssignmentDefinitionRecord[];
+    readonly runs?: readonly CodeSubmissionRunRecord[];
+    readonly accessRequests?: readonly PythonLabAccessRequestRecord[];
+  } = {},
+): PythonLabRepository {
   const labs = [...(input.labs ?? [])];
   const definitions = [...(input.definitions ?? [])];
   const runs = [...(input.runs ?? [])];
@@ -22,9 +24,10 @@ export function createInMemoryPythonLabRepository(input: {
     async reserveLab(input) {
       await Promise.resolve();
       if (
-        labs.some((lab) =>
-          lab.visitorHash === input.lab.visitorHash &&
-          lab.createdAt.slice(0, 10) === input.visitorDay
+        labs.some(
+          (lab) =>
+            lab.visitorHash === input.lab.visitorHash &&
+            lab.createdAt.slice(0, 10) === input.visitorDay,
         )
       ) {
         return { status: 'visitor_limited' };
@@ -94,8 +97,8 @@ export function createInMemoryPythonLabRepository(input: {
     },
     async reserveCodeSubmissionRun(record) {
       await Promise.resolve();
-      const existing = runs.find((run) =>
-        run.attemptId === record.attemptId && run.phase === 'final'
+      const existing = runs.find(
+        (run) => run.attemptId === record.attemptId && run.phase === 'final',
       );
       if (existing !== undefined) {
         return { status: 'existing', run: structuredClone(existing) };
@@ -129,9 +132,9 @@ export function createInMemoryPythonLabRepository(input: {
     },
     async listAccessRequests() {
       await Promise.resolve();
-      return accessRequests.map((request) => structuredClone(request)).sort((left, right) =>
-        right.createdAt.localeCompare(left.createdAt)
-      );
+      return accessRequests
+        .map((request) => structuredClone(request))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
     },
     async updateAccessRequestStatus(input) {
       await Promise.resolve();
@@ -146,9 +149,9 @@ export function createInMemoryPythonLabRepository(input: {
     },
     async listExpiredAccessRequests(now) {
       await Promise.resolve();
-      return accessRequests.filter((request) => request.expiresAt <= now).map((request) =>
-        structuredClone(request)
-      );
+      return accessRequests
+        .filter((request) => request.expiresAt <= now)
+        .map((request) => structuredClone(request));
     },
     async deleteAccessRequest(requestId) {
       await Promise.resolve();
