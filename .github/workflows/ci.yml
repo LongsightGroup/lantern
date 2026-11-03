@@ -10,9 +10,6 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-26.04
-    env:
-      PUPPETEER_CACHE_DIR: ${{ runner.temp }}/lantern-browser
-      XDG_CACHE_HOME: ${{ runner.temp }}/lantern-worker-cache
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -23,6 +20,10 @@ jobs:
         run: npm install --global npm@12.2.1
       - name: Install dependencies
         run: npm ci
+      - name: Configure browser caches
+        run: |
+          echo "PUPPETEER_CACHE_DIR=$RUNNER_TEMP/lantern-browser" >> "$GITHUB_ENV"
+          echo "XDG_CACHE_HOME=$RUNNER_TEMP/lantern-worker-cache" >> "$GITHUB_ENV"
       - name: Enable Chrome sandbox user namespaces
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
       - name: Install Chrome from a clean cache
